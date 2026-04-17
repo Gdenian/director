@@ -29,7 +29,10 @@
   3. 系统内置旧风格选项可以作为只读系统风格或稳定 legacy key 被解析和展示。
   4. 风格解析服务可以按风格资产、项目旧提示词、旧风格 key、用户偏好和默认值的顺序给出确定结果。
   5. 生成任务可以保存风格身份和提示词快照，使重试、恢复或风格编辑后不会漂移。
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 01-01-PLAN.md — 建立 GlobalStyle、项目 styleAssetId、schema parity 测试和阻塞 Prisma db push。
+- [ ] 01-02-PLAN.md — 建立 legacy 系统风格投影、统一 resolver、任务快照契约和 focused unit tests。
 **UI hint**: no
 
 ### Phase 2: 资产后端与权限边界
@@ -103,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 数据模型与兼容契约 | 0/TBD | Not started | - |
+| 1. 数据模型与兼容契约 | 0/2 | Not started | - |
 | 2. 资产后端与权限边界 | 0/TBD | Not started | - |
 | 3. 资产中心风格管理 UI | 0/TBD | Not started | - |
 | 4. 项目默认风格选择与展示 | 0/TBD | Not started | - |
@@ -158,4 +161,3 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 - Mapped to phases: 38
 - Unmapped: 0
 - Duplicate mappings: 0
-
