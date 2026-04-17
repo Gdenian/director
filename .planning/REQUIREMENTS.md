@@ -101,50 +101,51 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
-| DATA-04 | TBD | Pending |
-| DATA-05 | TBD | Pending |
-| ASSET-01 | TBD | Pending |
-| ASSET-02 | TBD | Pending |
-| ASSET-03 | TBD | Pending |
-| ASSET-04 | TBD | Pending |
-| ASSET-05 | TBD | Pending |
-| ASSET-06 | TBD | Pending |
-| ASSET-07 | TBD | Pending |
-| ASSET-08 | TBD | Pending |
-| PROJ-01 | TBD | Pending |
-| PROJ-02 | TBD | Pending |
-| PROJ-03 | TBD | Pending |
-| PROJ-04 | TBD | Pending |
-| PROJ-05 | TBD | Pending |
-| GEN-01 | TBD | Pending |
-| GEN-02 | TBD | Pending |
-| GEN-03 | TBD | Pending |
-| GEN-04 | TBD | Pending |
-| GEN-05 | TBD | Pending |
-| GEN-06 | TBD | Pending |
-| API-01 | TBD | Pending |
-| API-02 | TBD | Pending |
-| API-03 | TBD | Pending |
-| API-04 | TBD | Pending |
-| MIG-01 | TBD | Pending |
-| MIG-02 | TBD | Pending |
-| MIG-03 | TBD | Pending |
-| MIG-04 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| TEST-05 | TBD | Pending |
-| TEST-06 | TBD | Pending |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Pending |
+| DATA-04 | Phase 1 | Pending |
+| DATA-05 | Phase 1 | Pending |
+| ASSET-01 | Phase 3 | Pending |
+| ASSET-02 | Phase 3 | Pending |
+| ASSET-03 | Phase 3 | Pending |
+| ASSET-04 | Phase 3 | Pending |
+| ASSET-05 | Phase 3 | Pending |
+| ASSET-06 | Phase 3 | Pending |
+| ASSET-07 | Phase 3 | Pending |
+| ASSET-08 | Phase 3 | Pending |
+| PROJ-01 | Phase 4 | Pending |
+| PROJ-02 | Phase 4 | Pending |
+| PROJ-03 | Phase 4 | Pending |
+| PROJ-04 | Phase 4 | Pending |
+| PROJ-05 | Phase 4 | Pending |
+| GEN-01 | Phase 5 | Pending |
+| GEN-02 | Phase 5 | Pending |
+| GEN-03 | Phase 5 | Pending |
+| GEN-04 | Phase 5 | Pending |
+| GEN-05 | Phase 5 | Pending |
+| GEN-06 | Phase 5 | Pending |
+| API-01 | Phase 2 | Pending |
+| API-02 | Phase 4 | Pending |
+| API-03 | Phase 2 | Pending |
+| API-04 | Phase 2 | Pending |
+| MIG-01 | Phase 1 | Pending |
+| MIG-02 | Phase 1 | Pending |
+| MIG-03 | Phase 1 | Pending |
+| MIG-04 | Phase 1 | Pending |
+| TEST-01 | Phase 6 | Pending |
+| TEST-02 | Phase 6 | Pending |
+| TEST-03 | Phase 6 | Pending |
+| TEST-04 | Phase 6 | Pending |
+| TEST-05 | Phase 6 | Pending |
+| TEST-06 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 38 total
-- Mapped to phases: 0
-- Unmapped: 38
+- Mapped to phases: 38
+- Unmapped: 0
+- Duplicate mappings: 0
 
 ---
 *Requirements defined: 2026-04-17*
-*Last updated: 2026-04-17 after initial definition*
+*Last updated: 2026-04-17 after roadmap creation*
