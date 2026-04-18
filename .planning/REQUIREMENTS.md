@@ -7,8 +7,8 @@
 
 ### Data Model
 
-- [ ] **DATA-01**: System can store global style assets with name, description, positive prompt, optional negative prompt, tags, source type, preview media, owner, folder, and timestamps.
-- [ ] **DATA-02**: System can link a project to a default style asset while preserving existing `artStyle` and `artStylePrompt` fields for legacy projects.
+- [x] **DATA-01**: System can store global style assets with name, description, positive prompt, optional negative prompt, tags, source type, preview media, owner, folder, and timestamps.
+- [x] **DATA-02**: System can link a project to a default style asset while preserving existing `artStyle` and `artStylePrompt` fields for legacy projects.
 - [ ] **DATA-03**: System can represent built-in system styles as read-only style assets or seed records with stable legacy keys.
 - [ ] **DATA-04**: System can resolve style context through a single service that supports style asset, legacy project prompt, legacy style key, user preference, and default fallback.
 - [ ] **DATA-05**: System can preserve a style prompt snapshot for generation tasks so retries and recovery do not drift after a style is edited.
@@ -101,8 +101,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
+| DATA-01 | Phase 1 | Complete |
+| DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Pending |
 | DATA-04 | Phase 1 | Pending |
 | DATA-05 | Phase 1 | Pending |
