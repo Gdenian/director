@@ -9,9 +9,9 @@
 
 - [x] **DATA-01**: System can store global style assets with name, description, positive prompt, optional negative prompt, tags, source type, preview media, owner, folder, and timestamps.
 - [x] **DATA-02**: System can link a project to a default style asset while preserving existing `artStyle` and `artStylePrompt` fields for legacy projects.
-- [ ] **DATA-03**: System can represent built-in system styles as read-only style assets or seed records with stable legacy keys.
-- [ ] **DATA-04**: System can resolve style context through a single service that supports style asset, legacy project prompt, legacy style key, user preference, and default fallback.
-- [ ] **DATA-05**: System can preserve a style prompt snapshot for generation tasks so retries and recovery do not drift after a style is edited.
+- [x] **DATA-03**: System can represent built-in system styles as read-only style assets or seed records with stable legacy keys.
+- [x] **DATA-04**: System can resolve style context through a single service that supports style asset, legacy project prompt, legacy style key, user preference, and default fallback.
+- [x] **DATA-05**: System can preserve a style prompt snapshot for generation tasks so retries and recovery do not drift after a style is edited.
 
 ### Asset Hub
 
@@ -50,10 +50,10 @@
 
 ### Compatibility & Migration
 
-- [ ] **MIG-01**: Existing projects continue to generate without data migration by falling back from `styleAssetId` to legacy style fields.
-- [ ] **MIG-02**: Built-in legacy style options remain available as system styles or fallback options.
-- [ ] **MIG-03**: User preference default style remains compatible with the new style asset selection flow.
-- [ ] **MIG-04**: The application can handle missing, deleted, or inaccessible style assets with a deterministic fallback and user-visible state.
+- [x] **MIG-01**: Existing projects continue to generate without data migration by falling back from `styleAssetId` to legacy style fields.
+- [x] **MIG-02**: Built-in legacy style options remain available as system styles or fallback options.
+- [x] **MIG-03**: User preference default style remains compatible with the new style asset selection flow.
+- [x] **MIG-04**: The application can handle missing, deleted, or inaccessible style assets with a deterministic fallback and user-visible state.
 
 ### Testing & Guardrails
 
@@ -103,9 +103,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
-| DATA-03 | Phase 1 | Pending |
-| DATA-04 | Phase 1 | Pending |
-| DATA-05 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Complete |
+| DATA-04 | Phase 1 | Complete |
+| DATA-05 | Phase 1 | Complete |
 | ASSET-01 | Phase 3 | Pending |
 | ASSET-02 | Phase 3 | Pending |
 | ASSET-03 | Phase 3 | Pending |
@@ -129,10 +129,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-02 | Phase 4 | Pending |
 | API-03 | Phase 2 | Pending |
 | API-04 | Phase 2 | Pending |
-| MIG-01 | Phase 1 | Pending |
-| MIG-02 | Phase 1 | Pending |
-| MIG-03 | Phase 1 | Pending |
-| MIG-04 | Phase 1 | Pending |
+| MIG-01 | Phase 1 | Complete |
+| MIG-02 | Phase 1 | Complete |
+| MIG-03 | Phase 1 | Complete |
+| MIG-04 | Phase 1 | Complete |
 | TEST-01 | Phase 6 | Pending |
 | TEST-02 | Phase 6 | Pending |
 | TEST-03 | Phase 6 | Pending |
