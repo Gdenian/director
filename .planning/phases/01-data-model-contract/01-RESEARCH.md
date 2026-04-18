@@ -384,17 +384,17 @@ export async function resolveStyleContext(input: ResolveStyleContextInput): Prom
 | A3 | 系统风格推荐运行时投影，不强制落库。 | Architecture / Pitfalls | 如果产品要求系统风格有 DB id，需设计 nullable `userId` 或 system owner。 |
 | A4 | `onDelete: SetNull` 是项目引用删除的推荐 relation 行为。 | Architecture Patterns | 如果 Phase 3 选择禁止删除被引用风格，relation 仍可 SetNull，但删除服务会更严格。 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **系统风格是否必须落库？**  
    - What we know: legacy 系统风格目前在 `ART_STYLES` 中，Phase 1 要 stable `legacyKey`。[VERIFIED: `src/lib/constants.ts`][VERIFIED: `.planning/STATE.md`]  
-   - What's unclear: 是否需要真实 `GlobalStyle.id` 供项目绑定系统风格。[ASSUMED]  
-   - Recommendation: Phase 1 先支持 `styleAssetId` 用户风格 + `legacyKey` 系统 fallback；如果要项目绑定系统风格，计划中加入 seed/migration 决策。[ASSUMED]
+   - Final decision: Phase 1 不要求系统风格落库。系统风格通过 `ART_STYLES` 运行时投影为只读 system style contract，使用稳定 `legacyKey` 和 `system:{legacyKey}` 形式的投影 id；真实 `GlobalStyle` rows 只用于用户自定义风格。项目绑定系统风格的 UI/API 语义留到后续 phase，但 resolver 必须能通过 legacy key fallback 解析系统风格。
+   - Plan alignment: `01-02-PLAN.md` 实现 `listLegacySystemStyles` / `getLegacySystemStyle`，不新增系统风格 seed/migration 文件。
 
 2. **是否在 Phase 1 生成 migration 文件？**  
    - What we know: package scripts 使用 Prisma generate/build，测试 global setup 使用 `npx prisma db push --schema prisma/schema.prisma`。[VERIFIED: `package.json`][VERIFIED: `tests/setup/global-setup.ts`]  
-   - What's unclear: 当前本机未安装 node_modules，本地 `npx prisma` 会临时下载 Prisma 7.7.0，而项目依赖是 Prisma 6.19.2。[VERIFIED: shell][VERIFIED: `package.json`]  
-   - Recommendation: 计划中先执行 `npm install`，再用项目版本执行 Prisma validate/generate；migration 文件可由执行阶段在依赖恢复后生成。[ASSUMED]
+   - Final decision: Phase 1 使用 additive schema edit + project-version Prisma validate/generate + `npx prisma db push` 验证，不强制生成 migration 文件。执行阶段如果发现生产发布流程要求 migration，可记录为后续发布/迁移任务，但不得替代本 phase 的 schema push gate。
+   - Plan alignment: `01-01-PLAN.md` 包含 `[BLOCKING]` Prisma db push；如果本地依赖缺失，先 `npm install`，并确保使用项目 Prisma 6.x，而不是临时下载的 Prisma 7.x。
 
 ## Environment Availability
 
