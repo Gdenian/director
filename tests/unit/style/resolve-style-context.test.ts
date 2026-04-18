@@ -81,6 +81,14 @@ describe('resolveStyleContext', () => {
 
     const result = await resolveStyleContext(baseInput)
 
+    expect(prismaMock.novelPromotionProject.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          projectId: 'project-1',
+          project: { is: { userId: 'user-1' } },
+        },
+      }),
+    )
     expect(prismaMock.globalStyle.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

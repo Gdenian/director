@@ -79,7 +79,7 @@ export async function resolveStyleContext(input: ResolveStyleContextInput): Prom
     ? await prismaClient.novelPromotionProject.findFirst({
       where: {
         projectId: input.projectId,
-        project: { userId: input.userId },
+        project: { is: { userId: input.userId } },
       },
       select: {
         styleAssetId: true,

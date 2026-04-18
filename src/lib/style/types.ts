@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+
 export type StyleLocale = 'zh' | 'en'
 
 export type StyleResolutionSource =
@@ -51,14 +53,14 @@ export type StylePromptSnapshot = {
 
 export type StylePrismaClient = {
   novelPromotionProject: {
-    findFirst: (args: unknown) => Promise<{
+    findFirst: (args: Prisma.NovelPromotionProjectFindFirstArgs) => Promise<{
       styleAssetId: string | null
       artStylePrompt: string | null
       artStyle: string | null
     } | null>
   }
   globalStyle: {
-    findFirst: (args: unknown) => Promise<{
+    findFirst: (args: Prisma.GlobalStyleFindFirstArgs) => Promise<{
       id: string
       name: string
       positivePrompt: string
@@ -69,7 +71,7 @@ export type StylePrismaClient = {
     } | null>
   }
   userPreference: {
-    findUnique: (args: unknown) => Promise<{
+    findUnique: (args: Prisma.UserPreferenceFindUniqueArgs) => Promise<{
       artStyle: string | null
     } | null>
   }
