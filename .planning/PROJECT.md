@@ -22,6 +22,7 @@ waoowaoo AI 影视 Studio 是一个面向短剧、漫画视频和小说推文创
 - ✓ 用户可以通过异步任务生成/编辑角色图、场景图、分镜图、视频和配音，并通过任务状态与 run stream 观察进度 — existing
 - ✓ 画面生成 prompt 已经把 `artStyle` / `style` 注入到角色、场景、分镜和变体生成链路 — existing
 - ✓ 项目已具备 Prisma/MySQL、BullMQ/Redis、MinIO/S3、NextAuth、next-intl 和 React Query 体系 — existing
+- ✓ 画面风格已有 `GlobalStyle` 数据模型、项目 `styleAssetId` 引用、legacy 系统风格投影、统一 resolver 和任务快照契约 — Phase 1
 
 ### Active
 
@@ -66,10 +67,11 @@ waoowaoo AI 影视 Studio 是一个面向短剧、漫画视频和小说推文创
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 将画面风格建模为资产中心资产 | 用户明确认为画面风格属于资产，并希望能自定义增加；这也符合角色/场景/道具/音色的复用心智 | — Pending |
+| 将画面风格建模为资产中心资产 | 用户明确认为画面风格属于资产，并希望能自定义增加；这也符合角色/场景/道具/音色的复用心智 | Phase 1 建立 `GlobalStyle` 数据模型，后续 Phase 2/3 接入资产后端和 UI |
 | 优先做产品能力而非稳定性专项 | 当前用户目标是调整风格管理体验，先围绕创作能力建立路线图 | — Pending |
-| 保留旧 `artStyle` 字符串兼容层 | 现有项目、用户偏好和 prompt 链路都依赖该字段，直接替换风险高 | — Pending |
-| 风格资产预览图走现有媒体系统 | 避免扩大媒体迁移债务，保持 `MediaObject` 和 `MediaRef` 单一路径 | — Pending |
+| 保留旧 `artStyle` 字符串兼容层 | 现有项目、用户偏好和 prompt 链路都依赖该字段，直接替换风险高 | Phase 1 保留 `artStyle`、`artStylePrompt`、`UserPreference.artStyle` 并通过 resolver fallback |
+| 风格资产预览图走现有媒体系统 | 避免扩大媒体迁移债务，保持 `MediaObject` 和 `MediaRef` 单一路径 | Phase 1 schema 使用 `previewMediaId` 关联 `MediaObject` |
+| 系统内置风格先运行时投影，不做 seed row | 避免复制 `ART_STYLES` prompt 文案造成双源漂移 | Phase 1 提供 read-only `system:{legacyKey}` 投影 |
 | 工作流使用 YOLO + standard + parallel + research/check/verifier | 这是跨数据模型、API、UI、生成链路和迁移的中等复杂度迭代，需要完整规划与验证 | — Pending |
 
 ## Evolution
@@ -90,4 +92,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 after initialization*
+*Last updated: 2026-04-18 after Phase 1 verification*

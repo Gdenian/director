@@ -10,7 +10,7 @@
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: 数据模型与兼容契约** - 风格资产具备持久化模型、项目引用、系统风格来源和统一解析 fallback。
+- [x] **Phase 1: 数据模型与兼容契约** - 风格资产具备持久化模型、项目引用、系统风格来源和统一解析 fallback。
 - [ ] **Phase 2: 资产后端与权限边界** - style 进入统一资产合约、读取服务、CRUD API、媒体响应和权限规则。
 - [ ] **Phase 3: 资产中心风格管理 UI** - 用户可以在资产中心查看、创建、编辑、删除、复制和整理画面风格。
 - [ ] **Phase 4: 项目默认风格选择与展示** - 用户可以在项目创建和工作区配置中选择风格资产并看到当前解析结果。
@@ -31,8 +31,8 @@
   5. 生成任务可以保存风格身份和提示词快照，使重试、恢复或风格编辑后不会漂移。
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — 建立 GlobalStyle、项目 styleAssetId、schema parity 测试和阻塞 Prisma db push。
-- [ ] 01-02-PLAN.md — 建立 legacy 系统风格投影、统一 resolver、任务快照契约和 focused unit tests。
+- [x] 01-01-PLAN.md — 建立 GlobalStyle、项目 styleAssetId、schema parity 测试和阻塞 Prisma db push。
+- [x] 01-02-PLAN.md — 建立 legacy 系统风格投影、统一 resolver、任务快照契约和 focused unit tests。
 **UI hint**: no
 
 ### Phase 2: 资产后端与权限边界
@@ -106,8 +106,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 数据模型与兼容契约 | 0/2 | Not started | - |
-| 2. 资产后端与权限边界 | 0/TBD | Not started | - |
+| 1. 数据模型与兼容契约 | 2/2 | Complete | 2026-04-18 |
+| 2. 资产后端与权限边界 | 0/TBD | Next | - |
 | 3. 资产中心风格管理 UI | 0/TBD | Not started | - |
 | 4. 项目默认风格选择与展示 | 0/TBD | Not started | - |
 | 5. 生成链路统一接入与任务快照 | 0/TBD | Not started | - |
