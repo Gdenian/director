@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMockRequest } from '../../../helpers/request'
 
+type MockReadableStyleAsset = { id: string } | null
+
 const authMock = vi.hoisted(() => ({
   requireProjectAuthLight: vi.fn(async () => ({
     session: { user: { id: 'user-1', name: 'User 1' } },
@@ -26,7 +28,7 @@ const prismaMock = vi.hoisted(() => ({
     })),
   },
   globalStyle: {
-    findFirst: vi.fn(async () => ({
+    findFirst: vi.fn<() => Promise<MockReadableStyleAsset>>(async () => ({
       id: 'style-readable',
     })),
   },

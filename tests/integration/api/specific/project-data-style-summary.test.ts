@@ -1,6 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMockRequest } from '../../../helpers/request'
 
+type MockProjectData = {
+  id: string
+  projectId: string
+  artStyle: string
+  artStylePrompt: string | null
+  styleAssetId: string | null
+  episodes: unknown[]
+  characters: unknown[]
+  locations: unknown[]
+}
+
+type MockProjectStyleContext = {
+  styleAssetId: string | null
+  artStylePrompt: string | null
+  artStyle: string
+}
+
 const authMock = vi.hoisted(() => ({
   requireUserAuth: vi.fn(async () => ({
     session: { user: { id: 'user-1' } },
@@ -21,7 +38,7 @@ const prismaMock = vi.hoisted(() => ({
     })),
   },
   novelPromotionProject: {
-    findUnique: vi.fn(async () => ({
+    findUnique: vi.fn<() => Promise<MockProjectData>>(async () => ({
       id: 'np-1',
       projectId: 'project-1',
       artStyle: 'realistic',
@@ -31,7 +48,7 @@ const prismaMock = vi.hoisted(() => ({
       characters: [],
       locations: [],
     })),
-    findFirst: vi.fn(async () => ({
+    findFirst: vi.fn<() => Promise<MockProjectStyleContext>>(async () => ({
       styleAssetId: 'style-1',
       artStylePrompt: null,
       artStyle: 'realistic',
