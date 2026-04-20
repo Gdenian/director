@@ -9,7 +9,6 @@
         "assetMode": "风格资产",
         "compatibilityMode": "兼容结果",
         "compatibilityModeWithLabel": "兼容结果：{label}",
-        "clearSelection": "不使用风格资产",
         "currentAsset": "当前风格资产",
         "loading": "加载风格资产中..."
     },

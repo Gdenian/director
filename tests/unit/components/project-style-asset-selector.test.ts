@@ -9,7 +9,6 @@ const selectorTexts = {
   assetMode: '风格资产',
   compatibilityMode: '兼容结果',
   formatCompatibilityMode: (label: string) => `兼容结果：${label}`,
-  clearSelection: '不使用风格资产',
   currentAsset: '当前风格资产',
   loading: '加载风格资产中...',
 }
@@ -90,6 +89,6 @@ describe('ProjectStyleAssetSelector', () => {
     expect(html).toContain('风格资产')
     expect(html).toContain('当前风格资产')
     expect(html).toContain('胶片青春')
-    expect(html).toContain('不使用风格资产')
+    expect(html).not.toContain('不使用风格资产')
   })
 })

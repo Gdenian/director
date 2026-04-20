@@ -8,12 +8,11 @@ import type { ProjectResolvedStyleSummary } from '@/types/project'
 interface ProjectStyleAssetSelectorProps {
   value: string | null | undefined
   resolvedStyle?: ProjectResolvedStyleSummary | null
-  onChange: (value: string | null) => void
+  onChange: (value: string) => void
   texts: {
     assetMode: string
     compatibilityMode: string
     formatCompatibilityMode: (label: string) => string
-    clearSelection: string
     currentAsset: string
     loading: string
   }
@@ -27,14 +26,9 @@ interface StyleOption {
 }
 
 function buildLegacyOptionLabel(
-  value: string | null | undefined,
   resolvedStyle: ProjectResolvedStyleSummary | null | undefined,
   texts: ProjectStyleAssetSelectorProps['texts'],
 ) {
-  if (value) {
-    return texts.clearSelection
-  }
-
   const resolvedLabel = resolvedStyle?.label?.trim()
   return resolvedLabel ? texts.formatCompatibilityMode(resolvedLabel) : texts.compatibilityMode
 }
@@ -71,7 +65,7 @@ export default function ProjectStyleAssetSelector({
   }, [assets, resolvedStyle?.label, texts.currentAsset, value])
 
   const selectValue = value ?? ''
-  const legacyOptionLabel = buildLegacyOptionLabel(value, resolvedStyle, texts)
+  const legacyOptionLabel = buildLegacyOptionLabel(resolvedStyle, texts)
 
   return (
     <div className={`space-y-1 ${className ?? ''}`}>
@@ -81,11 +75,16 @@ export default function ProjectStyleAssetSelector({
       <div className="relative">
         <select
           value={selectValue}
-          onChange={(event) => onChange(event.target.value || null)}
+          onChange={(event) => {
+            if (!event.target.value) return
+            onChange(event.target.value)
+          }}
           disabled={disabled}
           className="glass-input-base h-10 w-full appearance-none pr-8 pl-3 text-[13px] font-medium text-[var(--glass-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <option value="">{legacyOptionLabel}</option>
+          {!value ? (
+            <option value="">{legacyOptionLabel}</option>
+          ) : null}
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

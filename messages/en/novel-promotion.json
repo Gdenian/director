@@ -129,7 +129,6 @@
       "assetMode": "Style Asset",
       "compatibilityMode": "Compatibility Result",
       "compatibilityModeWithLabel": "Compatibility Result: {label}",
-      "clearSelection": "Do not use style asset",
       "currentAsset": "Current style asset",
       "loading": "Loading style assets..."
     },

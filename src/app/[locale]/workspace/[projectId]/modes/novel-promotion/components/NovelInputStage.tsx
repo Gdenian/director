@@ -50,7 +50,7 @@ interface NovelInputStageProps {
   resolvedStyle?: ProjectResolvedStyleSummary | null
   onVideoRatioChange?: (value: string) => void
   onArtStyleChange?: (value: string) => void
-  onStyleAssetChange?: (value: string | null) => void
+  onStyleAssetChange?: (value: string) => void
 }
 
 export default function NovelInputStage({
@@ -210,7 +210,6 @@ export default function NovelInputStage({
                 compatibilityMode: t('storyInput.projectStyleAsset.compatibilityMode'),
                 formatCompatibilityMode: (label) =>
                   t('storyInput.projectStyleAsset.compatibilityModeWithLabel', { label }),
-                clearSelection: t('storyInput.projectStyleAsset.clearSelection'),
                 currentAsset: t('storyInput.projectStyleAsset.currentAsset'),
                 loading: t('storyInput.projectStyleAsset.loading'),
               }}
