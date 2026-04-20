@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { uploadObject, generateUniqueKey } from '@/lib/storage'
+import { ensureMediaObjectFromStorageKey } from '@/lib/media/service'
 import sharp from 'sharp'
 import { decodeImageUrlsFromDb, encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
@@ -39,6 +40,19 @@ interface AssetHubUploadDb {
     }
 }
 
+function toPublicMediaRef(media: Awaited<ReturnType<typeof ensureMediaObjectFromStorageKey>>) {
+    return {
+        id: media.id,
+        publicId: media.publicId,
+        url: media.url,
+        mimeType: media.mimeType,
+        sizeBytes: media.sizeBytes,
+        width: media.width,
+        height: media.height,
+        durationMs: media.durationMs,
+    }
+}
+
 /**
  * POST /api/asset-hub/upload-image
  * 上传用户自定义图片作为角色或场景资产
@@ -60,7 +74,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const labelTextValue = formData.get('labelText')
     const labelText = typeof labelTextValue === 'string' ? labelTextValue : ''
 
-    if (!file || !type || !id || (type === 'location' && !labelText.trim())) {
+    if (!file || !type || (type !== 'style-preview' && !id) || (type === 'location' && !labelText.trim())) {
         throw new ApiError('INVALID_PARAMS')
     }
 
@@ -71,6 +85,13 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const processed = await sharp(buffer)
         .jpeg({ quality: 90, mozjpeg: true })
         .toBuffer()
+
+    if (type === 'style-preview') {
+        const key = generateUniqueKey(`global-style-preview-${session.user.id}-upload`, 'jpg')
+        await uploadObject(processed, key)
+        const media = await ensureMediaObjectFromStorageKey(key)
+        return NextResponse.json({ success: true, media: toPublicMediaRef(media) })
+    }
 
     const keyPrefix = type === 'character'
         ? `global-char-${id}-${appearanceIndex}-upload`

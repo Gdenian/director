@@ -5,13 +5,14 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { CharacterCard } from './CharacterCard'
 import { LocationCard } from './LocationCard'
+import { StyleCard } from './StyleCard'
 import { VoiceCard } from './VoiceCard'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import { resolveTaskPresentationState } from '@/lib/task/presentation'
 import { AppIcon } from '@/components/ui/icons'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { groupAssetsByKind } from '@/lib/assets/grouping'
-import type { AssetSummary } from '@/lib/assets/contracts'
+import type { AssetSummary, StyleAssetSummary } from '@/lib/assets/contracts'
 interface AssetGridProps {
     assets: AssetSummary[]
     loading: boolean
@@ -19,6 +20,7 @@ interface AssetGridProps {
     onAddLocation: () => void
     onAddProp: () => void
     onAddVoice: () => void
+    onAddStyle: () => void
     onDownloadAll?: () => void
     isDownloading?: boolean
     selectedFolderId: string | null
@@ -29,6 +31,9 @@ interface AssetGridProps {
     onLocationEdit?: (location: unknown, imageIndex: number) => void
     onPropEdit?: (prop: unknown, imageIndex: number) => void
     onVoiceSelect?: (characterId: string) => void
+    onStyleView?: (asset: StyleAssetSummary) => void
+    onStyleEdit?: (asset: StyleAssetSummary) => void
+    onStyleDelete?: (assetId: string) => void
 }
 
 // ─── 新建资产下拉菜单 ──────────────────────────────────
@@ -37,11 +42,13 @@ function AddAssetDropdown({
     onAddLocation,
     onAddProp,
     onAddVoice,
+    onAddStyle,
 }: {
     onAddCharacter: () => void
     onAddLocation: () => void
     onAddProp: () => void
     onAddVoice: () => void
+    onAddStyle: () => void
 }) {
     const t = useTranslations('assetHub')
     const [open, setOpen] = useState(false)
@@ -82,6 +89,7 @@ function AddAssetDropdown({
         { label: t('addLocation'), icon: 'image' as const, action: onAddLocation },
         { label: t('addProp'), icon: 'diamond' as const, action: onAddProp },
         { label: t('addVoice'), icon: 'mic' as const, action: onAddVoice },
+        { label: t('addStyle'), icon: 'sparklesAlt' as const, action: onAddStyle },
     ]
 
     return (
@@ -133,6 +141,7 @@ export function AssetGrid({
     onAddLocation,
     onAddProp,
     onAddVoice,
+    onAddStyle,
     onDownloadAll,
     isDownloading,
     selectedFolderId: _selectedFolderId,
@@ -142,7 +151,10 @@ export function AssetGrid({
     onCharacterEdit,
     onLocationEdit,
     onPropEdit,
-    onVoiceSelect
+    onVoiceSelect,
+    onStyleView,
+    onStyleEdit,
+    onStyleDelete,
 }: AssetGridProps) {
     const t = useTranslations('assetHub')
     const loadingState = loading
@@ -155,12 +167,13 @@ export function AssetGrid({
         : null
     void _selectedFolderId
 
-    const [filter, setFilter] = useState<'all' | 'character' | 'location' | 'prop' | 'voice'>('all')
-    const [sectionPage, setSectionPage] = useState<{ character: number; location: number; prop: number; voice: number }>({
+    const [filter, setFilter] = useState<'all' | 'character' | 'location' | 'prop' | 'voice' | 'style'>('all')
+    const [sectionPage, setSectionPage] = useState<{ character: number; location: number; prop: number; voice: number; style: number }>({
         character: 1,
         location: 1,
         prop: 1,
         voice: 1,
+        style: 1,
     })
     const groupedAssets = groupAssetsByKind(assets)
     const characters = groupedAssets.character.map((asset) => ({
@@ -226,6 +239,7 @@ export function AssetGrid({
         language: asset.voiceMeta.language,
         folderId: asset.folderId,
     }))
+    const styles = groupedAssets.style
 
     const pageSize = 40
     const paginate = <T,>(rows: T[], page: number) => {
@@ -239,7 +253,7 @@ export function AssetGrid({
         }
     }
 
-    const setPage = (type: 'character' | 'location' | 'prop' | 'voice', page: number) => {
+    const setPage = (type: 'character' | 'location' | 'prop' | 'voice' | 'style', page: number) => {
         setSectionPage((prev) => ({ ...prev, [type]: page }))
     }
 
@@ -247,8 +261,9 @@ export function AssetGrid({
     const locationsPage = paginate(locations, sectionPage.location)
     const propsPage = paginate(props, sectionPage.prop)
     const voicesPage = paginate(voices, sectionPage.voice)
+    const stylesPage = paginate(styles, sectionPage.style)
 
-    const renderPagination = (type: 'character' | 'location' | 'prop' | 'voice', page: number, totalPages: number) => {
+    const renderPagination = (type: 'character' | 'location' | 'prop' | 'voice' | 'style', page: number, totalPages: number) => {
         if (totalPages <= 1) return null
         return (
             <div className="mt-4 flex items-center justify-end gap-2">
@@ -281,7 +296,7 @@ export function AssetGrid({
         )
     }
 
-    const isEmpty = characters.length === 0 && locations.length === 0 && props.length === 0 && voices.length === 0
+    const isEmpty = characters.length === 0 && locations.length === 0 && props.length === 0 && voices.length === 0 && styles.length === 0
     const visibleAssetCount = (() => {
         switch (filter) {
             case 'character':
@@ -292,9 +307,11 @@ export function AssetGrid({
                 return props.length
             case 'voice':
                 return voices.length
+            case 'style':
+                return styles.length
             case 'all':
             default:
-                return characters.length + locations.length + props.length + voices.length
+                return characters.length + locations.length + props.length + voices.length + styles.length
         }
     })()
 
@@ -304,6 +321,7 @@ export function AssetGrid({
         { id: 'location', label: t('locations') },
         { id: 'prop', label: t('props') },
         { id: 'voice', label: t('voices') },
+        { id: 'style', label: t('styles') },
     ]
 
     return (
@@ -311,13 +329,13 @@ export function AssetGrid({
             {/* Header: 筛选 Tab + 操作按钮 */}
             <div className="flex items-center justify-between mb-6">
                 {/* 左侧筛选 */}
-                <SegmentedControl
-                    options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
-                    value={filter}
-                    onChange={(val) => setFilter(val as 'all' | 'character' | 'location' | 'prop' | 'voice')}
-                    layout="compact"
-                    className="min-w-max"
-                />
+                    <SegmentedControl
+                        options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
+                        value={filter}
+                        onChange={(val) => setFilter(val as 'all' | 'character' | 'location' | 'prop' | 'voice' | 'style')}
+                        layout="compact"
+                        className="min-w-max"
+                    />
 
                 {/* 右侧操作按钮 */}
                 <div className="flex items-center gap-3">
@@ -337,6 +355,7 @@ export function AssetGrid({
                         onAddLocation={onAddLocation}
                         onAddProp={onAddProp}
                         onAddVoice={onAddVoice}
+                        onAddStyle={onAddStyle}
                     />
                 </div>
             </div>
@@ -355,6 +374,7 @@ export function AssetGrid({
                             onAddLocation={onAddLocation}
                             onAddProp={onAddProp}
                             onAddVoice={onAddVoice}
+                            onAddStyle={onAddStyle}
                         />
                     </div>
                 </div>
@@ -450,6 +470,27 @@ export function AssetGrid({
                                 ))}
                             </div>
                             {renderPagination('voice', voicesPage.page, voicesPage.totalPages)}
+                        </section>
+                    )}
+
+                    {(filter === 'all' || filter === 'style') && styles.length > 0 && (
+                        <section>
+                            <h2 className="text-sm font-semibold text-[var(--glass-text-primary)] mb-3 flex items-center gap-2">
+                                {t('styles')}
+                                <span className="glass-chip glass-chip-info px-2 py-0.5">{styles.length}</span>
+                            </h2>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {stylesPage.items.map((style) => (
+                                    <StyleCard
+                                        key={style.id}
+                                        asset={style}
+                                        onView={() => onStyleView?.(style)}
+                                        onEdit={() => onStyleEdit?.(style)}
+                                        onDelete={() => onStyleDelete?.(style.id)}
+                                    />
+                                ))}
+                            </div>
+                            {renderPagination('style', stylesPage.page, stylesPage.totalPages)}
                         </section>
                     )}
                 </div>

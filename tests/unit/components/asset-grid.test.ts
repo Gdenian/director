@@ -21,8 +21,25 @@ vi.mock('react', async (importOriginal) => {
         return actual.useState('location' as T)
       }
 
+      if (resolvedInitialState === false) {
+        return actual.useState(true as T)
+      }
+
+      if (resolvedInitialState === null) {
+        return actual.useState({ top: 0, right: 0 } as T)
+      }
+
       return actual.useState(resolvedInitialState)
     },
+  }
+})
+
+vi.mock('react-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-dom')>()
+
+  return {
+    ...actual,
+    createPortal: (node: ReactElement) => node,
   }
 })
 
@@ -38,6 +55,10 @@ vi.mock('@/app/[locale]/workspace/asset-hub/components/VoiceCard', () => ({
   VoiceCard: () => null,
 }))
 
+vi.mock('@/app/[locale]/workspace/asset-hub/components/StyleCard', () => ({
+  StyleCard: () => null,
+}))
+
 vi.mock('@/components/task/TaskStatusInline', () => ({
   default: () => null,
 }))
@@ -49,11 +70,13 @@ const messages = {
     locations: '场景',
     props: '道具',
     voices: '音色',
+    styles: '风格',
     addAsset: '新建资产',
     addCharacter: '新建角色',
     addLocation: '新建场景',
     addProp: '新建道具',
     addVoice: '新建音色',
+    addStyle: '新建风格',
     downloadAll: '打包下载',
     downloadAllTitle: '下载全部图片资产',
     downloading: '打包中...',
@@ -66,6 +89,8 @@ const messages = {
     },
   },
 } as const
+
+Reflect.set(globalThis, 'document', { body: {} })
 
 const renderWithIntl = (node: ReactElement) => {
   const providerProps: ComponentProps<typeof NextIntlClientProvider> = {
@@ -92,6 +117,7 @@ describe('AssetGrid', () => {
         onAddLocation: () => undefined,
         onAddProp: () => undefined,
         onAddVoice: () => undefined,
+        onAddStyle: () => undefined,
         onDownloadAll: () => undefined,
         isDownloading: false,
         selectedFolderId: null,
@@ -147,6 +173,7 @@ describe('AssetGrid', () => {
         onAddLocation: () => undefined,
         onAddProp: () => undefined,
         onAddVoice: () => undefined,
+        onAddStyle: () => undefined,
         onDownloadAll: () => undefined,
         isDownloading: false,
         selectedFolderId: null,
@@ -154,5 +181,55 @@ describe('AssetGrid', () => {
     )
 
     expect(html).toContain('点击新建资产添加资产')
+  })
+
+  it('显示风格筛选标签，并在新建资产菜单中提供新建风格入口', () => {
+    Reflect.set(globalThis, 'React', React)
+
+    const html = renderWithIntl(
+      createElement(AssetGrid, {
+        assets: [
+          {
+            id: 'style-1',
+            scope: 'global',
+            kind: 'style',
+            family: 'visual',
+            name: '电影黑金',
+            folderId: null,
+            capabilities: {
+              canGenerate: false,
+              canSelectRender: false,
+              canRevertRender: false,
+              canModifyRender: false,
+              canUploadRender: false,
+              canBindVoice: false,
+              canCopyFromGlobal: false,
+            },
+            taskRefs: [],
+            taskState: { isRunning: false, lastError: null },
+            description: '金黑电影质感',
+            positivePrompt: 'cinematic gold and black',
+            negativePrompt: 'no blur',
+            tags: ['电影', '黑金'],
+            source: 'user',
+            legacyKey: null,
+            readOnly: false,
+            previewMedia: null,
+          },
+        ],
+        loading: false,
+        onAddCharacter: () => undefined,
+        onAddLocation: () => undefined,
+        onAddProp: () => undefined,
+        onAddVoice: () => undefined,
+        onAddStyle: () => undefined,
+        onDownloadAll: () => undefined,
+        isDownloading: false,
+        selectedFolderId: null,
+      }),
+    )
+
+    expect(html).toContain('风格')
+    expect(html).toContain('新建风格')
   })
 })

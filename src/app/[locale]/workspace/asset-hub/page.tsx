@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
 import { FolderSidebar } from './components/FolderSidebar'
 import { AssetGrid } from './components/AssetGrid'
+import StyleAssetModal from './components/StyleAssetModal'
 import { CharacterCreationModal, LocationCreationModal, PropCreationModal, CharacterEditModal, LocationEditModal, PropEditModal } from '@/components/shared/assets'
 import { FolderModal } from './components/FolderModal'
 import ImagePreviewModal from '@/components/ui/ImagePreviewModal'
@@ -27,6 +28,7 @@ import { queryKeys } from '@/lib/query/keys'
 import { AppIcon } from '@/components/ui/icons'
 import { Link } from '@/i18n/navigation'
 import { useImageGenerationCount } from '@/lib/image-generation/use-image-generation-count'
+import type { StyleAssetSummary } from '@/lib/assets/contracts'
 
 export default function AssetHubPage() {
     const t = useTranslations('assetHub')
@@ -46,6 +48,7 @@ export default function AssetHubPage() {
     const characterActions = useAssetActions({ scope: 'global', kind: 'character' })
     const locationActions = useAssetActions({ scope: 'global', kind: 'location' })
     const propActions = useAssetActions({ scope: 'global', kind: 'prop' })
+    const styleActions = useAssetActions({ scope: 'global', kind: 'style' })
     const refreshAssets = useRefreshAssets({ scope: 'global' })
 
     const loading = foldersLoading || assetsLoading
@@ -74,6 +77,10 @@ export default function AssetHubPage() {
 
     // 音色库弹窗状态
     const [showAddVoice, setShowAddVoice] = useState(false)
+    const [styleModal, setStyleModal] = useState<{
+        mode: 'create' | 'view' | 'edit'
+        asset?: StyleAssetSummary
+    } | null>(null)
     const [voicePickerCharacterId, setVoicePickerCharacterId] = useState<string | null>(null)
     const [isDownloading, setIsDownloading] = useState(false)
 
@@ -364,6 +371,18 @@ export default function AssetHubPage() {
         }
     }
 
+    const handleDeleteStyle = async (assetId: string) => {
+        if (!confirm(t('confirmDeleteStyle'))) return
+
+        try {
+            await styleActions.remove(assetId)
+            refreshAssets()
+        } catch (error) {
+            _ulogError('删除风格资产失败:', error)
+            alert(t('styleModal.deleteFailed'))
+        }
+    }
+
     // 打包下载所有图片资产
     const handleDownloadAll = async () => {
         // 收集所有有效图片
@@ -491,6 +510,7 @@ export default function AssetHubPage() {
                         onAddLocation={() => setShowAddLocation(true)}
                         onAddProp={() => setShowAddProp(true)}
                         onAddVoice={() => setShowAddVoice(true)}
+                        onAddStyle={() => setStyleModal({ mode: 'create' })}
                         onDownloadAll={handleDownloadAll}
                         isDownloading={isDownloading}
                         selectedFolderId={selectedFolderId}
@@ -501,6 +521,9 @@ export default function AssetHubPage() {
                         onLocationEdit={handleOpenLocationEdit}
                         onPropEdit={handleOpenPropEdit}
                         onVoiceSelect={(characterId) => setVoicePickerCharacterId(characterId)}
+                        onStyleView={(asset) => setStyleModal({ mode: 'view', asset })}
+                        onStyleEdit={(asset) => setStyleModal({ mode: 'edit', asset })}
+                        onStyleDelete={handleDeleteStyle}
                     />
                 </div>
             </div>
@@ -654,6 +677,19 @@ export default function AssetHubPage() {
                     isOpen={!!voicePickerCharacterId}
                     onClose={() => setVoicePickerCharacterId(null)}
                     onSelect={handleVoiceSelect}
+                />
+            )}
+
+            {styleModal && (
+                <StyleAssetModal
+                    mode={styleModal.mode}
+                    asset={styleModal.asset}
+                    folderId={selectedFolderId}
+                    onClose={() => setStyleModal(null)}
+                    onSuccess={() => {
+                        setStyleModal(null)
+                        refreshAssets()
+                    }}
                 />
             )}
         </div>
