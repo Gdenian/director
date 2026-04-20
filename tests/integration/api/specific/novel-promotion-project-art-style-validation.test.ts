@@ -25,6 +25,11 @@ const prismaMock = vi.hoisted(() => ({
       artStyle: 'realistic',
     })),
   },
+  globalStyle: {
+    findFirst: vi.fn(async () => ({
+      id: 'style-readable',
+    })),
+  },
   userPreference: {
     upsert: vi.fn(async () => ({ userId: 'user-1', artStyle: 'realistic' })),
   },
@@ -118,5 +123,60 @@ describe('api specific - novel promotion project art style validation', () => {
       }),
     )
     expect(prismaMock.userPreference.upsert).not.toHaveBeenCalled()
+  })
+
+  it('accepts a readable system styleAssetId and persists it', async () => {
+    prismaMock.globalStyle.findFirst.mockResolvedValueOnce({ id: 'style-system-1' })
+
+    const mod = await import('@/app/api/novel-promotion/[projectId]/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1',
+      method: 'PATCH',
+      body: {
+        styleAssetId: '  style-system-1  ',
+      },
+    })
+
+    const res = await mod.PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    expect(res.status).toBe(200)
+    expect(prismaMock.globalStyle.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'style-system-1',
+        OR: [
+          { source: 'system' },
+          { userId: 'user-1' },
+        ],
+      },
+      select: {
+        id: true,
+      },
+    })
+    expect(prismaMock.novelPromotionProject.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          styleAssetId: 'style-system-1',
+        }),
+      }),
+    )
+  })
+
+  it('rejects an unreadable styleAssetId with invalid params and does not persist', async () => {
+    prismaMock.globalStyle.findFirst.mockResolvedValueOnce(null)
+
+    const mod = await import('@/app/api/novel-promotion/[projectId]/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1',
+      method: 'PATCH',
+      body: {
+        styleAssetId: 'style-foreign-1',
+      },
+    })
+
+    const res = await mod.PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_PARAMS')
+    expect(body.error.details.field).toBe('styleAssetId')
+    expect(prismaMock.novelPromotionProject.update).not.toHaveBeenCalled()
   })
 })

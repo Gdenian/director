@@ -28,6 +28,22 @@ export interface MediaRef {
   durationMs: number | null
 }
 
+export type ProjectResolvedStyleSource =
+  | 'task-snapshot'
+  | 'style-asset'
+  | 'project-art-style-prompt'
+  | 'project-art-style'
+  | 'user-preference'
+  | 'default'
+
+export interface ProjectResolvedStyleSummary {
+  styleAssetId: string | null
+  label: string
+  source: ProjectResolvedStyleSource
+  assetSource: 'user' | 'system' | null
+  previewMedia: MediaRef | null
+}
+
 // 角色形象（独立表）
 // 🔥 V6.5: characterId 改为可选以兼容 useProjectAssets 返回的数据
 export interface CharacterAppearance {
@@ -257,6 +273,8 @@ export interface NovelPromotionProject {
   workflowMode: WorkflowMode  // 新增：工作流模式
   artStyle: string
   artStylePrompt: string | null
+  styleAssetId?: string | null
+  resolvedStyle?: ProjectResolvedStyleSummary
   audioUrl: string | null
   media?: MediaRef | null
   srtContent: string | null
