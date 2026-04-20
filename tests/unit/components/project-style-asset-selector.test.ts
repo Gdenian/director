@@ -5,6 +5,14 @@ import { describe, expect, it, vi } from 'vitest'
 import ProjectStyleAssetSelector from '@/components/selectors/ProjectStyleAssetSelector'
 
 const useAssetsMock = vi.fn()
+const selectorTexts = {
+  assetMode: '风格资产',
+  compatibilityMode: '兼容结果',
+  formatCompatibilityMode: (label: string) => `兼容结果：${label}`,
+  clearSelection: '不使用风格资产',
+  currentAsset: '当前风格资产',
+  loading: '加载风格资产中...',
+}
 
 vi.mock('@/lib/query/hooks', () => ({
   useAssets: (...args: unknown[]) => useAssetsMock(...args),
@@ -39,11 +47,13 @@ describe('ProjectStyleAssetSelector', () => {
           assetSource: null,
           previewMedia: null,
         },
+        texts: selectorTexts,
         onChange: () => undefined,
       }),
     )
 
     expect(useAssetsMock).toHaveBeenCalledWith({ scope: 'global', kind: 'style' })
+    expect(html).toContain('兼容结果')
     expect(html).toContain('写实电影感')
     expect(html).toContain('港风夜色')
     expect(html).toContain('胶片青春')
@@ -72,10 +82,12 @@ describe('ProjectStyleAssetSelector', () => {
           assetSource: 'user',
           previewMedia: null,
         },
+        texts: selectorTexts,
         onChange: () => undefined,
       }),
     )
 
+    expect(html).toContain('风格资产')
     expect(html).toContain('当前风格资产')
     expect(html).toContain('胶片青春')
     expect(html).toContain('不使用风格资产')

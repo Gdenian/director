@@ -377,6 +377,15 @@ export function SettingsModal({
                                     value={styleAssetId}
                                     resolvedStyle={resolvedStyle}
                                     onChange={(value) => handleChange(onStyleAssetChange)(value)}
+                                    texts={{
+                                        assetMode: t('projectStyleAsset.assetMode'),
+                                        compatibilityMode: t('projectStyleAsset.compatibilityMode'),
+                                        formatCompatibilityMode: (label) =>
+                                            t('projectStyleAsset.compatibilityModeWithLabel', { label }),
+                                        clearSelection: t('projectStyleAsset.clearSelection'),
+                                        currentAsset: t('projectStyleAsset.currentAsset'),
+                                        loading: t('projectStyleAsset.loading'),
+                                    }}
                                 />
                             </div>
                             <div className="space-y-2">

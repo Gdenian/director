@@ -205,6 +205,15 @@ export default function NovelInputStage({
               value={styleAssetId}
               resolvedStyle={resolvedStyle}
               onChange={(value) => onStyleAssetChange?.(value)}
+              texts={{
+                assetMode: t('storyInput.projectStyleAsset.assetMode'),
+                compatibilityMode: t('storyInput.projectStyleAsset.compatibilityMode'),
+                formatCompatibilityMode: (label) =>
+                  t('storyInput.projectStyleAsset.compatibilityModeWithLabel', { label }),
+                clearSelection: t('storyInput.projectStyleAsset.clearSelection'),
+                currentAsset: t('storyInput.projectStyleAsset.currentAsset'),
+                loading: t('storyInput.projectStyleAsset.loading'),
+              }}
               disabled={isSubmittingTask || isSwitchingStage || !onStyleAssetChange}
             />
           )}

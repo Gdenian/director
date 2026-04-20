@@ -9,6 +9,14 @@ interface ProjectStyleAssetSelectorProps {
   value: string | null | undefined
   resolvedStyle?: ProjectResolvedStyleSummary | null
   onChange: (value: string | null) => void
+  texts: {
+    assetMode: string
+    compatibilityMode: string
+    formatCompatibilityMode: (label: string) => string
+    clearSelection: string
+    currentAsset: string
+    loading: string
+  }
   disabled?: boolean
   className?: string
 }
@@ -21,19 +29,21 @@ interface StyleOption {
 function buildLegacyOptionLabel(
   value: string | null | undefined,
   resolvedStyle: ProjectResolvedStyleSummary | null | undefined,
+  texts: ProjectStyleAssetSelectorProps['texts'],
 ) {
   if (value) {
-    return '不使用风格资产'
+    return texts.clearSelection
   }
 
   const resolvedLabel = resolvedStyle?.label?.trim()
-  return resolvedLabel ? `兼容旧风格：${resolvedLabel}` : '兼容旧风格'
+  return resolvedLabel ? texts.formatCompatibilityMode(resolvedLabel) : texts.compatibilityMode
 }
 
 export default function ProjectStyleAssetSelector({
   value,
   resolvedStyle,
   onChange,
+  texts,
   disabled = false,
   className,
 }: ProjectStyleAssetSelectorProps) {
@@ -53,39 +63,44 @@ export default function ProjectStyleAssetSelector({
     if (value && !nextOptions.some((option) => option.value === value)) {
       nextOptions.unshift({
         value,
-        label: resolvedStyle?.label?.trim() || '当前风格资产',
+        label: resolvedStyle?.label?.trim() || texts.currentAsset,
       })
     }
 
     return nextOptions
-  }, [assets, resolvedStyle?.label, value])
+  }, [assets, resolvedStyle?.label, texts.currentAsset, value])
 
   const selectValue = value ?? ''
-  const legacyOptionLabel = buildLegacyOptionLabel(value, resolvedStyle)
+  const legacyOptionLabel = buildLegacyOptionLabel(value, resolvedStyle, texts)
 
   return (
-    <div className={`relative ${className ?? ''}`}>
-      <select
-        value={selectValue}
-        onChange={(event) => onChange(event.target.value || null)}
-        disabled={disabled}
-        className="glass-input-base h-10 w-full appearance-none pr-8 pl-3 text-[13px] font-medium text-[var(--glass-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <option value="">{legacyOptionLabel}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-        {isLoading && options.length === 0 ? (
-          <option value="" disabled>
-            加载风格资产中...
-          </option>
-        ) : null}
-      </select>
-      <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[var(--glass-text-tertiary)]">
-        <AppIcon name="chevronDown" className="h-4 w-4" />
-      </span>
+    <div className={`space-y-1 ${className ?? ''}`}>
+      <div className="text-[11px] font-medium text-[var(--glass-text-tertiary)]">
+        {value ? texts.assetMode : texts.compatibilityMode}
+      </div>
+      <div className="relative">
+        <select
+          value={selectValue}
+          onChange={(event) => onChange(event.target.value || null)}
+          disabled={disabled}
+          className="glass-input-base h-10 w-full appearance-none pr-8 pl-3 text-[13px] font-medium text-[var(--glass-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <option value="">{legacyOptionLabel}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+          {isLoading && options.length === 0 ? (
+            <option value="" disabled>
+              {texts.loading}
+            </option>
+          ) : null}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[var(--glass-text-tertiary)]">
+          <AppIcon name="chevronDown" className="h-4 w-4" />
+        </span>
+      </div>
     </div>
   )
 }
