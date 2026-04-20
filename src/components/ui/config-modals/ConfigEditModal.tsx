@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
-    ART_STYLES,
     VIDEO_RATIOS,
 } from '@/lib/constants'
+import ProjectStyleAssetSelector from '@/components/selectors/ProjectStyleAssetSelector'
 import type {
     CapabilitySelections,
     CapabilityValue,
     ModelCapabilities,
 } from '@/lib/model-config-contract'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 import { filterNormalVideoModelOptions } from '@/lib/model-capabilities/video-model-options'
-import { RatioSelector, StyleSelector } from './config-modal-selectors'
+import { RatioSelector } from './config-modal-selectors'
 import { ModelCapabilityDropdown } from './ModelCapabilityDropdown'
 import { AppIcon } from '@/components/ui/icons'
 
@@ -42,7 +43,8 @@ interface SettingsModalProps {
     onClose: () => void
     availableModels?: Partial<UserModels>
     modelsLoaded?: boolean
-    artStyle?: string
+    styleAssetId?: string | null
+    resolvedStyle?: ProjectResolvedStyleSummary | null
     analysisModel?: string
     characterModel?: string
     locationModel?: string
@@ -54,7 +56,7 @@ interface SettingsModalProps {
     videoRatio?: string
     capabilityOverrides?: CapabilitySelections
     ttsRate?: string
-    onArtStyleChange?: (value: string) => void
+    onStyleAssetChange?: (value: string | null) => void
     onAnalysisModelChange?: (value: string) => void
     onCharacterModelChange?: (value: string) => void
     onLocationModelChange?: (value: string) => void
@@ -127,7 +129,8 @@ export function SettingsModal({
     onClose,
     availableModels,
     modelsLoaded = false,
-    artStyle = 'american-comic',
+    styleAssetId,
+    resolvedStyle,
     analysisModel,
     characterModel,
     locationModel,
@@ -138,7 +141,7 @@ export function SettingsModal({
     videoRatio = '9:16',
     capabilityOverrides,
     ttsRate,
-    onArtStyleChange,
+    onStyleAssetChange,
     onAnalysisModelChange,
     onCharacterModelChange,
     onLocationModelChange,
@@ -321,7 +324,7 @@ export function SettingsModal({
         setTimeout(() => setSaveStatus('idle'), 2000)
     }
 
-    const handleChange = (callback?: (value: string) => void) => (value: string) => {
+    const handleChange = <T extends string | null>(callback?: (value: T) => void) => (value: T) => {
         callback?.(value)
         showSaved()
     }
@@ -370,10 +373,10 @@ export function SettingsModal({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-[var(--glass-text-secondary)]">{t('visualStyle')}</label>
-                                <StyleSelector
-                                    value={artStyle}
-                                    onChange={(value) => handleChange(onArtStyleChange)(value)}
-                                    options={ART_STYLES}
+                                <ProjectStyleAssetSelector
+                                    value={styleAssetId}
+                                    resolvedStyle={resolvedStyle}
+                                    onChange={(value) => handleChange(onStyleAssetChange)(value)}
                                 />
                             </div>
                             <div className="space-y-2">

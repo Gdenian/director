@@ -6,6 +6,7 @@ import WorkspaceTopActions from './WorkspaceTopActions'
 import type { NovelPromotionPanel } from '@/types/project'
 import type { CapabilitySelections, ModelCapabilities } from '@/lib/model-config-contract'
 import { resolveEpisodeStageArtifacts } from '@/lib/novel-promotion/stage-readiness'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 
 interface EpisodeSummary {
   id: string
@@ -41,6 +42,8 @@ interface WorkspaceHeaderShellProps {
   availableModels?: UserModelsPayload
   modelsLoaded: boolean
   artStyle: string | null | undefined
+  styleAssetId: string | null | undefined
+  resolvedStyle: ProjectResolvedStyleSummary | null | undefined
   analysisModel: string | null | undefined
   characterModel: string | null | undefined
   locationModel: string | null | undefined
@@ -88,6 +91,8 @@ export default function WorkspaceHeaderShell({
   availableModels,
   modelsLoaded,
   artStyle,
+  styleAssetId,
+  resolvedStyle,
   analysisModel,
   characterModel,
   locationModel,
@@ -126,7 +131,8 @@ export default function WorkspaceHeaderShell({
         onClose={onCloseSettingsModal}
         availableModels={availableModels}
         modelsLoaded={modelsLoaded}
-        artStyle={artStyle ?? undefined}
+        styleAssetId={styleAssetId}
+        resolvedStyle={resolvedStyle}
         analysisModel={analysisModel ?? undefined}
         characterModel={characterModel ?? undefined}
         locationModel={locationModel ?? undefined}
@@ -137,7 +143,7 @@ export default function WorkspaceHeaderShell({
         videoRatio={videoRatio ?? undefined}
         capabilityOverrides={capabilityOverrides}
         ttsRate={ttsRate ?? undefined}
-        onArtStyleChange={(value) => { onUpdateConfig('artStyle', value) }}
+        onStyleAssetChange={(value) => { onUpdateConfig('styleAssetId', value) }}
         onAnalysisModelChange={(value) => { onUpdateConfig('analysisModel', value) }}
         onCharacterModelChange={(value) => { onUpdateConfig('characterModel', value) }}
         onLocationModelChange={(value) => { onUpdateConfig('locationModel', value) }}

@@ -3,6 +3,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { CapabilitySelections, ModelCapabilities } from '@/lib/model-config-contract'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from './components/video'
 
 export interface WorkspaceStageVideoModelOption {
@@ -23,12 +24,15 @@ export interface WorkspaceStageRuntimeValue {
   isStartingScriptToStoryboard: boolean
   videoRatio: string | null | undefined
   artStyle: string | null | undefined
+  styleAssetId: string | null | undefined
+  resolvedStyle: ProjectResolvedStyleSummary | null | undefined
   videoModel: string | null | undefined
   capabilityOverrides: CapabilitySelections
   userVideoModels: WorkspaceStageVideoModelOption[]
   onNovelTextChange: (value: string) => Promise<void>
   onVideoRatioChange: (value: string) => Promise<void>
   onArtStyleChange: (value: string) => Promise<void>
+  onStyleAssetChange: (value: string | null) => Promise<void>
   onRunStoryToScript: () => Promise<void>
   onClipUpdate: (clipId: string, data: unknown) => Promise<void>
   onOpenAssetLibrary: () => void

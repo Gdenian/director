@@ -34,6 +34,7 @@ interface StoryInputComposerProps {
   artStyle: string
   onArtStyleChange: (value: string) => void
   styleOptions: StoryInputComposerOption[]
+  styleControl?: ReactNode
   stylePresetValue: string
   onStylePresetChange: (value: string) => void
   stylePresetOptions: readonly StoryInputComposerStylePresetOption[]
@@ -60,6 +61,7 @@ export default function StoryInputComposer({
   artStyle,
   onArtStyleChange,
   styleOptions,
+  styleControl,
   stylePresetValue,
   onStylePresetChange,
   stylePresetOptions,
@@ -139,12 +141,14 @@ export default function StoryInputComposer({
               getUsage={getRatioUsage}
             />
           </div>
-          <div className="w-[132px] flex-shrink-0">
-            <StyleSelector
-              value={artStyle}
-              onChange={onArtStyleChange}
-              options={styleOptions}
-            />
+          <div className={`${styleControl ? 'w-[196px]' : 'w-[132px]'} flex-shrink-0`}>
+            {styleControl ?? (
+              <StyleSelector
+                value={artStyle}
+                onChange={onArtStyleChange}
+                options={styleOptions}
+              />
+            )}
           </div>
           {stylePresetOptions.length > 0 ? (
             <div className="w-[152px] flex-shrink-0">

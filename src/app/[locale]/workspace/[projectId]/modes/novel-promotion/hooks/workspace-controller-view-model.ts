@@ -6,6 +6,7 @@ import type { TaskPresentationState } from '@/lib/task/presentation'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 import type { CapabilitySelections } from '@/lib/model-config-contract'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 import type {
   useScriptToStoryboardRunStream,
   useStoryToScriptRunStream,
@@ -31,6 +32,8 @@ interface ProjectSnapshotInput {
   capabilityOverrides: CapabilitySelections
   ttsRate: string | number | undefined
   artStyle: string | undefined
+  styleAssetId: string | null | undefined
+  resolvedStyle: ProjectResolvedStyleSummary | null | undefined
 }
 
 interface BuildWorkspaceControllerViewModelParams {
