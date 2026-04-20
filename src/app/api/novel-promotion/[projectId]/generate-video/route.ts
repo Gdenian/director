@@ -15,6 +15,7 @@ import {
 } from '@/lib/model-capabilities/lookup'
 import { resolveBuiltinPricing } from '@/lib/model-pricing/lookup'
 import { resolveProjectModelCapabilityGenerationOptions } from '@/lib/config-service'
+import { buildProjectStyleTaskPayload } from '@/lib/style'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -202,6 +203,15 @@ export const POST = apiHandler(async (
     projectId,
     userId: session.user.id,
   })
+  const { stylePromptSnapshot } = await buildProjectStyleTaskPayload({
+    projectId,
+    userId: session.user.id,
+    locale,
+  })
+  const taskPayload = {
+    ...body,
+    stylePromptSnapshot,
+  }
 
   if (isBatch) {
     const episodeId = body?.episodeId
@@ -236,11 +246,11 @@ export const POST = apiHandler(async (
           type: TASK_TYPE.VIDEO_PANEL,
           targetType: 'NovelPromotionPanel',
           targetId: panel.id,
-          payload: withTaskUiPayload(body, {
+          payload: withTaskUiPayload(taskPayload, {
             hasOutputAtStart: await hasPanelVideoOutput(panel.id),
           }),
           dedupeKey: `video_panel:${panel.id}`,
-          billingInfo: buildVideoPanelBillingInfoOrThrow(body),
+          billingInfo: buildVideoPanelBillingInfoOrThrow(taskPayload),
         }),
       ),
     )
@@ -271,11 +281,11 @@ export const POST = apiHandler(async (
     type: TASK_TYPE.VIDEO_PANEL,
     targetType: 'NovelPromotionPanel',
     targetId: panel.id,
-    payload: withTaskUiPayload(body, {
+    payload: withTaskUiPayload(taskPayload, {
       hasOutputAtStart: await hasPanelVideoOutput(panel.id),
     }),
     dedupeKey: `video_panel:${panel.id}`,
-    billingInfo: buildVideoPanelBillingInfoOrThrow(body),
+    billingInfo: buildVideoPanelBillingInfoOrThrow(taskPayload),
   })
 
   return NextResponse.json(result)

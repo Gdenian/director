@@ -10,6 +10,7 @@ import { withTaskUiPayload } from '@/lib/task/ui-payload'
 import { getProjectModelConfig } from '@/lib/config-service'
 import { resolveProjectModelCapabilityGenerationOptions } from '@/lib/config-service'
 import { resolveModelSelection } from '@/lib/api-config'
+import { buildProjectStyleTaskPayload } from '@/lib/style'
 
 const DEFAULT_CANDIDATE_COUNT = 1
 
@@ -52,10 +53,16 @@ export const POST = apiHandler(async (
     userId: session.user.id,
     modelType: 'image',
     modelKey: projectModelConfig.storyboardModel})
+  const { stylePromptSnapshot } = await buildProjectStyleTaskPayload({
+    projectId,
+    userId: session.user.id,
+    locale,
+  })
   const billingPayload = {
     ...body,
     candidateCount,
     imageModel: projectModelConfig.storyboardModel,
+    stylePromptSnapshot,
     ...(Object.keys(capabilityOptions).length > 0 ? { generationOptions: capabilityOptions } : {})}
 
   const hasOutputAtStart = await hasPanelImageOutput(panelId)

@@ -17,6 +17,7 @@ import { deleteObject } from '@/lib/storage'
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { createProjectCharacterLabeledCopies, createProjectLocationLabeledCopies } from '@/lib/image-label'
 import type { AssetKind, AssetScope } from '@/lib/assets/contracts'
+import { buildProjectStyleTaskPayload } from '@/lib/style'
 import {
   normalizeLocationAvailableSlots,
   stringifyLocationAvailableSlots,
@@ -302,9 +303,19 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
   const imageModel = normalizedKind === 'character'
     ? projectModelConfig.characterModel
     : projectModelConfig.locationModel
-  const payloadBase = artStyle
-    ? { ...input.body, type: input.kind, id: input.assetId, artStyle, count }
-    : { ...input.body, type: input.kind, id: input.assetId, count }
+  const { stylePromptSnapshot, legacyArtStyle } = await buildProjectStyleTaskPayload({
+    projectId,
+    userId: input.access.userId,
+    locale,
+  })
+  const payloadBase = {
+    ...input.body,
+    type: input.kind,
+    id: input.assetId,
+    count,
+    stylePromptSnapshot,
+    ...(artStyle ? { artStyle } : legacyArtStyle ? { artStyle: legacyArtStyle } : {}),
+  }
 
   let billingPayload: Record<string, unknown>
   try {
@@ -479,11 +490,19 @@ async function submitProjectAssetModifyTask(input: AssetModifyInput) {
   if (extraImageAudit.issues.some((issue) => issue.reason === 'relative_path_rejected')) {
     throw new ApiError('INVALID_PARAMS')
   }
+  const styleTaskPayload = await buildProjectStyleTaskPayload({
+    projectId,
+    userId: input.access.userId,
+    locale,
+  })
+  const hasExplicitArtStyle = typeof input.body.artStyle === 'string' && input.body.artStyle.trim().length > 0
   const payload = {
     ...input.body,
     type: input.kind,
     characterId: normalizedKind === 'character' ? input.assetId : undefined,
     locationId: normalizedKind === 'location' ? input.assetId : undefined,
+    stylePromptSnapshot: styleTaskPayload.stylePromptSnapshot,
+    ...(!hasExplicitArtStyle && styleTaskPayload.legacyArtStyle ? { artStyle: styleTaskPayload.legacyArtStyle } : {}),
     extraImageUrls: extraImageAudit.normalized,
     meta: {
       ...toObject(input.body.meta),
