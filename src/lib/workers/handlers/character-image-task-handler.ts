@@ -1,10 +1,11 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { CHARACTER_ASSET_IMAGE_RATIO, addCharacterPromptSuffix, getArtStylePrompt, isArtStyleValue, PRIMARY_APPEARANCE_INDEX, type ArtStyleValue } from '@/lib/constants'
+import { CHARACTER_ASSET_IMAGE_RATIO, addCharacterPromptSuffix, isArtStyleValue, PRIMARY_APPEARANCE_INDEX, type ArtStyleValue } from '@/lib/constants'
 import { type TaskJobData } from '@/lib/task/types'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import { reportTaskProgress } from '../shared'
+import { resolveWorkerStyleText } from '@/lib/style'
 import {
   assertTaskActive,
   getProjectModels,
@@ -107,7 +108,13 @@ export async function handleCharacterImageTask(job: Job<TaskJobData>) {
   if (!appearance) throw new Error('Character appearance not found')
 
   const payloadArtStyle = resolvePayloadArtStyle(payload)
-  const artStyle = getArtStylePrompt(payloadArtStyle ?? models.artStyle, job.data.locale)
+  const style = await resolveWorkerStyleText({
+    taskSnapshot: payload.stylePromptSnapshot,
+    legacyArtStyle: payloadArtStyle ?? models.artStyle,
+    projectId,
+    userId,
+    locale: job.data.locale === 'en' ? 'en' : 'zh',
+  })
   const descriptions = parseJsonStringArray(appearance.descriptions)
   const baseDescriptions = descriptions.length > 0 ? descriptions : [appearance.description || '']
 
@@ -145,7 +152,7 @@ export async function handleCharacterImageTask(job: Job<TaskJobData>) {
   for (let i = 0; i < indexes.length; i++) {
     const index = indexes[i]
     const raw = baseDescriptions[index] || baseDescriptions[0]
-    const prompt = artStyle ? `${addCharacterPromptSuffix(raw)}，${artStyle}` : addCharacterPromptSuffix(raw)
+    const prompt = style.positivePrompt ? `${addCharacterPromptSuffix(raw)}，${style.positivePrompt}` : addCharacterPromptSuffix(raw)
 
     await reportTaskProgress(job, 15 + Math.floor((i / Math.max(indexes.length, 1)) * 55), {
       stage: 'generate_character_image',

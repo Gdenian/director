@@ -23,9 +23,14 @@ const sharedMock = vi.hoisted(() => ({
   generateProjectLabeledImageToStorage: vi.fn(async () => 'cos/location-generated-1.png'),
 }))
 
+const resolveStyleContextMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/workers/utils', () => utilsMock)
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/workers/shared', () => ({ reportTaskProgress: vi.fn(async () => undefined) }))
+vi.mock('@/lib/style/resolve-style-context', () => ({
+  resolveStyleContext: resolveStyleContextMock,
+}))
 vi.mock('@/lib/workers/handlers/image-task-handler-shared', async () => {
   const actual = await vi.importActual<typeof import('@/lib/workers/handlers/image-task-handler-shared')>(
     '@/lib/workers/handlers/image-task-handler-shared',
@@ -54,9 +59,34 @@ function buildJob(payload: Record<string, unknown>, targetId = 'location-image-1
   } as unknown as Job<TaskJobData>
 }
 
+function buildStyleSnapshot(positivePrompt: string) {
+  return {
+    version: 1 as const,
+    source: 'style-asset' as const,
+    fallbackReason: 'none' as const,
+    styleAssetId: 'style-1',
+    legacyKey: null,
+    label: '风格快照',
+    positivePrompt,
+    negativePrompt: null,
+    sourceUpdatedAt: null,
+    capturedAt: '2026-04-20T10:00:00.000Z',
+  }
+}
+
 describe('worker location-image-task-handler behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolveStyleContextMock.mockResolvedValue({
+      source: 'style-asset',
+      fallbackReason: 'none',
+      styleAssetId: 'style-live-1',
+      legacyKey: null,
+      label: '电影黑金',
+      positivePrompt: 'cinematic gold and black',
+      negativePrompt: null,
+      sourceUpdatedAt: null,
+    })
 
     prismaMock.locationImage.findUnique.mockResolvedValue({
       id: 'location-image-1',
@@ -93,7 +123,6 @@ describe('worker location-image-task-handler behavior', () => {
 
   it('success path -> generates and persists concrete location image url', async () => {
     const result = await handleLocationImageTask(buildJob({ imageIndex: 0 }))
-    const animeStylePrompt = getArtStylePrompt('japanese-anime', 'zh')
 
     expect(result).toEqual({
       updated: 1,
@@ -127,7 +156,7 @@ describe('worker location-image-task-handler behavior', () => {
     expect(generationCall).toBeTruthy()
     if (!generationCall) throw new Error('expected generateProjectLabeledImageToStorage call')
     const generationInput = generationCall[0]
-    expect(generationInput.prompt.split(animeStylePrompt).length - 1).toBe(1)
+    expect(generationInput.prompt.split('cinematic gold and black').length - 1).toBe(1)
 
     expect(prismaMock.locationImage.update).toHaveBeenCalledWith({
       where: { id: 'location-image-1' },
@@ -135,12 +164,21 @@ describe('worker location-image-task-handler behavior', () => {
     })
   })
 
-  it('payload artStyle overrides project artStyle in prompt', async () => {
-    await handleLocationImageTask(buildJob({ imageIndex: 0, artStyle: 'realistic' }))
+  it('uses stylePromptSnapshot before live resolver and legacy artStyle', async () => {
+    await handleLocationImageTask(buildJob({
+      imageIndex: 0,
+      artStyle: 'realistic',
+      stylePromptSnapshot: buildStyleSnapshot('snapshot cinematic style'),
+    }))
 
     expect(sharedMock.generateProjectLabeledImageToStorage).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: expect.stringContaining(getArtStylePrompt('realistic', 'zh')),
+        prompt: expect.stringContaining('snapshot cinematic style'),
+      }),
+    )
+    expect(sharedMock.generateProjectLabeledImageToStorage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('cinematic gold and black'),
       }),
     )
   })

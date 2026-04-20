@@ -51,10 +51,15 @@ const promptMock = vi.hoisted(() => ({
   buildPrompt: vi.fn(() => 'panel-variant-prompt'),
 }))
 
+const resolveStyleContextMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/workers/utils', () => utilsMock)
 vi.mock('@/lib/media/outbound-image', () => outboundMock)
 vi.mock('@/lib/logging/core', () => ({ logInfo: vi.fn() }))
+vi.mock('@/lib/style/resolve-style-context', () => ({
+  resolveStyleContext: resolveStyleContextMock,
+}))
 vi.mock('@/lib/workers/handlers/image-task-handler-shared', async () => {
   const actual = await vi.importActual<typeof import('@/lib/workers/handlers/image-task-handler-shared')>(
     '@/lib/workers/handlers/image-task-handler-shared',
@@ -91,9 +96,34 @@ function buildJob(
   } as unknown as Job<TaskJobData>
 }
 
+function buildStyleSnapshot(positivePrompt: string) {
+  return {
+    version: 1 as const,
+    source: 'style-asset' as const,
+    fallbackReason: 'none' as const,
+    styleAssetId: 'style-1',
+    legacyKey: null,
+    label: '风格快照',
+    positivePrompt,
+    negativePrompt: null,
+    sourceUpdatedAt: null,
+    capturedAt: '2026-04-20T10:00:00.000Z',
+  }
+}
+
 describe('worker panel-variant-task-handler behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolveStyleContextMock.mockResolvedValue({
+      source: 'style-asset',
+      fallbackReason: 'none',
+      styleAssetId: 'style-live-1',
+      legacyKey: null,
+      label: '电影黑金',
+      positivePrompt: 'cinematic gold and black',
+      negativePrompt: null,
+      sourceUpdatedAt: null,
+    })
 
     prismaMock.novelPromotionPanel.findUnique.mockImplementation(async (args: { where: { id: string } }) => {
       if (args.where.id === 'panel-new') {
@@ -161,6 +191,7 @@ describe('worker panel-variant-task-handler behavior', () => {
       variables: expect.objectContaining({
         characters_info: expect.stringContaining('固定位置：街道左侧靠墙的留白位置'),
         location_asset: expect.stringContaining('街道左侧靠墙的留白位置'),
+        style: 'cinematic gold and black',
       }),
     }))
 
@@ -219,6 +250,27 @@ describe('worker panel-variant-task-handler behavior', () => {
     expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
       variables: expect.objectContaining({
         location_asset: expect.not.stringContaining('可站位置：'),
+      }),
+    }))
+  })
+
+  it('uses stylePromptSnapshot before live resolver in variant prompt', async () => {
+    const payload = {
+      newPanelId: 'panel-new',
+      sourcePanelId: 'panel-source',
+      stylePromptSnapshot: buildStyleSnapshot('snapshot cinematic style'),
+      variant: {
+        title: '雨夜版本',
+        description: '加强雨夜氛围',
+        video_prompt: '加强雨夜氛围',
+      },
+    }
+
+    await handlePanelVariantTask(buildJob(payload))
+
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: 'snapshot cinematic style',
       }),
     }))
   })
