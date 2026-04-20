@@ -44,7 +44,10 @@ Plans:
   2. 用户只能创建、编辑、删除自己的自定义风格资产，系统风格保持只读可见。
   3. 风格资产响应中的预览图以 `MediaRef` 形式返回，不暴露原始 storage key 或长期签名 URL。
   4. React Query 查询和 mutation 可以获取、创建、更新、删除并失效 style 资产缓存，且不破坏现有角色、场景、道具和音色资产类型。
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — 将 style 接入统一资产 contract、registry、read service 和媒体安全 mapper。
+- [ ] 02-02-PLAN.md — 将 style CRUD、权限规则和 React Query actions 接入统一 `/api/assets`。
 **UI hint**: no
 
 ### Phase 3: 资产中心风格管理 UI
@@ -107,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 数据模型与兼容契约 | 2/2 | Complete | 2026-04-18 |
-| 2. 资产后端与权限边界 | 0/TBD | Next | - |
+| 2. 资产后端与权限边界 | 0/2 | Ready to execute | - |
 | 3. 资产中心风格管理 UI | 0/TBD | Not started | - |
 | 4. 项目默认风格选择与展示 | 0/TBD | Not started | - |
 | 5. 生成链路统一接入与任务快照 | 0/TBD | Not started | - |
