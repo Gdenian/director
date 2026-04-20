@@ -1,9 +1,9 @@
 ---
 phase: 02
 slug: asset-backend-permissions
-status: draft
+status: complete
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-04-20
 ---
 
@@ -32,19 +32,19 @@ created: 2026-04-20
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 1 | API-04 | T-02-01 / T-02-04 | `AssetKind='style'` is accepted without breaking existing kinds | unit | `npx vitest run tests/unit/assets/registry.test.ts` | existing | pending |
-| 02-01-02 | 01 | 1 | API-03, API-04 | T-02-02 | style preview response omits `storageKey` and uses `/m/{publicId}` | unit | `npx vitest run tests/unit/assets/mappers.test.ts tests/unit/assets/style-assets.test.ts` | W0 | pending |
-| 02-01-03 | 01 | 1 | API-01, API-04 | T-02-01 / T-02-03 | global style reads include user rows plus read-only system styles scoped by authenticated user | unit | `npx vitest run tests/unit/assets/style-assets.test.ts` | W0 | pending |
-| 02-02-01 | 02 | 2 | API-01 | T-02-03 | style create/update/delete writes only `source='user'` rows owned by requester | unit | `npx vitest run tests/unit/assets/style-assets.test.ts` | W0 | pending |
-| 02-02-02 | 02 | 2 | API-01, API-03 | T-02-02 / T-02-03 | `/api/assets` style routes require auth and return safe asset responses | integration | `npx vitest run tests/integration/api/specific/assets-route.test.ts` | existing | pending |
-| 02-02-03 | 02 | 2 | API-04 | T-02-04 | React Query style mutations use unified routes and invalidate asset caches | unit | `npx vitest run tests/unit/optimistic/asset-style-actions.test.ts` | W0 | pending |
+| 02-01-01 | 01 | 1 | API-04 | T-02-01 / T-02-04 | `AssetKind='style'` is accepted without breaking existing kinds | unit | `npx vitest run tests/unit/assets/registry.test.ts` | existing | passed |
+| 02-01-02 | 01 | 1 | API-03, API-04 | T-02-02 | style preview response omits `storageKey` and uses `/m/{publicId}` | unit | `npx vitest run tests/unit/assets/mappers.test.ts tests/unit/assets/style-assets.test.ts` | W0 | passed |
+| 02-01-03 | 01 | 1 | API-01, API-04 | T-02-01 / T-02-03 | global style reads include user rows plus read-only system styles scoped by authenticated user | unit | `npx vitest run tests/unit/assets/style-assets.test.ts` | W0 | passed |
+| 02-02-01 | 02 | 2 | API-01 | T-02-03 | style create/update/delete writes only `source='user'` rows owned by requester | unit | `npx vitest run tests/unit/assets/style-assets.test.ts` | W0 | passed |
+| 02-02-02 | 02 | 2 | API-01, API-03 | T-02-02 / T-02-03 | `/api/assets` style routes require auth and return safe asset responses | integration | `npx vitest run tests/integration/api/specific/assets-route.test.ts` | existing | passed |
+| 02-02-03 | 02 | 2 | API-04 | T-02-04 | React Query style mutations use unified routes and invalidate asset caches | unit | `npx vitest run tests/unit/optimistic/asset-style-actions.test.ts` | W0 | passed |
 
 ## Wave 0 Requirements
 
-- [ ] `tests/unit/assets/style-assets.test.ts` — service/read/write and preview response contract for style assets.
-- [ ] `tests/unit/optimistic/asset-style-actions.test.ts` — React Query style action payload and invalidation tests.
-- [ ] Extend `tests/unit/assets/registry.test.ts` and `tests/unit/assets/mappers.test.ts` before implementation.
-- [ ] Extend `tests/integration/api/specific/assets-route.test.ts` with style route coverage before route changes.
+- [x] `tests/unit/assets/style-assets.test.ts` — service/read/write and preview response contract for style assets.
+- [x] `tests/unit/optimistic/asset-style-actions.test.ts` — React Query style action payload and invalidation tests.
+- [x] Extend `tests/unit/assets/registry.test.ts` and `tests/unit/assets/mappers.test.ts` before implementation.
+- [x] Extend `tests/integration/api/specific/assets-route.test.ts` with style route coverage before route changes.
 
 ## Manual-Only Verifications
 
@@ -59,4 +59,4 @@ All Phase 02 behaviors have automated verification.
 - [x] Feedback latency < 120s.
 - [x] `nyquist_compliant: true` set in frontmatter.
 
-**Approval:** pending
+**Approval:** complete

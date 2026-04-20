@@ -30,6 +30,11 @@ import {
 } from '@/lib/assets/services/location-backed-assets'
 import { resolvePropVisualDescription } from '@/lib/assets/prop-description'
 import { confirmProjectLocationBackedSelection } from '@/lib/assets/services/project-location-backed-selection'
+import {
+  createGlobalStyleAsset,
+  deleteGlobalStyleAsset,
+  updateGlobalStyleAsset,
+} from '@/lib/assets/services/style-assets'
 
 type AssetWriteAccess = {
   scope: AssetScope
@@ -90,13 +95,13 @@ type AssetVariantUpdateInput = {
 }
 
 type AssetCreateInput = {
-  kind: Extract<AssetKind, 'location' | 'prop'>
+  kind: Extract<AssetKind, 'location' | 'prop' | 'style'>
   body: Record<string, unknown>
   access: AssetWriteAccess
 }
 
 type AssetRemoveInput = {
-  kind: Extract<AssetKind, 'location' | 'prop'>
+  kind: Extract<AssetKind, 'location' | 'prop' | 'style'>
   assetId: string
   access: AssetWriteAccess
 }
@@ -937,6 +942,19 @@ export async function updateAsset(input: AssetUpdateInput) {
 }
 
 async function updateGlobalAsset(input: AssetUpdateInput) {
+  if (input.kind === 'style') {
+    return updateGlobalStyleAsset({
+      assetId: input.assetId,
+      userId: input.access.userId,
+      name: input.body.name,
+      description: input.body.description,
+      positivePrompt: input.body.positivePrompt,
+      negativePrompt: input.body.negativePrompt,
+      tags: input.body.tags,
+      folderId: input.body.folderId,
+      previewMediaId: input.body.previewMediaId,
+    })
+  }
   if (input.kind === 'character') {
     const updateData: Record<string, unknown> = {}
     if (input.body.name !== undefined) updateData.name = normalizeString(input.body.name)
@@ -1004,6 +1022,9 @@ async function updateGlobalAsset(input: AssetUpdateInput) {
 }
 
 async function updateProjectAsset(input: AssetUpdateInput) {
+  if (input.kind === 'style') {
+    throw new ApiError('INVALID_PARAMS')
+  }
   if (input.kind === 'character') {
     const updateData: Record<string, unknown> = {}
     if (input.body.name !== undefined) updateData.name = normalizeString(input.body.name)
@@ -1142,6 +1163,22 @@ async function updateProjectAssetVariant(input: AssetVariantUpdateInput) {
 }
 
 export async function createAsset(input: AssetCreateInput) {
+  if (input.kind === 'style') {
+    if (input.access.scope !== 'global') {
+      throw new ApiError('INVALID_PARAMS')
+    }
+    return createGlobalStyleAsset({
+      userId: input.access.userId,
+      name: input.body.name,
+      description: input.body.description,
+      positivePrompt: input.body.positivePrompt,
+      negativePrompt: input.body.negativePrompt,
+      tags: input.body.tags,
+      folderId: input.body.folderId,
+      previewMediaId: input.body.previewMediaId,
+    })
+  }
+
   const name = normalizeString(input.body.name)
   const kind = requireLocationBackedKind(input.kind)
   const summary = normalizeString(input.body.summary || input.body.description)
@@ -1183,6 +1220,16 @@ export async function createAsset(input: AssetCreateInput) {
 }
 
 export async function removeAsset(input: AssetRemoveInput) {
+  if (input.kind === 'style') {
+    if (input.access.scope !== 'global') {
+      throw new ApiError('INVALID_PARAMS')
+    }
+    return deleteGlobalStyleAsset({
+      assetId: input.assetId,
+      userId: input.access.userId,
+    })
+  }
+
   requireLocationBackedKind(input.kind)
   if (input.access.scope === 'global') {
     await deleteGlobalLocationBackedAsset(input.assetId)

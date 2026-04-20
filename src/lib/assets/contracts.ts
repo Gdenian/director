@@ -2,7 +2,7 @@ import type { MediaRef } from '@/types/project'
 
 export type AssetScope = 'global' | 'project'
 
-export type AssetKind = 'character' | 'location' | 'prop' | 'voice'
+export type AssetKind = 'character' | 'location' | 'prop' | 'voice' | 'style'
 
 export type AssetFamily = 'visual' | 'audio'
 
@@ -117,6 +117,19 @@ export type VoiceAssetSummary = BaseAssetSummary & {
   }
 }
 
+export type StyleAssetSummary = BaseAssetSummary & {
+  kind: 'style'
+  family: 'visual'
+  description: string | null
+  positivePrompt: string
+  negativePrompt: string | null
+  tags: string[]
+  source: 'user' | 'system'
+  legacyKey: string | null
+  readOnly: boolean
+  previewMedia: MediaRef | null
+}
+
 export type VisualAssetSummary = CharacterAssetSummary | LocationAssetSummary | PropAssetSummary
 
 export type AssetSummary =
@@ -124,6 +137,7 @@ export type AssetSummary =
   | LocationAssetSummary
   | PropAssetSummary
   | VoiceAssetSummary
+  | StyleAssetSummary
 
 export type AssetQueryInput = {
   scope: AssetScope

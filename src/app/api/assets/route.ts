@@ -10,7 +10,7 @@ function isAssetScope(value: string | null): value is AssetScope {
 }
 
 function isAssetKind(value: string | null): value is AssetKind {
-  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice'
+  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice' || value === 'style'
 }
 
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -58,14 +58,18 @@ type CreateAssetBody = {
   projectId?: string
 } & Record<string, unknown>
 
-function isCreatableKind(value: AssetKind | undefined): value is Extract<AssetKind, 'location' | 'prop'> {
-  return value === 'location' || value === 'prop'
+function isCreatableKind(value: AssetKind | undefined): value is Extract<AssetKind, 'location' | 'prop' | 'style'> {
+  return value === 'location' || value === 'prop' || value === 'style'
 }
 
 export const POST = apiHandler(async (request: NextRequest) => {
   const body = await request.json() as CreateAssetBody
   if (!body.scope || !isCreatableKind(body.kind)) {
     throw new ApiError('INVALID_PARAMS')
+  }
+
+  if (body.kind === 'style' && body.scope !== 'global') {
+    throw new ApiError('INVALID_PARAMS', { details: 'style assets are global-only' })
   }
 
   if (body.scope === 'project') {

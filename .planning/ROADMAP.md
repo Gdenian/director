@@ -11,7 +11,7 @@
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: 数据模型与兼容契约** - 风格资产具备持久化模型、项目引用、系统风格来源和统一解析 fallback。
-- [ ] **Phase 2: 资产后端与权限边界** - style 进入统一资产合约、读取服务、CRUD API、媒体响应和权限规则。
+- [x] **Phase 2: 资产后端与权限边界** - style 进入统一资产合约、读取服务、CRUD API、媒体响应和权限规则。
 - [ ] **Phase 3: 资产中心风格管理 UI** - 用户可以在资产中心查看、创建、编辑、删除、复制和整理画面风格。
 - [ ] **Phase 4: 项目默认风格选择与展示** - 用户可以在项目创建和工作区配置中选择风格资产并看到当前解析结果。
 - [ ] **Phase 5: 生成链路统一接入与任务快照** - 角色、场景、道具、分镜、变体和视频相关生成统一使用风格解析结果。
@@ -46,8 +46,8 @@ Plans:
   4. React Query 查询和 mutation 可以获取、创建、更新、删除并失效 style 资产缓存，且不破坏现有角色、场景、道具和音色资产类型。
 **Plans**: 2 plans
 Plans:
-- [ ] 02-01-PLAN.md — 将 style 接入统一资产 contract、registry、read service 和媒体安全 mapper。
-- [ ] 02-02-PLAN.md — 将 style CRUD、权限规则和 React Query actions 接入统一 `/api/assets`。
+- [x] 02-01-PLAN.md — 将 style 接入统一资产 contract、registry、read service 和媒体安全 mapper。
+- [x] 02-02-PLAN.md — 将 style CRUD、权限规则和 React Query actions 接入统一 `/api/assets`。
 **UI hint**: no
 
 ### Phase 3: 资产中心风格管理 UI
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 数据模型与兼容契约 | 2/2 | Complete | 2026-04-18 |
-| 2. 资产后端与权限边界 | 0/2 | Ready to execute | - |
+| 2. 资产后端与权限边界 | 2/2 | Complete | 2026-04-20 |
 | 3. 资产中心风格管理 UI | 0/TBD | Not started | - |
 | 4. 项目默认风格选择与展示 | 0/TBD | Not started | - |
 | 5. 生成链路统一接入与任务快照 | 0/TBD | Not started | - |

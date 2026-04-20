@@ -79,6 +79,23 @@ const assetKindRegistryMap: Record<AssetKind, AssetKindRegistration> = {
       canCopyFromGlobal: true,
     },
   },
+  style: {
+    kind: 'style',
+    family: 'visual',
+    supportsMultipleVariants: false,
+    supportsVoiceBinding: false,
+    editorSchema: 'style',
+    promptAssembler: 'style',
+    capabilities: {
+      canGenerate: false,
+      canSelectRender: false,
+      canRevertRender: false,
+      canModifyRender: false,
+      canUploadRender: false,
+      canBindVoice: false,
+      canCopyFromGlobal: false,
+    },
+  },
 }
 
 export const assetKindRegistry = Object.freeze(assetKindRegistryMap)

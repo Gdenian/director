@@ -2,6 +2,7 @@ import {
   createIdleTaskState,
   type AssetRenderSummary,
   type AssetSummary,
+  type StyleAssetSummary,
   type AssetTaskRef,
   type AssetVariantSummary,
   type CharacterAssetSummary,
@@ -10,6 +11,7 @@ import {
   type VoiceAssetSummary,
 } from '@/lib/assets/contracts'
 import { getAssetKindRegistration } from '@/lib/assets/kinds/registry'
+import type { LegacySystemStyle } from '@/lib/style/types'
 import type { MediaRef } from '@/types/project'
 
 type CharacterAppearanceRecord = {
@@ -119,6 +121,33 @@ type GlobalVoiceRecord = {
   folderId: string | null
 }
 
+type StylePreviewMediaRecord = {
+  id: string
+  publicId: string
+  mimeType: string | null
+  sizeBytes: bigint | number | null
+  width: number | null
+  height: number | null
+  durationMs: number | null
+  storageKey?: string | null
+  sha256?: string | null
+  updatedAt?: string | Date | null
+}
+
+type GlobalStyleRecord = {
+  id: string
+  userId?: string | null
+  name: string
+  description: string | null
+  positivePrompt: string
+  negativePrompt: string | null
+  tags: string | null
+  source: string
+  legacyKey: string | null
+  folderId: string | null
+  previewMedia?: StylePreviewMediaRecord | null
+}
+
 function createRender(params: {
   id: string
   index: number
@@ -155,6 +184,34 @@ function createVariant(params: {
     },
     taskRefs: params.taskRefs,
     taskState: createIdleTaskState(),
+  }
+}
+
+export function normalizeStyleTags(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+  } catch {
+    return []
+  }
+}
+
+function mapStylePreviewMedia(media: StylePreviewMediaRecord | null | undefined): MediaRef | null {
+  if (!media) return null
+  return {
+    id: media.id,
+    publicId: media.publicId,
+    url: `/m/${encodeURIComponent(media.publicId)}`,
+    mimeType: media.mimeType,
+    sizeBytes: media.sizeBytes == null ? null : Number(media.sizeBytes),
+    width: media.width,
+    height: media.height,
+    durationMs: media.durationMs,
   }
 }
 
@@ -445,6 +502,53 @@ export function mapGlobalVoiceToAsset(voice: GlobalVoiceRecord): VoiceAssetSumma
       gender: voice.gender,
       language: voice.language,
     },
+  }
+}
+
+export function mapGlobalStyleToAsset(style: GlobalStyleRecord): StyleAssetSummary {
+  const registration = getAssetKindRegistration('style')
+  const source = style.source === 'system' ? 'system' : 'user'
+  return {
+    id: style.id,
+    scope: 'global',
+    kind: 'style',
+    family: 'visual',
+    name: style.name,
+    folderId: style.folderId,
+    capabilities: registration.capabilities,
+    taskRefs: [],
+    taskState: createIdleTaskState(),
+    description: style.description,
+    positivePrompt: style.positivePrompt,
+    negativePrompt: style.negativePrompt,
+    tags: normalizeStyleTags(style.tags),
+    source,
+    legacyKey: style.legacyKey,
+    readOnly: source === 'system',
+    previewMedia: mapStylePreviewMedia(style.previewMedia),
+  }
+}
+
+export function mapLegacySystemStyleToAsset(style: LegacySystemStyle): StyleAssetSummary {
+  const registration = getAssetKindRegistration('style')
+  return {
+    id: style.id,
+    scope: 'global',
+    kind: 'style',
+    family: 'visual',
+    name: style.name,
+    folderId: null,
+    capabilities: registration.capabilities,
+    taskRefs: [],
+    taskState: createIdleTaskState(),
+    description: null,
+    positivePrompt: style.positivePrompt,
+    negativePrompt: style.negativePrompt,
+    tags: [],
+    source: 'system',
+    legacyKey: style.legacyKey,
+    readOnly: true,
+    previewMedia: null,
   }
 }
 
