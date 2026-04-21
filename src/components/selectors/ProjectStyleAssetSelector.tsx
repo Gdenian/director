@@ -9,7 +9,7 @@ import type { ProjectResolvedStyleSummary } from '@/types/project'
 interface ProjectStyleAssetSelectorProps {
   value: string | null | undefined
   resolvedStyle?: ProjectResolvedStyleSummary | null
-  onChange: (value: string) => void
+  onChange: (value: string | null) => void
   texts: {
     assetMode: string
     compatibilityMode: string
@@ -79,15 +79,12 @@ export default function ProjectStyleAssetSelector({
         <select
           value={selectValue}
           onChange={(event) => {
-            if (!event.target.value) return
-            onChange(event.target.value)
+            onChange(event.target.value || null)
           }}
           disabled={disabled}
           className="glass-input-base h-10 w-full appearance-none pr-8 pl-3 text-[13px] font-medium text-[var(--glass-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {!value ? (
-            <option value="">{legacyOptionLabel}</option>
-          ) : null}
+          <option value="">{legacyOptionLabel}</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

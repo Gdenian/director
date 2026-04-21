@@ -32,7 +32,7 @@ export interface WorkspaceStageRuntimeValue {
   onNovelTextChange: (value: string) => Promise<void>
   onVideoRatioChange: (value: string) => Promise<void>
   onArtStyleChange: (value: string) => Promise<void>
-  onStyleAssetChange: (value: string) => Promise<void>
+  onStyleAssetChange: (value: string | null) => Promise<void>
   onRunStoryToScript: () => Promise<void>
   onClipUpdate: (clipId: string, data: unknown) => Promise<void>
   onOpenAssetLibrary: () => void

@@ -234,4 +234,37 @@ describe('api specific - project data style summary', () => {
     expect(body.project.novelPromotionData.resolvedStyle.assetSource).toBeNull()
     expect(body.project.novelPromotionData.resolvedStyle.styleAssetId).toBeNull()
   })
+
+  it('prefers locale query param over accept-language when resolving compatibility style labels', async () => {
+    prismaMock.novelPromotionProject.findUnique.mockResolvedValueOnce({
+      id: 'np-1',
+      projectId: 'project-1',
+      artStyle: 'american-comic',
+      artStylePrompt: null,
+      styleAssetId: null,
+      episodes: [],
+      characters: [],
+      locations: [],
+    })
+    prismaMock.novelPromotionProject.findFirst.mockResolvedValueOnce({
+      styleAssetId: null,
+      artStylePrompt: null,
+      artStyle: 'american-comic',
+    })
+
+    const mod = await import('@/app/api/projects/[projectId]/data/route')
+    const req = buildMockRequest({
+      path: '/api/projects/project-1/data?locale=en',
+      method: 'GET',
+      headers: {
+        'accept-language': 'zh-CN,zh;q=0.9',
+      },
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.project.novelPromotionData.resolvedStyle.label).toBe('Comic Style')
+  })
 })

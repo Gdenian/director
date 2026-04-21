@@ -148,6 +148,11 @@ const prismaMock = vi.hoisted(() => ({
         { name: 'Narrator', customVoiceUrl: 'https://voice.example/narrator.mp3' },
       ],
     })),
+    findFirst: vi.fn(async () => ({
+      styleAssetId: null,
+      artStylePrompt: null,
+      artStyle: 'american-comic',
+    })),
   },
   novelPromotionEpisode: {
     findFirst: vi.fn(async () => ({

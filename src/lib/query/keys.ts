@@ -20,10 +20,12 @@ export const queryKeys = {
             projectId?: string | null
             folderId?: string | null
             kind?: 'character' | 'location' | 'voice' | 'prop' | 'style' | null
+            locale?: 'zh' | 'en' | null
         }) => [
             ...unifiedAssetsRoot(params.scope, params.projectId),
             params.folderId ?? '',
             params.kind ?? '',
+            params.locale ?? '',
         ] as const,
     },
 
@@ -103,7 +105,8 @@ export const queryKeys = {
     /**
      * 项目基础数据
      */
-    projectData: (projectId: string) => ['project-data', projectId] as const,
+    projectData: (projectId: string, locale?: 'zh' | 'en' | null) =>
+        locale ? ['project-data', projectId, locale] as const : ['project-data', projectId] as const,
 
     /**
      * 剧集详情数据

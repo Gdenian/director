@@ -149,6 +149,29 @@ describe('api specific - novel promotion project art style validation', () => {
     )
   })
 
+  it('accepts styleAssetId null and clears the project style asset selection', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1',
+      method: 'PATCH',
+      body: {
+        styleAssetId: null,
+      },
+    })
+
+    const res = await mod.PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(prismaMock.globalStyle.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.novelPromotionProject.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          styleAssetId: null,
+        }),
+      }),
+    )
+  })
+
   it('rejects an unreadable styleAssetId with invalid params and does not persist', async () => {
     prismaMock.globalStyle.findFirst.mockResolvedValueOnce(null)
 

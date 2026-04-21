@@ -63,6 +63,7 @@ export default async function LocaleLayout({
                 )}
             </head>
             <body
+                suppressHydrationWarning
                 className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
             >
                 <NextIntlClientProvider messages={messages}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
 import { queryKeys } from '../keys'
 import { resolveTaskErrorMessage } from '@/lib/task/error-message'
 import type { Project, MediaRef } from '@/types/project'
@@ -17,11 +18,13 @@ interface ProjectDataResponse {
  * 替代原有的 useProject hook
  */
 export function useProjectData(projectId: string | null) {
+    const locale = useLocale() === 'en' ? 'en' : 'zh'
+
     return useQuery({
-        queryKey: queryKeys.projectData(projectId || ''),
+        queryKey: queryKeys.projectData(projectId || '', locale),
         queryFn: async () => {
             if (!projectId) throw new Error('Project ID is required')
-            const res = await apiFetch(`/api/projects/${projectId}/data`)
+            const res = await apiFetch(`/api/projects/${projectId}/data?locale=${encodeURIComponent(locale)}`)
             if (!res.ok) {
                 const error = await res.json()
                 throw new Error(resolveTaskErrorMessage(error, 'Failed to load project'))

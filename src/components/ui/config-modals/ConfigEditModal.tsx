@@ -56,7 +56,7 @@ interface SettingsModalProps {
     videoRatio?: string
     capabilityOverrides?: CapabilitySelections
     ttsRate?: string
-    onStyleAssetChange?: (value: string) => void
+    onStyleAssetChange?: (value: string | null) => void
     onAnalysisModelChange?: (value: string) => void
     onCharacterModelChange?: (value: string) => void
     onLocationModelChange?: (value: string) => void
@@ -324,7 +324,7 @@ export function SettingsModal({
         setTimeout(() => setSaveStatus('idle'), 2000)
     }
 
-    const handleChange = <T extends string>(callback?: (value: T) => void) => (value: T) => {
+    const handleChange = <T extends string | null>(callback?: (value: T) => void) => (value: T) => {
         callback?.(value)
         showSaved()
     }

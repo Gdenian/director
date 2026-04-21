@@ -5,10 +5,15 @@ import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
 import { resolveProjectStyleSummary } from '@/lib/style'
+import { locales, type Locale } from '@/i18n/routing'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 
 function readAssetKind(value: Record<string, unknown>): string {
   return typeof value.assetKind === 'string' ? value.assetKind : 'location'
+}
+
+function isLocale(value: string | null): value is Locale {
+  return typeof value === 'string' && locales.includes(value as Locale)
 }
 
 /**
@@ -20,6 +25,7 @@ export const GET = apiHandler(async (
   context: { params: Promise<{ projectId: string }> }
 ) => {
   const { projectId } = await context.params
+  const localeParam = request.nextUrl.searchParams.get('locale')
 
   // 🔐 统一权限验证
   const authResult = await requireUserAuth()
@@ -80,7 +86,7 @@ export const GET = apiHandler(async (
   const resolvedStyle = await resolveProjectStyleSummary({
     userId: session.user.id,
     projectId,
-    locale: resolveTaskLocale(request) ?? 'zh',
+    locale: isLocale(localeParam) ? localeParam : (resolveTaskLocale(request) ?? 'zh'),
   })
   const filteredNovelPromotionData = {
     ...novelPromotionDataWithSignedUrls,

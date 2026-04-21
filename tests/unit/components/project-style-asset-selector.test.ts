@@ -93,7 +93,7 @@ describe('ProjectStyleAssetSelector', () => {
 
     expect(html).toContain('风格资产')
     expect(html).toContain('当前风格资产')
+    expect(html).toContain('兼容结果：当前风格资产')
     expect(html).toContain('胶片青春')
-    expect(html).not.toContain('不使用风格资产')
   })
 })

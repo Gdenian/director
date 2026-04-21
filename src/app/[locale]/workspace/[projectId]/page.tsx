@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api-fetch'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
@@ -56,6 +56,7 @@ export default function ProjectDetailPage() {
   const projectId = params.projectId
   const t = useTranslations('workspaceDetail')
   const tc = useTranslations('common')
+  const locale = useLocale() === 'en' ? 'en' : 'zh'
 
   // 从URL读取参数
   const urlStage = searchParams.get('stage') as Stage | null
@@ -231,7 +232,7 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) })
 
       // 刷新后重新获取最新的剧集列表
-      const res = await apiFetch(`/api/projects/${projectId}/data`)
+      const res = await apiFetch(`/api/projects/${projectId}/data?locale=${encodeURIComponent(locale)}`)
       const data = await res.json()
       // API 返回结构是 { project: { novelPromotionData: { episodes: [...] } } }
       const newEpisodes = data?.project?.novelPromotionData?.episodes || []

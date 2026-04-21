@@ -133,7 +133,11 @@ function validateArtStyleField(value: unknown): string {
   return artStyle
 }
 
-async function validateStyleAssetIdField(userId: string, value: unknown): Promise<string> {
+async function validateStyleAssetIdField(userId: string, value: unknown): Promise<string | null> {
+  if (value === null) {
+    return null
+  }
+
   if (typeof value !== 'string') {
     throw new ApiError('INVALID_PARAMS', {
       code: 'INVALID_STYLE_ASSET_ID',

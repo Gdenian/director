@@ -78,6 +78,7 @@ describe('api specific - unified assets routes', () => {
       projectId: null,
       folderId: null,
       kind: 'character',
+      locale: null,
     }, {
       userId: 'user-1',
     })
@@ -102,6 +103,7 @@ describe('api specific - unified assets routes', () => {
       projectId: 'project-1',
       folderId: null,
       kind: 'prop',
+      locale: null,
     })
     expect(body).toEqual({ assets: [{ id: 'prop-1', kind: 'prop' }] })
   })
@@ -124,6 +126,31 @@ describe('api specific - unified assets routes', () => {
       projectId: null,
       folderId: null,
       kind: 'style',
+      locale: null,
+    }, {
+      userId: 'user-1',
+    })
+    expect(body).toEqual({ assets: [{ id: 'style-1', kind: 'style' }] })
+  })
+
+  it('GET /api/assets forwards locale when reading global style assets', async () => {
+    readAssetsMock.mockResolvedValue([{ id: 'style-1', kind: 'style' }])
+    const mod = await import('@/app/api/assets/route')
+    const req = buildMockRequest({
+      path: '/api/assets?scope=global&kind=style&locale=en',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(readAssetsMock).toHaveBeenCalledWith({
+      scope: 'global',
+      projectId: null,
+      folderId: null,
+      kind: 'style',
+      locale: 'en',
     }, {
       userId: 'user-1',
     })

@@ -50,7 +50,7 @@ interface NovelInputStageProps {
   resolvedStyle?: ProjectResolvedStyleSummary | null
   onVideoRatioChange?: (value: string) => void
   onArtStyleChange?: (value: string) => void
-  onStyleAssetChange?: (value: string) => void
+  onStyleAssetChange?: (value: string | null) => void
 }
 
 export default function NovelInputStage({

@@ -173,8 +173,35 @@ export function serverError(message = 'Internal server error') {
 export async function getAuthSession(): Promise<AuthSession | null> {
     const internalSession = await getInternalTaskSession()
     if (internalSession) return internalSession
-    const session = await getServerSession(authOptions)
-    return session as AuthSession | null
+    const rawSession = await getServerSession(authOptions)
+    const sessionUser = rawSession && typeof rawSession === 'object' && 'user' in rawSession
+        ? rawSession.user as Record<string, unknown> | null
+        : null
+    const sessionUserId = typeof sessionUser?.id === 'string' ? sessionUser.id : null
+    if (!sessionUserId) {
+        return null
+    }
+
+    // 本地重置测试数据或账号被删除后，NextAuth 仍可能暂时返回悬空 session。
+    // 这里统一回收为未登录，避免后续写库时触发 userId 外键错误。
+    const user = await withPrismaRetry(() =>
+        prisma.user.findUnique({
+            where: { id: sessionUserId },
+            select: { id: true, name: true, email: true },
+        })
+    )
+
+    if (!user) {
+        return null
+    }
+
+    return {
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+        },
+    }
 }
 
 /**
