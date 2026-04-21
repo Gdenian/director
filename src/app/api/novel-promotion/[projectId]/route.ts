@@ -5,6 +5,7 @@ import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isArtStyleValue } from '@/lib/constants'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
+import { getLegacySystemStyleById } from '@/lib/style'
 import {
   parseModelKeyStrict,
   type CapabilitySelections,
@@ -148,6 +149,10 @@ async function validateStyleAssetIdField(userId: string, value: unknown): Promis
       field: 'styleAssetId',
       message: 'styleAssetId must reference a readable style asset',
     })
+  }
+
+  if (getLegacySystemStyleById(styleAssetId)) {
+    return styleAssetId
   }
 
   const styleAsset = await prisma.globalStyle.findFirst({

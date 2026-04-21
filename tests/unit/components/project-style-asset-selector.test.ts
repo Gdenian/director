@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import ProjectStyleAssetSelector from '@/components/selectors/ProjectStyleAssetSelector'
 
 const useAssetsMock = vi.fn()
+const useLocaleMock = vi.fn(() => 'en')
 const selectorTexts = {
   assetMode: '风格资产',
   compatibilityMode: '兼容结果',
@@ -15,6 +16,10 @@ const selectorTexts = {
 
 vi.mock('@/lib/query/hooks', () => ({
   useAssets: (...args: unknown[]) => useAssetsMock(...args),
+}))
+
+vi.mock('next-intl', () => ({
+  useLocale: () => useLocaleMock(),
 }))
 
 describe('ProjectStyleAssetSelector', () => {
@@ -51,7 +56,7 @@ describe('ProjectStyleAssetSelector', () => {
       }),
     )
 
-    expect(useAssetsMock).toHaveBeenCalledWith({ scope: 'global', kind: 'style' })
+    expect(useAssetsMock).toHaveBeenCalledWith({ scope: 'global', kind: 'style', locale: 'en' })
     expect(html).toContain('兼容结果')
     expect(html).toContain('写实电影感')
     expect(html).toContain('港风夜色')

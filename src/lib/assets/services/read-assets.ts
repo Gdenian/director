@@ -57,7 +57,11 @@ async function readProjectAssets(projectId: string): Promise<AssetSummary[]> {
   return [...projectCharacters, ...projectLocations, ...projectProps]
 }
 
-async function readGlobalAssets(input: { folderId?: string | null; userId: string }): Promise<AssetSummary[]> {
+async function readGlobalAssets(input: {
+  folderId?: string | null
+  userId: string
+  locale?: AssetQueryInput['locale']
+}): Promise<AssetSummary[]> {
   const folderFilter = input.folderId ? { folderId: input.folderId } : {}
   const where = {
     userId: input.userId,
@@ -90,6 +94,7 @@ async function readGlobalAssets(input: { folderId?: string | null; userId: strin
     listReadableGlobalStyleAssets({
       userId: input.userId,
       folderId: input.folderId,
+      locale: input.locale,
     }),
   ])
 
@@ -117,6 +122,7 @@ export async function readAssets(
     ? await readProjectAssets(assertProjectId(input.projectId))
     : await readGlobalAssets({
       folderId: input.folderId,
+      locale: input.locale,
       userId: assertUserId(access?.userId),
     })
   return filterMappedAssetsByKind(assets, input.kind as AssetKind | null | undefined)

@@ -4,6 +4,8 @@ import { isErrorResponse, requireProjectAuthLight, requireUserAuth } from '@/lib
 import { createAsset } from '@/lib/assets/services/asset-actions'
 import { readAssets } from '@/lib/assets/services/read-assets'
 import type { AssetKind, AssetScope } from '@/lib/assets/contracts'
+import { locales, type Locale } from '@/i18n/routing'
+import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 
 function isAssetScope(value: string | null): value is AssetScope {
   return value === 'global' || value === 'project'
@@ -13,12 +15,18 @@ function isAssetKind(value: string | null): value is AssetKind {
   return value === 'character' || value === 'location' || value === 'prop' || value === 'voice' || value === 'style'
 }
 
+function isLocale(value: string | null): value is Locale {
+  return typeof value === 'string' && locales.includes(value as Locale)
+}
+
 export const GET = apiHandler(async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams
   const scope = searchParams.get('scope')
   const projectId = searchParams.get('projectId')
   const folderId = searchParams.get('folderId')
   const kind = searchParams.get('kind')
+  const localeParam = searchParams.get('locale')
+  const locale = isLocale(localeParam) ? localeParam : resolveTaskLocale(request)
 
   if (!isAssetScope(scope)) {
     throw new ApiError('INVALID_PARAMS', { details: 'scope must be global or project' })
@@ -35,6 +43,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
       projectId,
       folderId,
       kind: isAssetKind(kind) ? kind : null,
+      locale,
     })
     return NextResponse.json({ assets })
   } else {
@@ -45,6 +54,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
       projectId,
       folderId,
       kind: isAssetKind(kind) ? kind : null,
+      locale,
     }, {
       userId: authResult.session.user.id,
     })

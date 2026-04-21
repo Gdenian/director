@@ -109,6 +109,27 @@ describe('resolveStyleContext', () => {
     })
   })
 
+  it('resolves a runtime system styleAssetId without querying prisma.globalStyle', async () => {
+    prismaMock.novelPromotionProject.findFirst.mockResolvedValue({
+      styleAssetId: 'system:american-comic',
+      artStylePrompt: null,
+      artStyle: 'realistic',
+    })
+
+    const result = await resolveStyleContext({
+      ...baseInput,
+      locale: 'en',
+    })
+
+    expect(result).toMatchObject({
+      source: 'style-asset',
+      styleAssetId: 'system:american-comic',
+      legacyKey: 'american-comic',
+      positivePrompt: getArtStylePrompt('american-comic', 'en'),
+    })
+    expect(prismaMock.globalStyle.findFirst).not.toHaveBeenCalled()
+  })
+
   it('falls back through project artStylePrompt, project artStyle, user-preference, and default', async () => {
     prismaMock.novelPromotionProject.findFirst.mockResolvedValueOnce({
       styleAssetId: null,

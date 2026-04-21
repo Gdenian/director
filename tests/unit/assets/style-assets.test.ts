@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/lib/api-errors'
+import { getArtStylePrompt } from '@/lib/constants'
 
 const prismaMock = vi.hoisted(() => ({
   globalStyle: {
@@ -64,6 +65,21 @@ describe('style assets service', () => {
     })
     expect(assets.some((asset) => asset.id === 'style-1')).toBe(true)
     expect(assets.some((asset) => asset.id === 'system:american-comic')).toBe(true)
+  })
+
+  it('localizes runtime system styles with the requested locale', async () => {
+    prismaMock.globalStyle.findMany.mockResolvedValue([])
+
+    const { listReadableGlobalStyleAssets } = await import('@/lib/assets/services/style-assets')
+    const assets = await listReadableGlobalStyleAssets({
+      userId: 'user-1',
+      locale: 'en',
+    })
+
+    expect(assets.find((asset) => asset.id === 'system:american-comic')?.name).toBe('Comic Style')
+    expect(assets.find((asset) => asset.id === 'system:american-comic')?.positivePrompt).toBe(
+      getArtStylePrompt('american-comic', 'en'),
+    )
   })
 
   it('omits runtime system styles when filtering by folder', async () => {

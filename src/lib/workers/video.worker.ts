@@ -108,7 +108,7 @@ async function generateVideoForPanel(
   if (!basePrompt) {
     throw new Error(`Panel ${panel.id} has no video prompt`)
   }
-  const prompt = style.positivePrompt ? `${basePrompt}\n画面风格：${style.positivePrompt}` : basePrompt
+  const prompt = style.positivePrompt ? `${basePrompt}\n${style.positivePrompt}` : basePrompt
 
   const sourceImageUrl = toSignedUrlIfCos(panel.imageUrl, 3600)
   if (!sourceImageUrl) {

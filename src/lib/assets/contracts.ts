@@ -1,4 +1,5 @@
 import type { MediaRef } from '@/types/project'
+import type { Locale } from '@/i18n/routing'
 
 export type AssetScope = 'global' | 'project'
 
@@ -144,6 +145,7 @@ export type AssetQueryInput = {
   projectId?: string | null
   folderId?: string | null
   kind?: AssetKind | null
+  locale?: Locale | null
 }
 
 export type ReadAssetsResponse = {

@@ -128,35 +128,22 @@ describe('api specific - novel promotion project art style validation', () => {
   })
 
   it('accepts a readable system styleAssetId and persists it', async () => {
-    prismaMock.globalStyle.findFirst.mockResolvedValueOnce({ id: 'style-system-1' })
-
     const mod = await import('@/app/api/novel-promotion/[projectId]/route')
     const req = buildMockRequest({
       path: '/api/novel-promotion/project-1',
       method: 'PATCH',
       body: {
-        styleAssetId: '  style-system-1  ',
+        styleAssetId: '  system:american-comic  ',
       },
     })
 
     const res = await mod.PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
     expect(res.status).toBe(200)
-    expect(prismaMock.globalStyle.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: 'style-system-1',
-        OR: [
-          { source: 'system' },
-          { userId: 'user-1' },
-        ],
-      },
-      select: {
-        id: true,
-      },
-    })
+    expect(prismaMock.globalStyle.findFirst).not.toHaveBeenCalled()
     expect(prismaMock.novelPromotionProject.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          styleAssetId: 'style-system-1',
+          styleAssetId: 'system:american-comic',
         }),
       }),
     )

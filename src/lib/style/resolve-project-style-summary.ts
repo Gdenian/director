@@ -1,10 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import type { MediaRef, ProjectResolvedStyleSummary } from '@/types/project'
+import { getLegacySystemStyleById } from './legacy-system-styles'
 import { resolveStyleContext } from './resolve-style-context'
+import type { StyleLocale } from './types'
 
 type ResolveProjectStyleSummaryInput = {
   userId: string
   projectId: string
+  locale?: StyleLocale
 }
 
 type PreviewMediaRecord = {
@@ -37,6 +40,7 @@ export async function resolveProjectStyleSummary(
   const resolvedStyle = await resolveStyleContext({
     userId: input.userId,
     projectId: input.projectId,
+    locale: input.locale,
   })
 
   if (resolvedStyle.source !== 'style-asset' || !resolvedStyle.styleAssetId) {
@@ -45,6 +49,16 @@ export async function resolveProjectStyleSummary(
       label: resolvedStyle.label,
       source: resolvedStyle.source,
       assetSource: null,
+      previewMedia: null,
+    }
+  }
+
+  if (getLegacySystemStyleById(resolvedStyle.styleAssetId, input.locale)) {
+    return {
+      styleAssetId: resolvedStyle.styleAssetId,
+      label: resolvedStyle.label,
+      source: resolvedStyle.source,
+      assetSource: 'system',
       previewMedia: null,
     }
   }

@@ -276,6 +276,14 @@ describe('worker video processor behavior', () => {
       expect.anything(),
       expect.objectContaining({
         options: expect.objectContaining({
+          prompt: expect.not.stringContaining('画面风格：'),
+        }),
+      }),
+    )
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
           prompt: expect.not.stringContaining('cinematic gold and black'),
         }),
       }),

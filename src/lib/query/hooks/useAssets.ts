@@ -142,6 +142,9 @@ function buildQueryPath(input: AssetQueryInput): string {
   if (input.kind) {
     searchParams.set('kind', input.kind)
   }
+  if (input.locale) {
+    searchParams.set('locale', input.locale)
+  }
   return `/api/assets?${searchParams.toString()}`
 }
 

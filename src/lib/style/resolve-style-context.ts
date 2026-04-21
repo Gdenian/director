@@ -7,7 +7,7 @@ import type {
   StylePrismaClient,
   StyleResolutionSource,
 } from './types'
-import { getLegacySystemStyle } from './legacy-system-styles'
+import { getLegacySystemStyle, getLegacySystemStyleById } from './legacy-system-styles'
 import { normalizeStylePromptSnapshot } from './snapshot'
 
 const DEFAULT_LEGACY_STYLE = 'american-comic'
@@ -90,6 +90,20 @@ export async function resolveStyleContext(input: ResolveStyleContextInput): Prom
     : null
 
   if (project?.styleAssetId) {
+    const legacySystemStyle = getLegacySystemStyleById(project.styleAssetId, locale)
+    if (legacySystemStyle) {
+      return {
+        source: 'style-asset',
+        fallbackReason: 'none',
+        styleAssetId: legacySystemStyle.id,
+        legacyKey: legacySystemStyle.legacyKey,
+        label: legacySystemStyle.label,
+        positivePrompt: legacySystemStyle.positivePrompt,
+        negativePrompt: legacySystemStyle.negativePrompt,
+        sourceUpdatedAt: null,
+      }
+    }
+
     const styleAsset = await prismaClient.globalStyle.findFirst({
       where: {
         id: project.styleAssetId,

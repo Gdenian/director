@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api-fetch'
 import JSZip from 'jszip'
 
 import { useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
 import { FolderSidebar } from './components/FolderSidebar'
@@ -32,6 +32,7 @@ import type { StyleAssetSummary } from '@/lib/assets/contracts'
 
 export default function AssetHubPage() {
     const t = useTranslations('assetHub')
+    const locale = useLocale() === 'en' ? 'en' : 'zh'
     const queryClient = useQueryClient()
     const { count: characterGenerationCount } = useImageGenerationCount('character')
     const { count: locationGenerationCount } = useImageGenerationCount('location')
@@ -44,6 +45,7 @@ export default function AssetHubPage() {
     const { data: assets = [], isLoading: assetsLoading } = useAssets({
         scope: 'global',
         folderId: selectedFolderId,
+        locale,
     })
     const characterActions = useAssetActions({ scope: 'global', kind: 'character' })
     const locationActions = useAssetActions({ scope: 'global', kind: 'location' })

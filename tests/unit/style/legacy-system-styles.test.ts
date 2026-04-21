@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ART_STYLES, getArtStylePrompt } from '@/lib/constants'
-import { getLegacySystemStyle, listLegacySystemStyles } from '@/lib/style'
+import { getLegacySystemStyle, getLegacySystemStyleById, listLegacySystemStyles } from '@/lib/style'
 
 describe('legacy system styles', () => {
   it('projects every ART_STYLES entry as a read-only system style', () => {
@@ -36,7 +36,16 @@ describe('legacy system styles', () => {
       negativePrompt: null,
       readOnly: true,
     })
+    expect(enStyle?.label).toBe('Comic Style')
     expect(enStyle?.positivePrompt).toBe(getArtStylePrompt('american-comic', 'en'))
+  })
+
+  it('resolves runtime system asset ids back to localized system styles', () => {
+    expect(getLegacySystemStyleById('system:american-comic', 'en')).toMatchObject({
+      id: 'system:american-comic',
+      label: 'Comic Style',
+      positivePrompt: getArtStylePrompt('american-comic', 'en'),
+    })
   })
 
   it('returns null for unknown legacy keys', () => {

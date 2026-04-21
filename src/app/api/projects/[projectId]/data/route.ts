@@ -5,6 +5,7 @@ import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
 import { resolveProjectStyleSummary } from '@/lib/style'
+import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 
 function readAssetKind(value: Record<string, unknown>): string {
   return typeof value.assetKind === 'string' ? value.assetKind : 'location'
@@ -79,6 +80,7 @@ export const GET = apiHandler(async (
   const resolvedStyle = await resolveProjectStyleSummary({
     userId: session.user.id,
     projectId,
+    locale: resolveTaskLocale(request) ?? 'zh',
   })
   const filteredNovelPromotionData = {
     ...novelPromotionDataWithSignedUrls,

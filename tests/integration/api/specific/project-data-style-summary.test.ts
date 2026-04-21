@@ -161,4 +161,77 @@ describe('api specific - project data style summary', () => {
     })
     expect(prismaMock.globalStyle.findFirst).not.toHaveBeenCalled()
   })
+
+  it('returns system assetSource for runtime system style ids without querying prisma.globalStyle', async () => {
+    prismaMock.novelPromotionProject.findUnique.mockResolvedValueOnce({
+      id: 'np-1',
+      projectId: 'project-1',
+      artStyle: 'american-comic',
+      artStylePrompt: null,
+      styleAssetId: 'system:american-comic',
+      episodes: [],
+      characters: [],
+      locations: [],
+    })
+    prismaMock.novelPromotionProject.findFirst.mockResolvedValueOnce({
+      styleAssetId: 'system:american-comic',
+      artStylePrompt: null,
+      artStyle: 'american-comic',
+    })
+
+    const mod = await import('@/app/api/projects/[projectId]/data/route')
+    const req = buildMockRequest({
+      path: '/api/projects/project-1/data',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.project.novelPromotionData.resolvedStyle).toEqual({
+      styleAssetId: 'system:american-comic',
+      label: '漫画风',
+      source: 'style-asset',
+      assetSource: 'system',
+      previewMedia: null,
+    })
+    expect(prismaMock.globalStyle.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('localizes compatibility style labels with the request locale', async () => {
+    prismaMock.novelPromotionProject.findUnique.mockResolvedValueOnce({
+      id: 'np-1',
+      projectId: 'project-1',
+      artStyle: 'american-comic',
+      artStylePrompt: null,
+      styleAssetId: null,
+      episodes: [],
+      characters: [],
+      locations: [],
+    })
+    prismaMock.novelPromotionProject.findFirst.mockResolvedValueOnce({
+      styleAssetId: null,
+      artStylePrompt: null,
+      artStyle: 'american-comic',
+    })
+
+    const mod = await import('@/app/api/projects/[projectId]/data/route')
+    const req = buildMockRequest({
+      path: '/api/projects/project-1/data',
+      method: 'GET',
+      headers: {
+        'accept-language': 'en-US,en;q=0.9',
+      },
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.project.novelPromotionData.resolvedStyle.label).toBe('Comic Style')
+    expect(body.project.novelPromotionData.resolvedStyle.source).toBe('project-art-style')
+    expect(body.project.novelPromotionData.resolvedStyle.assetSource).toBeNull()
+    expect(body.project.novelPromotionData.resolvedStyle.styleAssetId).toBeNull()
+  })
 })

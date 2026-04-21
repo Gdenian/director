@@ -36,6 +36,7 @@ function normalizeTagList(value: unknown): string[] {
 export async function listReadableGlobalStyleAssets(input: {
   userId: string
   folderId?: string | null
+  locale?: 'zh' | 'en' | null
 }) {
   const styles = await prisma.globalStyle.findMany({
     where: {
@@ -58,7 +59,7 @@ export async function listReadableGlobalStyleAssets(input: {
     return userStyles
   }
 
-  const systemStyles = listLegacySystemStyles('zh').map(mapLegacySystemStyleToAsset)
+  const systemStyles = listLegacySystemStyles(input.locale === 'en' ? 'en' : 'zh').map(mapLegacySystemStyleToAsset)
   return [...userStyles, ...systemStyles]
 }
 

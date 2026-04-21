@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useLocale } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import { useAssets } from '@/lib/query/hooks'
 import type { ProjectResolvedStyleSummary } from '@/types/project'
@@ -41,9 +42,11 @@ export default function ProjectStyleAssetSelector({
   disabled = false,
   className,
 }: ProjectStyleAssetSelectorProps) {
+  const locale = useLocale() === 'en' ? 'en' : 'zh'
   const { data: assets = [], isLoading } = useAssets({
     scope: 'global',
     kind: 'style',
+    locale,
   })
 
   const options = useMemo<StyleOption[]>(() => {
