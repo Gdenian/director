@@ -5,6 +5,7 @@ import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isArtStyleValue } from '@/lib/constants'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
+import { getLegacySystemStyleById } from '@/lib/style'
 import {
   parseModelKeyStrict,
   type CapabilitySelections,
@@ -130,6 +131,52 @@ function validateArtStyleField(value: unknown): string {
     })
   }
   return artStyle
+}
+
+async function validateStyleAssetIdField(userId: string, value: unknown): Promise<string> {
+  if (typeof value !== 'string') {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_STYLE_ASSET_ID',
+      field: 'styleAssetId',
+      message: 'styleAssetId must reference a readable style asset',
+    })
+  }
+
+  const styleAssetId = value.trim()
+  if (!styleAssetId) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_STYLE_ASSET_ID',
+      field: 'styleAssetId',
+      message: 'styleAssetId must reference a readable style asset',
+    })
+  }
+
+  if (getLegacySystemStyleById(styleAssetId)) {
+    return styleAssetId
+  }
+
+  const styleAsset = await prisma.globalStyle.findFirst({
+    where: {
+      id: styleAssetId,
+      OR: [
+        { source: 'system' },
+        { userId },
+      ],
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  if (!styleAsset) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_STYLE_ASSET_ID',
+      field: 'styleAssetId',
+      message: 'styleAssetId must reference a readable style asset',
+    })
+  }
+
+  return styleAssetId
 }
 
 function getNextProjectModelMap(
@@ -293,7 +340,7 @@ export const PATCH = apiHandler(async (
 
   const allowedProjectFields = [
     'analysisModel', 'characterModel', 'locationModel', 'storyboardModel',
-    'editModel', 'videoModel', 'audioModel', 'videoRatio', 'artStyle',
+    'editModel', 'videoModel', 'audioModel', 'videoRatio', 'artStyle', 'styleAssetId',
     'ttsRate', 'lipSyncEnabled', 'lipSyncMode', 'capabilityOverrides',
   ] as const
 
@@ -307,6 +354,11 @@ export const PATCH = apiHandler(async (
 
     if (field === 'artStyle') {
       updateData[field] = validateArtStyleField(body[field])
+      continue
+    }
+
+    if (field === 'styleAssetId') {
+      updateData[field] = await validateStyleAssetIdField(session.user.id, body[field])
       continue
     }
 

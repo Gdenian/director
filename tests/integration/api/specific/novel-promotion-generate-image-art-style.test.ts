@@ -49,11 +49,16 @@ const billingMock = vi.hoisted(() => ({
   buildDefaultTaskBillingInfo: vi.fn(() => ({ billable: false })),
 }))
 
+const styleTaskPayloadMock = vi.hoisted(() => ({
+  buildProjectStyleTaskPayload: vi.fn(),
+}))
+
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/task/submitter', () => ({ submitTask: submitTaskMock }))
 vi.mock('@/lib/config-service', () => configServiceMock)
 vi.mock('@/lib/task/has-output', () => hasOutputMock)
 vi.mock('@/lib/billing', () => billingMock)
+vi.mock('@/lib/style', () => styleTaskPayloadMock)
 vi.mock('@/lib/task/resolve-locale', () => ({
   resolveRequiredTaskLocale: vi.fn(() => 'zh'),
 }))
@@ -61,6 +66,31 @@ vi.mock('@/lib/task/resolve-locale', () => ({
 describe('api specific - novel promotion generate image art style', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    styleTaskPayloadMock.buildProjectStyleTaskPayload.mockResolvedValue({
+      styleContext: {
+        source: 'style-asset',
+        fallbackReason: 'none',
+        styleAssetId: 'style-1',
+        legacyKey: null,
+        label: '电影黑金',
+        positivePrompt: 'cinematic gold and black',
+        negativePrompt: 'no blur',
+        sourceUpdatedAt: '2026-04-20T10:00:00.000Z',
+      },
+      stylePromptSnapshot: {
+        version: 1,
+        source: 'style-asset',
+        fallbackReason: 'none',
+        styleAssetId: 'style-1',
+        legacyKey: null,
+        label: '电影黑金',
+        positivePrompt: 'cinematic gold and black',
+        negativePrompt: 'no blur',
+        sourceUpdatedAt: '2026-04-20T10:00:00.000Z',
+        capturedAt: '2026-04-20T10:01:00.000Z',
+      },
+      legacyArtStyle: null,
+    })
   })
 
   it('accepts valid artStyle and forwards it into task payload', async () => {
@@ -81,6 +111,28 @@ describe('api specific - novel promotion generate image art style', () => {
 
     const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
     expect(submitArg?.payload?.artStyle).toBe('realistic')
+  })
+
+  it('forwards stylePromptSnapshot for project image generation', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/generate-image/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/generate-image',
+      method: 'POST',
+      body: {
+        type: 'character',
+        id: 'character-1',
+        appearanceId: 'appearance-1',
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    expect(res.status).toBe(200)
+
+    const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
+    expect(submitArg?.payload?.stylePromptSnapshot).toMatchObject({
+      styleAssetId: 'style-1',
+      positivePrompt: 'cinematic gold and black',
+    })
   })
 
   it('rejects invalid artStyle with invalid params', async () => {

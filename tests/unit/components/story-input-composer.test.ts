@@ -75,4 +75,32 @@ describe('StoryInputComposer', () => {
     expect(html).toContain('StyleSelector')
     expect(html).not.toContain('StylePresetSelector')
   })
+
+  it('renders styleControl instead of the legacy style selector when provided', () => {
+    Reflect.set(globalThis, 'React', React)
+
+    const html = renderToStaticMarkup(
+      createElement(StoryInputComposer, {
+        value: '测试内容',
+        onValueChange: () => undefined,
+        placeholder: '请输入内容',
+        minRows: 8,
+        videoRatio: '9:16',
+        onVideoRatioChange: () => undefined,
+        ratioOptions: [{ value: '9:16', label: '9:16' }],
+        artStyle: 'realistic',
+        onArtStyleChange: () => undefined,
+        styleOptions: [{ value: 'realistic', label: '真人风格' }],
+        styleControl: createElement('div', null, 'ProjectStyleAssetSelector'),
+        stylePresetValue: '',
+        onStylePresetChange: () => undefined,
+        stylePresetOptions: [],
+        primaryAction: createElement('button', { type: 'button' }, '开始创作'),
+      }),
+    )
+
+    expect(html).toContain('RatioSelector')
+    expect(html).toContain('ProjectStyleAssetSelector')
+    expect(html).not.toContain('StyleSelector')
+  })
 })

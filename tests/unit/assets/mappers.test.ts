@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { mapGlobalVoiceToAsset, mapProjectCharacterToAsset, mapProjectPropToAsset } from '@/lib/assets/mappers'
+import {
+  mapGlobalStyleToAsset,
+  mapGlobalVoiceToAsset,
+  mapProjectCharacterToAsset,
+  mapProjectPropToAsset,
+} from '@/lib/assets/mappers'
 import { groupAssetsByKind } from '@/lib/assets/grouping'
 
 describe('asset mappers', () => {
@@ -127,5 +132,58 @@ describe('asset mappers', () => {
     const groups = groupAssetsByKind([propAsset, voiceAsset])
     expect(groups.prop.map((asset) => asset.id)).toEqual(['prop-1'])
     expect(groups.voice.map((asset) => asset.id)).toEqual(['voice-1'])
+  })
+
+  it('maps global styles into the unified style asset contract with public preview media only', () => {
+    const asset = mapGlobalStyleToAsset({
+      id: 'style-1',
+      userId: 'user-1',
+      folderId: 'folder-1',
+      name: '冷峻赛博',
+      description: '偏冷色的赛博夜景',
+      positivePrompt: 'cyberpunk neon city',
+      negativePrompt: 'blurry',
+      tags: '["赛博","冷色"]',
+      source: 'user',
+      legacyKey: null,
+      previewMedia: {
+        id: 'media-1',
+        publicId: 'style-preview',
+        storageKey: 'internal/style-preview.png',
+        mimeType: 'image/png',
+        sizeBytes: 1024,
+        width: 512,
+        height: 512,
+        durationMs: null,
+        sha256: 'secret',
+        updatedAt: '2026-04-20T00:00:00.000Z',
+      },
+    })
+
+    expect(asset).toEqual(expect.objectContaining({
+      id: 'style-1',
+      scope: 'global',
+      kind: 'style',
+      family: 'visual',
+      folderId: 'folder-1',
+      description: '偏冷色的赛博夜景',
+      positivePrompt: 'cyberpunk neon city',
+      negativePrompt: 'blurry',
+      tags: ['赛博', '冷色'],
+      source: 'user',
+      legacyKey: null,
+      readOnly: false,
+      previewMedia: expect.objectContaining({
+        id: 'media-1',
+        publicId: 'style-preview',
+        url: '/m/style-preview',
+        mimeType: 'image/png',
+        sizeBytes: 1024,
+        width: 512,
+        height: 512,
+        durationMs: null,
+      }),
+    }))
+    expect(asset.previewMedia).not.toHaveProperty('storageKey')
   })
 })

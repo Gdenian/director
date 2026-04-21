@@ -143,6 +143,10 @@ const prismaMock = vi.hoisted(() => ({
   }),
 }))
 
+const styleTaskPayloadMock = vi.hoisted(() => ({
+  buildProjectStyleTaskPayload: vi.fn(),
+}))
+
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/task/submitter', () => ({ submitTask: submitTaskMock }))
 vi.mock('@/lib/config-service', () => configServiceMock)
@@ -150,6 +154,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/billing', () => ({
   buildDefaultTaskBillingInfo: vi.fn(() => ({ mode: 'default' })),
 }))
+vi.mock('@/lib/style', () => styleTaskPayloadMock)
 vi.mock('@/lib/task/resolve-locale', () => ({
   resolveRequiredTaskLocale: vi.fn(() => 'zh'),
 }))
@@ -183,6 +188,31 @@ async function invokeRoute(body: Record<string, unknown>): Promise<Response> {
 describe('api specific - panel variant route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    styleTaskPayloadMock.buildProjectStyleTaskPayload.mockResolvedValue({
+      styleContext: {
+        source: 'style-asset',
+        fallbackReason: 'none',
+        styleAssetId: 'style-1',
+        legacyKey: null,
+        label: '电影黑金',
+        positivePrompt: 'cinematic gold and black',
+        negativePrompt: 'no blur',
+        sourceUpdatedAt: '2026-04-20T10:00:00.000Z',
+      },
+      stylePromptSnapshot: {
+        version: 1,
+        source: 'style-asset',
+        fallbackReason: 'none',
+        styleAssetId: 'style-1',
+        legacyKey: null,
+        label: '电影黑金',
+        positivePrompt: 'cinematic gold and black',
+        negativePrompt: 'no blur',
+        sourceUpdatedAt: '2026-04-20T10:00:00.000Z',
+        capturedAt: '2026-04-20T10:01:00.000Z',
+      },
+      legacyArtStyle: null,
+    })
 
     routeState.storyboard = {
       id: 'storyboard-1',
@@ -248,6 +278,31 @@ describe('api specific - panel variant route', () => {
     expect(json.error.message).toBe('missing capability')
     expect(createTxSpy.create).not.toHaveBeenCalled()
     expect(submitTaskMock).not.toHaveBeenCalled()
+  })
+
+  it('submits panel variant with stylePromptSnapshot', async () => {
+    const res = await invokeRoute({
+      storyboardId: 'storyboard-1',
+      insertAfterPanelId: 'panel-ins',
+      sourcePanelId: 'panel-src',
+      variant: { video_prompt: 'variant prompt', description: 'variant desc' },
+    })
+
+    expect(res.status).toBe(200)
+    expect(configServiceMock.buildImageBillingPayload).toHaveBeenCalledWith(expect.objectContaining({
+      basePayload: expect.objectContaining({
+        stylePromptSnapshot: expect.objectContaining({
+          styleAssetId: 'style-1',
+        }),
+      }),
+    }))
+    expect(submitTaskMock).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        stylePromptSnapshot: expect.objectContaining({
+          styleAssetId: 'style-1',
+        }),
+      }),
+    }))
   })
 
   it('rolls back the created panel when submitTask fails after insertion', async () => {

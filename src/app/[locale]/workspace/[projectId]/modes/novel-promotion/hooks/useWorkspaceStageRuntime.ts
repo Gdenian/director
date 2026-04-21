@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import type { WorkspaceStageRuntimeValue } from '../WorkspaceStageRuntimeContext'
 import type { CapabilitySelections, ModelCapabilities } from '@/lib/model-config-contract'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 
 interface UseWorkspaceStageRuntimeParams {
@@ -15,6 +16,8 @@ interface UseWorkspaceStageRuntimeParams {
   isStartingScriptToStoryboard: boolean
   videoRatio: string | undefined
   artStyle: string | undefined
+  styleAssetId: string | null | undefined
+  resolvedStyle: ProjectResolvedStyleSummary | null | undefined
   videoModel: string | undefined
   capabilityOverrides: CapabilitySelections
   userVideoModels: Array<{
@@ -65,6 +68,8 @@ export function useWorkspaceStageRuntime({
   isStartingScriptToStoryboard,
   videoRatio,
   artStyle,
+  styleAssetId,
+  resolvedStyle,
   videoModel,
   capabilityOverrides,
   userVideoModels,
@@ -95,12 +100,15 @@ export function useWorkspaceStageRuntime({
     isStartingScriptToStoryboard,
     videoRatio,
     artStyle,
+    styleAssetId,
+    resolvedStyle,
     videoModel,
     capabilityOverrides,
     userVideoModels: resolvedUserVideoModels,
     onNovelTextChange: (value) => handleUpdateEpisode('novelText', value),
     onVideoRatioChange: (value) => handleUpdateConfig('videoRatio', value),
     onArtStyleChange: (value) => handleUpdateConfig('artStyle', value),
+    onStyleAssetChange: (value) => handleUpdateConfig('styleAssetId', value),
     onRunStoryToScript: () => runWithRebuildConfirm('storyToScript', runStoryToScriptFlow),
     onClipUpdate: (clipId, data) => {
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -133,11 +141,13 @@ export function useWorkspaceStageRuntime({
     isSubmittingTTS,
     isTransitioning,
     openAssetLibrary,
+    resolvedStyle,
     runScriptToStoryboardFlow,
     runStoryToScriptFlow,
     runWithRebuildConfirm,
     resolvedUserVideoModels,
     capabilityOverrides,
+    styleAssetId,
     videoModel,
     videoRatio,
   ])

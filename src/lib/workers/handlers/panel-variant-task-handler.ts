@@ -1,8 +1,8 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { getArtStylePrompt } from '@/lib/constants'
 import { logInfo as _ulogInfo } from '@/lib/logging/core'
 import { type TaskJobData } from '@/lib/task/types'
+import { resolveWorkerStyleText } from '@/lib/style'
 import {
   assertTaskActive,
   getProjectModels,
@@ -222,6 +222,13 @@ export async function handlePanelVariantTask(job: Job<TaskJobData>) {
   const modelConfig = await getProjectModels(job.data.projectId, job.data.userId)
   const storyboardModel = modelConfig.storyboardModel
   if (!storyboardModel) throw new Error('Storyboard model not configured')
+  const style = await resolveWorkerStyleText({
+    taskSnapshot: payload.stylePromptSnapshot,
+    legacyArtStyle: modelConfig.artStyle,
+    projectId: job.data.projectId,
+    userId: job.data.userId,
+    locale: job.data.locale === 'en' ? 'en' : 'zh',
+  })
 
   // 收集参考图（与 panel-image-task-handler 共用同一链路）
   const sourcePanelImageUrl = toSignedUrlIfCos(sourcePanel.imageUrl, 3600)
@@ -235,7 +242,6 @@ export async function handlePanelVariantTask(job: Job<TaskJobData>) {
   const normalizedRefs = await normalizeReferenceImagesForGeneration(refs)
 
   // 使用 agent_shot_variant_generate.txt 提示词模板
-  const artStyle = getArtStylePrompt(modelConfig.artStyle, job.data.locale)
   const charactersInfo = buildCharactersInfo(newPanel, projectData)
   const characterAssetsDesc = includeCharacterAssets
     ? buildCharacterAssetsDescription(newPanel, projectData)
@@ -262,7 +268,7 @@ export async function handlePanelVariantTask(job: Job<TaskJobData>) {
       projectData,
     }),
     aspectRatio,
-    style: artStyle || '与参考图风格一致',
+    style: style.positivePrompt || '与参考图风格一致',
   })
 
   _ulogInfo('[panel-variant] resolved variant prompt', prompt)

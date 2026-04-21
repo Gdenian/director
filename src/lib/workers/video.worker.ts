@@ -18,6 +18,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/lookup'
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
+import { resolveWorkerStyleText } from '@/lib/style'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -96,10 +97,18 @@ async function generateVideoForPanel(
   const firstLastCustomPrompt = typeof firstLastFramePayload?.customPrompt === 'string' ? firstLastFramePayload.customPrompt : null
   const persistedFirstLastPrompt = firstLastFramePayload ? panel.firstLastFramePrompt : null
   const customPrompt = typeof payload.customPrompt === 'string' ? payload.customPrompt : null
-  const prompt = firstLastCustomPrompt || persistedFirstLastPrompt || customPrompt || panel.videoPrompt || panel.description
-  if (!prompt) {
+  const style = await resolveWorkerStyleText({
+    taskSnapshot: payload.stylePromptSnapshot,
+    legacyArtStyle: payload.artStyle,
+    projectId: job.data.projectId,
+    userId: job.data.userId,
+    locale: job.data.locale === 'en' ? 'en' : 'zh',
+  })
+  const basePrompt = firstLastCustomPrompt || persistedFirstLastPrompt || customPrompt || panel.videoPrompt || panel.description
+  if (!basePrompt) {
     throw new Error(`Panel ${panel.id} has no video prompt`)
   }
+  const prompt = style.positivePrompt ? `${basePrompt}\n${style.positivePrompt}` : basePrompt
 
   const sourceImageUrl = toSignedUrlIfCos(panel.imageUrl, 3600)
   if (!sourceImageUrl) {

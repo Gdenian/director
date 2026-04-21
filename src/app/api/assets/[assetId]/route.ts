@@ -15,7 +15,7 @@ function isAssetScope(value: unknown): value is AssetScope {
 }
 
 function isAssetKind(value: unknown): value is AssetKind {
-  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice'
+  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice' || value === 'style'
 }
 
 export const PATCH = apiHandler(async (
@@ -26,6 +26,10 @@ export const PATCH = apiHandler(async (
   const body = await request.json() as UpdateAssetBody
   if (!isAssetScope(body.scope) || !isAssetKind(body.kind)) {
     throw new ApiError('INVALID_PARAMS')
+  }
+
+  if (body.kind === 'style' && body.scope !== 'global') {
+    throw new ApiError('INVALID_PARAMS', { details: 'style assets are global-only' })
   }
 
   if (body.scope === 'project') {
@@ -65,8 +69,8 @@ type DeleteAssetBody = {
   projectId?: string
 }
 
-function isDeletableKind(value: AssetKind | undefined): value is Extract<AssetKind, 'location' | 'prop'> {
-  return value === 'location' || value === 'prop'
+function isDeletableKind(value: AssetKind | undefined): value is Extract<AssetKind, 'location' | 'prop' | 'style'> {
+  return value === 'location' || value === 'prop' || value === 'style'
 }
 
 export const DELETE = apiHandler(async (
@@ -77,6 +81,10 @@ export const DELETE = apiHandler(async (
   const body = await request.json() as DeleteAssetBody
   if (!isAssetScope(body.scope) || !isDeletableKind(body.kind)) {
     throw new ApiError('INVALID_PARAMS')
+  }
+
+  if (body.kind === 'style' && body.scope !== 'global') {
+    throw new ApiError('INVALID_PARAMS', { details: 'style assets are global-only' })
   }
 
   if (body.scope === 'project') {

@@ -1,9 +1,9 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { getArtStylePrompt } from '@/lib/constants'
 import { createScopedLogger } from '@/lib/logging/core'
 import { type TaskJobData } from '@/lib/task/types'
 import { reportTaskProgress } from '../shared'
+import { resolveWorkerStyleText } from '@/lib/style'
 import {
   assertTaskActive,
   getProjectModels,
@@ -172,6 +172,13 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
   const modelConfig = await getProjectModels(job.data.projectId, job.data.userId)
   const modelKey = modelConfig.storyboardModel
   if (!modelKey) throw new Error('Storyboard model not configured')
+  const style = await resolveWorkerStyleText({
+    taskSnapshot: payload.stylePromptSnapshot,
+    legacyArtStyle: modelConfig.artStyle,
+    projectId: job.data.projectId,
+    userId: job.data.userId,
+    locale: job.data.locale === 'en' ? 'en' : 'zh',
+  })
 
   const candidateCount = clampCount(payload.candidateCount ?? payload.count, 1, 4, 1)
   const refs = await collectPanelReferenceImages(projectData, panel)
@@ -197,11 +204,10 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
       normalizedUrls: normalizedRefs.map((u) => u.substring(0, 100)),
       panelCharacters: panel.characters,
       panelLocation: panel.location,
-      artStyle: modelConfig.artStyle,
+      styleSource: style.source,
     },
   })
 
-  const artStyle = getArtStylePrompt(modelConfig.artStyle, job.data.locale)
   if (!projectData.videoRatio) throw new Error('Project videoRatio not configured')
   const aspectRatio = projectData.videoRatio
   const promptContext = buildPanelPromptContext({
@@ -224,7 +230,7 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
   const prompt = buildPanelPrompt({
     locale: job.data.locale,
     aspectRatio,
-    styleText: artStyle || '与参考图风格一致',
+    styleText: style.positivePrompt || '与参考图风格一致',
     sourceText: panel.srtSegment || panel.description || '',
     contextJson,
   })

@@ -9,9 +9,10 @@ import { useTranslations } from 'next-intl'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import '@/styles/animations.css'
 import AiWriteModal from '@/components/home/AiWriteModal'
+import ProjectStyleAssetSelector from '@/components/selectors/ProjectStyleAssetSelector'
 import LongTextDetectionPrompt from '@/components/story-input/LongTextDetectionPrompt'
 import StoryInputComposer from '@/components/story-input/StoryInputComposer'
-import { ART_STYLES, VIDEO_RATIOS } from '@/lib/constants'
+import { VIDEO_RATIOS } from '@/lib/constants'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import { resolveTaskPresentationState } from '@/lib/task/presentation'
 import { AppIcon } from '@/components/ui/icons'
@@ -19,6 +20,7 @@ import { DEFAULT_STYLE_PRESET_VALUE, STYLE_PRESETS } from '@/lib/style-presets'
 import { PROJECT_STORY_INPUT_MIN_ROWS } from '@/lib/ui/textarea-height'
 import { apiFetch } from '@/lib/api-fetch'
 import { expandHomeStory } from '@/lib/home/ai-story-expand'
+import type { ProjectResolvedStyleSummary } from '@/types/project'
 
 /** 触发智能分集建议的字数阈值 */
 const LONG_TEXT_THRESHOLD = 1000
@@ -44,8 +46,11 @@ interface NovelInputStageProps {
   // 配置项 - 比例与风格
   videoRatio?: string
   artStyle?: string
+  styleAssetId?: string | null
+  resolvedStyle?: ProjectResolvedStyleSummary | null
   onVideoRatioChange?: (value: string) => void
   onArtStyleChange?: (value: string) => void
+  onStyleAssetChange?: (value: string) => void
 }
 
 export default function NovelInputStage({
@@ -60,8 +65,11 @@ export default function NovelInputStage({
   onEnableNarrationChange,
   videoRatio = '9:16',
   artStyle = 'american-comic',
+  styleAssetId,
+  resolvedStyle,
   onVideoRatioChange,
-  onArtStyleChange
+  onArtStyleChange,
+  onStyleAssetChange,
 }: NovelInputStageProps) {
   const t = useTranslations('novelPromotion')
   const homeT = useTranslations('home')
@@ -191,10 +199,23 @@ export default function NovelInputStage({
           getRatioUsage={getRatioUsageTag}
           artStyle={artStyle}
           onArtStyleChange={(value) => onArtStyleChange?.(value)}
-          styleOptions={ART_STYLES.map((option) => ({
-            ...option,
-            recommended: option.value === 'realistic'
-          }))}
+          styleOptions={[]}
+          styleControl={(
+            <ProjectStyleAssetSelector
+              value={styleAssetId}
+              resolvedStyle={resolvedStyle}
+              onChange={(value) => onStyleAssetChange?.(value)}
+              texts={{
+                assetMode: t('storyInput.projectStyleAsset.assetMode'),
+                compatibilityMode: t('storyInput.projectStyleAsset.compatibilityMode'),
+                formatCompatibilityMode: (label) =>
+                  t('storyInput.projectStyleAsset.compatibilityModeWithLabel', { label }),
+                currentAsset: t('storyInput.projectStyleAsset.currentAsset'),
+                loading: t('storyInput.projectStyleAsset.loading'),
+              }}
+              disabled={isSubmittingTask || isSwitchingStage || !onStyleAssetChange}
+            />
+          )}
           stylePresetValue={stylePresetValue}
           onStylePresetChange={setStylePresetValue}
           stylePresetOptions={STYLE_PRESETS}

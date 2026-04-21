@@ -106,6 +106,30 @@ describe('api specific - unified assets routes', () => {
     expect(body).toEqual({ assets: [{ id: 'prop-1', kind: 'prop' }] })
   })
 
+  it('GET /api/assets reads global style assets with the authenticated user scope', async () => {
+    readAssetsMock.mockResolvedValue([{ id: 'style-1', kind: 'style' }])
+    const mod = await import('@/app/api/assets/route')
+    const req = buildMockRequest({
+      path: '/api/assets?scope=global&kind=style',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(authMock.requireUserAuth).toHaveBeenCalled()
+    expect(readAssetsMock).toHaveBeenCalledWith({
+      scope: 'global',
+      projectId: null,
+      folderId: null,
+      kind: 'style',
+    }, {
+      userId: 'user-1',
+    })
+    expect(body).toEqual({ assets: [{ id: 'style-1', kind: 'style' }] })
+  })
+
   it('POST /api/assets creates a project prop through the centralized asset action service', async () => {
     const mod = await import('@/app/api/assets/route')
     const req = buildMockRequest({
@@ -142,6 +166,64 @@ describe('api specific - unified assets routes', () => {
       },
     })
     expect(body).toEqual({ success: true, assetId: 'prop-1' })
+  })
+
+  it('POST /api/assets creates a global style through the centralized asset action service', async () => {
+    createAssetMock.mockResolvedValue({ success: true, assetId: 'style-1' })
+    const mod = await import('@/app/api/assets/route')
+    const req = buildMockRequest({
+      path: '/api/assets',
+      method: 'POST',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({}) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(authMock.requireUserAuth).toHaveBeenCalled()
+    expect(createAssetMock).toHaveBeenCalledWith({
+      kind: 'style',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+      access: {
+        scope: 'global',
+        userId: 'user-1',
+      },
+    })
+    expect(body).toEqual({ success: true, assetId: 'style-1' })
+  })
+
+  it('POST /api/assets rejects project-scoped style creation', async () => {
+    const mod = await import('@/app/api/assets/route')
+    const req = buildMockRequest({
+      path: '/api/assets',
+      method: 'POST',
+      body: {
+        scope: 'project',
+        kind: 'style',
+        projectId: 'project-1',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({}) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_PARAMS')
+    expect(authMock.requireProjectAuthLight).not.toHaveBeenCalled()
+    expect(createAssetMock).not.toHaveBeenCalled()
   })
 
   it('POST /api/assets/[assetId]/update-label forwards to the centralized label service', async () => {
@@ -231,6 +313,43 @@ describe('api specific - unified assets routes', () => {
     expect(body).toEqual({ success: true })
   })
 
+  it('PATCH /api/assets/[assetId] updates a global style through the unified route', async () => {
+    const mod = await import('@/app/api/assets/[assetId]/route')
+    const req = buildMockRequest({
+      path: '/api/assets/style-1',
+      method: 'PATCH',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+    })
+
+    const res = await mod.PATCH(req, {
+      params: Promise.resolve({ assetId: 'style-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(authMock.requireUserAuth).toHaveBeenCalled()
+    expect(updateAssetMock).toHaveBeenCalledWith({
+      kind: 'style',
+      assetId: 'style-1',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+      access: {
+        scope: 'global',
+        userId: 'user-1',
+      },
+    })
+    expect(body).toEqual({ success: true })
+  })
+
   it('DELETE /api/assets/[assetId] removes a project prop through the unified route', async () => {
     const mod = await import('@/app/api/assets/[assetId]/route')
     const req = buildMockRequest({
@@ -256,6 +375,34 @@ describe('api specific - unified assets routes', () => {
         scope: 'project',
         userId: 'user-1',
         projectId: 'project-1',
+      },
+    })
+    expect(body).toEqual({ success: true })
+  })
+
+  it('DELETE /api/assets/[assetId] removes a global style through the unified route', async () => {
+    const mod = await import('@/app/api/assets/[assetId]/route')
+    const req = buildMockRequest({
+      path: '/api/assets/style-1',
+      method: 'DELETE',
+      body: {
+        scope: 'global',
+        kind: 'style',
+      },
+    })
+
+    const res = await mod.DELETE(req, {
+      params: Promise.resolve({ assetId: 'style-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(removeAssetMock).toHaveBeenCalledWith({
+      kind: 'style',
+      assetId: 'style-1',
+      access: {
+        scope: 'global',
+        userId: 'user-1',
       },
     })
     expect(body).toEqual({ success: true })

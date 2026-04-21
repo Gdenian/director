@@ -4,6 +4,7 @@ import type {
   CharacterAssetSummary,
   LocationAssetSummary,
   PropAssetSummary,
+  StyleAssetSummary,
   VoiceAssetSummary,
 } from '@/lib/assets/contracts'
 
@@ -12,6 +13,7 @@ export type AssetGroupMap = {
   location: LocationAssetSummary[]
   prop: PropAssetSummary[]
   voice: VoiceAssetSummary[]
+  style: StyleAssetSummary[]
 }
 
 export function createEmptyAssetGroupMap(): AssetGroupMap {
@@ -20,6 +22,7 @@ export function createEmptyAssetGroupMap(): AssetGroupMap {
     location: [],
     prop: [],
     voice: [],
+    style: [],
   }
 }
 
@@ -36,6 +39,10 @@ export function groupAssetsByKind(assets: AssetSummary[]): AssetGroupMap {
     }
     if (asset.kind === 'prop') {
       groups.prop.push(asset)
+      continue
+    }
+    if (asset.kind === 'style') {
+      groups.style.push(asset)
       continue
     }
     groups.voice.push(asset)

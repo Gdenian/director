@@ -5,6 +5,13 @@
     "autoSave": "自动保存",
     "visualSettings": "画面设置",
     "visualStyle": "画面风格",
+    "projectStyleAsset": {
+        "assetMode": "风格资产",
+        "compatibilityMode": "兼容结果",
+        "compatibilityModeWithLabel": "兼容结果：{label}",
+        "currentAsset": "当前风格资产",
+        "loading": "加载风格资产中..."
+    },
     "modelParams": "模型参数",
     "aspectRatio": "画面比例",
     "ttsSettings": "旁白配置",

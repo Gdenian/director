@@ -15,6 +15,7 @@ import {
   listGlobalLocationBackedAssets,
   listProjectLocationBackedAssets,
 } from '@/lib/assets/services/location-backed-assets'
+import { listReadableGlobalStyleAssets } from '@/lib/assets/services/style-assets'
 
 async function readProjectAssets(projectId: string): Promise<AssetSummary[]> {
   const project = await prisma.novelPromotionProject.findUnique({
@@ -56,13 +57,17 @@ async function readProjectAssets(projectId: string): Promise<AssetSummary[]> {
   return [...projectCharacters, ...projectLocations, ...projectProps]
 }
 
-async function readGlobalAssets(input: { folderId?: string | null; userId: string }): Promise<AssetSummary[]> {
+async function readGlobalAssets(input: {
+  folderId?: string | null
+  userId: string
+  locale?: AssetQueryInput['locale']
+}): Promise<AssetSummary[]> {
   const folderFilter = input.folderId ? { folderId: input.folderId } : {}
   const where = {
     userId: input.userId,
     ...folderFilter,
   }
-  const [characters, locations, props, voices] = await Promise.all([
+  const [characters, locations, props, voices, styles] = await Promise.all([
     prisma.globalCharacter.findMany({
       where,
       include: {
@@ -86,6 +91,11 @@ async function readGlobalAssets(input: { folderId?: string | null; userId: strin
       where,
       orderBy: { createdAt: 'asc' },
     }),
+    listReadableGlobalStyleAssets({
+      userId: input.userId,
+      folderId: input.folderId,
+      locale: input.locale,
+    }),
   ])
 
   const [globalCharacters, globalLocations, globalProps, globalVoices] = await Promise.all([
@@ -100,6 +110,7 @@ async function readGlobalAssets(input: { folderId?: string | null; userId: strin
     ...(globalLocations as unknown as Parameters<typeof mapGlobalLocationToAsset>[0][]).map(mapGlobalLocationToAsset),
     ...(globalProps as unknown as Parameters<typeof mapGlobalPropToAsset>[0][]).map(mapGlobalPropToAsset),
     ...(globalVoices as unknown as Parameters<typeof mapGlobalVoiceToAsset>[0][]).map(mapGlobalVoiceToAsset),
+    ...styles,
   ]
 }
 
@@ -111,6 +122,7 @@ export async function readAssets(
     ? await readProjectAssets(assertProjectId(input.projectId))
     : await readGlobalAssets({
       folderId: input.folderId,
+      locale: input.locale,
       userId: assertUserId(access?.userId),
     })
   return filterMappedAssetsByKind(assets, input.kind as AssetKind | null | undefined)

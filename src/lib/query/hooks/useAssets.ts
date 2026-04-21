@@ -22,6 +22,7 @@ import type {
   LocationAssetSummary,
   PropAssetSummary,
   ReadAssetsResponse,
+  StyleAssetSummary,
   VoiceAssetSummary,
 } from '@/lib/assets/contracts'
 
@@ -29,7 +30,7 @@ function flattenTaskRefs(assets: AssetSummary[]): AssetTaskRef[] {
   const refs: AssetTaskRef[] = []
   for (const asset of assets) {
     refs.push(...asset.taskRefs)
-    if (asset.kind === 'voice') {
+    if (asset.kind === 'voice' || asset.kind === 'style') {
       continue
     }
     if (asset.kind === 'character') {
@@ -92,6 +93,14 @@ function withTaskStateAsset(asset: AssetSummary, byKey: Map<string, { phase: str
     return voiceAsset
   }
 
+  if (asset.kind === 'style') {
+    const styleAsset: StyleAssetSummary = {
+      ...asset,
+      taskState: resolveTaskState(asset.taskRefs, byKey),
+    }
+    return styleAsset
+  }
+
   const variants = asset.variants.map((variant) => withTaskStateVariant(variant, byKey))
   if (asset.kind === 'character') {
     const characterAsset: CharacterAssetSummary = {
@@ -132,6 +141,9 @@ function buildQueryPath(input: AssetQueryInput): string {
   }
   if (input.kind) {
     searchParams.set('kind', input.kind)
+  }
+  if (input.locale) {
+    searchParams.set('locale', input.locale)
   }
   return `/api/assets?${searchParams.toString()}`
 }

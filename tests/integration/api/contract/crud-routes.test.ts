@@ -319,6 +319,52 @@ describe('api contract - crud routes (behavior)', () => {
     }))
   })
 
+  it('style unified asset routes stay behind the auth gate and do not 500 on unauthenticated access', async () => {
+    authState.authenticated = false
+    const listRoute = await import('@/app/api/assets/route')
+    const detailRoute = await import('@/app/api/assets/[assetId]/route')
+
+    const listRes = await listRoute.GET(buildMockRequest({
+      path: '/api/assets?scope=global&kind=style',
+      method: 'GET',
+    }), { params: Promise.resolve({}) })
+    expect(listRes.status).toBe(401)
+
+    const createRes = await listRoute.POST(buildMockRequest({
+      path: '/api/assets',
+      method: 'POST',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+    }), { params: Promise.resolve({}) })
+    expect(createRes.status).toBe(401)
+
+    const patchRes = await detailRoute.PATCH(buildMockRequest({
+      path: '/api/assets/style-1',
+      method: 'PATCH',
+      body: {
+        scope: 'global',
+        kind: 'style',
+        name: '冷峻赛博',
+        positivePrompt: 'cyberpunk neon city',
+      },
+    }), { params: Promise.resolve({ assetId: 'style-1' }) })
+    expect(patchRes.status).toBe(401)
+
+    const deleteRes = await detailRoute.DELETE(buildMockRequest({
+      path: '/api/assets/style-1',
+      method: 'DELETE',
+      body: {
+        scope: 'global',
+        kind: 'style',
+      },
+    }), { params: Promise.resolve({ assetId: 'style-1' }) })
+    expect(deleteRes.status).toBe(401)
+  })
+
   it('DELETE /asset-hub/characters/[characterId] deletes owned character and blocks non-owner', async () => {
     authState.authenticated = true
     const mod = await import('@/app/api/asset-hub/characters/[characterId]/route')

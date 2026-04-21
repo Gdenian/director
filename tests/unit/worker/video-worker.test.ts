@@ -44,6 +44,8 @@ const concurrencyGateMock = vi.hoisted(() => ({
   }) => await input.run()),
 }))
 
+const resolveStyleContextMock = vi.hoisted(() => vi.fn())
+
 const prismaMock = vi.hoisted(() => ({
   novelPromotionPanel: {
     findUnique: vi.fn(),
@@ -98,6 +100,9 @@ vi.mock('@/lib/api-config', () => ({
 }))
 vi.mock('@/lib/config-service', () => configServiceMock)
 vi.mock('@/lib/workers/user-concurrency-gate', () => concurrencyGateMock)
+vi.mock('@/lib/style/resolve-style-context', () => ({
+  resolveStyleContext: resolveStyleContextMock,
+}))
 
 function buildPanel(overrides?: Partial<PanelRow>): PanelRow {
   return {
@@ -137,6 +142,16 @@ describe('worker video processor behavior', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     workerState.processor = null
+    resolveStyleContextMock.mockResolvedValue({
+      source: 'style-asset',
+      fallbackReason: 'none',
+      styleAssetId: 'style-live-1',
+      legacyKey: null,
+      label: '电影黑金',
+      positivePrompt: 'cinematic gold and black',
+      negativePrompt: null,
+      sourceUpdatedAt: null,
+    })
 
     prismaMock.novelPromotionPanel.findUnique.mockResolvedValue(buildPanel())
     prismaMock.novelPromotionPanel.findFirst.mockResolvedValue(buildPanel())
@@ -222,6 +237,57 @@ describe('worker video processor behavior', () => {
       videoUrl: 'cos/lip-sync/video.mp4',
       actualVideoTokens: 108000,
     })
+  })
+
+  it('VIDEO_PANEL: 优先把 snapshot 风格附加到视频 prompt', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    const job = buildJob({
+      type: TASK_TYPE.VIDEO_PANEL,
+      payload: {
+        videoModel: 'openai-compatible:oa-1::sora-2',
+        stylePromptSnapshot: {
+          version: 1,
+          source: 'style-asset',
+          fallbackReason: 'none',
+          styleAssetId: 'style-1',
+          legacyKey: null,
+          label: '电影黑金',
+          positivePrompt: 'snapshot cinematic style',
+          negativePrompt: null,
+          sourceUpdatedAt: null,
+          capturedAt: '2026-04-20T10:00:00.000Z',
+        },
+      },
+    })
+
+    await processor!(job)
+
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          prompt: expect.stringContaining('snapshot cinematic style'),
+        }),
+      }),
+    )
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          prompt: expect.not.stringContaining('画面风格：'),
+        }),
+      }),
+    )
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          prompt: expect.not.stringContaining('cinematic gold and black'),
+        }),
+      }),
+    )
   })
 
   it('LIP_SYNC: 缺少 panel 时显式失败', async () => {

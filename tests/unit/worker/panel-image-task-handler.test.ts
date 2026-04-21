@@ -46,10 +46,15 @@ const promptMock = vi.hoisted(() => ({
   buildPrompt: vi.fn(() => 'panel-image-prompt'),
 }))
 
+const resolveStyleContextMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/workers/utils', () => utilsMock)
 vi.mock('@/lib/media/outbound-image', () => outboundMock)
 vi.mock('@/lib/workers/shared', () => ({ reportTaskProgress: vi.fn(async () => undefined) }))
+vi.mock('@/lib/style/resolve-style-context', () => ({
+  resolveStyleContext: resolveStyleContextMock,
+}))
 vi.mock('@/lib/logging/core', () => ({
   logInfo: vi.fn(),
   createScopedLogger: vi.fn(() => ({
@@ -94,9 +99,34 @@ function buildJob(payload: Record<string, unknown>, targetId = 'panel-1'): Job<T
   } as unknown as Job<TaskJobData>
 }
 
+function buildStyleSnapshot(positivePrompt: string) {
+  return {
+    version: 1 as const,
+    source: 'style-asset' as const,
+    fallbackReason: 'none' as const,
+    styleAssetId: 'style-1',
+    legacyKey: null,
+    label: '风格快照',
+    positivePrompt,
+    negativePrompt: null,
+    sourceUpdatedAt: null,
+    capturedAt: '2026-04-20T10:00:00.000Z',
+  }
+}
+
 describe('worker panel-image-task-handler behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolveStyleContextMock.mockResolvedValue({
+      source: 'style-asset',
+      fallbackReason: 'none',
+      styleAssetId: 'style-live-1',
+      legacyKey: null,
+      label: '电影黑金',
+      positivePrompt: 'cinematic gold and black',
+      negativePrompt: null,
+      sourceUpdatedAt: null,
+    })
 
     prismaMock.novelPromotionPanel.findUnique.mockResolvedValue({
       id: 'panel-1',
@@ -160,6 +190,7 @@ describe('worker panel-image-task-handler behavior', () => {
     expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
       variables: expect.objectContaining({
         storyboard_text_json_input: expect.stringContaining('"available_slots"'),
+        style: 'cinematic gold and black',
       }),
     }))
 
@@ -170,6 +201,19 @@ describe('worker panel-image-task-handler behavior', () => {
         candidateImages: JSON.stringify(['cos/panel-candidate-1.png', 'cos/panel-candidate-2.png']),
       },
     })
+  })
+
+  it('uses stylePromptSnapshot before live resolver when building panel prompt', async () => {
+    await handlePanelImageTask(buildJob({
+      candidateCount: 1,
+      stylePromptSnapshot: buildStyleSnapshot('snapshot cinematic style'),
+    }))
+
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: 'snapshot cinematic style',
+      }),
+    }))
   })
 
   it('regeneration branch -> keeps old image in previousImageUrl and stores candidates only', async () => {

@@ -84,6 +84,8 @@ function NovelPromotionWorkspaceContent(props: NovelPromotionWorkspaceProps) {
         availableModels={vm.ui.userModelsForSettings || undefined}
         modelsLoaded={vm.ui.userModelsLoaded}
         artStyle={vm.project.artStyle}
+        styleAssetId={vm.project.styleAssetId}
+        resolvedStyle={vm.project.resolvedStyle}
         analysisModel={vm.project.analysisModel}
         characterModel={vm.project.characterModel}
         locationModel={vm.project.locationModel}

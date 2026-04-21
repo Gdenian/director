@@ -255,6 +255,7 @@ model NovelPromotionProject {
   globalAssetText String?                   @db.Text
   artStyle        String                    @default("american-comic")
   artStylePrompt  String?                   @db.Text
+  styleAssetId String?
   characterModel  String? // 用户配置的角色图片模型
   locationModel   String? // 用户配置的场景图片模型
   storyboardModel String? // 用户配置的分镜图片模型
@@ -269,7 +270,9 @@ model NovelPromotionProject {
   episodes        NovelPromotionEpisode[]
   locations       NovelPromotionLocation[]
   project         Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  styleAsset GlobalStyle? @relation(fields: [styleAssetId], references: [id], onDelete: SetNull)
 
+  @@index([styleAssetId])
   @@map("novel_promotion_projects")
 }
 
@@ -419,6 +422,7 @@ model User {
   globalAssetFolders GlobalAssetFolder[]
   globalCharacters   GlobalCharacter[]
   globalLocations    GlobalLocation[]
+  globalStyles       GlobalStyle[]
   globalVoices       GlobalVoice[]
   tasks              Task[]
   taskEvents         TaskEvent[]
@@ -807,10 +811,39 @@ model GlobalAssetFolder {
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   characters GlobalCharacter[]
   locations  GlobalLocation[]
+  styles     GlobalStyle[]
   voices     GlobalVoice[]
 
   @@index([userId])
   @@map("global_asset_folders")
+}
+
+// 全局画面风格
+model GlobalStyle {
+  id              String   @id @default(uuid())
+  userId          String?
+  folderId        String?
+  name            String
+  description     String?  @db.Text
+  positivePrompt  String   @db.Text
+  negativePrompt  String?  @db.Text
+  tags            String?  @db.Text
+  source          String   @default("user")
+  legacyKey       String?
+  previewMediaId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder       GlobalAssetFolder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  previewMedia MediaObject?            @relation("GlobalStylePreviewMedia", fields: [previewMediaId], references: [id], onDelete: SetNull)
+  projects     NovelPromotionProject[]
+
+  @@unique([source, legacyKey])
+  @@index([userId])
+  @@index([folderId])
+  @@index([previewMediaId])
+  @@map("global_styles")
 }
 
 // 全局角色（结构与 NovelPromotionCharacter 一致）
@@ -979,6 +1012,7 @@ model MediaObject {
   globalCharacterAppearancePreviousImgs GlobalCharacterAppearance[] @relation("GlobalCharacterAppearancePreviousImageMedia")
   globalLocationImageImages             GlobalLocationImage[]       @relation("GlobalLocationImageMedia")
   globalLocationImagePreviousImages     GlobalLocationImage[]       @relation("GlobalLocationImagePreviousImageMedia")
+  globalStylePreviewMedia               GlobalStyle[]               @relation("GlobalStylePreviewMedia")
   globalVoiceCustomVoices               GlobalVoice[]               @relation("GlobalVoiceCustomVoiceMedia")
 
   @@index([createdAt])
