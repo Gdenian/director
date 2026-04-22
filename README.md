@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="README_en.md">English</a> · <a href="https://www.waoowaoo.com/">加入内测候补</a> · <a href="https://github.com/saturndec/waoowaoo/issues">反馈问题</a>
+  <a href="README_en.md">English</a> · <a href="https://www.waoowaoo.com/">加入内测候补</a> · <a href="https://github.com/Gdenian/director/issues">反馈问题</a>
 </p>
 
 > [!IMPORTANT]
@@ -28,9 +28,18 @@
 
 - 🎬 **AI 剧本分析** — 自动解析小说，提取角色、场景、剧情
 - 🎨 **角色 & 场景生成** — AI 生成一致性人物和场景图片
+- 🖼️ **画面风格资产化** — 可在资产中心创建、管理、复用风格资产，并贯穿角色、场景、分镜和视频生成
 - 📽️ **分镜视频制作** — 自动生成分镜头并合成视频
 - 🎙️ **AI 配音** — 多角色语音合成
 - 🌐 **多语言支持** — 中文 / 英文界面，右上角一键切换
+
+---
+
+## 🆕 v0.4.1 更新重点
+
+- 新增风格资产管理与项目级风格选择，支持在资产中心沉淀和复用画面风格
+- 统一角色、场景、分镜、变体和视频任务的风格解析来源，减少提示词漂移
+- 刷新 Director Studio 工作台界面，并补齐风格链路相关鉴权、兼容与测试覆盖
 
 ---
 
@@ -44,7 +53,7 @@
 
 ```bash
 # 下载 docker-compose.yml
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Gdenian/director/main/docker-compose.yml
 
 # 启动所有服务
 docker compose up -d
@@ -54,8 +63,8 @@ docker compose up -d
 
 ```bash
 docker compose down -v
-docker rmi ghcr.io/saturndec/waoowaoo:latest
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
+docker rmi ghcr.io/gdenian/director:latest
+curl -O https://raw.githubusercontent.com/Gdenian/director/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -64,8 +73,8 @@ docker compose up -d
 ### 方式二：克隆仓库 + Docker 构建（完全控制）
 
 ```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
+git clone https://github.com/Gdenian/director.git
+cd director
 docker compose up -d
 ```
 
@@ -78,8 +87,8 @@ docker compose down && docker compose up -d --build
 ### 方式三：本地开发模式（开发者）
 
 ```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
+git clone https://github.com/Gdenian/director.git
+cd director
 
 # 复制环境变量配置文件（必须在 npm install 之前完成）
 cp .env.example .env
@@ -148,8 +157,8 @@ npm run dev
 
 本项目由核心团队独立维护。欢迎你通过以下方式参与：
 
-- 🐛 提交 [Issue](https://github.com/saturndec/waoowaoo/issues) 反馈 Bug
-- 💡 提交 [Issue](https://github.com/saturndec/waoowaoo/issues) 提出功能建议
+- 🐛 提交 [Issue](https://github.com/Gdenian/director/issues) 反馈 Bug
+- 💡 提交 [Issue](https://github.com/Gdenian/director/issues) 提出功能建议
 - 🔧 提交 Pull Request 供参考 — 我们会认真审阅每一个 PR 的思路，但最终由团队自行实现修复，不会直接合并外部 PR
 
 ---
@@ -158,4 +167,4 @@ npm run dev
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=saturndec/waoowaoo&type=date&legend=top-left)](https://www.star-history.com/#saturndec/waoowaoo&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=Gdenian/director&type=date&legend=top-left)](https://www.star-history.com/#Gdenian/director&type=date&legend=top-left)
