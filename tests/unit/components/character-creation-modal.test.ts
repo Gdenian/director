@@ -9,6 +9,12 @@ import { CharacterCreationModal } from '@/components/shared/assets/CharacterCrea
 
 vi.mock('@/lib/query/hooks', () => ({
   useProjectAssets: vi.fn(() => ({ data: { characters: [] } })),
+  useAssets: vi.fn(() => ({
+    data: [
+      { id: 'system:american-comic', kind: 'style', name: '漫画风', readOnly: true },
+      { id: 'style-user-1', kind: 'style', name: '霓虹赛博', readOnly: false },
+    ],
+  })),
 }))
 
 vi.mock('@/components/shared/assets/character-creation/hooks/useCharacterCreationSubmit', () => ({
@@ -55,7 +61,7 @@ const messages = {
       generateCountSuffix: '张图片',
       selectReferenceGenerateCount: '选择参考图生成数量',
     },
-    artStyle: { title: '画面风格' },
+    artStyle: { title: '画面风格', empty: '暂无可选风格资产' },
     aiDesign: {
       title: 'AI 设计',
       placeholder: '描述你想要的角色特征...',

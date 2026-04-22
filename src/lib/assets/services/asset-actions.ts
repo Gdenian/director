@@ -35,6 +35,11 @@ import {
   deleteGlobalStyleAsset,
   updateGlobalStyleAsset,
 } from '@/lib/assets/services/style-assets'
+import {
+  normalizeStyleAssetId,
+  resolveReadableGlobalStyleSelection,
+  type ResolvedGlobalStyleSelection,
+} from '@/lib/style'
 
 type AssetWriteAccess = {
   scope: AssetScope
@@ -134,6 +139,22 @@ function resolveOptionalArtStyle(body: Record<string, unknown>): ArtStyleValue |
   return artStyle
 }
 
+function buildGlobalStylePayload(input: {
+  artStyle?: string | null
+  styleSelection?: ResolvedGlobalStyleSelection | null
+}): Record<string, unknown> {
+  const payload: Record<string, unknown> = {}
+  if (input.artStyle) {
+    payload.artStyle = input.artStyle
+  }
+  if (input.styleSelection) {
+    payload.styleAssetId = input.styleSelection.styleAssetId
+    payload.stylePrompt = input.styleSelection.positivePrompt
+    payload.styleNegativePrompt = input.styleSelection.negativePrompt
+  }
+  return payload
+}
+
 function normalizeLocationBackedKind(kind: AssetKind): 'character' | 'location' {
   return kind === 'character' ? 'character' : 'location'
 }
@@ -159,12 +180,31 @@ async function submitGlobalAssetGenerateTask(input: AssetGenerateInput) {
     ? normalizeImageGenerationCount('character', input.body.count)
     : normalizeImageGenerationCount('location', input.body.count)
   const requestedArtStyle = resolveOptionalArtStyle(input.body)
-  const artStyle = requestedArtStyle || await resolveStoredGlobalArtStyle({
-    userId: input.access.userId,
-    kind: input.kind,
-    assetId: input.assetId,
-    appearanceIndex,
-  })
+  const requestedStyleAssetId = normalizeStyleAssetId(input.body.styleAssetId)
+  const requestedStyleSelection = requestedStyleAssetId
+    ? await resolveReadableGlobalStyleSelection({
+      userId: input.access.userId,
+      styleAssetId: requestedStyleAssetId,
+      locale: locale === 'en' ? 'en' : 'zh',
+    })
+    : null
+  if (requestedStyleAssetId && !requestedStyleSelection) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_STYLE_ASSET',
+      message: 'styleAssetId must reference a readable style asset',
+    })
+  }
+  const storedStyleState = requestedStyleSelection
+    ? null
+    : await resolveStoredGlobalStyleState({
+      userId: input.access.userId,
+      kind: input.kind,
+      assetId: input.assetId,
+      appearanceIndex,
+      locale: locale === 'en' ? 'en' : 'zh',
+    })
+  const styleSelection = requestedStyleSelection ?? storedStyleState?.styleSelection ?? null
+  const artStyle = styleSelection?.legacyKey ?? requestedArtStyle ?? storedStyleState?.artStyle ?? null
 
   if (normalizedKind === 'location' && toNumber(input.body.imageIndex) === null) {
     const location = await prisma.globalLocation.findFirst({
@@ -196,9 +236,10 @@ async function submitGlobalAssetGenerateTask(input: AssetGenerateInput) {
     })
   }
 
+  const stylePayload = buildGlobalStylePayload({ artStyle, styleSelection })
   const payloadBase: Record<string, unknown> = normalizedKind === 'character'
-    ? { ...input.body, id: input.assetId, type: input.kind, appearanceIndex, artStyle, count }
-    : { ...input.body, id: input.assetId, type: input.kind, artStyle, count }
+    ? { ...input.body, id: input.assetId, type: input.kind, appearanceIndex, ...stylePayload, count }
+    : { ...input.body, id: input.assetId, type: input.kind, ...stylePayload, count }
   const targetType = normalizedKind === 'character' ? 'GlobalCharacter' : 'GlobalLocation'
   const hasOutputAtStart = normalizedKind === 'character'
     ? await hasGlobalCharacterOutput({
@@ -333,12 +374,16 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
   })
 }
 
-async function resolveStoredGlobalArtStyle(input: {
+async function resolveStoredGlobalStyleState(input: {
   userId: string
   kind: Extract<AssetKind, 'character' | 'location' | 'prop'>
   assetId: string
   appearanceIndex: number
-}): Promise<string> {
+  locale: 'zh' | 'en'
+}): Promise<{
+  artStyle: string | null
+  styleSelection: ResolvedGlobalStyleSelection | null
+}> {
   if (input.kind === 'character') {
     const appearance = await prisma.globalCharacterAppearance.findFirst({
       where: {
@@ -346,29 +391,69 @@ async function resolveStoredGlobalArtStyle(input: {
         appearanceIndex: input.appearanceIndex,
         character: { userId: input.userId },
       },
-      select: { artStyle: true },
+      select: {
+        artStyle: true,
+        styleAssetId: true,
+      },
     })
     if (!appearance) {
       throw new ApiError('NOT_FOUND')
     }
+    const styleAssetId = normalizeStyleAssetId(appearance.styleAssetId)
+    const styleSelection = styleAssetId
+      ? await resolveReadableGlobalStyleSelection({
+        userId: input.userId,
+        styleAssetId,
+        locale: input.locale,
+      })
+      : null
     const artStyle = normalizeString(appearance.artStyle)
-    if (!isArtStyleValue(artStyle)) {
-      throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Character appearance artStyle is not configured' })
+    if (styleSelection) {
+      return {
+        artStyle: styleSelection.legacyKey ?? (isArtStyleValue(artStyle) ? artStyle : null),
+        styleSelection,
+      }
     }
-    return artStyle
+    if (!isArtStyleValue(artStyle)) {
+      throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Character appearance style is not configured' })
+    }
+    return {
+      artStyle,
+      styleSelection: null,
+    }
   }
   const location = await prisma.globalLocation.findFirst({
     where: { id: input.assetId, userId: input.userId },
-    select: { artStyle: true },
+    select: {
+      artStyle: true,
+      styleAssetId: true,
+    },
   })
   if (!location) {
     throw new ApiError('NOT_FOUND')
   }
+  const styleAssetId = normalizeStyleAssetId(location.styleAssetId)
+  const styleSelection = styleAssetId
+    ? await resolveReadableGlobalStyleSelection({
+      userId: input.userId,
+      styleAssetId,
+      locale: input.locale,
+    })
+    : null
   const artStyle = normalizeString(location.artStyle)
-  if (!isArtStyleValue(artStyle)) {
-    throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Location artStyle is not configured' })
+  if (styleSelection) {
+    return {
+      artStyle: styleSelection.legacyKey ?? (isArtStyleValue(artStyle) ? artStyle : null),
+      styleSelection,
+    }
   }
-  return artStyle
+  if (!isArtStyleValue(artStyle)) {
+    throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Location style is not configured' })
+  }
+  return {
+    artStyle,
+    styleSelection: null,
+  }
 }
 
 export async function submitAssetModifyTask(input: AssetModifyInput) {

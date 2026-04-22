@@ -9,6 +9,10 @@ import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import {
+  normalizeStyleAssetId,
+  resolveReadableGlobalStyleSelection,
+} from '@/lib/style'
 
 function toObject(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -65,6 +69,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
         referenceImageUrls,
         generateFromReference,
         artStyle,
+        styleAssetId,
         customDescription
     } = body
     const count = normalizeImageGenerationCount('reference-to-character', (body as Record<string, unknown>).count)
@@ -73,11 +78,32 @@ export const POST = apiHandler(async (request: NextRequest) => {
         throw new ApiError('INVALID_PARAMS')
     }
     const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
+    if (normalizedArtStyle && !isArtStyleValue(normalizedArtStyle)) {
         throw new ApiError('INVALID_PARAMS', {
             code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
+            message: 'artStyle must be a supported value',
         })
+    }
+    const normalizedStyleAssetId = normalizeStyleAssetId(styleAssetId)
+    const resolvedStyleSelection = normalizedStyleAssetId
+      ? await resolveReadableGlobalStyleSelection({
+        userId: session.user.id,
+        styleAssetId: normalizedStyleAssetId,
+        locale: taskLocale === 'en' ? 'en' : 'zh',
+      })
+      : null
+    if (normalizedStyleAssetId && !resolvedStyleSelection) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'INVALID_STYLE_ASSET',
+        message: 'styleAssetId must reference a readable style asset',
+      })
+    }
+    const persistedArtStyle = resolvedStyleSelection?.legacyKey ?? (normalizedArtStyle || null)
+    if (!persistedArtStyle && !resolvedStyleSelection) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'INVALID_ART_STYLE',
+        message: 'artStyle or styleAssetId is required',
+      })
     }
 
     let allReferenceImages: string[] = []
@@ -112,7 +138,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
             characterId: character.id,
             appearanceIndex: PRIMARY_APPEARANCE_INDEX,
             changeReason: '初始形象',
-            artStyle: normalizedArtStyle,
+            styleAssetId: normalizedStyleAssetId,
+            artStyle: persistedArtStyle,
             description: descText,
             descriptions: JSON.stringify([descText]),
             imageUrl: initialImageUrl || null,
@@ -138,7 +165,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
                 appearanceId: appearance.id,
                 count,
                 isBackgroundJob: true,
-                artStyle: normalizedArtStyle,
+                artStyle: persistedArtStyle || undefined,
+                styleAssetId: normalizedStyleAssetId || undefined,
+                stylePrompt: resolvedStyleSelection?.positivePrompt,
+                styleNegativePrompt: resolvedStyleSelection?.negativePrompt,
                 customDescription: customDescription || undefined,
                 locale: taskLocale || undefined,
                 meta: {

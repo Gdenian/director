@@ -13,6 +13,9 @@ const prismaMock = vi.hoisted(() => ({
   globalAssetFolder: {
     findUnique: vi.fn(),
   },
+  globalStyle: {
+    findFirst: vi.fn(),
+  },
   globalCharacter: {
     create: vi.fn(async () => ({ id: 'character-1', userId: 'user-1' })),
     findUnique: vi.fn(async () => ({
@@ -49,6 +52,7 @@ describe('api specific - characters POST forwarding to reference task', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     prismaMock.globalAssetFolder.findUnique.mockResolvedValue(null)
+    prismaMock.globalStyle.findFirst.mockResolvedValue(null)
   })
 
   it('forwards locale and accept-language into background reference task payload', async () => {
@@ -103,6 +107,48 @@ describe('api specific - characters POST forwarding to reference task', () => {
     expect(forwarded.characterId).toBe('character-1')
     expect(forwarded.appearanceId).toBe('appearance-1')
     expect(forwarded.count).toBe(5)
+  })
+
+  it('forwards resolved style prompt when creating from a custom style asset', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    prismaMock.globalStyle.findFirst.mockResolvedValueOnce({
+      id: 'style-user-1',
+      name: '霓虹赛博',
+      positivePrompt: 'cyberpunk neon city',
+      negativePrompt: 'blurry',
+      legacyKey: null,
+    })
+
+    const mod = await import('@/app/api/asset-hub/characters/route')
+    const req = buildMockRequest({
+      path: '/api/asset-hub/characters',
+      method: 'POST',
+      body: {
+        name: 'Hero',
+        styleAssetId: 'style-user-1',
+        generateFromReference: true,
+        referenceImageUrl: 'https://example.com/ref.png',
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({}) })
+    expect(res.status).toBe(200)
+
+    const calledInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined
+    const forwarded = JSON.parse(String(calledInit?.body)) as {
+      styleAssetId?: string
+      stylePrompt?: string
+      styleNegativePrompt?: string | null
+      artStyle?: string
+    }
+
+    expect(forwarded.styleAssetId).toBe('style-user-1')
+    expect(forwarded.stylePrompt).toBe('cyberpunk neon city')
+    expect(forwarded.styleNegativePrompt).toBe('blurry')
+    expect(forwarded.artStyle).toBeUndefined()
   })
 
   it('returns unauthorized when auth fails', async () => {

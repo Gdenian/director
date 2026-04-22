@@ -5,10 +5,15 @@ import { ApiError, apiHandler } from '@/lib/api-errors'
 import { attachMediaFieldsToGlobalLocation } from '@/lib/media/attach'
 import { isArtStyleValue } from '@/lib/constants'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import {
     normalizeLocationAvailableSlots,
     stringifyLocationAvailableSlots,
 } from '@/lib/location-available-slots'
+import {
+  normalizeStyleAssetId,
+  resolveReadableGlobalStyleSelection,
+} from '@/lib/style'
 
 // 获取用户所有场景（支持 folderId 筛选）
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -48,7 +53,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const { session } = authResult
 
     const body = await request.json()
-    const { name, summary, folderId, artStyle } = body
+    const taskLocale = resolveTaskLocale(request, body)
+    const { name, summary, folderId, artStyle, styleAssetId } = body
     const availableSlots = normalizeLocationAvailableSlots((body as Record<string, unknown>).availableSlots)
     const count = Object.prototype.hasOwnProperty.call(body as Record<string, unknown>, 'count')
         ? normalizeImageGenerationCount('location', (body as Record<string, unknown>).count)
@@ -58,11 +64,32 @@ export const POST = apiHandler(async (request: NextRequest) => {
         throw new ApiError('INVALID_PARAMS')
     }
     const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
+    if (normalizedArtStyle && !isArtStyleValue(normalizedArtStyle)) {
         throw new ApiError('INVALID_PARAMS', {
             code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
+            message: 'artStyle must be a supported value',
         })
+    }
+    const normalizedStyleAssetId = normalizeStyleAssetId(styleAssetId)
+    const resolvedStyleSelection = normalizedStyleAssetId
+      ? await resolveReadableGlobalStyleSelection({
+        userId: session.user.id,
+        styleAssetId: normalizedStyleAssetId,
+        locale: taskLocale === 'en' ? 'en' : 'zh',
+      })
+      : null
+    if (normalizedStyleAssetId && !resolvedStyleSelection) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'INVALID_STYLE_ASSET',
+        message: 'styleAssetId must reference a readable style asset',
+      })
+    }
+    const persistedArtStyle = resolvedStyleSelection?.legacyKey ?? (normalizedArtStyle || null)
+    if (!persistedArtStyle && !resolvedStyleSelection) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'INVALID_ART_STYLE',
+        message: 'artStyle or styleAssetId is required',
+      })
     }
 
     if (folderId) {
@@ -79,7 +106,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
             userId: session.user.id,
             folderId: folderId || null,
             name: name.trim(),
-            artStyle: normalizedArtStyle,
+            styleAssetId: normalizedStyleAssetId,
+            artStyle: persistedArtStyle,
             summary: summary?.trim() || null
         }
     })

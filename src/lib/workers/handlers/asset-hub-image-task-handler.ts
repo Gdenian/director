@@ -17,6 +17,18 @@ import {
   parseJsonStringArray,
 } from './image-task-handler-shared'
 
+function resolvePayloadStylePrompt(payload: AnyObj, locale: string | undefined): string {
+  const explicitStylePrompt = typeof payload.stylePrompt === 'string' ? payload.stylePrompt.trim() : ''
+  if (explicitStylePrompt) {
+    return explicitStylePrompt
+  }
+  const normalizedLocale = locale === 'en' ? 'en' : 'zh'
+  return getArtStylePrompt(
+    typeof payload.artStyle === 'string' ? payload.artStyle : undefined,
+    normalizedLocale,
+  )
+}
+
 interface GlobalCharacterAppearanceRecord {
   id: string
   appearanceIndex: number
@@ -63,10 +75,7 @@ export async function handleAssetHubImageTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as AnyObj
   const userId = job.data.userId
   const userModels = await getUserModels(userId)
-  const artStyle = getArtStylePrompt(
-    typeof payload.artStyle === 'string' ? payload.artStyle : undefined,
-    job.data.locale,
-  )
+  const artStyle = resolvePayloadStylePrompt(payload, job.data.locale)
 
   if (payload.type === 'character') {
     const characterId = typeof payload.id === 'string' ? payload.id : null

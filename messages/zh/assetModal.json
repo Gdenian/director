@@ -61,7 +61,8 @@
         "descriptionPlaceholder": "只写道具本体的材质、颜色、结构和装饰细节..."
     },
     "artStyle": {
-        "title": "画面风格"
+        "title": "画面风格",
+        "empty": "暂无可选风格资产"
     },
     "aiDesign": {
         "title": "AI 设计",

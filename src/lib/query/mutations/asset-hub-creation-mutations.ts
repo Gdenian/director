@@ -36,7 +36,7 @@ export function useCreateAssetHubLocation() {
       name: string
       summary: string
       folderId: string | null
-      artStyle: string
+      styleAssetId?: string
       count?: number
       availableSlots?: LocationAvailableSlot[]
     }) => {
@@ -111,7 +111,7 @@ export function useCreateAssetHubCharacter() {
       name: string
       description: string
       folderId?: string | null
-      artStyle: string
+      styleAssetId?: string
       generateFromReference?: boolean
       referenceImageUrls?: string[]
       customDescription?: string

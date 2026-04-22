@@ -61,7 +61,8 @@
         "descriptionPlaceholder": "Describe only the prop itself: material, color, structure, and decoration..."
     },
     "artStyle": {
-        "title": "Art Style"
+        "title": "Art Style",
+        "empty": "No style assets available"
     },
     "aiDesign": {
         "title": "AI Design",

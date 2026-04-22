@@ -14,6 +14,12 @@ vi.mock('@/lib/query/hooks', () => ({
   useGenerateLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useCreateProjectLocation: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useGenerateProjectLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useAssets: vi.fn(() => ({
+    data: [
+      { id: 'system:american-comic', kind: 'style', name: '漫画风', readOnly: true },
+      { id: 'style-user-1', kind: 'style', name: '霓虹赛博', readOnly: false },
+    ],
+  })),
 }))
 
 const messages = {
@@ -25,7 +31,7 @@ const messages = {
       description: '场景描述',
       descPlaceholder: '请输入场景描述...',
     },
-    artStyle: { title: '画面风格' },
+    artStyle: { title: '画面风格', empty: '暂无可选风格资产' },
     aiDesign: {
       title: 'AI 设计',
       placeholderLocation: '描述场景氛围和环境...',

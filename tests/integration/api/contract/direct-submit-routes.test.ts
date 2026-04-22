@@ -71,6 +71,27 @@ const hasOutputMock = vi.hoisted(() => ({
 }))
 
 const prismaMock = vi.hoisted(() => ({
+  globalStyle: {
+    findFirst: vi.fn(async () => null),
+  },
+  globalCharacterAppearance: {
+    findFirst: vi.fn(async () => ({
+      id: 'global-appearance-1',
+      artStyle: 'realistic',
+      styleAssetId: null,
+    })),
+  },
+  globalLocation: {
+    findFirst: vi.fn(async () => ({
+      id: 'global-location-1',
+      artStyle: 'realistic',
+      styleAssetId: null,
+      name: 'Location',
+      summary: 'Location summary',
+      assetKind: 'location',
+      images: [],
+    })),
+  },
   userPreference: {
     findUnique: vi.fn(async () => ({ lipSyncModel: 'fal::lipsync-model' })),
   },

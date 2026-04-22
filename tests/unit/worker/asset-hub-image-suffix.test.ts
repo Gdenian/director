@@ -108,6 +108,24 @@ describe('asset hub character image prompt suffix regression', () => {
     expect(callArg?.label).toBeUndefined()
   })
 
+  it('prefers explicit stylePrompt when global asset tasks carry a custom style asset snapshot', async () => {
+    const job = buildJob({
+      type: 'character',
+      id: 'global-character-1',
+      appearanceIndex: 0,
+      stylePrompt: '霓虹赛博，电影级对比光',
+    })
+
+    await handleAssetHubImageTask(job)
+
+    const generationCall = sharedMock.generateCleanImageToStorage.mock.calls[0] as unknown as [{
+      prompt?: string
+    }] | undefined
+    const prompt = generationCall?.[0]?.prompt || ''
+
+    expect(prompt).toContain('霓虹赛博，电影级对比光')
+  })
+
   it('honors requested count for global location generation', async () => {
     prismaMock.globalLocation.findFirst.mockResolvedValueOnce({
       id: 'global-location-1',

@@ -187,6 +187,23 @@ describe('worker reference-to-character', () => {
     expect(options.referenceImages).toBeUndefined()
   })
 
+  it('prefers explicit stylePrompt over legacy artStyle when reference conversion carries a style asset snapshot', async () => {
+    const job = buildJob(
+      {
+        referenceImageUrls: ['https://example.com/ref-a.png'],
+        characterName: 'Hero',
+        stylePrompt: '霓虹赛博，电影级对比光',
+        count: 1,
+      },
+      TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER,
+    )
+
+    await handleReferenceToCharacterTask(job)
+
+    const { prompt } = readGenerateCall(0)
+    expect(prompt).toContain('霓虹赛博，电影级对比光')
+  })
+
   it('keeps three-view suffix in template flow and writes extracted description in background mode', async () => {
     const job = buildJob(
       {

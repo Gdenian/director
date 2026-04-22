@@ -84,12 +84,12 @@ export function useGenerateCharacterImage() {
     mutationFn: async ({
       characterId,
       appearanceIndex,
-      artStyle,
+      styleAssetId,
       count,
     }: {
       characterId: string
       appearanceIndex: number
-      artStyle?: string
+      styleAssetId?: string
       count?: number
     }) => {
       return await requestJsonWithError(`/api/assets/${characterId}/generate`, {
@@ -99,7 +99,7 @@ export function useGenerateCharacterImage() {
           scope: 'global',
           kind: 'character',
           appearanceIndex,
-          artStyle,
+          styleAssetId,
           count,
         }),
       }, 'Failed to generate image')

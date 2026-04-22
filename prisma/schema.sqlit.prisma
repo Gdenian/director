@@ -718,6 +718,7 @@ model GlobalCharacterAppearance {
   characterId          String
   appearanceIndex      Int
   changeReason         String   @default("default")
+  styleAssetId         String?
   artStyle             String?
   description          String?
   descriptions         String?
@@ -739,6 +740,7 @@ model GlobalCharacterAppearance {
 
   @@unique([characterId, appearanceIndex])
   @@index([characterId])
+  @@index([styleAssetId])
   @@index([imageMediaId])
   @@index([previousImageMediaId])
   @@map("global_character_appearances")
@@ -750,6 +752,7 @@ model GlobalLocation {
   userId    String
   folderId  String?
   name      String
+  styleAssetId String?
   artStyle  String?
   summary   String?
   createdAt DateTime @default(now())
@@ -761,6 +764,7 @@ model GlobalLocation {
 
   @@index([userId])
   @@index([folderId])
+  @@index([styleAssetId])
   @@map("global_locations")
 }
 

@@ -27,6 +27,15 @@ import {
 } from './reference-to-character-helpers'
 const POLL_MAX_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
+
+function resolvePayloadStylePrompt(payload: Record<string, unknown>, locale: string | undefined): string {
+  const explicitStylePrompt = readString(payload.stylePrompt)
+  if (explicitStylePrompt) {
+    return explicitStylePrompt
+  }
+  return getArtStylePrompt(readString(payload.artStyle), locale === 'en' ? 'en' : 'zh')
+}
+
 async function generateReferenceImage(params: {
   job: Job<TaskJobData>
   imageIndex: number
@@ -142,8 +151,6 @@ export async function handleReferenceToCharacterTask(job: Job<TaskJobData>) {
   const extractOnly = readBoolean(payload.extractOnly)
   const customDescription = readString(payload.customDescription)
   const characterName = readString(payload.characterName) || '新角色 - 初始形象'
-  const artStyle = readString(payload.artStyle)
-
   if (isBackgroundJob && (!characterId || !appearanceId)) {
     throw new Error('Missing characterId or appearanceId for background job')
   }
@@ -197,7 +204,7 @@ export async function handleReferenceToCharacterTask(job: Job<TaskJobData>) {
     }
   }
 
-  const artStylePrompt = getArtStylePrompt(artStyle, job.data.locale)
+  const artStylePrompt = resolvePayloadStylePrompt(payload, job.data.locale)
 
   const basePrompt = customDescription || buildPrompt({
     promptId: PROMPT_IDS.CHARACTER_REFERENCE_TO_SHEET,
