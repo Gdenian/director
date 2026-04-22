@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -39,25 +38,27 @@ export default function Navbar() {
   return (
     <>
       <nav className="glass-nav sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group">
-                <Image
-                  src="/logo-small.png?v=1"
-                  alt={tc('appName')}
-                  width={80}
-                  height={80}
-                  className="object-contain transition-transform group-hover:scale-110"
-                />
-              </Link>
+        <div className="mx-auto flex h-[4.5rem] max-w-[1400px] items-center justify-between px-4 sm:px-6 lg:px-10">
+          <div className="flex items-center gap-3">
+            <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group flex items-center gap-3">
+              <span className="studio-brand-badge transition-transform duration-300 group-hover:scale-110" aria-hidden="true">
+                <span className="studio-brand-badge__letter">D</span>
+              </span>
+              <div className="hidden sm:flex flex-col leading-none">
+                <span className="studio-wordmark text-[20px]">{tc('appName')}</span>
+                <span className="text-[11px] uppercase tracking-[0.24em] text-[var(--glass-text-tertiary)]">
+                  AI Director Console
+                </span>
+              </div>
+            </Link>
+            <div className="hidden lg:flex items-center gap-2">
               <button
                 type="button"
                 onClick={openModal}
                 disabled={!update}
-                className={`relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.02em] transition-all ${update
-                  ? 'border-[var(--glass-tone-warning-fg)]/40 bg-[linear-gradient(135deg,var(--glass-tone-warning-bg),var(--glass-bg-surface-strong))] text-[var(--glass-tone-warning-fg)] shadow-[0_8px_24px_-16px_rgba(245,158,11,0.9)] hover:brightness-105'
-                  : 'border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] text-[var(--glass-text-secondary)] hover:border-[var(--glass-stroke-focus)] hover:text-[var(--glass-text-primary)] disabled:cursor-default'
+                className={`relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] uppercase transition-all ${update
+                  ? 'border-[var(--glass-tone-warning-fg)]/40 bg-[linear-gradient(135deg,rgba(255,176,70,0.18),rgba(12,18,30,0.92))] text-[var(--glass-tone-warning-fg)] shadow-[0_18px_28px_-20px_rgba(255,176,70,0.9)] hover:-translate-y-px'
+                  : 'border-[var(--glass-stroke-base)] bg-[rgba(17,24,38,0.76)] text-[var(--glass-text-secondary)] hover:border-[var(--glass-stroke-focus)] hover:text-[var(--glass-text-primary)] disabled:cursor-default'
                   }`}
                 aria-label={tc('updateNotice.openDialog')}
               >
@@ -67,7 +68,7 @@ export default function Navbar() {
                   {update ? (
                     <span className="relative inline-flex items-center">
                       {shouldPulse ? <span className="absolute -inset-1.5 animate-ping rounded-full bg-[var(--glass-tone-warning-fg)] opacity-20" /> : null}
-                      <span className="relative inline-flex items-center gap-1 rounded-full bg-[var(--glass-tone-warning-fg)]/16 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em]">
+                      <span className="relative inline-flex items-center gap-1 rounded-full bg-[var(--glass-tone-warning-fg)]/16 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
                         <AppIcon name="upload" className="h-3 w-3" />
                         {tc('updateNotice.updateTag')}
                       </span>
@@ -79,7 +80,7 @@ export default function Navbar() {
                 type="button"
                 onClick={() => void handleCheckUpdate()}
                 disabled={manualChecking}
-                className="rounded-full p-1.5 text-[var(--glass-text-tertiary)] hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-secondary)] transition-colors disabled:opacity-40"
+                className="rounded-full border border-transparent p-2 text-[var(--glass-text-tertiary)] hover:border-[var(--glass-stroke-base)] hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-secondary)] transition-colors disabled:opacity-40"
                 title={tc('updateNotice.checkUpdate')}
               >
                 <AppIcon name="refresh" className={`h-3.5 w-3.5 ${manualChecking ? 'animate-spin' : ''}`} />
@@ -93,7 +94,8 @@ export default function Navbar() {
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-6">
+          </div>
+          <div className="flex items-center gap-4 md:gap-6">
               {status === 'loading' ? (
                 /* Session 加载中骨架屏 */
                 <div className="flex items-center space-x-4">
@@ -105,14 +107,14 @@ export default function Navbar() {
                 <>
                   <Link
                     href={{ pathname: '/workspace' }}
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                    className="hidden md:inline-flex text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors items-center gap-1"
                   >
                     <AppIcon name="monitor" className="w-4 h-4" />
                     {t('workspace')}
                   </Link>
                   <Link
                     href={{ pathname: '/workspace/asset-hub' }}
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                    className="hidden md:inline-flex text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors items-center gap-1"
                   >
                     <AppIcon name="folderHeart" className="w-4 h-4" />
                     {t('assetHub')}
@@ -123,13 +125,13 @@ export default function Navbar() {
                     title={t('profile')}
                   >
                     <AppIcon name="userRoundCog" className="w-5 h-5" />
-                    {t('profile')}
+                    <span className="hidden md:inline">{t('profile')}</span>
                   </Link>
                   <LanguageSwitcher />
                   <a
                     href={downloadLogsHref}
                     download
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                    className="hidden xl:inline-flex text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors items-center gap-1"
                     title={t('downloadLogs')}
                   >
                     <AppIcon name="download" className="w-4 h-4" />
@@ -141,7 +143,7 @@ export default function Navbar() {
                 <>
                   <Link
                     href={{ pathname: '/auth/signin' }}
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors"
+                    className="hidden md:inline-flex text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors"
                   >
                     {t('signin')}
                   </Link>
@@ -154,7 +156,6 @@ export default function Navbar() {
                   <LanguageSwitcher />
                 </>
               )}
-            </div>
           </div>
         </div>
       </nav>

@@ -13,6 +13,7 @@ import { Link, useRouter } from '@/i18n/navigation'
 import { apiFetch } from '@/lib/api-fetch'
 import { readApiErrorMessage } from '@/lib/api/read-error-message'
 import { validateProjectDraft } from '@/lib/projects/validation'
+import { AnimatedBackground } from '@/components/ui/SharedComponents'
 
 interface ProjectStats {
   episodes: number
@@ -328,46 +329,77 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="glass-page min-h-screen">
+    <div className="studio-shell glass-page min-h-screen">
+      <AnimatedBackground />
       {/* Header - 统一导航栏 */}
       <Navbar />
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-8">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--glass-text-primary)] mb-2">{t('title')}</h1>
-            <p className="text-[var(--glass-text-secondary)]">{t('subtitle')}</p>
+      <main className="relative z-10 mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-10">
+        <div className="studio-hero-panel mb-8 overflow-hidden p-6 md:p-7">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="studio-kicker w-fit">
+                <span className="h-2 w-2 rounded-full bg-[var(--glass-tone-info-fg)]" />
+                {t('heroKicker')}
+              </div>
+              <h1 className="studio-display mt-5 text-3xl font-bold tracking-[0.03em] text-[var(--glass-text-primary)] md:text-5xl">
+                {t('title')}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--glass-text-secondary)] md:text-base">
+                {t('heroDescription')}
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="studio-media-frame min-w-[180px] p-4">
+                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('heroStatTotal')}</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{pagination.total}</div>
+                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{t('totalProjects', { count: pagination.total })}</div>
+              </div>
+              <div className="studio-media-frame min-w-[180px] p-4">
+                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('heroStatVisible')}</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{projects.length}</div>
+                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{loading ? tc('loading') : t('subtitle')}</div>
+              </div>
+              <div className="studio-media-frame min-w-[180px] p-4">
+                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('heroStatSearch')}</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{searchQuery ? '1' : '0'}</div>
+                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{searchQuery ? t('searchActive') : t('searchInactive')}</div>
+              </div>
+            </div>
           </div>
 
-          {/* 搜索框 */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder={t('searchPlaceholder')}
-              className="glass-input-base w-64 px-3 py-2"
-            />
-            <button
-              onClick={handleSearch}
-              className="glass-btn-base glass-btn-primary px-4 py-2"
-            >
-              {t('searchButton')}
-            </button>
-            {searchQuery && (
+          <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('heroSearchKicker')}</div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder={t('searchPlaceholder')}
+                className="glass-input-base min-w-[260px] px-3 py-2"
+              />
               <button
-                onClick={() => {
-                  setSearchInput('')
-                  setSearchQuery('')
-                  setPagination(prev => ({ ...prev, page: 1 }))
-                }}
-                className="glass-btn-base glass-btn-secondary px-4 py-2"
+                onClick={handleSearch}
+                className="glass-btn-base glass-btn-primary px-4 py-2"
               >
-                {t('clearButton')}
+                {t('searchButton')}
               </button>
-            )}
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchInput('')
+                    setSearchQuery('')
+                    setPagination(prev => ({ ...prev, page: 1 }))
+                  }}
+                  className="glass-btn-base glass-btn-secondary px-4 py-2"
+                >
+                  {t('clearButton')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -376,13 +408,15 @@ export default function WorkspacePage() {
           {/* New Project Card */}
           <div
             onClick={() => openCreateModal()}
-            className="glass-surface p-6 cursor-pointer group flex items-center justify-center bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-blue-600/5 hover:from-blue-500/10 hover:via-cyan-500/10 hover:to-blue-600/10 transition-all duration-300"
+            className="studio-media-frame cursor-pointer group flex min-h-[260px] items-center justify-center p-6 transition-all duration-300 hover:-translate-y-1"
           >
             <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 group-hover:scale-110 transition-all duration-300">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--glass-accent-from)] to-[var(--glass-accent-to)] shadow-lg shadow-[var(--glass-accent-shadow-soft)] group-hover:scale-110 transition-all duration-300">
                 <AppIcon name="plus" className="w-6 h-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-[var(--glass-text-secondary)] group-hover:text-[var(--glass-text-primary)] transition-colors">{t('newProject')}</span>
+              <span className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('newProjectLabel')}</span>
+              <span className="text-base font-medium text-[var(--glass-text-primary)] transition-colors">{t('newProject')}</span>
+              <span className="text-center text-xs leading-6 text-[var(--glass-text-secondary)]">{t('newProjectHint')}</span>
             </div>
           </div>
 
@@ -401,12 +435,13 @@ export default function WorkspacePage() {
               <Link
                 key={project.id}
                 href={{ pathname: `/workspace/${project.id}` }}
-                className="glass-surface cursor-pointer relative group block hover:border-[var(--glass-tone-info-fg)]/40 transition-all duration-300 overflow-hidden"
+                className="glass-surface cursor-pointer relative group block hover:border-[var(--glass-tone-info-fg)]/40 transition-all duration-300 overflow-hidden hover:-translate-y-1"
               >
                 {/* 悬停光效 */}
-                <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(99,208,255,0.08),transparent_45%,rgba(79,141,255,0.08))] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                 <div className="p-5 relative z-10">
+                  <div className="studio-section-title mb-3 text-[10px] text-[var(--glass-text-tertiary)]">{formatDate(project.updatedAt)}</div>
                   {/* 操作按钮 */}
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                     <button
@@ -584,6 +619,7 @@ export default function WorkspacePage() {
       {showCreateModal && (
         <div className="fixed inset-0 glass-overlay flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="glass-surface-modal p-6 w-full max-w-md mx-4">
+            <div className="studio-section-title mb-3 text-[10px] text-[var(--glass-text-tertiary)]">{t('newProjectLabel')}</div>
             <h2 className="text-xl font-bold text-[var(--glass-text-primary)] mb-4">{t('createProject')}</h2>
             {modelNotConfigured && (
               <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
@@ -677,6 +713,7 @@ export default function WorkspacePage() {
       {showEditModal && editingProject && (
         <div className="fixed inset-0 glass-overlay flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="glass-surface-modal p-6 w-full max-w-md mx-4">
+            <div className="studio-section-title mb-3 text-[10px] text-[var(--glass-text-tertiary)]">{t('editProject')}</div>
             <h2 className="text-xl font-bold text-[var(--glass-text-primary)] mb-4">{t('editProject')}</h2>
             <form onSubmit={handleEditProject}>
               <div className="mb-4">

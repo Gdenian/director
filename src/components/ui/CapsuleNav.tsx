@@ -71,7 +71,7 @@ function NavItem({
                 onAuxClick={handleAuxClick}
                 disabled={disabled}
                 className={`
-                    relative flex min-h-[52px] items-center gap-1 px-6 pt-3.5 pb-4 transition-all duration-300 ease-out
+                    studio-display relative flex min-h-[56px] items-center gap-1 px-5 pt-3 pb-4 transition-all duration-300 ease-out
                     ${disabled
                         ? 'cursor-not-allowed'
                         : active
@@ -81,11 +81,11 @@ function NavItem({
                 `}
             >
                 {disabled ? (
-                    <span className="text-base font-medium text-[var(--glass-text-tertiary)] opacity-80">
+                    <span className="text-sm font-semibold tracking-[0.12em] text-[var(--glass-text-tertiary)] opacity-80">
                         {label}
                     </span>
                 ) : (
-                    <span className="text-base font-semibold">{label}</span>
+                    <span className="text-sm font-semibold tracking-[0.12em] uppercase">{label}</span>
                 )}
                 {/* 底部指示条 */}
                 <span className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 h-[3px] rounded-full transition-all duration-300 ease-out
@@ -135,13 +135,13 @@ export function CapsuleNav({ items, activeId, onItemClick, projectId, episodeId 
     return (
         <nav className="fixed top-20 left-1/2 -translate-x-1/2 z-40 animate-fadeInDown">
             <div
-                className="flex rounded-full px-2 py-1"
+                className="flex rounded-full px-2 py-1.5"
                 style={{
-                    background: 'rgba(255,255,255,0.55)',
-                    backdropFilter: 'blur(24px) saturate(1.6)',
-                    WebkitBackdropFilter: 'blur(24px) saturate(1.6)',
-                    border: '1px solid rgba(255,255,255,0.45)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.06), 0 1.5px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.7)',
+                    background: 'linear-gradient(180deg, rgba(10, 15, 24, 0.88) 0%, rgba(7, 11, 19, 0.94) 100%)',
+                    backdropFilter: 'blur(24px) saturate(1.08)',
+                    WebkitBackdropFilter: 'blur(24px) saturate(1.08)',
+                    border: '1px solid rgba(145, 171, 214, 0.18)',
+                    boxShadow: '0 24px 48px -24px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.05)',
                 }}
             >
                 {items.map((item) => (
@@ -221,7 +221,7 @@ export function EpisodeSelector({
                 className="glass-btn-base glass-btn-secondary flex items-center gap-3 px-4 py-3 transition-all group"
                 style={{ borderRadius: '1.5rem' }}
             >
-                <div className="glass-surface-soft flex h-10 w-10 items-center justify-center rounded-xl text-xs font-bold text-[var(--glass-tone-info-fg)]">
+                <div className="glass-surface-soft studio-display flex h-10 w-10 items-center justify-center rounded-xl text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--glass-tone-info-fg)]">
                     {t('episode')}
                 </div>
                 <div className="flex flex-col items-start text-left mr-2">

@@ -1,6 +1,11 @@
 {
     "title": "Asset Hub",
     "description": "Manage your global character, location, prop, voice, and style assets",
+    "heroKicker": "Asset Direction",
+    "folderKicker": "Folder Map",
+    "heroStatCharacter": "Character assets stored",
+    "heroStatStyle": "Style assets ready to reuse",
+    "heroStatVoice": "Voices ready for direct binding",
     "modelHint": "Asset Hub uses default models. To change settings, go to",
     "modelHintLink": "API Settings",
     "modelHintSuffix": "",

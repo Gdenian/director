@@ -22,7 +22,7 @@ export function StyleCard({
   const previewUrl = asset.previewMedia?.url ?? null
 
   return (
-    <article className="glass-surface overflow-hidden relative group">
+    <article className="glass-surface studio-grid overflow-hidden relative group transition-transform duration-300 hover:-translate-y-1">
       <div className="relative aspect-[4/3] bg-[var(--glass-bg-muted)]">
         {previewUrl ? (
           <MediaImageWithLoading
@@ -36,10 +36,15 @@ export function StyleCard({
             <AppIcon name="sparklesAlt" className="h-10 w-10" />
           </div>
         )}
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,8,14,0.04),rgba(5,8,14,0.78))]" />
         <div className="absolute left-2 top-2">
           <span className={`glass-chip px-2 py-0.5 text-[10px] ${asset.source === 'system' ? 'glass-chip-neutral' : 'glass-chip-info'}`}>
             {asset.source === 'system' ? t('styleSourceSystem') : t('styleSourceUser')}
           </span>
+        </div>
+        <div className="absolute inset-x-3 bottom-3">
+          <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('styles')}</div>
+          <div className="mt-1 line-clamp-1 text-base font-semibold text-white">{asset.name}</div>
         </div>
       </div>
 

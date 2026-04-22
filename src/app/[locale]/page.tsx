@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { useRouter } from '@/i18n/navigation'
@@ -26,20 +25,16 @@ export default function Home() {
     return (
       <div className="glass-page min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Image
-            src="/logo-small.png?v=1"
-            alt="waoowaoo"
-            width={80}
-            height={80}
-            className="animate-pulse"
-          />
+          <span className="studio-brand-badge studio-brand-badge-lg animate-pulse" aria-hidden="true">
+            <span className="studio-brand-badge__letter">D</span>
+          </span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="glass-page min-h-screen overflow-hidden font-sans selection:bg-[var(--glass-tone-info-bg)]">
+    <div className="studio-shell glass-page min-h-screen overflow-hidden font-sans selection:bg-[var(--glass-tone-info-bg)]">
       {/* Navbar */}
       <div className="relative z-50">
         <Navbar />
@@ -47,53 +42,119 @@ export default function Home() {
 
       {/* Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_80%_-10%,rgba(138,170,255,0.12),transparent),radial-gradient(900px_500px_at_0%_100%,rgba(148,163,184,0.16),transparent)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(99,208,255,0.12),transparent_24%),radial-gradient(circle_at_85%_0%,rgba(79,141,255,0.18),transparent_28%),linear-gradient(180deg,#0a0f18_0%,#060910_100%)]" />
+        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(138,154,191,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(138,154,191,0.06)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:linear-gradient(180deg,rgba(0,0,0,0.62),transparent_78%)]" />
       </div>
 
-      <main className="relative z-10">
-        <section className="relative min-h-screen flex items-center justify-center -mt-16 px-4">
-          <div className="container mx-auto grid lg:grid-cols-2 gap-16 items-center">
-            <div className="text-left space-y-8 animate-slide-up" style={{ animationDuration: '0.8s' }}>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                <span className="block text-[var(--glass-text-primary)]">
-                  {t('title')}
-                </span>
-                <span className="text-[var(--glass-tone-info-fg)]">
-                  {t('subtitle')}
-                </span>
-              </h1>
+      <main className="studio-grid relative z-10">
+        <section className="relative flex min-h-screen items-center px-4 pt-10 pb-20">
+          <div className="mx-auto grid w-full max-w-[1380px] items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+            <div className="relative z-10 space-y-8">
+              <span className="studio-kicker animate-fade-in" style={{ animationDelay: '0.12s' }}>
+                <span className="h-2 w-2 rounded-full bg-[var(--glass-tone-info-fg)]" />
+                {t('kicker')}
+              </span>
+              <div className="animate-slide-up space-y-6" style={{ animationDuration: '0.8s' }}>
+                <h1 className="studio-display max-w-4xl text-5xl font-bold leading-[0.96] tracking-[0.01em] text-[var(--glass-text-primary)] md:text-7xl xl:text-[6.25rem]">
+                  <span className="block">{t('title')}</span>
+                  <span className="block text-[var(--glass-tone-info-fg)]">{t('subtitle')}</span>
+                </h1>
+                <p className="max-w-2xl text-base leading-8 text-[var(--glass-text-secondary)] md:text-lg">
+                  {t('pitch')}
+                </p>
+              </div>
 
-              <div className="flex flex-wrap gap-4 pt-4 animate-fade-in" style={{ animationDelay: '0.6s' }}>
+              <div className="flex flex-wrap gap-4 pt-2 animate-fade-in" style={{ animationDelay: '0.42s' }}>
                 <Link
                   href={{ pathname: '/auth/signup' }}
                   className="glass-btn-base glass-btn-primary px-8 py-4 rounded-xl font-semibold transition-all duration-300"
                 >
                   {t('getStarted')}
                 </Link>
+                <Link
+                  href={{ pathname: '/auth/signin' }}
+                  className="glass-btn-base glass-btn-secondary px-8 py-4 rounded-xl font-semibold transition-all duration-300"
+                >
+                  {t('enterWorkspace')}
+                </Link>
+              </div>
+
+              <div className="grid gap-4 pt-6 md:grid-cols-3">
+                <div className="studio-hero-panel p-5">
+                  <div className="studio-section-title text-xs text-[var(--glass-text-tertiary)]">{t('cards.style.label')}</div>
+                  <div className="mt-3 text-2xl font-semibold text-[var(--glass-text-primary)]">{t('cards.style.title')}</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">
+                    {t('cards.style.description')}
+                  </p>
+                </div>
+                <div className="studio-hero-panel p-5">
+                  <div className="studio-section-title text-xs text-[var(--glass-text-tertiary)]">{t('cards.run.label')}</div>
+                  <div className="mt-3 text-2xl font-semibold text-[var(--glass-text-primary)]">{t('cards.run.title')}</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">
+                    {t('cards.run.description')}
+                  </p>
+                </div>
+                <div className="studio-hero-panel p-5">
+                  <div className="studio-section-title text-xs text-[var(--glass-text-tertiary)]">{t('cards.episode.label')}</div>
+                  <div className="mt-3 text-2xl font-semibold text-[var(--glass-text-primary)]">{t('cards.episode.title')}</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">
+                    {t('cards.episode.description')}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="relative h-[600px] hidden lg:flex items-center justify-center animate-scale-in" style={{ animationDuration: '1s' }}>
-              <div className="relative w-full max-w-md aspect-square">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle,rgba(148,163,184,0.2),transparent_65%)] rounded-full blur-3xl opacity-70"></div>
-                <div className="absolute top-0 right-10 w-64 h-80 glass-surface rounded-3xl transform rotate-6 animate-float-delayed"></div>
-                <div className="absolute bottom-10 left-10 w-72 h-80 glass-surface-soft rounded-3xl transform -rotate-3 animate-float-slow"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-96 glass-surface-modal rounded-3xl overflow-hidden animate-float">
-                  <div className="p-6 h-full flex flex-col">
-                    <div className="w-full h-48 bg-[var(--glass-bg-muted)] rounded-2xl mb-6 relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-[var(--glass-tone-info-bg)]/20 group-hover:bg-[var(--glass-tone-info-bg)]/35 transition-colors"></div>
-                      <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[var(--glass-bg-surface)]"></div>
-                      <div className="absolute bottom-4 left-4 w-12 h-12 rounded-lg bg-[var(--glass-bg-surface-strong)] rotate-12"></div>
+            <div className="relative hidden min-h-[680px] items-center justify-center lg:flex">
+              <div className="relative h-[620px] w-full max-w-[540px] animate-scale-in" style={{ animationDuration: '1s' }}>
+                <div className="absolute -right-6 top-4 studio-media-frame h-[280px] w-[280px] rotate-[8deg] p-5">
+                  <div className="flex h-full flex-col justify-between rounded-[22px] border border-[var(--glass-stroke-soft)] bg-[linear-gradient(180deg,rgba(28,42,64,0.9)_0%,rgba(9,15,25,0.96)_100%)] p-5">
+                    <div className="flex items-center justify-between">
+                      <span className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('showcase.styleLabel')}</span>
+                      <span className="glass-chip glass-chip-info">active</span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="h-3 w-3/4 bg-[var(--glass-bg-muted)] rounded-full"></div>
-                      <div className="h-3 w-1/2 bg-[var(--glass-bg-muted)] rounded-full"></div>
-                      <div className="pt-4 flex gap-2">
-                        <div className="h-10 w-10 rounded-full bg-[var(--glass-bg-surface)] border border-[var(--glass-stroke-soft)]"></div>
-                        <div className="h-10 flex-1 rounded-full bg-[var(--glass-tone-info-bg)]/40 border border-[var(--glass-stroke-base)]"></div>
+                    <div className="relative mt-4 flex-1 overflow-hidden rounded-[18px] border border-[var(--glass-stroke-soft)] bg-[radial-gradient(circle_at_25%_18%,rgba(99,208,255,0.28),transparent_25%),linear-gradient(135deg,#17253c_0%,#0b1424_100%)]">
+                      <div className="absolute inset-x-0 bottom-0 h-32 bg-[linear-gradient(180deg,transparent,rgba(5,8,15,0.88))]" />
+                      <div className="absolute left-4 top-4 studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('showcase.styleLabel')}</div>
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <div className="text-lg font-semibold text-[var(--glass-text-primary)]">{t('showcase.styleTitle')}</div>
+                        <div className="mt-1 text-xs leading-5 text-[var(--glass-text-secondary)]">{t('showcase.styleDescription')}</div>
                       </div>
                     </div>
                   </div>
+                </div>
+                <div className="absolute left-0 top-24 studio-media-frame h-[360px] w-[320px] -rotate-[6deg] p-4">
+                  <div className="flex h-full flex-col rounded-[22px] border border-[var(--glass-stroke-soft)] bg-[linear-gradient(180deg,rgba(14,21,34,0.92)_0%,rgba(8,13,22,0.98)_100%)] p-5">
+                    <div className="flex items-center justify-between">
+                      <span className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('showcase.storyboardLabel')}</span>
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--glass-tone-info-fg)]" />
+                    </div>
+                    <div className="mt-5 grid flex-1 gap-3">
+                      <div className="rounded-[18px] border border-[var(--glass-stroke-soft)] bg-[linear-gradient(135deg,rgba(22,34,54,0.92),rgba(11,18,29,0.98))] p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">{t('showcase.sceneLabel')}</div>
+                        <div className="mt-2 text-base font-semibold text-[var(--glass-text-primary)]">{t('showcase.storyboardTitle')}</div>
+                        <div className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">{t('showcase.storyboardDescription')}</div>
+                      </div>
+                      <div className="rounded-[18px] border border-[var(--glass-stroke-soft)] bg-[linear-gradient(135deg,rgba(18,28,44,0.92),rgba(9,15,24,0.98))] p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('showcase.statusLabel')}</span>
+                          <span className="glass-chip glass-chip-success">{t('showcase.statusChip')}</span>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <div className="h-2 rounded-full bg-[rgba(255,255,255,0.06)]">
+                            <div className="h-2 w-[76%] rounded-full bg-[linear-gradient(90deg,var(--glass-accent-from),var(--glass-accent-to))]" />
+                          </div>
+                          <div className="text-sm text-[var(--glass-text-secondary)]">{t('showcase.statusValue')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="absolute bottom-2 right-8 studio-hero-panel w-[290px] p-5">
+                  <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('showcase.noteLabel')}</div>
+                  <div className="mt-3 text-lg font-semibold text-[var(--glass-text-primary)]">{t('showcase.noteTitle')}</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">
+                    {t('showcase.noteDescription')}
+                  </p>
                 </div>
               </div>
             </div>

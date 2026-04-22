@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { Rajdhani } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -13,6 +14,12 @@ import { locales } from '@/i18n/routing';
 
 
 type SupportedLocale = (typeof locales)[number]
+
+const displayFont = Rajdhani({
+    subsets: ['latin'],
+    weight: ['500', '600', '700'],
+    variable: '--font-display',
+})
 
 // 动态元数据生成
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
@@ -64,7 +71,7 @@ export default async function LocaleLayout({
             </head>
             <body
                 suppressHydrationWarning
-                className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+                className={`${GeistSans.variable} ${GeistMono.variable} ${displayFont.variable} antialiased`}
             >
                 <NextIntlClientProvider messages={messages}>
                     <Providers>

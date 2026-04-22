@@ -1,10 +1,44 @@
 {
-  "title": "waoowaoo",
-  "subtitle": "AI Film & TV Studio",
+  "title": "director",
+  "subtitle": "AI Film Director Console",
   "enterWorkspace": "Enter Workspace",
   "loading": "Loading...",
   "getStarted": "Get Started",
   "learnMore": "Learn More",
+  "kicker": "AI Director Console",
+  "pitch": "Keep novels, scripts, characters, locations, storyboards, voice and video inside one directing flow. Styles, assets, task states, and outputs stay aligned in a single console.",
+  "cards": {
+    "style": {
+      "label": "Style Asset",
+      "title": "Style Stays Consistent",
+      "description": "Turn visual style from a one-off input into a reusable asset that can be managed and referenced across the pipeline."
+    },
+    "run": {
+      "label": "Run Console",
+      "title": "Tasks Stay Visible",
+      "description": "Generation, retries, failures, and recovery states stay visible in one workspace instead of getting lost between steps."
+    },
+    "episode": {
+      "label": "Episode Flow",
+      "title": "Episode-Driven Flow",
+      "description": "Episodes and stages are organized from a director's point of view, so users always know what part of the production they are advancing."
+    }
+  },
+  "showcase": {
+    "styleLabel": "Style Preview",
+    "styleTitle": "Neon Sci-Fi Studio",
+    "styleDescription": "Blue-white contrast, mirrored materials, cold stage lighting.",
+    "storyboardLabel": "Storyboard",
+    "sceneLabel": "Scene 01",
+    "storyboardTitle": "Rooftop Chase",
+    "storyboardDescription": "Characters, camera direction, and scene style are aligned in the same frame.",
+    "statusLabel": "Run Status",
+    "statusChip": "ready",
+    "statusValue": "Script -> Assets -> Storyboard -> Video",
+    "noteLabel": "Director Notes",
+    "noteTitle": "Style Stops Drifting",
+    "noteDescription": "Characters, scenes, storyboards, and video prompts can resolve from one source of style truth."
+  },
   "features": {
     "title": "Unleash Infinite Creativity",
     "subtitle": "Full-process AI assistance, from script to final cut",
@@ -22,6 +56,6 @@
     }
   },
   "footer": {
-    "copyright": "2026 waoowaoo AI. All rights reserved."
+    "copyright": "2026 director AI. All rights reserved."
   }
 }

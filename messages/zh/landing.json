@@ -1,10 +1,44 @@
 {
-  "title": "waoowaoo",
-  "subtitle": "AI影视Studio",
+  "title": "director",
+  "subtitle": "AI影视导演台",
   "enterWorkspace": "进入工作区",
   "loading": "加载中...",
   "getStarted": "立即体验",
   "learnMore": "了解更多",
+  "kicker": "AI 影视导演台",
+  "pitch": "把小说、脚本、角色、场景、分镜、配音和视频放进同一条导演流程里。风格、资产、任务状态与生成结果在一套控制台里持续对齐。",
+  "cards": {
+    "style": {
+      "label": "Style Asset",
+      "title": "一致风格",
+      "description": "把视觉风格从一次性输入，提升成可复用、可管理、可持续引用的正式资产。"
+    },
+    "run": {
+      "label": "Run Console",
+      "title": "任务可追踪",
+      "description": "生成、重试、失败和恢复状态在一个工作台里连续可见，不靠来回猜流程。"
+    },
+    "episode": {
+      "label": "Episode Flow",
+      "title": "分集驱动",
+      "description": "从剧集到阶段切换都围绕导演视角组织，用户始终知道自己正在推进哪一段。"
+    }
+  },
+  "showcase": {
+    "styleLabel": "Style Preview",
+    "styleTitle": "霓虹科幻片场",
+    "styleDescription": "蓝白高反差、镜面材质、冷色舞台光。",
+    "storyboardLabel": "Storyboard",
+    "sceneLabel": "Scene 01",
+    "storyboardTitle": "屋顶追逐",
+    "storyboardDescription": "角色、镜头调度与场景风格在同一画面里校准。",
+    "statusLabel": "Run Status",
+    "statusChip": "ready",
+    "statusValue": "Script -> Assets -> Storyboard -> Video",
+    "noteLabel": "Director Notes",
+    "noteTitle": "风格不再漂移",
+    "noteDescription": "角色、场景、分镜和视频 prompt 引用同一来源，让整条生成链路更稳定。"
+  },
   "features": {
     "title": "释放无限创造力",
     "subtitle": "全流程 AI 辅助，从剧本到成片",
@@ -22,6 +56,6 @@
     }
   },
   "footer": {
-    "copyright": "2026 waoowaoo AI. All rights reserved."
+    "copyright": "2026 director AI. All rights reserved."
   }
 }

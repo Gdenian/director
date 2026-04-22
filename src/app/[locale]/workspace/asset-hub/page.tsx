@@ -29,6 +29,7 @@ import { AppIcon } from '@/components/ui/icons'
 import { Link } from '@/i18n/navigation'
 import { useImageGenerationCount } from '@/lib/image-generation/use-image-generation-count'
 import type { StyleAssetSummary } from '@/lib/assets/contracts'
+import { AnimatedBackground } from '@/components/ui/SharedComponents'
 
 export default function AssetHubPage() {
     const t = useTranslations('assetHub')
@@ -472,19 +473,49 @@ export default function AssetHubPage() {
     }
 
     return (
-        <div className="glass-page min-h-screen">
+        <div className="studio-shell glass-page min-h-screen">
+            <AnimatedBackground />
             <Navbar />
-            <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="relative z-10 mx-auto max-w-7xl px-4 py-6">
                 {/* 页面标题 */}
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-[var(--glass-text-primary)]">{t('title')}</h1>
-                    <p className="text-sm text-[var(--glass-text-secondary)] mt-1">{t('description')}</p>
-                    <p className="text-xs text-[var(--glass-text-tertiary)] mt-2 flex items-center gap-1">
-                        <AppIcon name="info" className="w-3.5 h-3.5" />
-                        {t('modelHint')}
-                        <Link href={{ pathname: '/profile' }} className="text-[var(--glass-tone-info-fg)] hover:underline">{t('modelHintLink')}</Link>
-                        {t('modelHintSuffix')}
-                    </p>
+                <div className="studio-hero-panel mb-6 overflow-hidden p-6 md:p-7">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="max-w-3xl">
+                            <div className="studio-kicker w-fit">
+                                <span className="h-2 w-2 rounded-full bg-[var(--glass-tone-info-fg)]" />
+                                {t('heroKicker')}
+                            </div>
+                            <h1 className="studio-display mt-5 text-3xl font-bold tracking-[0.03em] text-[var(--glass-text-primary)] md:text-5xl">
+                                {t('title')}
+                            </h1>
+                            <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--glass-text-secondary)] md:text-base">
+                                {t('description')}
+                            </p>
+                            <p className="mt-4 flex flex-wrap items-center gap-1.5 text-xs text-[var(--glass-text-tertiary)]">
+                                <AppIcon name="info" className="h-3.5 w-3.5" />
+                                {t('modelHint')}
+                                <Link href={{ pathname: '/profile' }} className="text-[var(--glass-tone-info-fg)] hover:underline">{t('modelHintLink')}</Link>
+                                {t('modelHintSuffix')}
+                            </p>
+                        </div>
+                            <div className="grid gap-3 md:grid-cols-3">
+                            <div className="studio-media-frame min-w-[180px] p-4">
+                                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('characters')}</div>
+                                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{assets.filter((asset) => asset.kind === 'character').length}</div>
+                                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{t('heroStatCharacter')}</div>
+                            </div>
+                            <div className="studio-media-frame min-w-[180px] p-4">
+                                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('styles')}</div>
+                                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{assets.filter((asset) => asset.kind === 'style').length}</div>
+                                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{t('heroStatStyle')}</div>
+                            </div>
+                            <div className="studio-media-frame min-w-[180px] p-4">
+                                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('voices')}</div>
+                                <div className="mt-2 text-2xl font-semibold text-[var(--glass-text-primary)]">{assets.filter((asset) => asset.kind === 'voice').length}</div>
+                                <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{t('heroStatVoice')}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex gap-6">

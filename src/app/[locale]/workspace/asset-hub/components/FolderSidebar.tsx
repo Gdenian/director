@@ -46,9 +46,12 @@ export function FolderSidebar({
 
     return (
         <div className="w-56 flex-shrink-0">
-            <div className="glass-surface p-4">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-[var(--glass-text-secondary)]">{t('folders')}</h3>
+            <div className="glass-surface-elevated p-4">
+                <div className="mb-4 flex items-center justify-between">
+                    <div>
+                        <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('folderKicker')}</div>
+                        <h3 className="mt-2 text-sm font-medium text-[var(--glass-text-secondary)]">{t('folders')}</h3>
+                    </div>
                     <button
                         onClick={onCreateFolder}
                         className="glass-btn-base glass-btn-primary h-6 w-6 rounded-full flex items-center justify-center"
@@ -62,9 +65,9 @@ export function FolderSidebar({
                     {/* 所有资产 */}
                     <button
                         onClick={() => onSelectFolder(null)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors ${selectedFolderId === null
-                                ? 'bg-[var(--glass-tone-info-bg)] text-[var(--glass-tone-info-fg)]'
-                                : 'text-[var(--glass-text-secondary)] hover:bg-[var(--glass-bg-muted)]'
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors border ${selectedFolderId === null
+                                ? 'bg-[var(--glass-tone-info-bg)] text-[var(--glass-tone-info-fg)] border-[var(--glass-stroke-focus)]'
+                                : 'text-[var(--glass-text-secondary)] border-transparent hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-primary)]'
                             }`}
                     >
                         <FolderIcon className="w-4 h-4" />
@@ -75,9 +78,9 @@ export function FolderSidebar({
                     {folders.map((folder) => (
                         <div
                             key={folder.id}
-                            className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectedFolderId === folder.id
-                                    ? 'bg-[var(--glass-tone-info-bg)] text-[var(--glass-tone-info-fg)]'
-                                    : 'text-[var(--glass-text-secondary)] hover:bg-[var(--glass-bg-muted)]'
+                            className={`group flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${selectedFolderId === folder.id
+                                    ? 'bg-[var(--glass-tone-info-bg)] text-[var(--glass-tone-info-fg)] border-[var(--glass-stroke-focus)]'
+                                    : 'text-[var(--glass-text-secondary)] border-transparent hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-primary)]'
                                 }`}
                         >
                             <button
@@ -115,7 +118,7 @@ export function FolderSidebar({
                     ))}
 
                     {folders.length === 0 && (
-                        <div className="text-xs text-[var(--glass-text-tertiary)] text-center py-4">
+                        <div className="rounded-xl border border-dashed border-[var(--glass-stroke-base)] px-3 py-4 text-center text-xs text-[var(--glass-text-tertiary)]">
                             {t('noFolders')}
                         </div>
                     )}

@@ -43,16 +43,41 @@ export default function SignIn() {
   }
 
   return (
-    <div className="glass-page min-h-screen">
+    <div className="studio-shell glass-page min-h-screen">
       <Navbar />
-      <div className="flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full">
-          <div className="glass-surface-modal p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-[var(--glass-text-primary)] mb-2">
+      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-72px)] max-w-[1280px] items-center gap-10 px-4 py-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.8fr)]">
+        <div className="hidden lg:block">
+          <div className="studio-hero-panel max-w-xl p-8">
+            <span className="studio-kicker">{t('signinHeroKicker')}</span>
+            <h1 className="studio-display mt-6 text-6xl font-bold leading-[0.92] text-[var(--glass-text-primary)]">
+              {t('welcomeBack')}
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-8 text-[var(--glass-text-secondary)]">
+              {t('signinHeroDescription')}
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="studio-media-frame p-5">
+                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('signinHeroProjectLabel')}</div>
+                <div className="mt-3 text-xl font-semibold text-[var(--glass-text-primary)]">{t('signinHeroProjectTitle')}</div>
+                <div className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">{t('signinHeroProjectDescription')}</div>
+              </div>
+              <div className="studio-media-frame p-5">
+                <div className="studio-section-title text-[10px] text-[var(--glass-text-tertiary)]">{t('signinHeroStyleLabel')}</div>
+                <div className="mt-3 text-xl font-semibold text-[var(--glass-text-primary)]">{t('signinHeroStyleTitle')}</div>
+                <div className="mt-2 text-sm leading-6 text-[var(--glass-text-secondary)]">{t('signinHeroStyleDescription')}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-md">
+          <div className="glass-surface-modal p-8 md:p-9">
+            <div className="mb-8 text-center">
+              <div className="studio-kicker mx-auto w-fit">{t('signinPanelKicker')}</div>
+              <h1 className="mt-5 text-3xl font-bold text-[var(--glass-text-primary)] md:text-4xl">
                 {t('welcomeBack')}
               </h1>
-              <p className="text-[var(--glass-text-secondary)]">{t('loginTo')}</p>
+              <p className="mt-2 text-[var(--glass-text-secondary)]">{t('loginTo')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -99,7 +124,7 @@ export default function SignIn() {
               <button
                 type="submit"
                 disabled={loading}
-                className="glass-btn-base glass-btn-primary w-full py-3 px-4 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="glass-btn-base glass-btn-primary w-full py-3.5 px-4 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? t('loginButtonLoading') : t('loginButton')}
               </button>

@@ -1,6 +1,11 @@
 {
     "title": "资产中心",
     "description": "管理您的全局角色、场景、道具、音色与风格资产",
+    "heroKicker": "Asset Direction",
+    "folderKicker": "目录面板",
+    "heroStatCharacter": "已沉淀角色资产",
+    "heroStatStyle": "风格资产可跨阶段复用",
+    "heroStatVoice": "角色可直接绑定音色",
     "modelHint": "资产中心使用默认模型，如需修改请在",
     "modelHintLink": "API配置页面",
     "modelHintSuffix": "进行设置",

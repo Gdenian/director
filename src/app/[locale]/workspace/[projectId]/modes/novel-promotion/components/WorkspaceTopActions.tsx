@@ -49,14 +49,14 @@ export default function WorkspaceTopActions({
         className="glass-btn-base glass-btn-secondary flex items-center gap-2 px-4 py-3 rounded-3xl text-[var(--glass-text-primary)]"
       >
         <AppIcon name="package" className="h-5 w-5" />
-        <span className="font-semibold text-sm hidden md:inline tracking-[0.01em]">{assetLibraryLabel}</span>
+        <span className="studio-display hidden text-xs font-semibold uppercase tracking-[0.14em] text-[var(--glass-text-primary)] md:inline">{assetLibraryLabel}</span>
       </button>
       <button
         onClick={onOpenSettings}
         className="glass-btn-base glass-btn-secondary flex items-center gap-2 px-4 py-3 rounded-3xl text-[var(--glass-text-primary)]"
       >
         <AppIcon name="settingsHexMinor" className="h-5 w-5" />
-        <span className="font-semibold text-sm hidden md:inline tracking-[0.01em]">{settingsLabel}</span>
+        <span className="studio-display hidden text-xs font-semibold uppercase tracking-[0.14em] text-[var(--glass-text-primary)] md:inline">{settingsLabel}</span>
       </button>
       <button
         onClick={handleRefreshClick}

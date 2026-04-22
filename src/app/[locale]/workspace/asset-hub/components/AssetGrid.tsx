@@ -109,7 +109,7 @@ function AddAssetDropdown({
             {open && menuPos && createPortal(
                 <div
                     ref={menuRef}
-                    className="fixed z-[9999] min-w-[160px] py-1.5 rounded-xl bg-white dark:bg-[#2c2c2e] shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] border border-[var(--glass-stroke-base)] animate-in fade-in-0 zoom-in-95 duration-150"
+                    className="glass-surface-modal fixed z-[9999] min-w-[180px] py-1.5 shadow-[0_18px_42px_-18px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 duration-150"
                     style={{ top: menuPos.top, right: menuPos.right }}
                 >
                     {menuItems.map((item) => (
