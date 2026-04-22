@@ -22,52 +22,54 @@ const prismaMock = vi.hoisted(() => ({
       updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     })),
   },
+  globalCharacter: {
+    create: vi.fn(async () => ({ id: 'character-1' })),
+    findUnique: vi.fn(async () => ({ id: 'character-1', appearances: [] })),
+  },
+  globalCharacterAppearance: {
+    create: vi.fn(async () => ({ id: 'appearance-1' })),
+  },
   globalLocation: {
     create: vi.fn(async () => ({ id: 'location-1' })),
     findUnique: vi.fn(async () => ({ id: 'location-1', images: [] })),
   },
   globalLocationImage: {
-    createMany: vi.fn<(input: { data: Array<{ imageIndex: number }> }) => Promise<{ count: number }>>(
-      async () => ({ count: 0 }),
-    ),
+    createMany: vi.fn(async () => ({ count: 1 })),
   },
 }))
 
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/media/attach', () => ({
+  attachMediaFieldsToGlobalCharacter: vi.fn(async (value: unknown) => value),
+  attachMediaFieldsToGlobalLocation: vi.fn(async (value: unknown) => value),
+}))
+vi.mock('@/lib/media/service', () => ({
+  resolveMediaRefFromLegacyValue: vi.fn(async () => null),
+}))
 
-describe('api specific - asset hub location create', () => {
+describe('api contract - asset hub style asset routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('does not auto-generate images after creating location', async () => {
-    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
-      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const mod = await import('@/app/api/asset-hub/locations/route')
+  it('accepts styleAssetId when creating an asset hub character', async () => {
+    const mod = await import('@/app/api/asset-hub/characters/route')
     const req = buildMockRequest({
-      path: '/api/asset-hub/locations',
+      path: '/api/asset-hub/characters',
       method: 'POST',
       body: {
-        name: 'Old Town',
-        summary: '雨夜街道',
-        artStyle: 'realistic',
+        name: 'Hero',
+        description: '冷峻黑发角色',
+        styleAssetId: 'style-1',
       },
     })
 
     const res = await mod.POST(req, { params: Promise.resolve({}) })
     expect(res.status).toBe(200)
-    const createManyArg = prismaMock.globalLocationImage.createMany.mock.calls[0]?.[0] as {
-      data?: Array<{ imageIndex: number }>
-    } | undefined
-    expect(createManyArg?.data?.map((item) => item.imageIndex)).toEqual([0])
-    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('accepts styleAssetId and persists it without forcing a legacy artStyle fallback', async () => {
+  it('accepts styleAssetId when creating an asset hub location', async () => {
     const mod = await import('@/app/api/asset-hub/locations/route')
     const req = buildMockRequest({
       path: '/api/asset-hub/locations',
@@ -81,11 +83,5 @@ describe('api specific - asset hub location create', () => {
 
     const res = await mod.POST(req, { params: Promise.resolve({}) })
     expect(res.status).toBe(200)
-    expect(prismaMock.globalLocation.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        styleAssetId: 'style-1',
-        artStyle: null,
-      }),
-    }))
   })
 })

@@ -16,6 +16,10 @@ vi.mock('@/lib/query/hooks', () => ({
   useGenerateProjectLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }))
 
+vi.mock('@/components/selectors/ProjectStyleAssetSelector', () => ({
+  default: () => createElement('div', null, 'Style Asset Selector'),
+}))
+
 const messages = {
   assetModal: {
     location: {
@@ -26,6 +30,13 @@ const messages = {
       descPlaceholder: '请输入场景描述...',
     },
     artStyle: { title: '画面风格' },
+    styleAsset: {
+      assetMode: '风格资产',
+      compatibilityMode: '兼容结果',
+      compatibilityModeWithLabel: '兼容结果：{label}',
+      currentAsset: '当前风格资产',
+      loading: '加载风格资产中...',
+    },
     aiDesign: {
       title: 'AI 设计',
       placeholderLocation: '描述场景氛围和环境...',

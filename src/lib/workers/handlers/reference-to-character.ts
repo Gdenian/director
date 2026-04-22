@@ -10,7 +10,6 @@ import { getUserModelConfig } from '@/lib/config-service'
 import {
   CHARACTER_IMAGE_BANANA_RATIO,
   addCharacterPromptSuffix,
-  getArtStylePrompt,
 } from '@/lib/constants'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { generateUniqueKey, getSignedUrl, uploadObject } from '@/lib/storage'
@@ -20,6 +19,7 @@ import { assertTaskActive } from '@/lib/workers/utils'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import { resolveWorkerStyleText } from '@/lib/style'
 import {
   parseReferenceImages,
   readBoolean,
@@ -197,15 +197,23 @@ export async function handleReferenceToCharacterTask(job: Job<TaskJobData>) {
     }
   }
 
-  const artStylePrompt = getArtStylePrompt(artStyle, job.data.locale)
+  const style = payload.stylePromptSnapshot || artStyle
+    ? await resolveWorkerStyleText({
+      taskSnapshot: payload.stylePromptSnapshot,
+      legacyArtStyle: artStyle,
+      projectId: job.data.projectId,
+      userId: job.data.userId,
+      locale: job.data.locale === 'en' ? 'en' : 'zh',
+    })
+    : null
 
   const basePrompt = customDescription || buildPrompt({
     promptId: PROMPT_IDS.CHARACTER_REFERENCE_TO_SHEET,
     locale: job.data.locale,
   })
   let prompt = addCharacterPromptSuffix(basePrompt)
-  if (artStylePrompt) {
-    prompt = `${prompt}，${artStylePrompt}`
+  if (style?.positivePrompt) {
+    prompt = `${prompt}，${style.positivePrompt}`
   }
 
   const useReferenceImages = !customDescription

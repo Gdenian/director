@@ -242,6 +242,35 @@ describe('worker reference-to-character', () => {
     expect(cosKeys?.every((item) => item.startsWith('cos/reference-key-'))).toBe(true)
   })
 
+  it('prefers stylePromptSnapshot over legacy artStyle when both are present', async () => {
+    const job = buildJob(
+      {
+        referenceImageUrls: ['https://example.com/ref-a.png'],
+        characterName: 'Hero',
+        artStyle: 'realistic',
+        stylePromptSnapshot: {
+          version: 1,
+          source: 'style-asset',
+          fallbackReason: 'none',
+          styleAssetId: 'style-1',
+          legacyKey: null,
+          label: '冷峻赛博',
+          positivePrompt: 'cyberpunk neon city',
+          negativePrompt: 'blurry',
+          sourceUpdatedAt: '2026-01-01T00:00:00.000Z',
+          capturedAt: '2026-01-02T00:00:00.000Z',
+        },
+      },
+      TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER,
+    )
+
+    await handleReferenceToCharacterTask(job)
+
+    const { prompt } = readGenerateCall(0)
+    expect(prompt).toContain('cyberpunk neon city')
+    expect(prompt).not.toContain('真实电影级画面质感')
+  })
+
   it('adds project label bars only for project reference generation', async () => {
     const job = buildJob(
       {

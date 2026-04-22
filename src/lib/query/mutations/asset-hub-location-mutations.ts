@@ -75,10 +75,12 @@ export function useGenerateLocationImage() {
     mutationFn: async ({
       locationId,
       artStyle,
+      styleAssetId,
       count,
     }: {
       locationId: string
       artStyle?: string
+      styleAssetId?: string | null
       count?: number
     }) => {
       return await requestJsonWithError(`/api/assets/${locationId}/generate`, {
@@ -88,6 +90,7 @@ export function useGenerateLocationImage() {
           scope: 'global',
           kind: 'location',
           artStyle,
+          styleAssetId,
           count,
         }),
       }, 'Failed to generate image')

@@ -35,7 +35,8 @@ export function CharacterCreationModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [aiInstruction, setAiInstruction] = useState('')
-  const [artStyle, setArtStyle] = useState('american-comic')
+  const [artStyle, setArtStyle] = useState<string | null>('american-comic')
+  const [styleAssetId, setStyleAssetId] = useState<string | null>('system:american-comic')
   const [referenceImagesBase64, setReferenceImagesBase64] = useState<string[]>([])
   const [referenceSubMode, setReferenceSubMode] = useState<'direct' | 'extract'>('direct')
   const [isSubAppearance, setIsSubAppearance] = useState(false)
@@ -76,6 +77,7 @@ export function CharacterCreationModal({
     description,
     aiInstruction,
     artStyle,
+    styleAssetId,
     referenceImagesBase64,
     referenceSubMode,
     isSubAppearance,
@@ -193,8 +195,11 @@ export function CharacterCreationModal({
             setDescription={(value) => setDescription(value)}
             aiInstruction={aiInstruction}
             setAiInstruction={(value) => setAiInstruction(value)}
-            artStyle={artStyle}
-            setArtStyle={(value) => setArtStyle(value)}
+            styleAssetId={styleAssetId}
+            setStyleAssetId={(value) => {
+              setStyleAssetId(value)
+              setArtStyle(value?.startsWith('system:') ? value.slice('system:'.length) : null)
+            }}
             referenceImagesBase64={referenceImagesBase64}
             referenceSubMode={referenceSubMode}
             setReferenceSubMode={(value) => setReferenceSubMode(value)}

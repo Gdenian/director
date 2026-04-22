@@ -5,10 +5,11 @@ import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
 import { attachMediaFieldsToGlobalCharacter } from '@/lib/media/attach'
 import { resolveMediaRefFromLegacyValue } from '@/lib/media/service'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import { buildSelectedStyleTaskPayload } from '@/lib/style'
 
 function toObject(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -72,8 +73,13 @@ export const POST = apiHandler(async (request: NextRequest) => {
     if (!name) {
         throw new ApiError('INVALID_PARAMS')
     }
-    const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
+    const selectedStyle = await buildSelectedStyleTaskPayload({
+        userId: session.user.id,
+        styleAssetId: (body as Record<string, unknown>).styleAssetId,
+        legacyArtStyle: artStyle,
+        locale: taskLocale ?? undefined,
+    })
+    if (!selectedStyle) {
         throw new ApiError('INVALID_PARAMS', {
             code: 'INVALID_ART_STYLE',
             message: 'artStyle is required and must be a supported value',
@@ -112,7 +118,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
             characterId: character.id,
             appearanceIndex: PRIMARY_APPEARANCE_INDEX,
             changeReason: '初始形象',
-            artStyle: normalizedArtStyle,
+            artStyle: selectedStyle.legacyArtStyle,
+            styleAssetId: selectedStyle.styleAssetId,
             description: descText,
             descriptions: JSON.stringify([descText]),
             imageUrl: initialImageUrl || null,
@@ -138,7 +145,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
                 appearanceId: appearance.id,
                 count,
                 isBackgroundJob: true,
-                artStyle: normalizedArtStyle,
+                stylePromptSnapshot: selectedStyle.stylePromptSnapshot,
+                ...(selectedStyle.legacyArtStyle ? { artStyle: selectedStyle.legacyArtStyle } : {}),
                 customDescription: customDescription || undefined,
                 locale: taskLocale || undefined,
                 meta: {

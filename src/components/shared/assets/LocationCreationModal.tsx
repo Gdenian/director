@@ -4,7 +4,6 @@ import { logError as _ulogError } from '@/lib/logging/core'
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
-import { ART_STYLES } from '@/lib/constants'
 import { shouldShowError } from '@/lib/error-utils'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import { resolveTaskPresentationState } from '@/lib/task/presentation'
@@ -20,6 +19,7 @@ import { useImageGenerationCount } from '@/lib/image-generation/use-image-genera
 import ImageGenerationInlineCountButton from '@/components/image-generation/ImageGenerationInlineCountButton'
 import { getImageGenerationCountOptions } from '@/lib/image-generation/count'
 import type { LocationAvailableSlot } from '@/lib/location-available-slots'
+import ProjectStyleAssetSelector from '@/components/selectors/ProjectStyleAssetSelector'
 
 export interface LocationCreationModalProps {
     mode: 'asset-hub' | 'project'
@@ -63,7 +63,8 @@ export function LocationCreationModal({
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [aiInstruction, setAiInstruction] = useState('')
-    const [artStyle, setArtStyle] = useState('american-comic')
+    const [artStyle, setArtStyle] = useState<string | null>('american-comic')
+    const [styleAssetId, setStyleAssetId] = useState<string | null>('system:american-comic')
     const [availableSlots, setAvailableSlots] = useState<LocationAvailableSlot[]>([])
 
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -153,12 +154,12 @@ export function LocationCreationModal({
             const body: {
                 name: string
                 description: string
-                artStyle: string
+                artStyle?: string | null
                 folderId?: string | null
             } = {
                 name: name.trim(),
                 description: description.trim(),
-                artStyle
+                artStyle,
             }
 
             if (mode === 'asset-hub') {
@@ -169,7 +170,8 @@ export function LocationCreationModal({
                 await createAssetHubLocation.mutateAsync({
                     name: body.name,
                     summary: body.description,
-                    artStyle: body.artStyle,
+                    ...(body.artStyle ? { artStyle: body.artStyle } : {}),
+                    styleAssetId,
                     folderId: body.folderId ?? null,
                     availableSlots,
                 })
@@ -177,7 +179,7 @@ export function LocationCreationModal({
                 await createProjectLocation.mutateAsync({
                     name: body.name,
                     description: body.description,
-                    artStyle: body.artStyle,
+                    ...(body.artStyle ? { artStyle: body.artStyle } : {}),
                     availableSlots,
                 })
             }
@@ -205,7 +207,8 @@ export function LocationCreationModal({
                 const result = await createAssetHubLocation.mutateAsync({
                     name: name.trim(),
                     summary: description.trim(),
-                    artStyle,
+                    ...(artStyle ? { artStyle } : {}),
+                    styleAssetId,
                     folderId: folderId ?? null,
                     count: locationGenerationCount,
                     availableSlots,
@@ -216,14 +219,15 @@ export function LocationCreationModal({
                 }
                 await generateAssetHubLocation.mutateAsync({
                     locationId: createdLocationId,
-                    artStyle,
+                    ...(artStyle ? { artStyle } : {}),
+                    styleAssetId,
                     count: locationGenerationCount,
                 })
             } else {
                 const result = await createProjectLocation.mutateAsync({
                     name: name.trim(),
                     description: description.trim(),
-                    artStyle,
+                    ...(artStyle ? { artStyle } : {}),
                     count: locationGenerationCount,
                     availableSlots,
                 }) as CreatedLocationResponse
@@ -233,7 +237,7 @@ export function LocationCreationModal({
                 }
                 await generateProjectLocation.mutateAsync({
                     locationId: createdLocationId,
-                    artStyle,
+                    ...(artStyle ? { artStyle } : {}),
                     count: locationGenerationCount,
                 })
             }
@@ -298,21 +302,21 @@ export function LocationCreationModal({
                                 <label className="glass-field-label block">
                                     {t('artStyle.title')}
                                 </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {ART_STYLES.map((style) => (
-                                        <button
-                                            key={style.value}
-                                            type="button"
-                                            onClick={() => setArtStyle(style.value)}
-                                            className={`glass-btn-base px-3 py-2 rounded-lg text-sm border transition-all justify-start ${artStyle === style.value
-                                                ? 'glass-btn-tone-info border-[var(--glass-stroke-focus)]'
-                                                : 'glass-btn-soft border-[var(--glass-stroke-base)] text-[var(--glass-text-secondary)]'
-                                                }`}
-                                        >
-                                            <span>{style.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                                <ProjectStyleAssetSelector
+                                    value={styleAssetId}
+                                    onChange={(value) => {
+                                        setStyleAssetId(value)
+                                        setArtStyle(value?.startsWith('system:') ? value.slice('system:'.length) : null)
+                                    }}
+                                    texts={{
+                                        assetMode: t('styleAsset.assetMode'),
+                                        compatibilityMode: t('styleAsset.compatibilityMode'),
+                                        formatCompatibilityMode: (label) =>
+                                            t('styleAsset.compatibilityModeWithLabel', { label }),
+                                        currentAsset: t('styleAsset.currentAsset'),
+                                        loading: t('styleAsset.loading'),
+                                    }}
+                                />
                             </div>
                         )}
 

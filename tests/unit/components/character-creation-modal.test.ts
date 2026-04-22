@@ -11,6 +11,10 @@ vi.mock('@/lib/query/hooks', () => ({
   useProjectAssets: vi.fn(() => ({ data: { characters: [] } })),
 }))
 
+vi.mock('@/components/selectors/ProjectStyleAssetSelector', () => ({
+  default: () => createElement('div', null, 'Style Asset Selector'),
+}))
+
 vi.mock('@/components/shared/assets/character-creation/hooks/useCharacterCreationSubmit', () => ({
   useCharacterCreationSubmit: vi.fn(() => ({
     isSubmitting: false,
@@ -56,6 +60,13 @@ const messages = {
       selectReferenceGenerateCount: '选择参考图生成数量',
     },
     artStyle: { title: '画面风格' },
+    styleAsset: {
+      assetMode: '风格资产',
+      compatibilityMode: '兼容结果',
+      compatibilityModeWithLabel: '兼容结果：{label}',
+      currentAsset: '当前风格资产',
+      loading: '加载风格资产中...',
+    },
     aiDesign: {
       title: 'AI 设计',
       placeholder: '描述你想要的角色特征...',

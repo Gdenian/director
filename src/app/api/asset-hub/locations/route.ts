@@ -3,12 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
 import { attachMediaFieldsToGlobalLocation } from '@/lib/media/attach'
-import { isArtStyleValue } from '@/lib/constants'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import {
     normalizeLocationAvailableSlots,
     stringifyLocationAvailableSlots,
 } from '@/lib/location-available-slots'
+import { buildSelectedStyleTaskPayload } from '@/lib/style'
+import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 
 // 获取用户所有场景（支持 folderId 筛选）
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -48,6 +49,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const { session } = authResult
 
     const body = await request.json()
+    const taskLocale = resolveTaskLocale(request, body)
     const { name, summary, folderId, artStyle } = body
     const availableSlots = normalizeLocationAvailableSlots((body as Record<string, unknown>).availableSlots)
     const count = Object.prototype.hasOwnProperty.call(body as Record<string, unknown>, 'count')
@@ -57,8 +59,13 @@ export const POST = apiHandler(async (request: NextRequest) => {
     if (!name) {
         throw new ApiError('INVALID_PARAMS')
     }
-    const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
+    const selectedStyle = await buildSelectedStyleTaskPayload({
+        userId: session.user.id,
+        styleAssetId: (body as Record<string, unknown>).styleAssetId,
+        legacyArtStyle: artStyle,
+        locale: taskLocale ?? undefined,
+    })
+    if (!selectedStyle) {
         throw new ApiError('INVALID_PARAMS', {
             code: 'INVALID_ART_STYLE',
             message: 'artStyle is required and must be a supported value',
@@ -79,7 +86,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
             userId: session.user.id,
             folderId: folderId || null,
             name: name.trim(),
-            artStyle: normalizedArtStyle,
+            artStyle: selectedStyle.legacyArtStyle,
+            styleAssetId: selectedStyle.styleAssetId,
             summary: summary?.trim() || null
         }
     })

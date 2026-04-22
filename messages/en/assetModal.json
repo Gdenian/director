@@ -63,6 +63,13 @@
     "artStyle": {
         "title": "Art Style"
     },
+    "styleAsset": {
+        "assetMode": "Style Asset",
+        "compatibilityMode": "Compatibility Result",
+        "compatibilityModeWithLabel": "Compatibility Result: {label}",
+        "currentAsset": "Current style asset",
+        "loading": "Loading style assets..."
+    },
     "aiDesign": {
         "title": "AI Design",
         "placeholder": "Describe the character you want...",

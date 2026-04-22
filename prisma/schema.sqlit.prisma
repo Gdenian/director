@@ -676,6 +676,8 @@ model GlobalStyle {
   folder       GlobalAssetFolder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
   previewMedia MediaObject?            @relation("GlobalStylePreviewMedia", fields: [previewMediaId], references: [id], onDelete: SetNull)
   projects     NovelPromotionProject[]
+  characterAppearances GlobalCharacterAppearance[]
+  locations    GlobalLocation[]
 
   @@unique([source, legacyKey])
   @@index([userId])
@@ -719,6 +721,7 @@ model GlobalCharacterAppearance {
   appearanceIndex      Int
   changeReason         String   @default("default")
   artStyle             String?
+  styleAssetId         String?
   description          String?
   descriptions         String?
   imageUrl             String?
@@ -736,9 +739,11 @@ model GlobalCharacterAppearance {
   updatedAt            DateTime @updatedAt
 
   character GlobalCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  styleAsset GlobalStyle?   @relation(fields: [styleAssetId], references: [id], onDelete: SetNull)
 
   @@unique([characterId, appearanceIndex])
   @@index([characterId])
+  @@index([styleAssetId])
   @@index([imageMediaId])
   @@index([previousImageMediaId])
   @@map("global_character_appearances")
@@ -751,16 +756,19 @@ model GlobalLocation {
   folderId  String?
   name      String
   artStyle  String?
+  styleAssetId String?
   summary   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder GlobalAssetFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  images GlobalLocationImage[]
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder    GlobalAssetFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  styleAsset GlobalStyle?         @relation(fields: [styleAssetId], references: [id], onDelete: SetNull)
+  images    GlobalLocationImage[]
 
   @@index([userId])
   @@index([folderId])
+  @@index([styleAssetId])
   @@map("global_locations")
 }
 

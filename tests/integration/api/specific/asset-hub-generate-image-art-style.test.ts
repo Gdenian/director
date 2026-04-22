@@ -50,6 +50,9 @@ const prismaMock = vi.hoisted(() => ({
   globalCharacterAppearance: {
     findFirst: vi.fn(),
   },
+  globalStyle: {
+    findFirst: vi.fn(),
+  },
   globalLocation: {
     findFirst: vi.fn(),
     findMany: vi.fn(),
@@ -93,6 +96,41 @@ describe('api specific - asset hub generate image art style', () => {
     expect(prismaMock.globalCharacterAppearance.findFirst).toHaveBeenCalled()
     const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
     expect(submitArg?.payload?.artStyle).toBe('realistic')
+  })
+
+  it('uses persisted styleAssetId to build stylePromptSnapshot for custom character styles', async () => {
+    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce({
+      artStyle: null,
+      styleAssetId: 'style-1',
+    })
+    prismaMock.globalStyle.findFirst.mockResolvedValueOnce({
+      id: 'style-1',
+      name: '冷峻赛博',
+      positivePrompt: 'cyberpunk neon city',
+      negativePrompt: 'blurry',
+      legacyKey: null,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    const mod = await import('@/app/api/asset-hub/generate-image/route')
+    const req = buildMockRequest({
+      path: '/api/asset-hub/generate-image',
+      method: 'POST',
+      body: {
+        type: 'character',
+        id: 'character-1',
+        appearanceIndex: 0,
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({}) })
+    expect(res.status).toBe(200)
+    const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
+    expect(submitArg?.payload?.artStyle).toBeUndefined()
+    expect(submitArg?.payload?.stylePromptSnapshot).toMatchObject({
+      styleAssetId: 'style-1',
+      positivePrompt: 'cyberpunk neon city',
+      negativePrompt: 'blurry',
+    })
   })
 
   it('uses persisted location artStyle when request payload does not provide one', async () => {
