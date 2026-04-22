@@ -1,16 +1,4 @@
-<p align="center">
-  <a href="https://www.waoowaoo.com/">
-    <img src="images/cta-banner.png" alt="🚀 探索 AI 影视的下一代创作流 | 立即加入 waoowaoo 在线网页版内测候补" width="800">
-  </a>
-</p>
 
-<p align="center">
-  <img src="public/banner.png" alt="waoowaoo" width="600">
-</p>
-
-<h1 align="center">waoowaoo AI 影视 Studio</h1>
-
-<p align="center">
   一款基于 AI 技术的短剧/漫画视频制作工具，支持从小说文本自动生成分镜、角色、场景，并制作成完整视频。
 </p>
 
