@@ -332,12 +332,12 @@ describe('workspace node canvas projection', () => {
       firstLastFramePrompt: 'first last prompt',
       videoGenerationMode: 'firstlastframe',
       videoUrl: 'https://example.com/video.mp4',
-      lipSyncVideoUrl: 'https://example.com/lip.mp4',
       videoModel: 'video-model',
       linkedToNextPanel: true,
       errorMessage: 'video failed',
-      lipSyncErrorMessage: 'lip failed',
     })
+    expect(videoNode?.data.videoDetails).not.toHaveProperty('lipSyncVideoUrl')
+    expect(videoNode?.data.videoDetails).not.toHaveProperty('lipSyncErrorMessage')
     expect(videoNode?.data.videoDetails?.lastVideoGenerationOptions).toEqual([
       { kind: 'text', speaker: 'duration', text: '5' },
       { kind: 'text', speaker: 'enhance', text: 'true' },

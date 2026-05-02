@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import { AppIcon } from '@/components/ui/icons'
 

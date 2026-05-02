@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useTranslations } from 'next-intl'
 import { GlassNumberStepper, GlassSelect, type GlassSelectOption } from '@/components/ui/primitives'
 import type { CapabilityValue } from '@/lib/ai-registry/types'

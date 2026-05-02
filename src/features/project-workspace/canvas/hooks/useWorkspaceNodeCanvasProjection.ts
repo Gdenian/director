@@ -237,11 +237,9 @@ function createVideoDetails(panel: ProjectPanel): WorkspaceCanvasVideoDetails {
     videoGenerationMode: panel.videoGenerationMode,
     lastVideoGenerationOptions: stringifyJsonObject(panel.lastVideoGenerationOptions),
     videoUrl: panel.videoMedia?.url ?? panel.videoUrl,
-    lipSyncVideoUrl: panel.lipSyncVideoMedia?.url ?? panel.lipSyncVideoUrl,
     videoModel: panel.videoModel,
     linkedToNextPanel: panel.linkedToNextPanel,
     errorMessage: panel.videoErrorMessage,
-    lipSyncErrorMessage: panel.lipSyncErrorMessage,
   }
 }
 
@@ -396,10 +394,7 @@ function hasVideo(panel: ProjectPanel): boolean {
     panel.videoUrl ||
     panel.videoMedia?.url ||
     panel.videoTaskRunning ||
-    panel.lipSyncVideoUrl ||
-    panel.lipSyncVideoMedia?.url ||
-    panel.videoErrorMessage ||
-    panel.lipSyncErrorMessage
+    panel.videoErrorMessage
   )
 }
 

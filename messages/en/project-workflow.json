@@ -334,7 +334,13 @@
           "videoPreview": "Video Preview",
           "videoControls": "Video Controls",
           "finalStats": "Final Stats",
-          "timelineOrder": "Timeline Order"
+          "timelineOrder": "Timeline Order",
+          "storyInput": "Story Input",
+          "assetCoverage": "Asset Coverage",
+          "aiData": "AI Data",
+          "errors": "Error State",
+          "firstLastFrame": "First/Last Frame Mode",
+          "batchVideo": "Batch Video"
         },
         "fields": {
           "summary": "Summary",
@@ -367,6 +373,7 @@
           "characterAsset": "Character Asset",
           "appearanceAsset": "Appearance",
           "locationAsset": "Location Asset",
+          "selectProp": "Select Prop",
           "yes": "Yes",
           "no": "No"
         },
@@ -389,10 +396,19 @@
           "regenerateImage": "Regenerate Image",
           "modifyImage": "Modify Image",
           "downloadImages": "Download Images",
+          "selectReferences": "Select References",
+          "forceRegenerateImage": "Force Regenerate",
+          "undoImage": "Undo Previous Image",
+          "add": "Add",
+          "aiWrite": "AI Write",
+          "smartSplit": "Smart Split",
+          "retrySave": "Retry Save",
+          "clearError": "Clear Error",
           "saveVideoPrompt": "Save Video Prompt",
           "saveFirstLastPrompt": "Save First/Last Prompt",
           "saveVideoModel": "Save Video Model",
           "generateVideo": "Generate Video",
+          "generateFirstLastVideo": "Generate First/Last Video",
           "generateAllVideos": "Batch Generate Videos",
           "downloadVideos": "Download Videos"
         },
@@ -408,29 +424,49 @@
           "selectCharacter": "Select character",
           "selectAppearance": "Select appearance",
           "selectLocation": "Select location",
+          "selectProp": "Select prop",
+          "storyPlaceholder": "Enter this episode's story, script, or source material...",
           "noDetail": "No editable detail"
         },
         "errors": {
           "panelNotFound": "Panel data not found",
           "invalidNumber": "SRT time and duration fields must be numbers.",
-          "invalidGenerationOptions": "Generation options must be a JSON object with string, number, or boolean values."
+          "invalidGenerationOptions": "Generation options must be a JSON object with string, number, or boolean values.",
+          "saveFailed": "Save failed",
+          "variantFailed": "Variant generation failed",
+          "undoImageFailed": "Image undo failed",
+          "downloadVideosFailed": "Video download failed",
+          "missingCapability": "Current model is missing required fields: {fields}"
         },
         "confirm": {
-          "deletePanel": "Delete this shot?"
+          "deletePanel": "Delete this shot?",
+          "smartSplit": "Smart split will rebuild this project's episode list from the current text. Continue?"
         },
         "messages": {
-          "panelUndoUnavailable": "This system has no panel image undo endpoint; the previous image is shown for reference only.",
-          "finalExportUnavailable": "Final export is not connected yet."
+          "referenceSelection": "{count} reference images selected. References can come from panels, characters, locations, props, URLs, uploads, or pasted images.",
+          "noNextPanelForFirstLast": "This shot has no next shot, so first/last frame mode cannot be used.",
+          "finalExportUnavailable": "AI editing and final export are not connected in this pass."
         },
         "status": {
           "videoReady": "Ready",
-          "videoMissing": "Missing"
+          "videoMissing": "Missing",
+          "videoRunning": "Video generating",
+          "idle": "Idle",
+          "saving": "Autosaving",
+          "saved": "Saved",
+          "saveFailed": "Save failed"
         },
         "stats": {
           "totalShots": "{count} shots",
           "totalVideos": "{count} videos",
           "missingVideos": "{count} missing",
-          "totalDuration": "{count}s"
+          "totalDuration": "{count}s",
+          "characters": "{count} character references",
+          "locations": "{count} location references",
+          "props": "{count} prop references"
+        },
+        "labels": {
+          "panelReference": "Shot {number}"
         }
       },
       "nodes": {

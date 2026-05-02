@@ -6,6 +6,7 @@ import type { ProjectClip, ProjectPanel, ProjectStoryboard } from '@/types/proje
 import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canvas/node-canvas-types'
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'zh',
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     if (!values) return key
     return `${key}:${JSON.stringify(values)}`
@@ -49,9 +50,13 @@ vi.mock('@/lib/query/hooks', () => {
     useRefreshProjectAssets: refresh,
     useRefreshStoryboards: refresh,
     useRegenerateProjectPanelImage: mutation,
+    useRevertProjectPanelImage: mutation,
+    useClearProjectStoryboardError: mutation,
+    useAnalyzeProjectShotVariants: mutation,
     useUpdateProjectClip: mutation,
     useUpdateProjectPanel: mutation,
     useUpdateProjectPanelLink: mutation,
+    useUploadProjectTempMedia: mutation,
     useProjectAssets: () => ({
       data: {
         characters: [{
@@ -197,6 +202,7 @@ function renderDetail(selectedNode: WorkspaceCanvasFlowNode): string {
       selectedNode={selectedNode}
       clips={[createClip()]}
       storyboards={[createStoryboard(panel)]}
+      storyText="原始故事"
       onClose={() => undefined}
     />,
   )

@@ -334,7 +334,13 @@
           "videoPreview": "视频预览",
           "videoControls": "视频控制",
           "finalStats": "成片统计",
-          "timelineOrder": "时间线顺序"
+          "timelineOrder": "时间线顺序",
+          "storyInput": "故事输入",
+          "assetCoverage": "资产覆盖",
+          "aiData": "AI Data",
+          "errors": "错误状态",
+          "firstLastFrame": "首尾帧模式",
+          "batchVideo": "批量视频"
         },
         "fields": {
           "summary": "摘要",
@@ -367,6 +373,7 @@
           "characterAsset": "资产角色",
           "appearanceAsset": "角色形象",
           "locationAsset": "资产场景",
+          "selectProp": "选择道具",
           "yes": "是",
           "no": "否"
         },
@@ -389,10 +396,19 @@
           "regenerateImage": "重新生成图片",
           "modifyImage": "修改图片",
           "downloadImages": "下载图片",
+          "selectReferences": "选择参考图",
+          "forceRegenerateImage": "强制重新生成",
+          "undoImage": "撤回上一张",
+          "add": "添加",
+          "aiWrite": "AI 帮写",
+          "smartSplit": "智能分集",
+          "retrySave": "重试保存",
+          "clearError": "清除错误",
           "saveVideoPrompt": "保存视频提示词",
           "saveFirstLastPrompt": "保存首尾帧提示词",
           "saveVideoModel": "保存视频模型",
           "generateVideo": "生成视频",
+          "generateFirstLastVideo": "首尾帧生成",
           "generateAllVideos": "批量生成视频",
           "downloadVideos": "下载视频"
         },
@@ -408,29 +424,49 @@
           "selectCharacter": "选择角色",
           "selectAppearance": "选择形象",
           "selectLocation": "选择场景",
+          "selectProp": "选择道具",
+          "storyPlaceholder": "输入本集故事、剧本或创作素材...",
           "noDetail": "暂无可编辑详情"
         },
         "errors": {
           "panelNotFound": "未找到对应镜头数据",
           "invalidNumber": "SRT 时间和时长必须是数字。",
-          "invalidGenerationOptions": "生成参数必须是 JSON 对象，且值只能是字符串、数字或布尔值。"
+          "invalidGenerationOptions": "生成参数必须是 JSON 对象，且值只能是字符串、数字或布尔值。",
+          "saveFailed": "保存失败",
+          "variantFailed": "生成变体失败",
+          "undoImageFailed": "撤回图片失败",
+          "downloadVideosFailed": "下载视频失败",
+          "missingCapability": "当前模型缺少必要参数：{fields}"
         },
         "confirm": {
-          "deletePanel": "确定删除这个镜头吗？"
+          "deletePanel": "确定删除这个镜头吗？",
+          "smartSplit": "智能分集会用当前文本重建项目剧集列表，继续吗？"
         },
         "messages": {
-          "panelUndoUnavailable": "当前系统没有镜头图片撤回接口，只能显示上一张图片。",
-          "finalExportUnavailable": "最终成片导出接口尚未接入。"
+          "referenceSelection": "已选择 {count} 张参考图，可包含分镜、角色、场景、道具、URL、上传或粘贴图片。",
+          "noNextPanelForFirstLast": "当前镜头后面没有下一个镜头，无法使用首尾帧模式。",
+          "finalExportUnavailable": "AI 剪辑和最终成片导出本轮不接入。"
         },
         "status": {
           "videoReady": "已生成",
-          "videoMissing": "缺失"
+          "videoMissing": "缺失",
+          "videoRunning": "视频生成中",
+          "idle": "等待编辑",
+          "saving": "自动保存中",
+          "saved": "已保存",
+          "saveFailed": "保存失败"
         },
         "stats": {
           "totalShots": "{count} 个镜头",
           "totalVideos": "{count} 个视频",
           "missingVideos": "{count} 个缺失",
-          "totalDuration": "{count} 秒"
+          "totalDuration": "{count} 秒",
+          "characters": "{count} 个角色引用",
+          "locations": "{count} 个场景引用",
+          "props": "{count} 个道具引用"
+        },
+        "labels": {
+          "panelReference": "镜头 {number}"
         }
       },
       "nodes": {

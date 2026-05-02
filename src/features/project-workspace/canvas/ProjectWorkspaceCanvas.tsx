@@ -35,7 +35,7 @@ const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 function ProjectWorkspaceCanvasContent() {
   const t = useTranslations('projectWorkflow.canvas.workspace')
   const { projectId, episodeId } = useWorkspaceProvider()
-  const { novelText, clips, storyboards, shots } = useWorkspaceEpisodeStageData()
+  const { episodeName, novelText, clips, storyboards, shots } = useWorkspaceEpisodeStageData()
   const reactFlow = useReactFlow<WorkspaceCanvasFlowNode>()
   const runNodeAction = useWorkspaceNodeCanvasActions()
   const [nodes, setNodes] = useState<WorkspaceCanvasFlowNode[]>([])
@@ -215,6 +215,8 @@ function ProjectWorkspaceCanvasContent() {
         selectedNode={selectedNode}
         clips={clips}
         storyboards={storyboards}
+        storyText={novelText}
+        episodeName={episodeName}
         onClose={() => setSelectedNodeId(null)}
       />
     </div>

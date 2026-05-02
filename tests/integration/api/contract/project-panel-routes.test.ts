@@ -36,6 +36,7 @@ import {
   PUT as panelPut,
 } from '@/app/api/projects/[projectId]/panel/route'
 import { POST as insertPanelPost } from '@/app/api/projects/[projectId]/insert-panel/route'
+import { POST as panelRevertImagePost } from '@/app/api/projects/[projectId]/panel/revert-image/route'
 import { POST as panelSelectCandidatePost } from '@/app/api/projects/[projectId]/panel/select-candidate/route'
 import { POST as panelLinkPost } from '@/app/api/projects/[projectId]/panel-link/route'
 
@@ -177,6 +178,25 @@ describe('api contract - project panel routes (operation adapter)', () => {
     expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenCalledWith(expect.objectContaining({
       operationId: 'select_storyboard_panel_candidate',
       input: { panelId: 'panel-1', selectedImageUrl: 'https://example.com/source.png' },
+    }))
+  })
+
+  it('POST /api/projects/[projectId]/panel/revert-image -> uses revert_storyboard_panel_image', async () => {
+    apiAdapterMock.executeProjectAgentOperationFromApi.mockResolvedValueOnce({ success: true, panelId: 'panel-1' })
+
+    const res = await panelRevertImagePost(
+      buildMockRequest({
+        path: '/api/projects/project-1/panel/revert-image',
+        method: 'POST',
+        body: { panelId: 'panel-1' },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
+    expect(res.status).toBe(200)
+    expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'revert_storyboard_panel_image',
+      input: { panelId: 'panel-1', confirmed: true },
     }))
   })
 

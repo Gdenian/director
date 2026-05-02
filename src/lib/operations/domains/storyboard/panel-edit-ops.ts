@@ -8,6 +8,7 @@ import {
   deleteStoryboardPanelInputSchema,
   insertStoryboardPanelInputSchema,
   reorderStoryboardPanelsInputSchema,
+  revertStoryboardPanelImageInputSchema,
   selectStoryboardPanelCandidateInputSchema,
   updateStoryboardPanelFieldsInputSchema,
   updateStoryboardPanelPromptInputSchema,
@@ -151,6 +152,25 @@ export function createStoryboardPanelEditOperations(): ProjectAgentOperationRegi
         ...input,
         action: 'cancel_panel_candidates',
       }, 'cancel_storyboard_panel_candidates'),
+    }),
+    revert_storyboard_panel_image: defineOperation({
+      id: 'revert_storyboard_panel_image',
+      summary: 'Revert a storyboard panel image to its previous image.',
+      intent: 'act',
+      effects: {
+        ...EFFECTS_WRITE,
+        overwrite: true,
+      },
+      confirmation: {
+        required: true,
+        summary: '将把该镜头图片恢复为上一张图片。确认继续后请重新调用并传入 confirmed=true。',
+      },
+      inputSchema: revertStoryboardPanelImageInputSchema,
+      outputSchema: storyboardMutationOperationOutputSchema,
+      execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
+        ...input,
+        action: 'revert_panel_image',
+      }, 'revert_storyboard_panel_image'),
     }),
     insert_storyboard_panel: defineOperation({
       id: 'insert_storyboard_panel',

@@ -294,6 +294,20 @@ export async function revertMutationEntry(entry: {
       })
       return
     }
+    case 'panel_image_revert_restore': {
+      const previous = asRecord(payload.previous)
+      await prisma.projectPanel.update({
+        where: { id: entry.targetId },
+        data: {
+          imageUrl: previous.imageUrl === null || typeof previous.imageUrl === 'string' ? previous.imageUrl : null,
+          imageMediaId: previous.imageMediaId === null || typeof previous.imageMediaId === 'string' ? previous.imageMediaId : null,
+          previousImageUrl: previous.previousImageUrl === null || typeof previous.previousImageUrl === 'string' ? previous.previousImageUrl : null,
+          previousImageMediaId: previous.previousImageMediaId === null || typeof previous.previousImageMediaId === 'string' ? previous.previousImageMediaId : null,
+          imageHistory: previous.imageHistory === null || typeof previous.imageHistory === 'string' ? previous.imageHistory : null,
+        },
+      })
+      return
+    }
     case 'panel_fields_restore': {
       const previous = asRecord(payload.previous)
       const panelNumberRaw = previous.panelNumber

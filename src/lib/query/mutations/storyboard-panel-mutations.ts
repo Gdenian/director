@@ -141,6 +141,25 @@ export function useDownloadProjectImages(projectId: string) {
     })
 }
 
+export function useRevertProjectPanelImage(projectId: string, episodeId?: string | null) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ panelId }: { panelId: string }) =>
+            await requestJsonWithError(
+                `/api/projects/${projectId}/panel/revert-image`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ panelId }),
+                },
+                'IMAGE_REVERT_FAILED',
+            ),
+        onSettled: () => {
+            return invalidateStoryboardMutationCaches(queryClient, projectId, episodeId)
+        },
+    })
+}
+
 /**
  * 更新分镜 panel
  */

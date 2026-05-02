@@ -296,14 +296,12 @@ function VideoContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode
               {renderValue(labels('videoModel'), details.videoModel)}
               {renderValue(labels('linkedToNextPanel'), details.linkedToNextPanel === true ? labels('yes') : null)}
               {renderValue(labels('baseVideo'), details.videoUrl)}
-              {renderValue(labels('lipSyncVideo'), details.lipSyncVideoUrl)}
             </div>
           ))}
           {details.lastVideoGenerationOptions && details.lastVideoGenerationOptions.length > 0
             ? renderSection(labels('lastOptions'), renderLines(details.lastVideoGenerationOptions, labels))
             : null}
           {renderSection(labels('error'), renderTextBlock(details.errorMessage))}
-          {renderSection(labels('lipSyncError'), renderTextBlock(details.lipSyncErrorMessage))}
         </>
       ) : null}
     </div>

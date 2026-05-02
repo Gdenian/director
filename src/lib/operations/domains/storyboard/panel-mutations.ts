@@ -56,6 +56,7 @@ const storyboardMutationActionSchema = z.enum([
   'cancel_panel_candidates',
   'delete_panel',
   'update_panel_fields',
+  'revert_panel_image',
 ])
 
 const storyboardMutationInputSchema = z.object({
@@ -83,6 +84,7 @@ const storyboardMutationInputSchema = z.object({
   firstLastFramePrompt: z.string().nullable().optional(),
   imagePrompt: z.string().nullable().optional(),
   selectedImageUrl: z.string().optional(),
+  previousImageUrl: z.string().nullable().optional(),
   actingNotes: z.unknown().optional(),
   photographyRules: z.unknown().optional(),
   orderedPanelIds: z.array(z.string().min(1)).min(1).optional(),
@@ -172,6 +174,11 @@ export const selectStoryboardPanelCandidateInputSchema = z.object({
 })
 
 export const cancelStoryboardPanelCandidatesInputSchema = z.object({
+  confirmed: z.boolean().optional(),
+  panelId: z.string().min(1),
+})
+
+export const revertStoryboardPanelImageInputSchema = z.object({
   confirmed: z.boolean().optional(),
   panelId: z.string().min(1),
 })
@@ -349,6 +356,90 @@ export async function executeStoryboardMutationOperation(
       cosKey: finalImageKey,
       mutationBatchId: mutationBatch.id,
     }
+  }
+
+  if (input.action === 'revert_panel_image') {
+    const panelId = normalizeString(input.panelId)
+    if (!panelId) {
+      throw new Error('PROJECT_AGENT_PANEL_REQUIRED')
+    }
+
+    const panel = await prisma.projectPanel.findFirst({
+      where: {
+        id: panelId,
+        storyboard: {
+          episode: {
+            projectId: ctx.projectId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        storyboardId: true,
+        imageUrl: true,
+        imageMediaId: true,
+        imageHistory: true,
+        previousImageUrl: true,
+        previousImageMediaId: true,
+        storyboard: {
+          select: {
+            episodeId: true,
+          },
+        },
+      },
+    })
+    if (!panel) {
+      throw new Error('PROJECT_AGENT_PANEL_NOT_FOUND')
+    }
+    if (!panel.previousImageUrl && !panel.previousImageMediaId) {
+      throw new Error('PROJECT_AGENT_PANEL_PREVIOUS_IMAGE_REQUIRED')
+    }
+
+    const history = parsePanelHistory(panel.imageHistory)
+    if (panel.imageUrl) {
+      history.push({
+        url: panel.imageUrl,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    await prisma.projectPanel.update({
+      where: { id: panel.id },
+      data: {
+        imageUrl: panel.previousImageUrl,
+        imageMediaId: panel.previousImageMediaId,
+        previousImageUrl: null,
+        previousImageMediaId: null,
+        imageHistory: JSON.stringify(history),
+      },
+    })
+
+    const mutationBatch = await createMutationBatch({
+      projectId: ctx.projectId,
+      userId: ctx.userId,
+      source: ctx.source,
+      operationId,
+      episodeId: panel.storyboard.episodeId,
+      summary: `revert_panel_image:${panelId}`,
+      entries: [
+        {
+          kind: 'panel_image_revert_restore',
+          targetType: 'ProjectPanel',
+          targetId: panel.id,
+          payload: {
+            previous: {
+              imageUrl: panel.imageUrl,
+              imageMediaId: panel.imageMediaId,
+              previousImageUrl: panel.previousImageUrl,
+              previousImageMediaId: panel.previousImageMediaId,
+              imageHistory: panel.imageHistory,
+            },
+          },
+        },
+      ],
+    })
+
+    return { success: true, panelId: panel.id, storyboardId: panel.storyboardId, mutationBatchId: mutationBatch.id }
   }
 
   if (!storyboardId && (input.action === 'delete_panel' || input.action === 'update_panel_prompt')) {

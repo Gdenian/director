@@ -158,11 +158,9 @@ export interface WorkspaceCanvasVideoDetails {
   readonly videoGenerationMode?: string | null
   readonly lastVideoGenerationOptions?: readonly WorkspaceCanvasTextLine[]
   readonly videoUrl?: string | null
-  readonly lipSyncVideoUrl?: string | null
   readonly videoModel?: string | null
   readonly linkedToNextPanel?: boolean | null
   readonly errorMessage?: string | null
-  readonly lipSyncErrorMessage?: string | null
 }
 
 export interface WorkspaceCanvasFinalDetails {

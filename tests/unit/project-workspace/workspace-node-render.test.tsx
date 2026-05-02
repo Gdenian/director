@@ -132,7 +132,6 @@ describe('workspace node rendering', () => {
         firstLastFramePrompt: 'first last prompt',
         videoGenerationMode: 'firstlastframe',
         videoUrl: 'https://example.com/video.mp4',
-        lipSyncVideoUrl: 'https://example.com/lip.mp4',
       },
     })
     const finalHtml = renderNode({
@@ -161,7 +160,7 @@ describe('workspace node rendering', () => {
     expect(imageHtml).toContain('history')
     expect(imageHtml).toContain('https://example.com/sketch.png')
     expect(videoHtml).toContain('first last prompt')
-    expect(videoHtml).toContain('https://example.com/lip.mp4')
+    expect(videoHtml).not.toContain('lip.mp4')
     expect(finalHtml).toContain('panel-1')
     expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('StoryboardStage')
   })
