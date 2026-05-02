@@ -1,8 +1,6 @@
 import { createHash, randomUUID } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getRequestId } from '@/lib/api-errors'
-import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
@@ -20,6 +18,7 @@ import type { TaskSubmittedPartData } from '@/lib/project-agent/types'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 import {
   refineTaskSubmitOperationOutputSchema,
   taskSubmitOperationOutputSchemaBase,
@@ -325,24 +324,24 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
           invalidOverrideMessage: 'Invalid artStyle in image_panel payload',
         })
 
-        const result = await submitTask({
+        const result = await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale: taskLocale,
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.IMAGE_PANEL,
           targetType: 'ProjectPanel',
           targetId: panelId,
+          operationId: 'regenerate_panel_image',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: withTaskUiPayload(billingPayload, {
             intent: 'regenerate',
             hasOutputAtStart,
           }),
           dedupeKey: `image_panel:${panelId}:${candidateCount}:${styleSignature}:${referenceSignature}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.IMAGE_PANEL, billingPayload),
-          operationId: 'regenerate_panel_image',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
 
         const mutationBatch = await createMutationBatch({
@@ -511,7 +510,7 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
           return created
         })
 
-        let result: Awaited<ReturnType<typeof submitTask>>
+        let result: Awaited<ReturnType<typeof submitOperationTask>>
         try {
           const taskLocale = resolveRequiredTaskLocale(ctx.request, billingPayload)
           const styleSignature = await resolveProjectImageStyleSignatureForTask({
@@ -521,21 +520,21 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
             invalidOverrideMessage: 'Invalid artStyle in panel_variant payload',
           })
 
-          result = await submitTask({
+          result = await submitOperationTask({
+            request: ctx.request,
             userId: ctx.userId,
             locale: taskLocale,
-            requestId: getRequestId(ctx.request),
             projectId: ctx.projectId,
             type: TASK_TYPE.PANEL_VARIANT,
             targetType: 'ProjectPanel',
             targetId: createdPanel.id,
+            operationId: 'panel_variant',
+            source: ctx.source,
+            confirmed: input.confirmed === true,
             payload: billingPayload,
             dedupeKey: `panel_variant:${storyboardId}:${insertAfterPanelId}:${sourcePanelId}:${styleSignature}`,
             billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.PANEL_VARIANT, billingPayload),
-            operationId: 'panel_variant',
-            operationSource: ctx.source,
-            operationConfirmed: input.confirmed === true,
-            operationRequestId: getRequestId(ctx.request),
+            decoratePayload: false,
           })
         } catch (error) {
           await rollbackCreatedVariantPanel({

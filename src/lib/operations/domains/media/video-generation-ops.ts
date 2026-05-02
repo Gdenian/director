@@ -1,7 +1,5 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getRequestId } from '@/lib/api-errors'
-import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
@@ -23,6 +21,7 @@ import type {
 import type { ProjectAgentOperationContext, ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 import {
   refineTaskBatchSubmitOperationOutputSchema,
   refineTaskSubmitOperationOutputSchema,
@@ -271,24 +270,24 @@ async function executeGenerateEpisodeVideosOperation(params: {
 
   const tasks = await Promise.all(
     panels.map(async (panel) =>
-      submitTask({
+      submitOperationTask({
+        request: params.ctx.request,
         userId: params.ctx.userId,
         locale: localeForTask,
-        requestId: getRequestId(params.ctx.request),
         projectId: params.ctx.projectId,
         episodeId,
         type: TASK_TYPE.VIDEO_PANEL,
         targetType: 'ProjectPanel',
         targetId: panel.id,
+        operationId: params.operationId,
+        source: params.ctx.source,
+        confirmed: params.input.confirmed === true,
         payload: withTaskUiPayload(payload, {
           hasOutputAtStart: await hasPanelVideoOutput(panel.id),
         }),
         dedupeKey: `video_panel:${panel.id}`,
         billingInfo: buildVideoPanelBillingInfoOrThrow(payload),
-        operationId: params.operationId,
-        operationSource: params.ctx.source,
-        operationConfirmed: params.input.confirmed === true,
-        operationRequestId: getRequestId(params.ctx.request),
+        decoratePayload: false,
       }),
     ),
   )
@@ -378,23 +377,23 @@ async function executeGeneratePanelVideoOperation(params: {
     lastVideoGenerationOptions: previousLastVideoGenerationOptions,
   })
 
-  const result = await submitTask({
+  const result = await submitOperationTask({
+    request: params.ctx.request,
     userId: params.ctx.userId,
     locale: localeForTask,
-    requestId: getRequestId(params.ctx.request),
     projectId: params.ctx.projectId,
     type: TASK_TYPE.VIDEO_PANEL,
     targetType: 'ProjectPanel',
     targetId: panelId,
+    operationId: params.operationId,
+    source: params.ctx.source,
+    confirmed: params.input.confirmed === true,
     payload: withTaskUiPayload(payload, {
       hasOutputAtStart: await hasPanelVideoOutput(panelId),
     }),
     dedupeKey: `video_panel:${panelId}`,
     billingInfo: buildVideoPanelBillingInfoOrThrow(payload),
-    operationId: params.operationId,
-    operationSource: params.ctx.source,
-    operationConfirmed: params.input.confirmed === true,
-    operationRequestId: getRequestId(params.ctx.request),
+    decoratePayload: false,
   })
 
   const mutationBatch = await createMutationBatch({

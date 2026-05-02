@@ -1,8 +1,7 @@
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { ApiError, getRequestId } from '@/lib/api-errors'
-import { submitTask } from '@/lib/task/submitter'
+import { ApiError } from '@/lib/api-errors'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
@@ -25,6 +24,7 @@ import type {
 } from '@/lib/project-agent/types'
 import type { ProjectAgentOperationContext, ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 import { defineOperation } from '@/lib/operations/define-operation'
 import {
   refineTaskBatchSubmitOperationOutputSchema,
@@ -224,24 +224,24 @@ async function executeGenerateVoiceLineAudioOperation(params: {
       locale,
     },
   }
-  const result = await submitTask({
+  const result = await submitOperationTask({
+    request: params.ctx.request,
     userId: params.ctx.userId,
     locale: localeForTask,
-    requestId: getRequestId(params.ctx.request),
     projectId: params.ctx.projectId,
     episodeId,
     type: TASK_TYPE.VOICE_LINE,
     targetType: 'ProjectVoiceLine',
     targetId: line.id,
+    operationId: params.operationId,
+    source: params.ctx.source,
+    confirmed: params.input.confirmed === true,
     payload: withTaskUiPayload(payload, {
       hasOutputAtStart: await hasVoiceLineAudioOutput(line.id),
     }),
     dedupeKey: `voice_line:${line.id}`,
     billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.VOICE_LINE, payload),
-    operationId: params.operationId,
-    operationSource: params.ctx.source,
-    operationConfirmed: params.input.confirmed === true,
-    operationRequestId: getRequestId(params.ctx.request),
+    decoratePayload: false,
   })
 
   const mutationBatch = await createMutationBatch({
@@ -334,24 +334,24 @@ async function executeGenerateEpisodeVoiceAudioOperation(params: {
           locale,
         },
       }
-      const result = await submitTask({
+      const result = await submitOperationTask({
+        request: params.ctx.request,
         userId: params.ctx.userId,
         locale: localeForTask,
-        requestId: getRequestId(params.ctx.request),
         projectId: params.ctx.projectId,
         episodeId,
         type: TASK_TYPE.VOICE_LINE,
         targetType: 'ProjectVoiceLine',
         targetId: line.id,
+        operationId: params.operationId,
+        source: params.ctx.source,
+        confirmed: params.input.confirmed === true,
         payload: withTaskUiPayload(payload, {
           hasOutputAtStart: await hasVoiceLineAudioOutput(line.id),
         }),
         dedupeKey: `voice_line:${line.id}`,
         billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.VOICE_LINE, payload),
-        operationId: params.operationId,
-        operationSource: params.ctx.source,
-        operationConfirmed: params.input.confirmed === true,
-        operationRequestId: getRequestId(params.ctx.request),
+        decoratePayload: false,
       })
       return {
         refId: line.id,
@@ -540,21 +540,21 @@ export function createVoiceOperations(): ProjectAgentOperationRegistryDraft {
           },
         }
 
-        const result = await submitTask({
+        const result = await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale: resolveRequiredTaskLocale(ctx.request, payload),
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.VOICE_DESIGN,
           targetType: 'Project',
           targetId: ctx.projectId,
+          operationId: 'voice_design',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload,
           dedupeKey: `${TASK_TYPE.VOICE_DESIGN}:${digest}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.VOICE_DESIGN, payload),
-          operationId: 'voice_design',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
 
         writeOperationDataPart<TaskSubmittedPartData>(ctx.writer, 'data-task-submitted', {

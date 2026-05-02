@@ -9,11 +9,10 @@ import { writeOperationDataPart } from '@/lib/operations/types'
 import { getSignedUrl, generateUniqueKey, downloadAndUploadImage, toFetchableUrl } from '@/lib/storage'
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { getProjectModelConfig } from '@/lib/config-service'
-import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
-import { getRequestId } from '@/lib/api-errors'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -1045,21 +1044,21 @@ export async function executeStoryboardMutationOperation(
   }
   delete billingPayload.confirmed
 
-  const result = await submitTask({
+  const result = await submitOperationTask({
+    request: ctx.request,
     userId: ctx.userId,
     locale: resolveRequiredTaskLocale(ctx.request, billingPayload),
-    requestId: getRequestId(ctx.request),
     projectId: ctx.projectId,
     type: TASK_TYPE.INSERT_PANEL,
     targetType: 'ProjectStoryboard',
     targetId: storyboardId,
+    operationId,
+    source: ctx.source,
+    confirmed: input.confirmed === true,
     payload: billingPayload,
     dedupeKey: `insert_panel:${storyboardId}:${input.insertAfterPanelId}`,
     billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.INSERT_PANEL, billingPayload),
-    operationId,
-    operationSource: ctx.source,
-    operationConfirmed: input.confirmed === true,
-    operationRequestId: getRequestId(ctx.request),
+    decoratePayload: false,
   })
 
   const mutationBatch = await createMutationBatch({

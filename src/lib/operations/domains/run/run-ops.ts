@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, getRequestId } from '@/lib/api-errors'
+import { ApiError } from '@/lib/api-errors'
 import {
   createRun,
   getRunById,
@@ -13,10 +13,10 @@ import { publishRunEvent } from '@/lib/run-runtime/publisher'
 import { RUN_EVENT_TYPE, RUN_STATUS, type RunStatus } from '@/lib/run-runtime/types'
 import { cancelTask } from '@/lib/task/service'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
-import { submitTask } from '@/lib/task/submitter'
 import { TASK_TYPE, type TaskType } from '@/lib/task/types'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 
 const RETRY_SUPPORTED_TASK_TYPES: ReadonlySet<string> = new Set<string>([
   TASK_TYPE.STORY_TO_SCRIPT_RUN,
@@ -406,22 +406,22 @@ export function createRunOperations(): ProjectAgentOperationRegistryDraft {
           taskPayload.analysisModel = modelOverride
         }
 
-        const submitResult = await submitTask({
+        const submitResult = await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale,
-          requestId: getRequestId(ctx.request),
           projectId: run.projectId,
           episodeId: run.episodeId || null,
           type: taskType,
           targetType: run.targetType,
           targetId: run.targetId,
+          operationId: 'retry_run_step',
+          source: ctx.source,
+          confirmed: payload.confirmed === true,
           payload: taskPayload,
           dedupeKey: null,
           priority: 3,
-          operationId: 'retry_run_step',
-          operationSource: ctx.source,
-          operationConfirmed: payload.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
 
         return {

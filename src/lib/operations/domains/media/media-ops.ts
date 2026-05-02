@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { ApiError, getRequestId } from '@/lib/api-errors'
-import { submitTask } from '@/lib/task/submitter'
+import { ApiError } from '@/lib/api-errors'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
@@ -14,6 +13,7 @@ import { sanitizeImageInputsForTaskPayload } from '@/lib/media/outbound-image'
 import { resolveProjectImageStyleSignatureForTask } from '@/lib/image-generation/style'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 import { taskSubmitOperationOutputSchema } from '@/lib/operations/output-schemas'
 
 function normalizeString(value: unknown): string {
@@ -127,24 +127,24 @@ export function createMediaOperations(): ProjectAgentOperationRegistryDraft {
           invalidOverrideMessage: 'Invalid artStyle in regenerate_group payload',
         })
 
-        return await submitTask({
+        return await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale,
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.REGENERATE_GROUP,
           targetType,
           targetId,
+          operationId: 'regenerate_group',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: withTaskUiPayload(billingPayload, {
             intent: 'regenerate',
             hasOutputAtStart,
           }),
           dedupeKey: `regenerate_group:${targetType}:${targetId}:${count}:${styleSignature}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.REGENERATE_GROUP, billingPayload),
-          operationId: 'regenerate_group',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
       },
     }),
@@ -226,24 +226,24 @@ export function createMediaOperations(): ProjectAgentOperationRegistryDraft {
           invalidOverrideMessage: 'Invalid artStyle in regenerate_single_image payload',
         })
 
-        return await submitTask({
+        return await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale,
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: taskType,
           targetType,
           targetId,
+          operationId: 'regenerate_single_image',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: withTaskUiPayload(billingPayload, {
             intent: 'regenerate',
             hasOutputAtStart,
           }),
           dedupeKey: `${taskType}:${targetId}:single:${parsedImageIndex}:${styleSignature}`,
           billingInfo: buildDefaultTaskBillingInfo(taskType, billingPayload),
-          operationId: 'regenerate_single_image',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
       },
     }),
@@ -278,21 +278,21 @@ export function createMediaOperations(): ProjectAgentOperationRegistryDraft {
           ...(analysisModel ? { analysisModel } : {}),
         }
 
-        return await submitTask({
+        return await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale: resolveRequiredTaskLocale(ctx.request, billingPayload),
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.REGENERATE_STORYBOARD_TEXT,
           targetType: 'ProjectStoryboard',
           targetId: input.storyboardId,
+          operationId: 'regenerate_storyboard_text',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: billingPayload,
           dedupeKey: `regenerate_storyboard_text:${input.storyboardId}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.REGENERATE_STORYBOARD_TEXT, billingPayload),
-          operationId: 'regenerate_storyboard_text',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
       },
     }),
@@ -406,24 +406,24 @@ export function createMediaOperations(): ProjectAgentOperationRegistryDraft {
           throw new ApiError('INVALID_PARAMS', { code: 'IMAGE_MODEL_CAPABILITY_NOT_CONFIGURED', message })
         }
 
-        return await submitTask({
+        return await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale: resolveRequiredTaskLocale(ctx.request, billingPayload),
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.MODIFY_ASSET_IMAGE,
           targetType: 'ProjectPanel',
           targetId: panel.id,
+          operationId: 'modify_storyboard_image',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: withTaskUiPayload(billingPayload, {
             intent: 'modify',
             hasOutputAtStart,
           }),
           dedupeKey: `modify_storyboard_image:${panel.id}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.MODIFY_ASSET_IMAGE, billingPayload),
-          operationId: 'modify_storyboard_image',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
       },
     }),

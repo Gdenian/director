@@ -1,7 +1,5 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getRequestId } from '@/lib/api-errors'
-import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
 import { buildDefaultTaskBillingInfo } from '@/lib/billing'
@@ -14,6 +12,7 @@ import type { TaskSubmittedPartData } from '@/lib/project-agent/types'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { submitOperationTask } from '@/lib/operations/submit-operation-task'
 import {
   refineTaskSubmitOperationOutputSchema,
   taskSubmitOperationOutputSchemaBase,
@@ -109,23 +108,23 @@ export function createLipSyncOperations(): ProjectAgentOperationRegistryDraft {
         }
         delete payload.confirmed
 
-        const result = await submitTask({
+        const result = await submitOperationTask({
+          request: ctx.request,
           userId: ctx.userId,
           locale: resolveRequiredTaskLocale(ctx.request, payload),
-          requestId: getRequestId(ctx.request),
           projectId: ctx.projectId,
           type: TASK_TYPE.LIP_SYNC,
           targetType: 'ProjectPanel',
           targetId: panel.id,
+          operationId: 'lip_sync',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
           payload: withTaskUiPayload(payload, {
             hasOutputAtStart: await hasPanelLipSyncOutput(panel.id),
           }),
           dedupeKey: `lip_sync:${panel.id}:${voiceLineId}`,
           billingInfo: buildDefaultTaskBillingInfo(TASK_TYPE.LIP_SYNC, payload),
-          operationId: 'lip_sync',
-          operationSource: ctx.source,
-          operationConfirmed: input.confirmed === true,
-          operationRequestId: getRequestId(ctx.request),
+          decoratePayload: false,
         })
 
         const mutationBatch = await createMutationBatch({
