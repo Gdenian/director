@@ -12,7 +12,7 @@ import { expandHomeStory } from '@/lib/home/ai-story-expand'
 import { ART_STYLES, VIDEO_RATIOS } from '@/lib/constants'
 import { listSystemDirectorStylePresets, listSystemVisualStylePresets } from '@/lib/style-preset/system'
 import { useSaveProjectEpisodesBatch, useSplitProjectEpisodes } from '@/lib/query/hooks'
-import { useWorkspaceStageRuntime } from '../../WorkspaceStageRuntimeContext'
+import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
 import { DetailSection } from './detail-shared'
 
 const LONG_TEXT_THRESHOLD = 8000
@@ -37,7 +37,7 @@ export default function StoryDetail({ projectId, storyText, episodeName }: Story
   const t = useTranslations('projectWorkflow')
   const homeT = useTranslations('home.aiWrite')
   const locale = useLocale()
-  const runtime = useWorkspaceStageRuntime()
+  const runtime = useWorkspaceRuntime()
   const [draft, setDraft] = useState(storyText)
   const [aiWriteOpen, setAiWriteOpen] = useState(false)
   const [aiWriteLoading, setAiWriteLoading] = useState(false)

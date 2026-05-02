@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 /**
- * 资产确认阶段 - 小说推文模式专用
+ * 项目资产库 - 小说推文模式专用
  * 包含TTS生成和资产分析
  * 
  * 重构说明 v2:
@@ -45,10 +45,10 @@ import CharacterSection from './assets/CharacterSection'
 import LocationSection from './assets/LocationSection'
 import AssetToolbar from './assets/AssetToolbar'
 import AssetFilterBar, { type AssetKindFilter } from './assets/AssetFilterBar'
-import AssetsStageStatusOverlays from './assets/AssetsStageStatusOverlays'
-import AssetsStageModals from './assets/AssetsStageModals'
+import ProjectAssetLibraryStatusOverlays from './assets/ProjectAssetLibraryStatusOverlays'
+import ProjectAssetLibraryModals from './assets/ProjectAssetLibraryModals'
 
-interface AssetsStageProps {
+interface ProjectAssetLibraryProps {
   projectId: string
   isAnalyzingAssets: boolean
   focusCharacterId?: string | null
@@ -58,14 +58,14 @@ interface AssetsStageProps {
   onGlobalAnalyzeComplete?: () => void
 }
 
-export default function AssetsStage({
+export default function ProjectAssetLibrary({
   projectId,
   isAnalyzingAssets,
   focusCharacterId = null,
   focusCharacterRequestId = 0,
   triggerGlobalAnalyze = false,
   onGlobalAnalyzeComplete
-}: AssetsStageProps) {
+}: ProjectAssetLibraryProps) {
   const { data: assets = [] } = useAssets({
     scope: 'project',
     projectId,
@@ -339,7 +339,7 @@ export default function AssetsStage({
 
   return (
     <div className="space-y-4">
-      <AssetsStageStatusOverlays
+      <ProjectAssetLibraryStatusOverlays
         toast={toast}
         onCloseToast={() => setToast(null)}
         isGlobalAnalyzing={isGlobalAnalyzing}
@@ -455,7 +455,7 @@ export default function AssetsStage({
           />
       )}
 
-      <AssetsStageModals
+      <ProjectAssetLibraryModals
         projectId={projectId}
         onRefresh={onRefresh}
         onClosePreview={() => setPreviewImage(null)}

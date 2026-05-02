@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import InlineVideoGenerationControls from '../../components/video/InlineVideoGenerationControls'
 import { usePanelVideoModel } from '../../components/video/panel-card/runtime/hooks/usePanelVideoModel'
-import { useWorkspaceStageRuntime } from '../../WorkspaceStageRuntimeContext'
+import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
 import type { VideoGenerationOptions, VideoModelOption } from '../../components/video/types'
 import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
 import {
@@ -43,7 +43,7 @@ interface VideoDetailProps {
 
 export default function VideoDetail(props: VideoDetailProps) {
   const t = useTranslations('projectWorkflow.canvas.workspace.detail')
-  const runtime = useWorkspaceStageRuntime()
+  const runtime = useWorkspaceRuntime()
   const { panel, storyboard } = props.context
   const [videoPrompt, setVideoPrompt] = useState(panel.videoPrompt ?? '')
   const [firstLastPrompt, setFirstLastPrompt] = useState(panel.firstLastFramePrompt ?? '')

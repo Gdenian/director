@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 /**
  * useTTSGeneration - TTS 和音色相关逻辑
- * 从 AssetsStage.tsx 提取
+ * 从项目资产库模块提取
  * 
  * 🔥 V6.5 重构：直接订阅 useProjectAssets，消除 props drilling
  */

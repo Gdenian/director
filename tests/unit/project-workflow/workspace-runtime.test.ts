@@ -3,7 +3,7 @@ import {
   buildVideoSubmissionKey,
   createVideoSubmissionBaseline,
   shouldResolveVideoSubmissionLock,
-} from '@/lib/project-workflow/stages/video-stage-runtime/immediate-video-submission'
+} from '@/features/project-workspace/components/video/immediate-video-submission'
 
 const {
   useStateMock,

@@ -51,7 +51,7 @@ interface VoiceDesignCharacterState {
   hasExistingVoice: boolean
 }
 
-interface AssetsStageModalsProps {
+interface ProjectAssetLibraryModalsProps {
   projectId: string
   onRefresh: () => void
   onClosePreview: () => void
@@ -86,7 +86,7 @@ interface AssetsStageModalsProps {
   isGlobalCopyInFlight: boolean
 }
 
-export default function AssetsStageModals({
+export default function ProjectAssetLibraryModals({
   projectId,
   onRefresh,
   onClosePreview,
@@ -119,7 +119,7 @@ export default function AssetsStageModals({
   voiceDesignCharacter,
   copyFromGlobalTarget,
   isGlobalCopyInFlight,
-}: AssetsStageModalsProps) {
+}: ProjectAssetLibraryModalsProps) {
   return (
     <>
       {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={onClosePreview} />}

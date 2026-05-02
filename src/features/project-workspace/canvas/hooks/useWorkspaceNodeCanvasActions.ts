@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useWorkspaceStageRuntime } from '../../WorkspaceStageRuntimeContext'
+import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
 import type { WorkspaceCanvasNodeAction } from '../node-canvas-types'
 
 export function useWorkspaceNodeCanvasActions() {
-  const runtime = useWorkspaceStageRuntime()
+  const runtime = useWorkspaceRuntime()
 
   return useCallback((action: WorkspaceCanvasNodeAction) => {
     if (action.type === 'open_details') {

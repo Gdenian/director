@@ -195,7 +195,7 @@ export function useAssetsGlobalActions({
     }
 
     hasTriggeredGlobalAnalyze.current = true
-    _ulogInfo('[AssetsStage] 通过 props 触发全局分析')
+    _ulogInfo('[ProjectAssetLibrary] 通过 props 触发全局分析')
 
     const timer = window.setTimeout(() => {
       void (async () => {

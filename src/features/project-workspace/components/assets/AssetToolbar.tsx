@@ -9,7 +9,7 @@ import { logError as _logError } from '@/lib/logging/core'
 
 /**
  * AssetToolbar - 资产管理工具栏组件
- * 从 AssetsStage.tsx 提取，负责资产统计与顶部操作
+ * 从项目资产库模块提取，负责资产统计与顶部操作
  */
 
 interface EpisodeOption {

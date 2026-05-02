@@ -13,7 +13,7 @@ import { useWorkspaceVideoActions } from './useWorkspaceVideoActions'
 import { useWorkspaceAssetLibraryShell } from './useWorkspaceAssetLibraryShell'
 import { useWorkspaceProjectSnapshot } from './useWorkspaceProjectSnapshot'
 import { useWorkspaceModalEscape } from './useWorkspaceModalEscape'
-import { useWorkspaceStageRuntime } from './useWorkspaceStageRuntime'
+import { useWorkspaceRuntime } from './useWorkspaceRuntime'
 import { useWorkspaceConfigActions } from './useWorkspaceConfigActions'
 import { useWorkspaceAutoRun } from './useWorkspaceAutoRun'
 import { useWorkspaceImageActions } from './useWorkspaceImageActions'
@@ -123,7 +123,7 @@ export function useProjectWorkspaceController({
     runStoryToScriptFlow: execution.runStoryToScriptFlow,
   })
 
-  const stageRuntime = useWorkspaceStageRuntime({
+  const workspaceRuntime = useWorkspaceRuntime({
     assetsLoading,
     isSubmittingTTS: execution.isSubmittingTTS,
     isTransitioning: execution.isTransitioning,
@@ -212,7 +212,7 @@ export function useProjectWorkspaceController({
     rebuildState,
     executionState,
     videoState,
-    stageRuntime,
+    workspaceRuntime,
     actionsState,
   })
 }

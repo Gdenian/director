@@ -1,7 +1,7 @@
 'use client'
 
 import type { UserModelsPayload } from './useWorkspaceUserModels'
-import type { WorkspaceStageRuntimeValue } from '../WorkspaceStageRuntimeContext'
+import type { WorkspaceRuntimeValue } from '../WorkspaceRuntimeContext'
 import type { TaskPresentationState } from '@/lib/task/presentation'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 import type { CapabilitySelections } from '@/lib/ai-registry/types'
@@ -115,7 +115,7 @@ interface BuildWorkspaceControllerViewModelParams {
     handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
     handleUpdateClip: (clipId: string, updates: Record<string, unknown>) => Promise<void>
   }
-  stageRuntime: WorkspaceStageRuntimeValue
+  workspaceRuntime: WorkspaceRuntimeValue
   actionsState: {
     handleUpdateConfig: (key: string, value: unknown) => Promise<void>
     handleUpdateEpisode: (key: string, value: unknown) => Promise<void>
@@ -131,7 +131,7 @@ export function buildWorkspaceControllerViewModel({
   rebuildState,
   executionState,
   videoState,
-  stageRuntime,
+  workspaceRuntime,
   actionsState,
 }: BuildWorkspaceControllerViewModelParams) {
   return {
@@ -141,7 +141,7 @@ export function buildWorkspaceControllerViewModel({
     rebuild: rebuildState,
     execution: executionState,
     video: videoState,
-    runtime: { stageRuntime },
+    runtime: { workspaceRuntime },
     actions: actionsState,
   }
 }

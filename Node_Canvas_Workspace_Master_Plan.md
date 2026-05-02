@@ -80,7 +80,7 @@ tests/
 - ✅ **Task 2.7**: `src/lib/project-canvas/graph/**`、`src/lib/project-canvas/commands/**`、`rule-grid-layout-engine.ts`、`resolve-canvas-layout.ts` - 删除旧 graph builder、command registry、规则布局引擎和对应单元测试；layout persistence/API 合约继续保留。
 - ✅ **Task 2.8**: `src/features/project-workspace/components/story/StoryComposer.tsx`、`script/ScriptComposer.tsx`、`storyboard-stage/StoryboardComposer.tsx`、`video-stage-canvas/VideoComposer.tsx`、`final/FinalTimelineView.tsx`、`workspace-stage.ts` - 删除旧 stage wrapper 和旧 stage resolver，避免正式工作台继续沿用“阶段跳转”概念。
 - ✅ **Task 2.9**: `src/app/[locale]/workspace/[projectId]/page.tsx`、`ProjectWorkspace.tsx`、`useProjectWorkspaceController.ts`、`WorkspaceAssistantPanel.tsx` - 移除 workspace 前端的 `stage` URL 状态、`currentStage` 传递和 assistant stage chip；真实页面只传 episode/project 上下文。
-- ✅ **Task 2.10**: `src/features/project-workspace/hooks/useWorkspaceImageActions.ts`、`WorkspaceStageRuntimeContext.tsx`、`useWorkspaceStageRuntime.ts`、`useWorkspaceNodeCanvasProjection.ts` - 给 shot/image 节点补齐真实图片生成入口，复用 `useRegenerateProjectPanelImage`，不依赖旧分镜页按钮。
+- ✅ **Task 2.10**: `src/features/project-workspace/hooks/useWorkspaceImageActions.ts`、`WorkspaceRuntimeContext.tsx`、`useWorkspaceRuntime.ts`、`useWorkspaceNodeCanvasProjection.ts` - 给 shot/image 节点补齐真实图片生成入口，复用 `useRegenerateProjectPanelImage`，不依赖旧分镜页按钮。
 - ✅ **Task 2.11**: `src/features/project-workspace/components/ProjectInputStage.tsx`、`tests/unit/project-workflow/asset-stage-mutations.test.ts` - 删除旧故事输入 stage 组件和对应旧 UI 断言；故事输入由 `WorkspaceNode` 的 `storyInput` 节点承担。
 - ✅ **Task 2.12**: `src/features/project-workspace/components/ScriptView.tsx`、`src/features/project-workspace/components/script-view/ScriptView*.tsx`、`SpotlightCards.tsx`、`asset-state-utils.ts`、`selection-sync.ts`、`tests/unit/script-view/script-view-assets-panel.test.ts`、`selection-sync.test.ts` - 删除旧剧本页面 UI 岛；保留 `clip-asset-utils.ts`，因为资产库仍复用该纯工具函数。
 
@@ -122,6 +122,15 @@ tests/
 - ✅ **Task 5.15**: `tests/unit/project-workspace/canvas-object-detail-layer.test.tsx` - 覆盖剧本、分镜、图片、视频、成片详情字段渲染；断言不出现 voice/lip-sync 节点。
 - ✅ **Task 5.16**: `tests/integration/api/contract/project-panel-routes.test.ts`、`tests/contracts/route-catalog.ts` - 更新 panel PUT 契约，确认 `srtSegment` 通过统一 operation 输入传递；新增 `panel/revert-image` route 契约和 route catalog。
 
+### 阶段 6: Stage 命名与旧壳清理
+
+- ✅ **Task 6.1**: `src/features/project-workspace/WorkspaceRuntimeContext.tsx`、`src/features/project-workspace/hooks/useWorkspaceRuntime.ts`、`src/features/project-workspace/ProjectWorkspace.tsx`、`src/features/project-workspace/hooks/useProjectWorkspaceController.ts` - 将 workspace 主运行时从 `WorkspaceStageRuntime*` 改名为 `WorkspaceRuntime*`，`stageRuntime` 改为 `workspaceRuntime`，避免新节点画布继续暴露旧阶段概念。
+- ✅ **Task 6.2**: `src/features/project-workspace/components/ProjectAssetLibrary.tsx`、`components/assets/ProjectAssetLibraryModals.tsx`、`components/assets/ProjectAssetLibraryStatusOverlays.tsx` - 将仍在正式使用的资产库模块从 `AssetsStage*` 改名为 `ProjectAssetLibrary*`，并更新 `AssetLibrary` / `WorkspaceAssetLibraryModal` 引用。
+- ✅ **Task 6.3**: `src/features/project-workspace/components/PromptsStage.tsx`、`components/prompts-stage/**` - 删除无正式入口的旧 prompt stage 页面壳和内部 runtime；对应焦点测试移除已删除文件路径。
+- ✅ **Task 6.4**: `src/features/project-workspace/components/VideoStage.tsx`、`components/video-stage/**`、`src/lib/project-workflow/stages/video-stage-runtime-core.tsx`、`src/lib/project-workflow/stages/video-stage-runtime/**`、`src/lib/project-workflow/stages/contracts/video-stage-contract.ts` - 删除无正式入口的旧 video stage 页面壳和旧 runtime；保留并迁移仍有价值的 `immediate-video-submission` 工具到 `components/video/immediate-video-submission.ts`。
+- ✅ **Task 6.5**: `src/features/project-workspace/components/storyboard/StoryboardStageShell.tsx`、`components/storyboard/index.tsx` - 删除旧分镜阶段大页面壳；保留节点详情层仍复用的 `InsertPanelModal`、`PanelVariantModal`、`ReferenceImageModal`、`ImageEditModal` 等真实小组件。
+- ⏸ **Task 6.6**: `VoiceStage*`、`voice-stage/**`、voice/lip-sync 后端链路 - 本轮按产品决策暂时保留，不接入节点画布，后续单独评估。
+
 ### 当前验证结果
 
 - ✅ `npx prisma generate` - 已执行，Prisma Client 同步到当前 schema。
@@ -133,6 +142,8 @@ tests/
 - ✅ `npm run typecheck` - 本轮非语音功能补齐和详情层拆分后通过。
 - ✅ `BILLING_TEST_BOOTSTRAP=0 npm exec -- vitest run tests/unit/project-workspace/node-canvas-projection.test.ts tests/unit/project-workspace/workspace-node-render.test.tsx tests/unit/project-workspace/canvas-object-detail-layer.test.tsx tests/regression/project-canvas-preserves-business-order.test.ts tests/integration/api/contract/project-panel-routes.test.ts tests/integration/api/contract/project-download-routes.test.ts` - 本轮非语音功能补齐后通过，6 个测试文件 22 个测试全部通过。
 - ✅ `npm run check:test-route-coverage` - 新增 `panel/revert-image` route 后通过，routes=144。
+- ✅ `npm run typecheck` - Stage 命名与旧壳清理后通过。
+- ✅ `BILLING_TEST_BOOTSTRAP=0 npm exec -- vitest run tests/unit/project-workspace/node-canvas-projection.test.ts tests/unit/project-workspace/workspace-node-render.test.tsx tests/unit/project-workspace/canvas-object-detail-layer.test.tsx tests/regression/project-canvas-preserves-business-order.test.ts tests/unit/components/glass-input-focus.test.ts tests/unit/project-workflow/workspace-runtime.test.ts tests/unit/project-workflow/video-runtime.test.ts tests/unit/project-canvas/canvas-layout-error-policy.test.ts` - Stage 命名与旧壳清理后通过，8 个测试文件 27 个测试全部通过。
 - ✅ `/src/app/[locale]/dev` - 已删除，`rg`/`find` 检查无剩余测试页文件。
 - ✅ 旧 stage/canvas 容器死代码 - 已删除，`rg` 确认无 `CanvasStageNode`、`ProjectCanvas`、旧 graph/commands/layout engine 正式引用。
 - ✅ 前端 stage 导航残留 - `rg "ProjectInputStage|StoryComposer|ScriptComposer|StoryboardComposer|VideoComposer|FinalTimelineView|workspace-stage|currentStage|stageNav|handleStageChange|onStageChange|urlStage|stageLabel"` 在 workspace 前端、页面和相关测试范围内无结果；后端 agent 协议仍保留可选 `currentStage?` 字段但真实页面不再传入。

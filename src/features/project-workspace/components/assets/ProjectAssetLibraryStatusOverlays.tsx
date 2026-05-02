@@ -11,7 +11,7 @@ interface ToastState {
   type: ToastType
 }
 
-interface AssetsStageStatusOverlaysProps {
+interface ProjectAssetLibraryStatusOverlaysProps {
   toast: ToastState | null
   onCloseToast: () => void
   isGlobalAnalyzing: boolean
@@ -21,7 +21,7 @@ interface AssetsStageStatusOverlaysProps {
   globalAnalyzingTip: string
 }
 
-export default function AssetsStageStatusOverlays({
+export default function ProjectAssetLibraryStatusOverlays({
   toast,
   onCloseToast,
   isGlobalAnalyzing,
@@ -29,7 +29,7 @@ export default function AssetsStageStatusOverlays({
   globalAnalyzingTitle,
   globalAnalyzingHint,
   globalAnalyzingTip,
-}: AssetsStageStatusOverlaysProps) {
+}: ProjectAssetLibraryStatusOverlaysProps) {
   return (
     <>
       {toast && (

@@ -5,7 +5,7 @@ import type { CapabilitySelections, ModelCapabilities } from '@/lib/ai-registry/
 import { VideoPricingTier } from '@/lib/ai-registry/video-capabilities'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from './components/video'
 
-export interface WorkspaceStageVideoModelOption {
+export interface WorkspaceVideoModelOption {
   value: string
   label: string
   provider?: string
@@ -14,7 +14,7 @@ export interface WorkspaceStageVideoModelOption {
   videoPricingTiers?: VideoPricingTier[]
 }
 
-export interface WorkspaceStageRuntimeValue {
+export interface WorkspaceRuntimeValue {
   assetsLoading: boolean
   isSubmittingTTS: boolean
   isTransitioning: boolean
@@ -29,7 +29,7 @@ export interface WorkspaceStageRuntimeValue {
   directorStylePresetId: string | null | undefined
   videoModel: string | null | undefined
   capabilityOverrides: CapabilitySelections
-  userVideoModels: WorkspaceStageVideoModelOption[]
+  userVideoModels: WorkspaceVideoModelOption[]
   onNovelTextChange: (value: string) => Promise<void>
   onVideoRatioChange: (value: string) => Promise<void>
   onArtStyleChange: (value: string) => Promise<void>
@@ -65,25 +65,25 @@ export interface WorkspaceStageRuntimeValue {
   onOpenAssetLibraryForCharacter: (characterId?: string | null, refreshAssets?: boolean) => void
 }
 
-const WorkspaceStageRuntimeContext = createContext<WorkspaceStageRuntimeValue | null>(null)
+const WorkspaceRuntimeContext = createContext<WorkspaceRuntimeValue | null>(null)
 
-interface WorkspaceStageRuntimeProviderProps {
-  value: WorkspaceStageRuntimeValue
+interface WorkspaceRuntimeProviderProps {
+  value: WorkspaceRuntimeValue
   children: ReactNode
 }
 
-export function WorkspaceStageRuntimeProvider({ value, children }: WorkspaceStageRuntimeProviderProps) {
+export function WorkspaceRuntimeProvider({ value, children }: WorkspaceRuntimeProviderProps) {
   return (
-    <WorkspaceStageRuntimeContext.Provider value={value}>
+    <WorkspaceRuntimeContext.Provider value={value}>
       {children}
-    </WorkspaceStageRuntimeContext.Provider>
+    </WorkspaceRuntimeContext.Provider>
   )
 }
 
-export function useWorkspaceStageRuntime() {
-  const context = useContext(WorkspaceStageRuntimeContext)
+export function useWorkspaceRuntime() {
+  const context = useContext(WorkspaceRuntimeContext)
   if (!context) {
-    throw new Error('useWorkspaceStageRuntime must be used within WorkspaceStageRuntimeProvider')
+    throw new Error('useWorkspaceRuntime must be used within WorkspaceRuntimeProvider')
   }
   return context
 }

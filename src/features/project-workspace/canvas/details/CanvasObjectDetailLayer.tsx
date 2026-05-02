@@ -24,7 +24,7 @@ import { useSelectProjectPanelCandidate } from '@/lib/query/mutations/storyboard
 import type { SelectedAsset } from '../../components/storyboard/hooks/useImageGeneration'
 import type { VideoGenerationOptions } from '../../components/video/types'
 import { useWorkspaceProvider } from '../../WorkspaceProvider'
-import { useWorkspaceStageRuntime } from '../../WorkspaceStageRuntimeContext'
+import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
 import type { ProjectClip, ProjectStoryboard } from '@/types/project'
 import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
 import FinalDetail from './FinalDetail'
@@ -68,7 +68,7 @@ export default function CanvasObjectDetailLayer({
 }: CanvasObjectDetailLayerProps) {
   const t = useTranslations('projectWorkflow.canvas.workspace.detail')
   const { projectId, episodeId } = useWorkspaceProvider()
-  const runtime = useWorkspaceStageRuntime()
+  const runtime = useWorkspaceRuntime()
   const refreshAssets = useRefreshProjectAssets(projectId)
   const refreshEpisode = useRefreshEpisodeData(projectId, episodeId ?? null)
   const refreshStoryboards = useRefreshStoryboards(episodeId ?? null)

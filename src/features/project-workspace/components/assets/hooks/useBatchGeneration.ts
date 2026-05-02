@@ -3,7 +3,7 @@ import { logError as _ulogError } from '@/lib/logging/core'
 
 /**
  * useBatchGeneration - 批量生成资产图片
- * 从 AssetsStage.tsx 提取
+ * 从项目资产库模块提取
  * 
  * 🔥 V6.5 重构：直接订阅 useProjectAssets，消除 props drilling
  * 🔥 V6.6 重构：内部使用 mutation hooks，移除 onGenerateImage prop

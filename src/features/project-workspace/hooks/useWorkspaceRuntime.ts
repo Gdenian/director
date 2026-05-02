@@ -1,12 +1,12 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { WorkspaceStageRuntimeValue } from '../WorkspaceStageRuntimeContext'
+import type { WorkspaceRuntimeValue } from '../WorkspaceRuntimeContext'
 import type { CapabilitySelections, ModelCapabilities } from '@/lib/ai-registry/types'
 import { VideoPricingTier } from '@/lib/ai-registry/video-capabilities'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 
-interface UseWorkspaceStageRuntimeParams {
+interface UseWorkspaceRuntimeParams {
   assetsLoading: boolean
   isSubmittingTTS: boolean
   isTransitioning: boolean
@@ -60,7 +60,7 @@ interface UseWorkspaceStageRuntimeParams {
   handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
 }
 
-export function useWorkspaceStageRuntime({
+export function useWorkspaceRuntime({
   assetsLoading,
   isSubmittingTTS,
   isTransitioning,
@@ -88,13 +88,13 @@ export function useWorkspaceStageRuntime({
   handleGenerateAllVideos,
   handleUpdateVideoPrompt,
   handleUpdatePanelVideoModel,
-}: UseWorkspaceStageRuntimeParams) {
+}: UseWorkspaceRuntimeParams) {
   const resolvedUserVideoModels = useMemo(
     () => userVideoModels || [],
     [userVideoModels],
   )
 
-  return useMemo<WorkspaceStageRuntimeValue>(() => ({
+  return useMemo<WorkspaceRuntimeValue>(() => ({
     assetsLoading,
     isSubmittingTTS,
     isTransitioning,

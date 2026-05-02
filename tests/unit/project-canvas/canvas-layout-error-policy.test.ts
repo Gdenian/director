@@ -9,7 +9,7 @@ const validLayout = {
   schemaVersion: 1,
   viewport: { x: 10, y: 20, zoom: 0.8 },
   nodeLayouts: [{
-    nodeKey: 'workspace-stage:episode-1:story',
+    nodeKey: 'story:episode-1',
     nodeType: 'story',
     targetType: 'episode',
     targetId: 'episode-1',

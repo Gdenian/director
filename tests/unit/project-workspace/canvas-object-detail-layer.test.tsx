@@ -21,8 +21,8 @@ vi.mock('@/features/project-workspace/WorkspaceProvider', () => ({
   useWorkspaceProvider: () => ({ projectId: 'project-1', episodeId: 'episode-1' }),
 }))
 
-vi.mock('@/features/project-workspace/WorkspaceStageRuntimeContext', () => ({
-  useWorkspaceStageRuntime: () => ({
+vi.mock('@/features/project-workspace/WorkspaceRuntimeContext', () => ({
+  useWorkspaceRuntime: () => ({
     videoModel: 'video-model-default',
     userVideoModels: [{ value: 'video-model-default', label: 'Video Default' }],
     onRunScriptToStoryboard: vi.fn(),

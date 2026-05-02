@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 /**
  * LocationSection - 场景资产区块组件
- * 从 AssetsStage.tsx 提取，负责场景列表的展示和操作
+ * 从项目资产库模块提取，负责场景列表的展示和操作
  * 
  * 🔥 V6.5 重构：内部直接订阅 useProjectAssets，消除 props drilling
  */

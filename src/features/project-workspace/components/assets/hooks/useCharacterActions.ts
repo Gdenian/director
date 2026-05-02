@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 /**
  * useCharacterActions - 角色资产操作 Hook
- * 从 AssetsStage 提取，负责角色的 CRUD 和图片生成操作
+ * 从项目资产库模块提取，负责角色的 CRUD 和图片生成操作
  * 
  * 🔥 V6.5 重构：直接订阅 useProjectAssets，消除 props drilling
  */

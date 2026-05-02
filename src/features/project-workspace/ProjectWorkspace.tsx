@@ -9,7 +9,7 @@ import WorkspaceAssetLibraryModal from './components/WorkspaceAssetLibraryModal'
 import WorkspaceAssistantPanel from './components/WorkspaceAssistantPanel'
 import WorkspaceHeaderShell from './components/WorkspaceHeaderShell'
 import ProjectWorkspaceCanvas from './canvas/ProjectWorkspaceCanvas'
-import { WorkspaceStageRuntimeProvider } from './WorkspaceStageRuntimeContext'
+import { WorkspaceRuntimeProvider } from './WorkspaceRuntimeContext'
 import { useProjectWorkspaceController } from './hooks/useProjectWorkspaceController'
 import type { ProjectWorkspaceProps } from './types'
 import '@/styles/animations.css'
@@ -83,9 +83,9 @@ function ProjectWorkspaceContent(props: ProjectWorkspaceProps) {
           />
 
           <div className="min-w-0 flex-1">
-            <WorkspaceStageRuntimeProvider value={vm.runtime.stageRuntime}>
+            <WorkspaceRuntimeProvider value={vm.runtime.workspaceRuntime}>
               <ProjectWorkspaceCanvas />
-            </WorkspaceStageRuntimeProvider>
+            </WorkspaceRuntimeProvider>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import AssetsStage from './AssetsStage'
+import ProjectAssetLibrary from './ProjectAssetLibrary'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import type { TaskPresentationState } from '@/lib/task/presentation'
 import { AppIcon } from '@/components/ui/icons'
@@ -63,7 +63,7 @@ export default function WorkspaceAssetLibraryModal({
               <TaskStatusInline state={assetsLoadingState} className="text-base [&>span]:text-base" />
             </div>
           )}
-          <AssetsStage
+          <ProjectAssetLibrary
             projectId={projectId}
             isAnalyzingAssets={isAnalyzingAssets}
             focusCharacterId={focusCharacterId}

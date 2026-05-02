@@ -2,15 +2,15 @@
 
 /**
  * 资产库 - 全局浮动按钮,打开后显示完整的资产管理界面
- * 复用AssetsStage组件,保持功能完全一致
+ * 复用 ProjectAssetLibrary 组件,保持功能完全一致
  * 
- * 🔥 V6.5 重构：删除 characters/locations props，AssetsStage 现在内部直接订阅
- * 🔥 V6.6 重构：删除 onGenerateImage prop，AssetsStage 现在内部使用 mutation hooks
+ * 🔥 V6.5 重构：删除 characters/locations props，ProjectAssetLibrary 现在内部直接订阅
+ * 🔥 V6.6 重构：删除 onGenerateImage prop，ProjectAssetLibrary 现在内部使用 mutation hooks
  */
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import AssetsStage from './AssetsStage'
+import ProjectAssetLibrary from './ProjectAssetLibrary'
 import { AppIcon } from '@/components/ui/icons'
 import { useAssets } from '@/lib/query/hooks'
 import JSZip from 'jszip'
@@ -156,9 +156,9 @@ export default function AssetLibrary({
               </button>
             </div>
 
-            {/* 内容区域 - 复用AssetsStage，现在 AssetsStage 内部直接订阅和处理图片生成 */}
+            {/* 内容区域 - 复用ProjectAssetLibrary，现在 ProjectAssetLibrary 内部直接订阅和处理图片生成 */}
             <div className="flex-1 overflow-y-auto p-8">
-              <AssetsStage
+              <ProjectAssetLibrary
                 projectId={projectId}
                 isAnalyzingAssets={isAnalyzingAssets}
               />
