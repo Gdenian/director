@@ -16,7 +16,6 @@ const {
   storyToScriptResetMock,
   scriptToStoryboardRunMock,
   scriptToStoryboardResetMock,
-  emitWorkspaceAssistantWorkflowEventMock,
 } = vi.hoisted(() => ({
   useStateMock: vi.fn(),
   useRefMock: vi.fn((value: unknown) => ({ current: value })),
@@ -28,7 +27,6 @@ const {
   storyToScriptResetMock: vi.fn(),
   scriptToStoryboardRunMock: vi.fn(),
   scriptToStoryboardResetMock: vi.fn(),
-  emitWorkspaceAssistantWorkflowEventMock: vi.fn(),
 }))
 
 vi.mock('react', async () => {
@@ -65,18 +63,8 @@ vi.mock('@/lib/query/hooks', () => ({
   }),
 }))
 
-vi.mock('@/features/project-workspace/components/workspace-assistant/workspace-assistant-events', () => ({
-  emitWorkspaceAssistantWorkflowEvent: (...args: unknown[]) => emitWorkspaceAssistantWorkflowEventMock(...args),
-}))
-
 import { useWorkspaceAutoRun } from '@/features/project-workspace/hooks/useWorkspaceAutoRun'
 import { useWorkspaceAssetLibraryShell } from '@/features/project-workspace/hooks/useWorkspaceAssetLibraryShell'
-import {
-  buildWorkflowCompletedMessage,
-  buildWorkflowErrorMessage,
-  buildWorkflowTimelineMessages,
-  removeWorkflowStatusParts,
-} from '@/features/project-workspace/components/workspace-assistant/workflow-timeline'
 import { useWorkspaceExecution } from '@/features/project-workspace/hooks/useWorkspaceExecution'
 
 describe('immediate video submission lock', () => {
@@ -235,20 +223,16 @@ describe('useWorkspaceExecution', () => {
     storyToScriptResetMock.mockReset()
     scriptToStoryboardRunMock.mockReset()
     scriptToStoryboardResetMock.mockReset()
-    emitWorkspaceAssistantWorkflowEventMock.mockReset()
 
     useStateMock.mockImplementation((initialValue: unknown) => [initialValue, vi.fn()])
     useEffectMock.mockImplementation(() => undefined)
   })
 
-  it('story-to-script submits directly without writing legacy mode fields', async () => {
+  it('removed fixed script generation entry asks user to use assistant planning', async () => {
     const onRefresh = vi.fn(async () => undefined)
     const onOpenAssetLibrary = vi.fn()
-
-    storyToScriptRunMock.mockResolvedValueOnce({
-      status: 'completed',
-      runId: 'run-story-1',
-    })
+    const alertMock = vi.fn()
+    vi.stubGlobal('alert', alertMock)
 
     const execution = useWorkspaceExecution({
       projectId: 'project-1',
@@ -262,51 +246,9 @@ describe('useWorkspaceExecution', () => {
 
     await execution.runStoryToScriptFlow()
 
-    expect(storyToScriptRunMock).toHaveBeenCalledWith({
-      episodeId: 'episode-1',
-      content: '第一章内容',
-      model: 'provider::analysis-model',
-      temperature: 0.7,
-      reasoning: true,
-    })
-    expect(emitWorkspaceAssistantWorkflowEventMock).toHaveBeenCalledTimes(1)
-    expect(emitWorkspaceAssistantWorkflowEventMock).toHaveBeenCalledWith({
-      status: 'completed',
-      workflowId: 'story-to-script',
-      runId: 'run-story-1',
-    })
-    expect(onRefresh).toHaveBeenCalledTimes(1)
-    expect(onOpenAssetLibrary).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('workspace assistant workflow timeline messages', () => {
-  it('renders gui workflow progress with explicit system wording while staying assistant-compatible', () => {
-    const startedMessages = buildWorkflowTimelineMessages('story-to-script', 'run-1')
-    const completedMessage = buildWorkflowCompletedMessage('story-to-script', 'run-1')
-    const failedMessage = buildWorkflowErrorMessage({
-      status: 'failed',
-      workflowId: 'story-to-script',
-      runId: 'run-1',
-      errorMessage: '启动失败',
-    })
-
-    expect(startedMessages).toHaveLength(1)
-    expect(startedMessages[0]?.role).toBe('assistant')
-    expect(completedMessage.role).toBe('assistant')
-    expect(failedMessage.role).toBe('assistant')
-    expect(startedMessages[0]?.parts[0]).toMatchObject({
-      type: 'text',
-      text: expect.stringContaining('系统已开始执行'),
-    })
-  })
-
-  it('removes stale workflow status parts before appending the latest workflow state', () => {
-    const startedMessages = buildWorkflowTimelineMessages('script-to-storyboard', 'run-1')
-    const sanitizedMessages = removeWorkflowStatusParts(startedMessages, 'script-to-storyboard')
-
-    expect(startedMessages[0]?.parts.some((part) => part.type === 'data-workflow-status')).toBe(true)
-    expect(sanitizedMessages[0]?.parts.some((part) => part.type === 'data-workflow-status')).toBe(false)
-    expect(sanitizedMessages[0]?.parts.some((part) => part.type === 'data-workflow-plan')).toBe(true)
+    expect(storyToScriptRunMock).not.toHaveBeenCalled()
+    expect(alertMock).toHaveBeenCalledWith('execution.assistantPlanRequired')
+    expect(onRefresh).not.toHaveBeenCalled()
+    expect(onOpenAssetLibrary).not.toHaveBeenCalled()
   })
 })

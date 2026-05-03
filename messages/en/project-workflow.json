@@ -160,6 +160,7 @@
     "scriptToStoryboardRunning": "Script→Storyboard V2 running",
     "storyToScriptFailed": "Story to script failed",
     "scriptToStoryboardFailed": "Script to storyboard failed",
+    "assistantPlanRequired": "Fixed flow entry points have been removed. Describe the goal in the AI assistant so it can search skills, create a plan, and run atomic operations.",
     "taskStreamTimeout": "Task timed out. The task may still be running in the background — please check its status or retry"
   },
   "rebuildConfirm": {

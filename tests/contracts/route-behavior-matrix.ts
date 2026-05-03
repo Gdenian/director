@@ -34,8 +34,6 @@ function resolveChainTest(routeFile: string): string {
   }
   if (
     routeFile.includes('/analyze')
-    || routeFile.includes('/story-to-script')
-    || routeFile.includes('/script-to-storyboard')
     || routeFile.includes('/screenplay-conversion')
     || routeFile.includes('/reference-to-character')
   ) {

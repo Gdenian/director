@@ -25,7 +25,7 @@ export const POST = apiHandler(async (
 
   const result = await executeProjectAgentOperationFromApi({
     request,
-    operationId: 'voice_analyze',
+    operationId: 'generate_voice_lines',
     projectId,
     userId: session.user.id,
     input: body,

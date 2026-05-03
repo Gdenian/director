@@ -7,7 +7,6 @@ import { getRunById } from '@/lib/run-runtime/service'
 import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE, type TaskType } from '@/lib/task/types'
-import { getWorkflowPresetDefinition } from '@/lib/skill-system/presets'
 import { buildExecutionPlanDraft } from './plan-builder'
 import type {
   CommandEnvelope,
@@ -152,11 +151,6 @@ function readObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-function readOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  return undefined
-}
-
 export function normalizeCommandEnvelope(params: {
   projectId: string
   body: unknown
@@ -168,35 +162,6 @@ export function normalizeCommandEnvelope(params: {
   const scopeRef = readTrimmedString(body.scopeRef) || null
   const input = readObject(body.input)
   const policyOverrides = readObject(body.policyOverrides)
-
-  if (commandType === 'run_workflow_package') {
-    const workflowIdRaw = readTrimmedString(body.workflowId)
-    if (workflowIdRaw !== 'story-to-script' && workflowIdRaw !== 'script-to-storyboard') {
-      throw new Error('workflowId is invalid')
-    }
-    return {
-      commandType,
-      source,
-      projectId: params.projectId,
-      episodeId,
-      scopeRef,
-      policyOverrides,
-      workflowId: workflowIdRaw,
-      input: {
-        content: readTrimmedString(input.content) || undefined,
-        model: readTrimmedString(input.model) || undefined,
-        temperature: readOptionalNumber(input.temperature),
-        reasoning: input.reasoning === false ? false : true,
-        reasoningEffort:
-          input.reasoningEffort === 'minimal'
-          || input.reasoningEffort === 'low'
-          || input.reasoningEffort === 'medium'
-          || input.reasoningEffort === 'high'
-            ? input.reasoningEffort
-            : undefined,
-      },
-    }
-  }
 
   if (commandType === 'run_skill') {
     const skillIdRaw = readTrimmedString(body.skillId)
@@ -228,9 +193,7 @@ export function requiresExplicitApproval(plan: ExecutionPlanDraft): boolean {
 }
 
 export function resolvePlanApprovalRequirement(command: CommandEnvelope, plan: ExecutionPlanDraft): boolean {
-  if (command.commandType === 'run_workflow_package' && command.source === 'gui') {
-    return false
-  }
+  void command
   return requiresExplicitApproval(plan)
 }
 
@@ -299,10 +262,6 @@ function mapCommandResult(params: {
 }
 
 function taskTypeForCommand(command: CommandEnvelope): TaskType {
-  if (command.commandType === 'run_workflow_package') {
-    return getWorkflowPresetDefinition(command.workflowId).taskType as TaskType
-  }
-
   switch (command.skillId) {
     case 'insert_panel':
       return TASK_TYPE.INSERT_PANEL
@@ -319,9 +278,6 @@ function taskTypeForCommand(command: CommandEnvelope): TaskType {
 
 function dedupeKeyForCommand(command: CommandEnvelope): string | null {
   if (!command.episodeId) return null
-  if (command.commandType === 'run_workflow_package') {
-    return `${command.workflowId}:${command.episodeId}`
-  }
   return `${command.skillId}:${command.episodeId}:${command.scopeRef || 'scope'}`
 }
 

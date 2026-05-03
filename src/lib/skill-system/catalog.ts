@@ -13,8 +13,6 @@ import splitClipsSkillPackage from '@skills/project-workflow/split-clips'
 import type {
   SkillCatalogEntry,
   SkillPackage,
-  WorkflowPackage,
-  WorkflowPackageId,
   WorkflowSkillId,
 } from './types'
 import {
@@ -100,14 +98,6 @@ export function getSkillPackage(skillId: WorkflowSkillId): SkillPackage {
 
 export function listSkillPackages(): SkillPackage[] {
   return PROJECT_WORKFLOW_SKILL_IDS.map((skillId) => skillPackages[skillId])
-}
-
-export function getWorkflowPackage(workflowId: WorkflowPackageId): WorkflowPackage {
-  throw new Error(`WORKFLOW_PACKAGE_REMOVED:${workflowId}`)
-}
-
-export function listWorkflowPackages(): WorkflowPackage[] {
-  return []
 }
 
 export function findWorkflowSkillPackageByLegacyStepId(stepId: string): SkillPackage | null {

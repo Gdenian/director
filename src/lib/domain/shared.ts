@@ -1,10 +1,8 @@
-import type { WorkflowPackageId } from '@/lib/skill-system/types'
-
-export type DomainMutationActor = 'assistant' | 'system' | 'user' | 'workflow'
+export type DomainMutationActor = 'assistant' | 'system' | 'user' | 'operation'
 
 export interface DomainMutationContext {
   actor: DomainMutationActor
-  workflowId?: WorkflowPackageId | null
+  operationId?: string | null
   runId?: string | null
   commandId?: string | null
   planId?: string | null
@@ -54,4 +52,3 @@ export function assertNonEmptyText(value: string | null | undefined, label: stri
     throw new DomainValidationError(`${label} is required`)
   }
 }
-

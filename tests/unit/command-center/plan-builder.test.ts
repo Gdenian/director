@@ -3,35 +3,6 @@ import { buildExecutionPlanDraft } from '@/lib/command-center/plan-builder'
 import { normalizeCommandEnvelope } from '@/lib/command-center/executor'
 
 describe('command-center plan builder', () => {
-  it('story-to-script workflow package -> expands ordered workflow skills', () => {
-    const command = normalizeCommandEnvelope({
-      projectId: 'project-1',
-      body: {
-        commandType: 'run_workflow_package',
-        source: 'gui',
-        workflowId: 'story-to-script',
-        episodeId: 'episode-1',
-        input: {
-          content: 'story text',
-        },
-      },
-    })
-
-    const plan = buildExecutionPlanDraft(command)
-
-    expect(plan.summary).toContain('screenplay')
-    expect(plan.steps.map((step) => step.skillId)).toEqual([
-      'analyze-characters',
-      'analyze-locations',
-      'analyze-props',
-      'split-clips',
-      'generate-screenplay',
-    ])
-    expect(plan.requiresApproval).toBe(true)
-    expect(plan.steps[3]?.dependsOn).toEqual(['analyze-props'])
-    expect(plan.steps[4]?.inputArtifacts).toContain('clip.split')
-  })
-
   it('run_skill panel_variant -> builds single-step plan', () => {
     const command = normalizeCommandEnvelope({
       projectId: 'project-1',

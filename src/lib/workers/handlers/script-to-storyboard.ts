@@ -183,8 +183,8 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
     throw new Error('runId is required for script_to_storyboard pipeline')
   }
   const mutationContext = {
-    actor: 'workflow' as const,
-    workflowId: 'script-to-storyboard' as const,
+    actor: 'operation' as const,
+    operationId: 'finalize_storyboard' as const,
     runId,
     commandId: typeof payload.commandId === 'string' && payload.commandId.trim() ? payload.commandId.trim() : null,
     planId: typeof payload.planId === 'string' && payload.planId.trim() ? payload.planId.trim() : null,

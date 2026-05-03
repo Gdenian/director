@@ -8,29 +8,19 @@ import {
   ThreadPrimitive,
 } from '@assistant-ui/react'
 import { AppIcon } from '@/components/ui/icons'
-import {
-  useApproveProjectPlan,
-  useProjectContext,
-  useRejectProjectPlan,
-} from '@/lib/query/hooks'
+import { useProjectContext } from '@/lib/query/hooks'
 import type { RunStreamView } from '@/lib/query/hooks/run-stream/types'
 import {
-  ApprovalCard,
   ConfirmationActionCard,
-  WorkflowPlanDataCard,
   useWorkspaceAssistantMessagePartComponents,
   WorkspaceAssistantThreadMessage,
 } from './workspace-assistant/WorkspaceAssistantRenderers'
 import {
-  collectPendingApprovalActions,
   collectPendingConfirmationActions,
-  collectWorkflowPlanSnapshots,
-  removeApprovalRequestFromMessages,
   removeConfirmationRequestFromMessages,
 } from './workspace-assistant/approval-state'
-import { createAssistantMessage } from './workspace-assistant/workflow-timeline'
+import { createAssistantMessage } from './workspace-assistant/assistant-messages'
 import { useWorkspaceAssistantRuntime } from './workspace-assistant/useWorkspaceAssistantRuntime'
-import { getWorkflowDisplayLabel } from '@/lib/skill-system/project-workflow-machine'
 import { apiFetch } from '@/lib/api-fetch'
 import { WorkspaceAssistantModePicker } from './workspace-assistant/WorkspaceAssistantModePicker'
 import { WorkspaceAssistantPanelHeader } from './workspace-assistant/WorkspaceAssistantPanelHeader'
@@ -84,15 +74,9 @@ export default function WorkspaceAssistantPanel({
   const locale = useLocale()
   const layout = buildWorkspaceAssistantPanelLayout(isCollapsed)
   const [interactionMode, setInteractionMode] = useState<'auto' | 'plan' | 'fast'>('auto')
-  const workflowLabels = useMemo(() => ({
-    'story-to-script': getWorkflowDisplayLabel('story-to-script'),
-    'script-to-storyboard': getWorkflowDisplayLabel('script-to-storyboard'),
-  }), [])
   const { data: projectContext } = useProjectContext(projectId, {
     episodeId,
   })
-  const approvePlan = useApproveProjectPlan(projectId, episodeId)
-  const rejectPlan = useRejectProjectPlan(projectId, episodeId)
   const assistantRuntime = useWorkspaceAssistantRuntime({
     projectId,
     episodeId,
@@ -103,27 +87,12 @@ export default function WorkspaceAssistantPanel({
     selectedAssetId: selection?.selectedAssetId ?? null,
     interactionMode,
   })
-  const pendingApprovalActions = useMemo(
-    () => collectPendingApprovalActions(assistantRuntime.messages),
-    [assistantRuntime.messages],
-  )
   const pendingConfirmationActions = useMemo(
     () => collectPendingConfirmationActions(assistantRuntime.messages),
     [assistantRuntime.messages],
   )
-  const workflowPlans = useMemo(
-    () => collectWorkflowPlanSnapshots(assistantRuntime.messages),
-    [assistantRuntime.messages],
-  )
-  const activePendingApproval = pendingApprovalActions[pendingApprovalActions.length - 1] || null
   const [selectedPendingActionKey, setSelectedPendingActionKey] = useState<string | null>(null)
   const pendingActionItems = [
-    ...pendingApprovalActions.map((item) => ({
-      key: `approval:${item.planId}`,
-      label: workflowLabels[item.data.workflowId],
-      kind: 'approval' as const,
-      summary: item.data.summary,
-    })),
     ...pendingConfirmationActions.map((item) => ({
       key: `confirm:${item.operationId}`,
       label: item.operationId,
@@ -132,46 +101,9 @@ export default function WorkspaceAssistantPanel({
     })),
   ]
   const effectiveSelectedPendingActionKey = selectedPendingActionKey || pendingActionItems[pendingActionItems.length - 1]?.key || null
-  const selectedPendingApproval = effectiveSelectedPendingActionKey?.startsWith('approval:')
-    ? pendingApprovalActions.find((item) => `approval:${item.planId}` === effectiveSelectedPendingActionKey) || null
-    : null
   const activePendingConfirmation = effectiveSelectedPendingActionKey?.startsWith('confirm:')
     ? pendingConfirmationActions.find((item) => `confirm:${item.operationId}` === effectiveSelectedPendingActionKey) || null
     : null
-  const selectedPlan = workflowPlans.find((item) => item.planId === (selectedPendingApproval?.planId || '')) || null
-  const handleApprovePlan = async (planId: string) => {
-    const pendingApproval = pendingApprovalActions.find((item) => item.planId === planId) || null
-    await approvePlan.mutateAsync(planId)
-    const nextMessages = removeApprovalRequestFromMessages(assistantRuntime.messages, planId)
-    assistantRuntime.replaceMessages([
-      ...nextMessages,
-      createAssistantMessage([
-        {
-          type: 'text',
-          text: t('cards.approvedPlan', {
-            workflow: pendingApproval ? workflowLabels[pendingApproval.data.workflowId] : t('panel.workspaceStatus'),
-          }),
-        },
-      ]),
-    ])
-  }
-  const handleRejectPlan = async (params: { planId: string; note?: string }) => {
-    const pendingApproval = pendingApprovalActions.find((item) => item.planId === params.planId) || null
-    await rejectPlan.mutateAsync(params)
-    const nextMessages = removeApprovalRequestFromMessages(assistantRuntime.messages, params.planId)
-    assistantRuntime.replaceMessages([
-      ...nextMessages,
-      createAssistantMessage([
-        {
-          type: 'text',
-          text: t('cards.rejectedPlan', {
-            workflow: pendingApproval ? workflowLabels[pendingApproval.data.workflowId] : t('panel.workspaceStatus'),
-            reason: params.note?.trim() ? ` ${params.note.trim()}` : '',
-          }),
-        },
-      ]),
-    ])
-  }
   const [confirmationSubmittingKey, setConfirmationSubmittingKey] = useState<string | null>(null)
   const handleConfirmOperation = async (operationId: string, argsHint?: Record<string, unknown> | null) => {
     setConfirmationSubmittingKey(`confirm:${operationId}:continue`)
@@ -365,31 +297,11 @@ export default function WorkspaceAssistantPanel({
                           }
                           onClick={() => setSelectedPendingActionKey(item.key)}
                         >
-                          {item.kind === 'approval' ? t('panel.pendingApprovalChip', { label: item.label }) : t('panel.pendingConfirmationChip', { label: item.label })}
+                          {t('panel.pendingConfirmationChip', { label: item.label })}
                         </button>
                       ))}
                     </div>
-                    {selectedPendingApproval ? (
-                      <div className="space-y-3">
-                        {selectedPlan ? (
-                          <WorkflowPlanDataCard
-                            data={selectedPlan.data}
-                            type="data"
-                            name="workflow-plan"
-                            status={{ type: 'complete' }}
-                          />
-                        ) : null}
-                        <ApprovalCard
-                          planId={selectedPendingApproval.planId}
-                          summary={selectedPendingApproval.data.summary}
-                          reasons={selectedPendingApproval.data.reasons}
-                          onApprove={handleApprovePlan}
-                          onReject={handleRejectPlan}
-                          approvePending={approvePlan.isPending}
-                          rejectPending={rejectPlan.isPending}
-                        />
-                      </div>
-                    ) : activePendingConfirmation ? (
+                    {activePendingConfirmation ? (
                       <ConfirmationActionCard
                         operationId={activePendingConfirmation.operationId}
                         summary={activePendingConfirmation.data.summary}
@@ -408,30 +320,6 @@ export default function WorkspaceAssistantPanel({
                   )}
                 </ThreadPrimitive.Messages>
 
-                {activePendingApproval && pendingActionItems.length === 0 ? (
-                  <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)]/80 p-3">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('panel.pendingApprovalTitle')}</div>
-                        <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">
-                          {workflowLabels[activePendingApproval.data.workflowId]} · {t('panel.pendingApprovalCount', { count: pendingApprovalActions.length })}
-                        </div>
-                      </div>
-                      <div className="rounded-full bg-[var(--glass-bg-surface)] px-2.5 py-1 text-xs text-[var(--glass-text-secondary)]">
-                        {t('panel.latest')}
-                      </div>
-                    </div>
-                    <ApprovalCard
-                      planId={activePendingApproval.planId}
-                      summary={activePendingApproval.data.summary}
-                      reasons={activePendingApproval.data.reasons}
-                      onApprove={handleApprovePlan}
-                      onReject={handleRejectPlan}
-                      approvePending={approvePlan.isPending}
-                      rejectPending={rejectPlan.isPending}
-                    />
-                  </div>
-                ) : null}
               </div>
             </ThreadPrimitive.Viewport>
 

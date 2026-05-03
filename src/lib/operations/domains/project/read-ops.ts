@@ -3,8 +3,7 @@ import { queryTaskTargetStates } from '@/lib/task/state-service'
 import { withPrismaRetry } from '@/lib/prisma-retry'
 import { assembleProjectContext } from '@/lib/project-context/assembler'
 import { listProjectCommands, syncProjectCommandStatus } from '@/lib/command-center/executor'
-import { listSkillCatalogEntries, listWorkflowPackages, readSkillCatalogDocument } from '@/lib/skill-system/catalog'
-import { loadScriptPreview, loadStoryboardPreview } from '@/lib/project-agent/preview'
+import { listSkillCatalogEntries, readSkillCatalogDocument } from '@/lib/skill-system/catalog'
 import { resolveProjectPhase } from '@/lib/project-agent/project-phase'
 import { assembleProjectProjectionLite } from '@/lib/project-projection/lite'
 import { assembleProjectProjectionFull } from '@/lib/project-projection/full'
@@ -13,8 +12,6 @@ import { buildAssistantProjectContextSnapshot } from '@/lib/project-agent/presen
 import type {
   ProjectContextPartData,
   ProjectPhasePartData,
-  ScriptPreviewPartData,
-  StoryboardPreviewPartData,
 } from '@/lib/project-agent/types'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
@@ -140,9 +137,9 @@ export function createReadOperations(): ProjectAgentOperationRegistryDraft {
         return snapshot
       },
     }),
-    list_workflow_packages: defineOperation({
-      id: 'list_workflow_packages',
-      summary: 'List available workflow packages and skill catalog entries.',
+    list_skill_catalog: defineOperation({
+      id: 'list_skill_catalog',
+      summary: 'List available atomic skill catalog entries.',
       intent: 'query',
       effects: EFFECTS_NONE,
       inputSchema: z.object({
@@ -152,13 +149,6 @@ export function createReadOperations(): ProjectAgentOperationRegistryDraft {
       outputSchema: z.unknown(),
       execute: async (_, input) => {
         const payload = {
-          workflows: listWorkflowPackages().map((workflowPackage) => ({
-            id: workflowPackage.manifest.id,
-            name: workflowPackage.manifest.name,
-            summary: workflowPackage.manifest.summary,
-            requiresApproval: workflowPackage.manifest.requiresApproval,
-            skills: workflowPackage.steps.map((step) => step.skillId),
-          })),
           catalog: listSkillCatalogEntries(),
         }
 
@@ -201,31 +191,6 @@ export function createReadOperations(): ProjectAgentOperationRegistryDraft {
           createdAt: item.createdAt.toISOString(),
           updatedAt: item.updatedAt.toISOString(),
         }))
-      },
-    }),
-    fetch_workflow_preview: defineOperation({
-      id: 'fetch_workflow_preview',
-      summary: 'Load a rendered preview for the latest workflow artifacts.',
-      intent: 'query',
-      effects: EFFECTS_NONE,
-      inputSchema: z.object({
-        workflowId: z.enum(['story-to-script', 'script-to-storyboard']),
-        episodeId: z.string().optional(),
-      }),
-      outputSchema: z.unknown(),
-      execute: async (ctx, input) => {
-        const resolvedEpisodeId = input.episodeId || ctx.context.episodeId || ''
-        if (!resolvedEpisodeId) {
-          throw new Error('PROJECT_AGENT_EPISODE_REQUIRED')
-        }
-        if (input.workflowId === 'story-to-script') {
-          const preview = await loadScriptPreview({ episodeId: resolvedEpisodeId })
-          writeOperationDataPart<ScriptPreviewPartData>(ctx.writer, 'data-script-preview', preview)
-          return preview
-        }
-        const preview = await loadStoryboardPreview({ episodeId: resolvedEpisodeId })
-        writeOperationDataPart<StoryboardPreviewPartData>(ctx.writer, 'data-storyboard-preview', preview)
-        return preview
       },
     }),
     get_task_status: defineOperation({

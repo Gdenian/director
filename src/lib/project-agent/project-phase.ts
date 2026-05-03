@@ -46,12 +46,12 @@ function resolveAvailableActions(phase: ProjectPhase, hasEpisode: boolean): Proj
     case PROJECT_PHASE.DRAFT:
       return {
         actMode: [],
-        planMode: ['story-to-script'],
+        planMode: ['screenwriting', 'story-structure'],
       }
     case PROJECT_PHASE.SCRIPT_READY:
       return {
         actMode: [],
-        planMode: ['script-to-storyboard'],
+        planMode: ['storyboard-direction', 'visual-continuity'],
       }
     case PROJECT_PHASE.STORYBOARD_READY:
       return {

@@ -12,23 +12,17 @@ import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import type {
+  AgentPlanPartData,
   ConfirmationRequestPartData,
   ProjectAgentStopPartData,
   ProjectContextPartData,
   ProjectPhasePartData,
-  ScriptPreviewPartData,
-  StoryboardPreviewPartData,
   TaskBatchSubmittedPartData,
   TaskSubmittedPartData,
-  WorkflowPlanPartData,
-  WorkflowStatusPartData,
 } from '@/lib/project-agent/types'
 import type { RunStreamView } from '@/lib/query/hooks/run-stream/types'
 import { useRevertMutationBatch } from '@/lib/query/hooks'
-import {
-  getSkillDisplayLabel,
-  getWorkflowDisplayLabel,
-} from '@/lib/skill-system/project-workflow-machine'
+import { getSkillDisplayLabel } from '@/lib/skill-system/project-workflow-machine'
 import { MarkdownTextPart } from './MarkdownTextPart'
 
 function formatSkillLabel(skillId: string | null | undefined): string {
@@ -357,48 +351,24 @@ function TaskBatchSubmittedDataCard({ data }: DataMessagePartProps<TaskBatchSubm
   )
 }
 
-export function WorkflowPlanDataCard({ data }: DataMessagePartProps<WorkflowPlanPartData>) {
+export function AgentPlanDataCard({ data }: DataMessagePartProps<AgentPlanPartData>) {
   return (
     <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{data.summary || 'Workflow Plan'}</div>
-      <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{data.workflowId}</div>
+      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{data.summary || data.goal}</div>
+      <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">
+        {data.validation.ok ? 'Plan validated' : 'Plan needs revision'}
+      </div>
       <div className="mt-3 space-y-2">
-        {data.steps.map((step: WorkflowPlanPartData['steps'][number], stepIndex: number) => (
-          <div key={`${data.planId}:step:${stepIndex}`} className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 text-xs">
+        {data.steps.map((step: AgentPlanPartData['steps'][number]) => (
+          <div key={`${data.planId}:step:${step.stepKey}`} className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 text-xs">
             <div className="font-medium text-[var(--glass-text-primary)]">{formatSkillLabel(step.skillId)}</div>
-            <div className="mt-1 text-[var(--glass-text-secondary)]">{step.title}</div>
+            <div className="mt-1 text-[var(--glass-text-secondary)]">{step.operationId}</div>
+            <div className="mt-1 text-[var(--glass-text-tertiary)]">{step.reason}</div>
           </div>
         ))}
       </div>
     </div>
   )
-}
-
-interface WorkflowStatusDataCardProps extends DataMessagePartProps<WorkflowStatusPartData> {
-  storyToScriptStream: RunStreamView
-  scriptToStoryboardStream: RunStreamView
-}
-
-function WorkflowStatusDataCard({
-  data,
-  storyToScriptStream,
-  scriptToStoryboardStream,
-}: WorkflowStatusDataCardProps) {
-  return data.workflowId === 'story-to-script'
-    ? (
-        <WorkflowStatusCard
-          title={getWorkflowDisplayLabel('story-to-script')}
-          stream={storyToScriptStream}
-          fallbackStatus={data.status}
-        />
-      )
-    : (
-        <WorkflowStatusCard
-          title={getWorkflowDisplayLabel('script-to-storyboard')}
-          stream={scriptToStoryboardStream}
-          fallbackStatus={data.status}
-        />
-      )
 }
 
 function ProjectContextDataCard({ data }: DataMessagePartProps<ProjectContextPartData>) {
@@ -413,53 +383,6 @@ function ProjectContextDataCard({ data }: DataMessagePartProps<ProjectContextPar
   )
 }
 
-export function ScriptPreviewDataCard({ data }: DataMessagePartProps<ScriptPreviewPartData>) {
-  const t = useTranslations('assistantAgent')
-  return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.screenplayPreview')}</div>
-      <div className="mt-3 space-y-2">
-        {data.clips.map((clip: ScriptPreviewPartData['clips'][number]) => (
-          <div key={clip.clipId} className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 text-xs">
-            <div className="font-medium text-[var(--glass-text-primary)]">{clip.clipId}</div>
-            <div className="mt-1 text-[var(--glass-text-secondary)]">{clip.summary}</div>
-            <div className="mt-1 text-[var(--glass-text-tertiary)]">Scenes: {String(clip.sceneCount)}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export function StoryboardPreviewDataCard({ data }: DataMessagePartProps<StoryboardPreviewPartData>) {
-  const t = useTranslations('assistantAgent')
-  return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.storyboardPreview')}</div>
-      <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{t('cards.voiceLinesLabel')}: {String(data.voiceLineCount)}</div>
-      <div className="mt-3 space-y-2">
-        {data.storyboards.map((storyboard: StoryboardPreviewPartData['storyboards'][number]) => {
-          const samples = readStringArray(storyboard.sampleDescriptions)
-          return (
-            <div key={storyboard.storyboardId} className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 text-xs">
-              <div className="font-medium text-[var(--glass-text-primary)]">{storyboard.clipSummary}</div>
-              <div className="mt-1 text-[var(--glass-text-tertiary)]">
-                {t('cards.scopeClip', { id: storyboard.clipId })} · {t('cards.panelsLabel', { count: storyboard.panelCount })}
-              </div>
-              {samples.length > 0 ? (
-                <div className="mt-2 space-y-1 text-[var(--glass-text-secondary)]">
-                  {samples.map((sample) => (
-                    <div key={sample}>{sample}</div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 export function WorkspaceAssistantToolCallCard(props: ToolCallMessagePartProps) {
   const t = useTranslations('assistantAgent')
@@ -555,18 +478,8 @@ export function useWorkspaceAssistantMessagePartComponents({
         ),
         'task-submitted': TaskSubmittedDataCard,
         'task-batch-submitted': TaskBatchSubmittedDataCard,
-        'workflow-plan': WorkflowPlanDataCard,
-        'approval-request': HiddenApprovalRequestDataCard,
-        'workflow-status': (props) => (
-          <WorkflowStatusDataCard
-            {...props}
-            storyToScriptStream={storyToScriptStream}
-            scriptToStoryboardStream={scriptToStoryboardStream}
-          />
-        ),
+        plan: AgentPlanDataCard,
         'project-context': ProjectContextDataCard,
-        'script-preview': ScriptPreviewDataCard,
-        'storyboard-preview': StoryboardPreviewDataCard,
       },
     },
   }), [

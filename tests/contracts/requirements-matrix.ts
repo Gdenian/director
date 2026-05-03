@@ -68,7 +68,7 @@ export const REQUIREMENTS_MATRIX: ReadonlyArray<RequirementCoverageEntry> = [
     tests: [
       'tests/unit/project-workflow/panel-stage-runtime.test.ts',
       'tests/integration/api/contract/direct-submit-text-routes.test.ts',
-      'tests/system/text-workflow.system.test.ts',
+      'tests/unit/worker/script-to-storyboard.test.ts',
     ],
   },
   {
@@ -94,7 +94,7 @@ export const REQUIREMENTS_MATRIX: ReadonlyArray<RequirementCoverageEntry> = [
       'tests/integration/api/contract/llm-observe-routes.test.ts',
       'tests/unit/worker/script-to-storyboard.test.ts',
       'tests/integration/chain/text.chain.test.ts',
-      'tests/system/text-workflow.system.test.ts',
+      'tests/unit/worker/story-to-script.test.ts',
     ],
   },
   {

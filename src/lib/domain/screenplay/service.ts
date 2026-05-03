@@ -44,8 +44,8 @@ function assertMutationContext(input: DomainMutationContext) {
   if (!input.runId?.trim()) {
     throw new DomainValidationError('mutation runId is required')
   }
-  if (!input.workflowId) {
-    throw new DomainValidationError('mutation workflowId is required')
+  if (!input.operationId) {
+    throw new DomainValidationError('mutation operationId is required')
   }
   if (!input.idempotencyKey?.trim()) {
     throw new DomainValidationError('mutation idempotencyKey is required')

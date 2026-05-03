@@ -10,16 +10,6 @@ import {
   useProjectAssistantThread,
   useProjectAssistantThreadSync,
 } from '@/lib/query/hooks'
-import {
-  WORKSPACE_ASSISTANT_WORKFLOW_EVENT,
-  type WorkspaceAssistantWorkflowEventDetail,
-} from './workspace-assistant-events'
-import {
-  buildWorkflowCompletedMessage,
-  buildWorkflowErrorMessage,
-  buildWorkflowTimelineMessages,
-  removeWorkflowStatusParts,
-} from './workflow-timeline'
 import type { ProjectAgentInteractionMode } from '@/lib/project-agent/types'
 import { isPersistableUIMessages } from '@/lib/project-agent/ui-message-validation'
 
@@ -162,31 +152,6 @@ export function useWorkspaceAssistantRuntime({
       }
     }
   }, [chat.messages, chatId, saveAssistantThread])
-
-  useEffect(() => {
-    function onWorkflowEvent(event: Event) {
-      const customEvent = event as CustomEvent<WorkspaceAssistantWorkflowEventDetail>
-      const detail = customEvent.detail
-      if (!detail) return
-
-      chat.setMessages((current) => {
-        const nextMessages = detail.status === 'started'
-          ? buildWorkflowTimelineMessages(detail.workflowId, detail.runId)
-          : detail.status === 'completed'
-            ? [buildWorkflowCompletedMessage(detail.workflowId, detail.runId)]
-            : [buildWorkflowErrorMessage(detail)]
-        return [
-          ...removeWorkflowStatusParts(current, detail.workflowId),
-          ...nextMessages,
-        ]
-      })
-    }
-
-    window.addEventListener(WORKSPACE_ASSISTANT_WORKFLOW_EVENT, onWorkflowEvent)
-    return () => {
-      window.removeEventListener(WORKSPACE_ASSISTANT_WORKFLOW_EVENT, onWorkflowEvent)
-    }
-  }, [chat])
 
   useEffect(() => {
     return () => {

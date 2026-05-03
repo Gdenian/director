@@ -2,12 +2,9 @@ import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
-  ApprovalCard,
+  AgentPlanDataCard,
   AgentStopDataCard,
   HiddenApprovalRequestDataCard,
-  ScriptPreviewDataCard,
-  StoryboardPreviewDataCard,
-  WorkflowPlanDataCard,
   WorkflowStatusCard,
   WorkspaceAssistantToolCallCard,
 } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantRenderers'
@@ -97,80 +94,48 @@ function buildRunStreamView(): RunStreamView {
 }
 
 describe('workspace assistant renderers', () => {
-  it('renders workflow, approval, status, and preview cards', () => {
+  it('renders agent plan and status cards', () => {
     const html = renderToStaticMarkup(
       <>
-        <WorkflowPlanDataCard
+        <AgentPlanDataCard
           data={{
-            workflowId: 'story-to-script',
-            commandId: 'command-1',
             planId: 'plan-1',
-            summary: 'Story To Script',
+            goal: 'Create a short script',
+            summary: 'Script plan',
             requiresApproval: true,
+            validation: {
+              ok: true,
+              issues: [],
+            },
             steps: [
-              { skillId: 'analyze-characters', title: 'Analyze Characters' },
-              { skillId: 'generate-screenplay', title: 'Generate Screenplay' },
-            ],
-          }}
-          type="data"
-          name="workflow-plan"
-          status={{ type: 'complete' }}
-        />
-        <ApprovalCard
-          planId="plan-1"
-          summary="Needs approval"
-          reasons={['story-to-script invalidates clip.screenplay']}
-          onApprove={async () => undefined}
-          onReject={async () => undefined}
-          approvePending={false}
-          rejectPending={false}
-        />
-        <WorkflowStatusCard
-          title="Story To Script"
-          stream={buildRunStreamView()}
-          fallbackStatus="running"
-        />
-        <ScriptPreviewDataCard
-          data={{
-            workflowId: 'story-to-script',
-            episodeId: 'episode-1',
-            clips: [
-              { clipId: 'clip-1', summary: '片段摘要', sceneCount: 2 },
-            ],
-          }}
-          type="data"
-          name="script-preview"
-          status={{ type: 'complete' }}
-        />
-        <StoryboardPreviewDataCard
-          data={{
-            workflowId: 'script-to-storyboard',
-            episodeId: 'episode-1',
-            storyboards: [
               {
-                storyboardId: 'storyboard-1',
-                clipId: 'clip-1',
-                clipSummary: '镜头摘要',
-                panelCount: 3,
-                sampleDescriptions: ['示例一'],
+                stepKey: 'write',
+                skillId: 'screenwriting',
+                operationId: 'write_screenplay',
+                reason: 'Write scenes from clips',
+                inputArtifacts: ['clip.split'],
+                outputArtifacts: ['clip.screenplay'],
+                dependsOn: [],
+                requiresApproval: true,
               },
             ],
-            voiceLineCount: 1,
           }}
           type="data"
-          name="storyboard-preview"
+          name="plan"
           status={{ type: 'complete' }}
+        />
+        <WorkflowStatusCard
+          title="Active task"
+          stream={buildRunStreamView()}
+          fallbackStatus="running"
         />
       </>,
     )
 
-    expect(html).toContain('Story To Script')
-    expect(html).toContain('角色分析')
-    expect(html).toContain('Approval Required')
-    expect(html).toContain('Screenplay Preview')
-    expect(html).toContain('Storyboard Preview')
-    expect(html).toContain('片段摘要')
-    expect(html).toContain('镜头摘要')
+    expect(html).toContain('Script plan')
+    expect(html).toContain('write_screenplay')
+    expect(html).toContain('screenwriting')
+    expect(html).toContain('Active task')
   })
 
   it('renders agent stop card when cap is reached', () => {

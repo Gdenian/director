@@ -27,7 +27,7 @@ export const POST = apiHandler(async (
 
   const result = await executeProjectAgentOperationFromApi({
     request,
-    operationId: 'clips_build',
+    operationId: 'split_clips',
     projectId,
     userId: session.user.id,
     context: { episodeId },

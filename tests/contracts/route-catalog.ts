@@ -114,11 +114,9 @@ const ROUTE_FILES = [
   'src/app/api/projects/[projectId]/regenerate-storyboard-text/route.ts',
   'src/app/api/projects/[projectId]/config/route.ts',
   'src/app/api/projects/[projectId]/screenplay-conversion/route.ts',
-  'src/app/api/projects/[projectId]/script-to-storyboard-stream/route.ts',
   'src/app/api/projects/[projectId]/select-character-image/route.ts',
   'src/app/api/projects/[projectId]/select-location-image/route.ts',
   'src/app/api/projects/[projectId]/speaker-voice/route.ts',
-  'src/app/api/projects/[projectId]/story-to-script-stream/route.ts',
   'src/app/api/projects/[projectId]/storyboard-group/copy/route.ts',
   'src/app/api/projects/[projectId]/storyboard-group/route.ts',
   'src/app/api/projects/[projectId]/storyboards/route.ts',
@@ -194,8 +192,6 @@ function resolveContractGroup(routeFile: string): RouteContractGroup {
   if (
     routeFile.includes('/ai-')
     || routeFile.includes('/analyze')
-    || routeFile.includes('/story-to-script-stream/')
-    || routeFile.includes('/script-to-storyboard-stream/')
     || routeFile.includes('/screenplay-conversion/')
     || routeFile.includes('/reference-to-character/')
     || routeFile.endsWith('/clips/route.ts')

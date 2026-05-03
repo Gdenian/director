@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { DomainValidationError, type DomainMutationContext } from '@/lib/domain/shared'
 
-function readWorkflowIdFromNormalizedInput(value: unknown): string | null {
+function readOperationIdFromNormalizedInput(value: unknown): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const workflowId = (value as Record<string, unknown>).workflowId
-  return typeof workflowId === 'string' && workflowId.trim() ? workflowId.trim() : null
+  const operationId = (value as Record<string, unknown>).operationId
+  return typeof operationId === 'string' && operationId.trim() ? operationId.trim() : null
 }
 
 export async function assertApprovedDomainMutationContext(input: DomainMutationContext) {
@@ -50,11 +50,10 @@ export async function assertApprovedDomainMutationContext(input: DomainMutationC
     )
   }
 
-  const expectedWorkflowId = readWorkflowIdFromNormalizedInput(plan.command.normalizedInput)
-  if (expectedWorkflowId && input.workflowId && expectedWorkflowId !== input.workflowId) {
+  const expectedOperationId = readOperationIdFromNormalizedInput(plan.command.normalizedInput)
+  if (expectedOperationId && input.operationId && expectedOperationId !== input.operationId) {
     throw new DomainValidationError(
-      `execution plan workflow mismatch: expected ${expectedWorkflowId}, received ${input.workflowId}`,
+      `execution plan operation mismatch: expected ${expectedOperationId}, received ${input.operationId}`,
     )
   }
 }
-

@@ -25,7 +25,7 @@ export const POST = apiHandler(async (
 
   const result = await executeProjectAgentOperationFromApi({
     request,
-    operationId: 'screenplay_convert',
+    operationId: 'write_screenplay',
     projectId,
     userId: session.user.id,
     input: body,

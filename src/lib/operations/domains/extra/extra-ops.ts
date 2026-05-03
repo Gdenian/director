@@ -175,9 +175,9 @@ export function createExtraOperations(): ProjectAgentOperationRegistryDraft {
         })
       },
     }),
-    clips_build: defineOperation({
-      id: 'clips_build',
-      summary: 'Submit clips build task for an episode.',
+    split_clips: defineOperation({
+      id: 'split_clips',
+      summary: 'Split an episode story into ordered clip artifacts.',
       intent: 'act',
       effects: EFFECTS_BILLABLE_LONG_RUNNING,
       confirmation: {
@@ -198,14 +198,14 @@ export function createExtraOperations(): ProjectAgentOperationRegistryDraft {
           type: TASK_TYPE.CLIPS_BUILD,
           targetType: 'ProjectEpisode',
           targetId: input.episodeId,
-          operationId: 'clips_build',
+          operationId: 'split_clips',
           source: ctx.source,
           confirmed: input.confirmed === true,
           payload: {
             ...(input as unknown as Record<string, unknown>),
             displayMode: 'detail',
           },
-          dedupeKey: `clips_build:${input.episodeId}`,
+          dedupeKey: `split_clips:${input.episodeId}`,
           priority: 1,
         }),
     }),

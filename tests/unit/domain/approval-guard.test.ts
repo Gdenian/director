@@ -19,8 +19,8 @@ describe('domain approval guard', () => {
 
   it('allows mutation when no planId is provided', async () => {
     await expect(assertApprovedDomainMutationContext({
-      actor: 'workflow',
-      workflowId: 'story-to-script',
+      actor: 'operation',
+      operationId: 'write_screenplay',
       runId: 'run-1',
       idempotencyKey: 'run-1:full',
     })).resolves.toBeUndefined()
@@ -34,22 +34,22 @@ describe('domain approval guard', () => {
       linkedRunId: null,
       command: {
         normalizedInput: {
-          workflowId: 'story-to-script',
+          operationId: 'write_screenplay',
         },
       },
       approvals: [{ status: 'pending' }],
     })
 
     await expect(assertApprovedDomainMutationContext({
-      actor: 'workflow',
-      workflowId: 'story-to-script',
+      actor: 'operation',
+      operationId: 'write_screenplay',
       runId: 'run-1',
       planId: 'plan-1',
       idempotencyKey: 'run-1:full',
     })).rejects.toThrow('execution plan is not executable')
   })
 
-  it('fails when workflow id mismatches the approved plan', async () => {
+  it('fails when operation id mismatches the approved plan', async () => {
     prismaMock.executionPlan.findUnique.mockResolvedValue({
       id: 'plan-1',
       status: 'approved',
@@ -57,19 +57,19 @@ describe('domain approval guard', () => {
       linkedRunId: 'run-1',
       command: {
         normalizedInput: {
-          workflowId: 'story-to-script',
+          operationId: 'write_screenplay',
         },
       },
       approvals: [{ status: 'approved' }],
     })
 
     await expect(assertApprovedDomainMutationContext({
-      actor: 'workflow',
-      workflowId: 'script-to-storyboard',
+      actor: 'operation',
+      operationId: 'finalize_storyboard',
       runId: 'run-1',
       planId: 'plan-1',
       idempotencyKey: 'run-1:full',
-    })).rejects.toThrow('execution plan workflow mismatch')
+    })).rejects.toThrow('execution plan operation mismatch')
   })
 
   it('passes when approved plan and run match mutation context', async () => {
@@ -80,15 +80,15 @@ describe('domain approval guard', () => {
       linkedRunId: 'run-1',
       command: {
         normalizedInput: {
-          workflowId: 'script-to-storyboard',
+          operationId: 'finalize_storyboard',
         },
       },
       approvals: [{ status: 'approved' }],
     })
 
     await expect(assertApprovedDomainMutationContext({
-      actor: 'workflow',
-      workflowId: 'script-to-storyboard',
+      actor: 'operation',
+      operationId: 'finalize_storyboard',
       runId: 'run-1',
       planId: 'plan-1',
       idempotencyKey: 'run-1:full',

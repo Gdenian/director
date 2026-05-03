@@ -1,5 +1,5 @@
 import { ARTIFACT_TYPES } from '@/lib/artifact-system/types'
-import { getSkillPackage, getWorkflowPackage } from '@/lib/skill-system/catalog'
+import { getSkillPackage } from '@/lib/skill-system/catalog'
 import type { CommandSkillId, SkillDefinition } from '@/lib/skill-system/types'
 import type { CommandEnvelope, ExecutionPlanDraft, PlanStep } from './types'
 
@@ -87,29 +87,6 @@ function buildPlanStep(skillId: CommandSkillId, orderIndex: number, dependsOn: s
 }
 
 export function buildExecutionPlanDraft(command: CommandEnvelope): ExecutionPlanDraft {
-  if (command.commandType === 'run_workflow_package') {
-    const workflowPackage = getWorkflowPackage(command.workflowId)
-    const steps = workflowPackage.steps.map((step) =>
-      buildPlanStep(step.skillId, step.orderIndex, step.dependsOn))
-    const riskSummary = steps.reduce<ExecutionPlanDraft['riskSummary']>((acc, step) => {
-      if (step.riskLevel === 'high') acc.highestRiskLevel = 'high'
-      if (step.riskLevel === 'medium' && acc.highestRiskLevel === 'low') acc.highestRiskLevel = 'medium'
-      return acc
-    }, {
-      highestRiskLevel: 'low',
-      reasons: steps
-        .filter((step) => step.invalidates.length > 0)
-        .map((step) => `${step.skillId} invalidates ${step.invalidates.join(', ')}`),
-    })
-
-    return {
-      summary: workflowPackage.manifest.summary,
-      requiresApproval: workflowPackage.manifest.requiresApproval || steps.some((step) => step.requiresApproval),
-      riskSummary,
-      steps,
-    }
-  }
-
   const step = buildPlanStep(command.skillId, 0, [])
   return {
     summary: getPlanSkillDefinition(command.skillId).summary,

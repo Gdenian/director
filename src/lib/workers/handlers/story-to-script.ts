@@ -161,8 +161,8 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     throw new Error('runId is required for story_to_script pipeline')
   }
   const mutationContext = {
-    actor: 'workflow' as const,
-    workflowId: 'story-to-script' as const,
+    actor: 'operation' as const,
+    operationId: 'write_screenplay' as const,
     runId,
     commandId: asString(payload.commandId).trim() || null,
     planId: asString(payload.planId).trim() || null,

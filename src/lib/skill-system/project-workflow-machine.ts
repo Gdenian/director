@@ -1,11 +1,7 @@
-import { TASK_TYPE } from '@/lib/task/types'
 import type {
   SkillPackageInstructions,
   SkillPackageMetadata,
-  WorkflowPackageId,
-  WorkflowPackageManifest,
   WorkflowSkillId,
-  WorkflowStepDefinition,
 } from './types'
 
 type ProjectSkillMachine = {
@@ -13,14 +9,6 @@ type ProjectSkillMachine = {
   instructions: SkillPackageInstructions
   legacyStepIds: string[]
   displayLabel: string
-}
-
-type ProjectWorkflowMachine = {
-  manifest: WorkflowPackageManifest
-  documentPath: string
-  displayLabel: string
-  approvalSummary: string
-  steps: WorkflowStepDefinition[]
 }
 
 export const PROJECT_WORKFLOW_SKILL_IDS: WorkflowSkillId[] = [
@@ -34,11 +22,6 @@ export const PROJECT_WORKFLOW_SKILL_IDS: WorkflowSkillId[] = [
   'refine-acting',
   'refine-storyboard-detail',
   'generate-voice-lines',
-]
-
-export const PROJECT_WORKFLOW_IDS: WorkflowPackageId[] = [
-  'story-to-script',
-  'script-to-storyboard',
 ]
 
 export const PROJECT_WORKFLOW_SKILL_MACHINE: Record<WorkflowSkillId, ProjectSkillMachine> = {
@@ -194,127 +177,8 @@ export const PROJECT_WORKFLOW_SKILL_MACHINE: Record<WorkflowSkillId, ProjectSkil
   },
 }
 
-export const PROJECT_WORKFLOW_MACHINE: Record<WorkflowPackageId, ProjectWorkflowMachine> = {
-  'story-to-script': {
-    manifest: {
-      id: 'story-to-script',
-      name: 'Story To Script',
-      summary: 'Analyze story content and generate screenplay artifacts in a fixed sequence.',
-      description: 'Fixed workflow package for the story -> screenplay pipeline.',
-      taskType: TASK_TYPE.STORY_TO_SCRIPT_RUN,
-      workflowType: TASK_TYPE.STORY_TO_SCRIPT_RUN,
-      requiresApproval: true,
-    },
-    documentPath: 'skills/project-workflow/workflows/story-to-script/WORKFLOW.md',
-    displayLabel: '故事到剧本',
-    approvalSummary: '该流程会重新分析故事内容，并生成新的剧本结果。',
-    steps: [
-      {
-        orderIndex: 0,
-        skillId: 'analyze-characters',
-        title: 'Analyze Characters',
-        dependsOn: [],
-        executionKind: 'serial',
-        scopeCollection: 'episode',
-      },
-      {
-        orderIndex: 1,
-        skillId: 'analyze-locations',
-        title: 'Analyze Locations',
-        dependsOn: ['analyze-characters'],
-        executionKind: 'serial',
-        scopeCollection: 'episode',
-      },
-      {
-        orderIndex: 2,
-        skillId: 'analyze-props',
-        title: 'Analyze Props',
-        dependsOn: ['analyze-locations'],
-        executionKind: 'serial',
-        scopeCollection: 'episode',
-      },
-      {
-        orderIndex: 3,
-        skillId: 'split-clips',
-        title: 'Split Clips',
-        dependsOn: ['analyze-props'],
-        executionKind: 'serial',
-        scopeCollection: 'episode',
-      },
-      {
-        orderIndex: 4,
-        skillId: 'generate-screenplay',
-        title: 'Generate Screenplay',
-        dependsOn: ['split-clips'],
-        executionKind: 'serial',
-        scopeCollection: 'episode',
-      },
-    ],
-  },
-  'script-to-storyboard': {
-    manifest: {
-      id: 'script-to-storyboard',
-      name: 'Script To Storyboard',
-      summary: 'Transform screenplay clips into storyboard and voice artifacts in a fixed sequence.',
-      description: 'Fixed workflow package for screenplay -> storyboard conversion.',
-      taskType: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-      workflowType: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-      requiresApproval: true,
-    },
-    documentPath: 'skills/project-workflow/workflows/script-to-storyboard/WORKFLOW.md',
-    displayLabel: '剧本到分镜',
-    approvalSummary: '该流程会基于剧本重新生成分镜与台词结果。',
-    steps: [
-      {
-        orderIndex: 0,
-        skillId: 'plan-storyboard-phase1',
-        title: 'Plan Storyboard Phase 1',
-        dependsOn: [],
-        executionKind: 'map',
-        scopeCollection: 'clips',
-      },
-      {
-        orderIndex: 1,
-        skillId: 'refine-cinematography',
-        title: 'Refine Cinematography',
-        dependsOn: ['plan-storyboard-phase1'],
-        executionKind: 'map',
-        scopeCollection: 'clips',
-      },
-      {
-        orderIndex: 2,
-        skillId: 'refine-acting',
-        title: 'Refine Acting',
-        dependsOn: ['refine-cinematography'],
-        executionKind: 'map',
-        scopeCollection: 'clips',
-      },
-      {
-        orderIndex: 3,
-        skillId: 'refine-storyboard-detail',
-        title: 'Refine Storyboard Detail',
-        dependsOn: ['refine-acting'],
-        executionKind: 'map',
-        scopeCollection: 'clips',
-      },
-      {
-        orderIndex: 4,
-        skillId: 'generate-voice-lines',
-        title: 'Generate Voice Lines',
-        dependsOn: ['refine-storyboard-detail'],
-        executionKind: 'join',
-        scopeCollection: 'episode',
-      },
-    ],
-  },
-}
-
 export function getProjectSkillMachine(skillId: WorkflowSkillId) {
   return PROJECT_WORKFLOW_SKILL_MACHINE[skillId]
-}
-
-export function getProjectWorkflowMachine(workflowId: WorkflowPackageId) {
-  return PROJECT_WORKFLOW_MACHINE[workflowId]
 }
 
 export function getSkillDisplayLabel(skillId: string | null | undefined): string {
@@ -323,8 +187,4 @@ export function getSkillDisplayLabel(skillId: string | null | undefined): string
     return PROJECT_WORKFLOW_SKILL_MACHINE[skillId as WorkflowSkillId].displayLabel
   }
   return skillId
-}
-
-export function getWorkflowDisplayLabel(workflowId: WorkflowPackageId): string {
-  return PROJECT_WORKFLOW_MACHINE[workflowId].displayLabel
 }

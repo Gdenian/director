@@ -1,9 +1,8 @@
 import type { ArtifactType } from '@/lib/artifact-system/types'
 import type { ProjectPolicyOverrideInput } from '@/lib/project-context/types'
-import type { WorkflowPackageId } from '@/lib/skill-system/types'
 
 export type CommandSource = 'gui' | 'assistant-panel'
-export type CommandType = 'run_workflow_package' | 'run_skill'
+export type CommandType = 'run_skill'
 export type CommandStatus =
   | 'planned'
   | 'awaiting_approval'
@@ -22,25 +21,13 @@ export interface CommandEnvelopeBase {
   policyOverrides?: ProjectPolicyOverrideInput | null
 }
 
-export interface RunWorkflowPackageCommand extends CommandEnvelopeBase {
-  commandType: 'run_workflow_package'
-  workflowId: WorkflowPackageId
-  input: {
-    content?: string
-    model?: string
-    temperature?: number
-    reasoning?: boolean
-    reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
-  }
-}
-
 export interface RunSkillCommand extends CommandEnvelopeBase {
   commandType: 'run_skill'
   skillId: 'insert_panel' | 'panel_variant' | 'regenerate_storyboard_text' | 'modify_shot_prompt'
   input: Record<string, unknown>
 }
 
-export type CommandEnvelope = RunWorkflowPackageCommand | RunSkillCommand
+export type CommandEnvelope = RunSkillCommand
 
 export interface PlanStep {
   stepKey: string

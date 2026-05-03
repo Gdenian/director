@@ -18,8 +18,6 @@ export type WorkflowSkillId =
   | 'refine-storyboard-detail'
   | 'generate-voice-lines'
 
-export type WorkflowPackageId = 'story-to-script' | 'script-to-storyboard'
-
 export type CommandSkillId =
   | WorkflowSkillId
   | 'insert_panel'
@@ -72,39 +70,9 @@ export interface SkillPackage {
   render: ComponentType<{ data: unknown }>
 }
 
-export interface WorkflowStepDefinition {
-  orderIndex: number
-  skillId: WorkflowSkillId
-  title: string
-  dependsOn: WorkflowSkillId[]
-  executionKind?: 'serial' | 'map' | 'join'
-  scopeCollection?: 'episode' | 'clips'
-}
-
-export interface WorkflowPackageManifest {
-  id: WorkflowPackageId
-  name: string
-  summary: string
-  description: string
-  taskType: string
-  workflowType: string
-  requiresApproval: boolean
-}
-
-export interface WorkflowPackage {
-  kind: 'workflow'
-  manifest: WorkflowPackageManifest
-  documentPath: string
-  inputSchema: ZodTypeAny
-  outputSchema: ZodTypeAny
-  steps: WorkflowStepDefinition[]
-  execute: (input: unknown) => Promise<unknown>
-  render: ComponentType<{ data: unknown }>
-}
-
 export interface SkillCatalogEntry {
   id: string
-  kind: 'skill' | 'workflow'
+  kind: 'skill'
   name: string
   summary: string
   description: string
@@ -122,14 +90,4 @@ export interface SkillDefinition {
   invalidates: ArtifactType[]
   mutationKind: SkillMutationKind
   taskType?: string
-}
-
-export interface WorkflowPresetDefinition {
-  id: WorkflowPackageId
-  name: string
-  summary: string
-  workflowType: string
-  taskType: string
-  skillIds: WorkflowSkillId[]
-  requiresApproval: boolean
 }
