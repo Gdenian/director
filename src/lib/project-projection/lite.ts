@@ -167,9 +167,9 @@ export async function assembleProjectProjectionLite(params: {
     policy,
     progress,
     latestArtifacts,
-    activeRuns: runs.map((run) => ({
+    activePlanRuns: runs.map((run) => ({
       id: run.id,
-      workflowType: run.workflowType,
+      runType: run.workflowType,
       status: run.status,
       createdAt: run.createdAt,
       updatedAt: run.updatedAt,
@@ -182,4 +182,3 @@ export async function assembleProjectProjectionLite(params: {
     })),
   }
 }
-

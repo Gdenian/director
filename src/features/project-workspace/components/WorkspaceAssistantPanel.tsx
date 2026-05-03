@@ -181,7 +181,7 @@ export default function WorkspaceAssistantPanel({
     onCancelOperation: handleCancelOperation,
     confirmationSubmittingKey,
   })
-  const contextSummary = `${projectContext?.episodeName || episodeId || t('cards.globalScope')} · ${t('panel.workspaceStatus')} · ${t('panel.runs', { count: projectContext?.activeRuns.length || 0 })}`
+  const contextSummary = `${projectContext?.episodeName || episodeId || t('cards.globalScope')} · ${t('panel.workspaceStatus')} · ${t('panel.runs', { count: projectContext?.activePlanRuns.length || 0 })}`
   const statusText = assistantRuntime.syncError
     || assistantRuntime.storageError
     || assistantRuntime.error?.message
@@ -240,7 +240,7 @@ export default function WorkspaceAssistantPanel({
                 title={t('panel.title')}
                 episodeLabel={projectContext?.episodeName || episodeId || t('cards.globalScope')}
                 workspaceLabel={t('panel.workspaceStatus')}
-                runLabel={t('panel.runs', { count: projectContext?.activeRuns.length || 0 })}
+                runLabel={t('panel.runs', { count: projectContext?.activePlanRuns.length || 0 })}
                 downloadLabel={t('panel.downloadLog')}
                 downloadHref={downloadHref}
                 collapseLabel={t('panel.collapse')}

@@ -106,7 +106,7 @@ export interface ProjectAssistantContextSnapshot {
   selectedPanelId?: string | null
   selectedClipId?: string | null
   selectedAssetId?: string | null
-  activeRuns: ProjectContextSnapshot['activeRuns']
+  activePlanRuns: ProjectContextSnapshot['activePlanRuns']
   activeOperationTasks: ProjectContextSnapshot['activeOperationTasks']
   recentOperationResults: ProjectContextSnapshot['recentOperationResults']
   latestArtifacts: ProjectContextSnapshot['latestArtifacts']

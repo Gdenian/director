@@ -24,8 +24,8 @@ export interface ProjectPhaseSnapshot {
     panelCount: number
     voiceLineCount: number
   }
-  activeRuns: ProjectContextRunSummary[]
-  activeRunCount: number
+  activePlanRuns: ProjectContextRunSummary[]
+  activePlanRunCount: number
   failedItems: string[]
   staleArtifacts: string[]
   availableActions: {
@@ -171,12 +171,12 @@ export async function resolveProjectPhase(params: {
 
   const progress = projection.progress
 
-  const activeWorkflowTypes = new Set(projection.activeRuns.map((run) => run.workflowType))
+  const activeRunTypes = new Set(projection.activePlanRuns.map((run) => run.runType))
   let phase: ProjectPhase = PROJECT_PHASE.DRAFT
 
-  if (activeWorkflowTypes.has(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)) {
+  if (activeRunTypes.has(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)) {
     phase = PROJECT_PHASE.STORYBOARD_GENERATING
-  } else if (activeWorkflowTypes.has(TASK_TYPE.STORY_TO_SCRIPT_RUN)) {
+  } else if (activeRunTypes.has(TASK_TYPE.STORY_TO_SCRIPT_RUN)) {
     phase = PROJECT_PHASE.SCRIPT_ANALYZING
   } else if (progress.voiceLineCount > 0) {
     phase = PROJECT_PHASE.VOICE_READY
@@ -207,14 +207,14 @@ export async function resolveProjectPhase(params: {
     .map((run) => {
       const headline = run.errorMessage || run.errorCode || run.status || 'failed'
       const detail = truncateText(headline, 160)
-      return `run:${run.workflowType}(${run.id}): ${detail}`
+      return `run:${run.taskType || run.workflowType}(${run.id}): ${detail}`
     })
 
   return {
     phase,
     progress,
-    activeRuns: projection.activeRuns,
-    activeRunCount: projection.activeRuns.length,
+    activePlanRuns: projection.activePlanRuns,
+    activePlanRunCount: projection.activePlanRuns.length,
     failedItems,
     staleArtifacts,
     availableActions: resolveAvailableActions(phase, !!projection.episodeId),

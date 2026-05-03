@@ -90,7 +90,7 @@ const contextAssemblerMock = vi.hoisted(() => ({
     currentStage: 'config',
     selectedScopeRef: null,
     latestArtifacts: [],
-    activeRuns: [],
+    activePlanRuns: [],
     policy: {
       projectId: 'project-1',
       episodeId: 'episode-1',
@@ -342,7 +342,7 @@ describe('project commands routes', () => {
       currentStage: 'config',
       selectedScopeRef: null,
       latestArtifacts: [],
-      activeRuns: [],
+      activePlanRuns: [],
       policy: {
         projectId: 'project-1',
         episodeId: 'episode-1',

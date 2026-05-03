@@ -105,7 +105,7 @@ function ProjectPhaseDataCard({ data }: DataMessagePartProps<ProjectPhasePartDat
           <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{data.phase}</div>
         </div>
         <div className="rounded-full bg-[var(--glass-bg-surface)] px-2.5 py-1 text-xs text-[var(--glass-text-secondary)]">
-          {t('cards.runs', { count: data.snapshot.activeRunCount })}
+          {t('cards.runs', { count: data.snapshot.activePlanRunCount })}
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--glass-text-secondary)]">

@@ -54,7 +54,7 @@ describe('assembleProjectProjectionFull', () => {
         panelCount: 5,
         voiceLineCount: 0,
       },
-      activeRuns: [],
+      activePlanRuns: [],
       latestArtifacts: [],
       approvals: [],
     })
@@ -111,7 +111,7 @@ describe('assembleProjectProjectionFull', () => {
       panelLimit: 1,
     })
 
-    expect(result.workflow?.panels).toEqual([
+    expect(result.episodeDetail?.panels).toEqual([
       expect.objectContaining({
         panelId: 'panel-1',
         clipId: 'clip-1',
@@ -127,12 +127,12 @@ describe('assembleProjectProjectionFull', () => {
         videoMediaId: 'vm1',
       }),
     ])
-    expect(result.workflow?.panelLimit).toBe(1)
-    expect(result.workflow?.totalPanelCount).toBe(5)
-    expect(result.workflow?.truncated).toBe(true)
+    expect(result.episodeDetail?.panelLimit).toBe(1)
+    expect(result.episodeDetail?.totalPanelCount).toBe(5)
+    expect(result.episodeDetail?.truncated).toBe(true)
   })
 
-  it('[no episode] -> workflow null', async () => {
+  it('[no episode] -> episode detail null', async () => {
     liteMock.assembleProjectProjectionLite.mockResolvedValueOnce({
       projectId: 'project-1',
       projectName: 'p',
@@ -155,7 +155,7 @@ describe('assembleProjectProjectionFull', () => {
         panelCount: 0,
         voiceLineCount: 0,
       },
-      activeRuns: [],
+      activePlanRuns: [],
       latestArtifacts: [],
       approvals: [],
     })
@@ -166,7 +166,7 @@ describe('assembleProjectProjectionFull', () => {
       episodeId: null,
     })
 
-    expect(result.workflow).toBeNull()
+    expect(result.episodeDetail).toBeNull()
     expect(prismaMock.projectPanel.findMany).not.toHaveBeenCalled()
   })
 
@@ -193,7 +193,7 @@ describe('assembleProjectProjectionFull', () => {
         panelCount: 1,
         voiceLineCount: 0,
       },
-      activeRuns: [],
+      activePlanRuns: [],
       latestArtifacts: [],
       approvals: [],
     })
@@ -254,7 +254,7 @@ describe('assembleProjectProjectionFull', () => {
     expect(prismaMock.projectStoryboard.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'storyboard-1' },
     }))
-    expect(result.workflow?.totalPanelCount).toBe(1)
-    expect(result.workflow?.truncated).toBe(false)
+    expect(result.episodeDetail?.totalPanelCount).toBe(1)
+    expect(result.episodeDetail?.truncated).toBe(false)
   })
 })

@@ -31,7 +31,7 @@ describe('assembleProjectContext', () => {
     vi.clearAllMocks()
   })
 
-  it('includes panel image/video fields in workflow panels snapshot', async () => {
+  it('includes panel image/video fields in episode detail snapshot', async () => {
     prismaMock.project.findUnique.mockResolvedValueOnce({
       id: 'project-1',
       name: 'p',
@@ -132,7 +132,7 @@ describe('assembleProjectContext', () => {
       selectedScopeRef: null,
     })
 
-    expect(context.workflow?.panels).toEqual([
+    expect(context.episodeDetail?.panels).toEqual([
       {
         panelId: 'panel-1',
         clipId: 'clip-1',

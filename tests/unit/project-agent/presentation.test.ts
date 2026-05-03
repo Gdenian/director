@@ -12,7 +12,7 @@ describe('project agent presentation', () => {
       currentStage: 'config',
       selectedScopeRef: null,
       latestArtifacts: [],
-      activeRuns: [],
+      activePlanRuns: [],
       activeOperationTasks: [],
       recentOperationResults: [],
       policy: {
@@ -42,7 +42,7 @@ describe('project agent presentation', () => {
       currentStage: 'storyboard',
       selectedScopeRef: 'clip:clip-1',
       latestArtifacts: [],
-      activeRuns: [],
+      activePlanRuns: [],
       activeOperationTasks: [],
       recentOperationResults: [
         {
@@ -69,7 +69,7 @@ describe('project agent presentation', () => {
         analysisModel: 'google::gemini-3.1-flash-lite-preview',
         overrides: {},
       },
-      workflow: {
+      episodeDetail: {
         latestRunId: 'run-1',
         episode: {
           novelText: 'text',

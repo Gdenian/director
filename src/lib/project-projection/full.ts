@@ -40,7 +40,7 @@ export async function assembleProjectProjectionFull(params: {
   if (!episodeId) {
     return {
       ...base,
-      workflow: null,
+      episodeDetail: null,
     }
   }
 
@@ -190,7 +190,7 @@ export async function assembleProjectProjectionFull(params: {
 
   return {
     ...base,
-    workflow: {
+    episodeDetail: {
       clips: clipList,
       panels,
       panelLimit,

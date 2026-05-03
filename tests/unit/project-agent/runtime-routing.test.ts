@@ -80,8 +80,8 @@ vi.mock('@/lib/project-agent/project-phase', () => ({
       panelCount: 1,
       voiceLineCount: 0,
     },
-    activeRuns: [],
-    activeRunCount: 0,
+    activePlanRuns: [],
+    activePlanRunCount: 0,
     failedItems: [],
     staleArtifacts: [],
     availableActions: {

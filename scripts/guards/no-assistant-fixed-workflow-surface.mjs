@@ -4,8 +4,11 @@ import path from 'node:path'
 const roots = [
   'src/lib/agent-skills',
   'src/lib/operations/domains/agent-skill',
+  'src/lib/project-context',
+  'src/lib/project-projection',
   'src/lib/project-agent/copy.ts',
   'src/lib/project-agent/router.ts',
+  'src/lib/saved-skills',
   'skills/agent',
 ]
 
@@ -15,8 +18,10 @@ const banned = [
   'create_workflow_plan',
   'approve_plan',
   'reject_plan',
+  'workflow_plan_template',
   'WORKFLOW.md',
   'WorkflowPackage',
+  'WorkflowPlanTemplate',
 ]
 
 export function inspectAssistantFixedWorkflowSurface(filePath, content) {

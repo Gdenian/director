@@ -22,7 +22,7 @@ export interface ProjectProjectionLite {
   selectedScopeRef?: string | null
   policy: ProjectPolicySnapshot
   progress: ProjectProjectionProgress
-  activeRuns: ProjectContextRunSummary[]
+  activePlanRuns: ProjectContextRunSummary[]
   latestArtifacts: ProjectContextArtifactSummary[]
   approvals: ProjectContextApprovalSummary[]
 }
@@ -53,7 +53,7 @@ export interface ProjectProjectionPanelSnapshot {
 }
 
 export interface ProjectProjectionFull extends ProjectProjectionLite {
-  workflow: null | {
+  episodeDetail: null | {
     clips: Array<{
       clipId: string
       summary: string

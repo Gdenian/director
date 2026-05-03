@@ -231,9 +231,9 @@ export async function assembleProjectContext(params: {
     selectedClipId: params.selectedClipId || null,
     selectedAssetId: params.selectedAssetId || null,
     latestArtifacts,
-    activeRuns: runs.map((run) => ({
+    activePlanRuns: runs.map((run) => ({
       id: run.id,
-      workflowType: run.workflowType,
+      runType: run.workflowType,
       status: run.status,
       createdAt: run.createdAt,
       updatedAt: run.updatedAt,
@@ -241,7 +241,7 @@ export async function assembleProjectContext(params: {
     activeOperationTasks,
     recentOperationResults,
     policy,
-    workflow: {
+    episodeDetail: {
       latestRunId: runs[0]?.id || null,
       episode: episode
         ? {

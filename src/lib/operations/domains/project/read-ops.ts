@@ -169,7 +169,7 @@ export function createReadOperations(): ProjectAgentOperationRegistryDraft {
     }),
     list_saved_skills: defineOperation({
       id: 'list_saved_skills',
-      summary: 'List saved skills (plan templates) for the current user within this project.',
+      summary: 'List saved skills for the current user within this project.',
       intent: 'query',
       effects: EFFECTS_NONE,
       inputSchema: z.object({

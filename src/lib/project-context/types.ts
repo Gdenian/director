@@ -24,7 +24,7 @@ export interface ProjectContextArtifactSummary {
 
 export interface ProjectContextRunSummary {
   id: string
-  workflowType: string
+  runType: string
   status: string
   createdAt: string
   updatedAt: string
@@ -70,7 +70,7 @@ export interface ProjectContextPanelSnapshot {
   updatedAt: string
 }
 
-export interface ProjectContextWorkflowSnapshot {
+export interface ProjectContextEpisodeDetailSnapshot {
   latestRunId: string | null
   episode: ProjectContextEpisodeSnapshot | null
   clips: ProjectContextClipSnapshot[]
@@ -89,9 +89,9 @@ export interface ProjectContextSnapshot {
   selectedClipId?: string | null
   selectedAssetId?: string | null
   latestArtifacts: ProjectContextArtifactSummary[]
-  activeRuns: ProjectContextRunSummary[]
+  activePlanRuns: ProjectContextRunSummary[]
   activeOperationTasks: RecentOperationResult[]
   recentOperationResults: RecentOperationResult[]
   policy: ProjectPolicySnapshot
-  workflow?: ProjectContextWorkflowSnapshot
+  episodeDetail?: ProjectContextEpisodeDetailSnapshot
 }
