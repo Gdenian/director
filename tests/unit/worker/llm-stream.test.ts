@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Job } from 'bullmq'
-import type { TaskJobData } from '@/lib/task/types'
+import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 
 const reportTaskProgressMock = vi.hoisted(() => vi.fn(async () => undefined))
 const reportTaskStreamChunkMock = vi.hoisted(() => vi.fn(async () => undefined))
@@ -25,7 +25,7 @@ import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from '@/
 function buildJob(): Job<TaskJobData> {
   const data: TaskJobData = {
     taskId: 'task-1',
-    type: 'story_to_script_run',
+    type: TASK_TYPE.SCREENPLAY_CONVERT,
     locale: 'zh',
     projectId: 'project-1',
     userId: 'user-1',

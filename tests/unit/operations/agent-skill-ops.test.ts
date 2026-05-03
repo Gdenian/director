@@ -70,13 +70,13 @@ describe('agent skill operations', () => {
     const writerEvents: Array<Record<string, unknown>> = []
     const operations = createAgentSkillOperations()
     const raw = await operations.create_plan.execute(buildContext(writerEvents), {
-      goal: 'run story-to-script',
+      goal: 'run fixed workflow',
       loadedSkillIds: ['screenwriting'],
       steps: [
         {
           stepKey: 'legacy',
           skillId: 'screenwriting',
-          operationId: 'story_to_script_run',
+          operationId: 'run_workflow_package',
           reason: 'legacy workflow',
           requiresApproval: true,
         },

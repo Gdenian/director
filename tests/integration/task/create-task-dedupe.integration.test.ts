@@ -112,14 +112,14 @@ describe('task service dedupe + orphan recovery', () => {
       data: {
         userId: user.id,
         projectId: project.id,
-        type: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
+        type: TASK_TYPE.SCREENPLAY_CONVERT,
         targetType: 'ProjectEpisode',
         targetId: 'episode-1',
         status: TASK_STATUS.QUEUED,
         payload: {
           episodeId: 'episode-1',
         },
-        dedupeKey: 'script_to_storyboard_run:episode-1',
+        dedupeKey: 'screenplay_convert:episode-1',
         queuedAt: new Date(),
       },
     })
@@ -127,14 +127,14 @@ describe('task service dedupe + orphan recovery', () => {
     const result = await createTask({
       userId: user.id,
       projectId: project.id,
-      type: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
+      type: TASK_TYPE.SCREENPLAY_CONVERT,
       targetType: 'ProjectEpisode',
       targetId: 'episode-1',
       payload: {
         episodeId: 'episode-1',
         meta: { locale: 'zh' },
       },
-      dedupeKey: 'script_to_storyboard_run:episode-1',
+      dedupeKey: 'screenplay_convert:episode-1',
     })
 
     expect(result.deduped).toBe(false)

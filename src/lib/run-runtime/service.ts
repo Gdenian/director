@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma'
 import { selectRecoverableRun } from '@/lib/run-runtime/recovery'
-import { resolveRetryInvalidationStepKeys } from '@/lib/workflow-engine/dependencies'
 import {
   RUN_EVENT_TYPE,
   RUN_STATE_MAX_BYTES,
@@ -1152,11 +1151,9 @@ export async function retryFailedStep(params: {
     })
     const now = new Date()
     const nextAttempt = Math.max(1, step.currentAttempt + 1)
-    const invalidatedStepKeys = resolveRetryInvalidationStepKeys({
-      workflowType: run.workflowType,
-      stepKey,
-      existingStepKeys: steps.map((item) => item.stepKey),
-    })
+    const invalidatedStepKeys = steps
+      .filter((item) => item.stepIndex >= step.stepIndex)
+      .map((item) => item.stepKey)
 
     const updatedRun = await tx.graphRun.update({
       where: { id: params.runId },

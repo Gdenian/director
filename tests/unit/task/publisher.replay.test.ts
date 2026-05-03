@@ -102,7 +102,7 @@ describe('task publisher replay', () => {
     taskFindManyMock.mockResolvedValueOnce([
       {
         id: 'task-1',
-        type: 'script_to_storyboard_run',
+        type: 'screenplay_convert',
         targetType: 'episode',
         targetId: 'episode-1',
         episodeId: 'episode-1',
@@ -145,7 +145,7 @@ describe('task publisher replay', () => {
       taskId: 'task-1',
       projectId: 'project-1',
       userId: 'user-1',
-      taskType: 'story_to_script_run',
+      taskType: 'screenplay_convert',
       targetType: 'episode',
       targetId: 'episode-1',
       episodeId: 'episode-1',
@@ -207,7 +207,7 @@ describe('task publisher replay', () => {
     taskFindManyMock.mockResolvedValueOnce([
       {
         id: 'task-1',
-        type: 'story_to_script_run',
+        type: 'screenplay_convert',
         targetType: 'episode',
         targetId: 'episode-1',
         episodeId: 'episode-1',

@@ -17,19 +17,6 @@ describe('llm observe task pipeline', () => {
     expect(locationPolicy.captureReasoning).toBe(true)
   })
 
-  it('maps story/script run tasks to long-flow stage metadata', () => {
-    const storyMeta = getTaskFlowMeta(TASK_TYPE.STORY_TO_SCRIPT_RUN)
-    const scriptMeta = getTaskFlowMeta(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)
-
-    expect(storyMeta.flowId).toBe('project_generation')
-    expect(storyMeta.flowStageIndex).toBe(1)
-    expect(storyMeta.flowStageTotal).toBe(2)
-
-    expect(scriptMeta.flowId).toBe('project_generation')
-    expect(scriptMeta.flowStageIndex).toBe(2)
-    expect(scriptMeta.flowStageTotal).toBe(2)
-  })
-
   it('maps AI_CREATE tasks to dedicated single-stage flows', () => {
     const characterMeta = getTaskFlowMeta(TASK_TYPE.AI_CREATE_CHARACTER)
     const locationMeta = getTaskFlowMeta(TASK_TYPE.AI_CREATE_LOCATION)
@@ -41,15 +28,6 @@ describe('llm observe task pipeline', () => {
     expect(locationMeta.flowId).toBe('project_ai_create_location')
     expect(locationMeta.flowStageIndex).toBe(1)
     expect(locationMeta.flowStageTotal).toBe(1)
-  })
-
-  it('returns a stable two-stage pipeline for story/script flow', () => {
-    const pipeline = getTaskPipeline(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)
-    const stageTaskTypes = pipeline.stages.map((stage) => stage.taskType)
-    expect(stageTaskTypes).toEqual([
-      TASK_TYPE.STORY_TO_SCRIPT_RUN,
-      TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-    ])
   })
 
   it('falls back to single-stage metadata for unknown task type', () => {

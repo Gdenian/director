@@ -26,21 +26,6 @@ type LLMTaskFlowDefinition = {
 
 const FLOW_DEFINITIONS: ReadonlyArray<LLMTaskFlowDefinition> = [
   {
-    id: 'project_generation',
-    stages: [
-      {
-        id: TASK_TYPE.STORY_TO_SCRIPT_RUN,
-        taskType: TASK_TYPE.STORY_TO_SCRIPT_RUN,
-        title: getTaskTypeLabel(TASK_TYPE.STORY_TO_SCRIPT_RUN),
-      },
-      {
-        id: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-        taskType: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-        title: getTaskTypeLabel(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN),
-      },
-    ],
-  },
-  {
     id: 'project_ai_create_character',
     stages: [
       {

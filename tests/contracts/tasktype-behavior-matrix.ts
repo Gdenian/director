@@ -21,8 +21,6 @@ function resolveChainTestByTaskType(taskType: TaskType): string {
   }
   if (
     taskType === 'analyze_novel'
-    || taskType === 'story_to_script_run'
-    || taskType === 'script_to_storyboard_run'
     || taskType === 'clips_build'
     || taskType === 'screenplay_convert'
     || taskType === 'voice_analyze'
@@ -49,8 +47,6 @@ function resolveChainTestByTaskType(taskType: TaskType): string {
 function resolveApiContractByTaskType(taskType: TaskType): string {
   if (
     taskType === 'analyze_novel'
-    || taskType === 'story_to_script_run'
-    || taskType === 'script_to_storyboard_run'
     || taskType === 'clips_build'
     || taskType === 'screenplay_convert'
     || taskType === 'voice_analyze'

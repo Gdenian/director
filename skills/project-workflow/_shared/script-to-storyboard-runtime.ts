@@ -1,4 +1,4 @@
-import { safeParseJsonArray } from '@/lib/json-repair'
+import { safeParseJson, safeParseJsonArray } from '@/lib/json-repair'
 import { buildCharactersIntroduction } from '@/lib/constants'
 import { normalizeAnyError } from '@/lib/errors/normalize'
 import { createScopedLogger } from '@/lib/logging/core'
@@ -16,7 +16,6 @@ import {
   buildPromptAssetContext,
   compileAssetPromptFragments,
 } from '@/lib/assets/services/asset-prompt-context'
-import { buildStoryboardJsonFromClipPanels, parseVoiceLinesJson } from '@/lib/workers/handlers/script-to-storyboard-helpers'
 import type {
   ScriptToStoryboardClipContext,
   ScriptToStoryboardClipInput,
@@ -60,6 +59,44 @@ export function parseJsonArray<T extends JsonRecord>(responseText: string, label
     throw new SkillJsonParseError(`${label}: empty result`, responseText)
   }
   return rows as T[]
+}
+
+export function parseVoiceLinesJson(responseText: string): JsonRecord[] {
+  const rows = safeParseJsonArray(responseText)
+  if (rows.length === 0) {
+    const raw = safeParseJson(responseText)
+    if (Array.isArray(raw) && raw.length === 0) return []
+    throw new Error('voice_analyze: invalid payload')
+  }
+  return rows as JsonRecord[]
+}
+
+export function buildStoryboardJsonFromClipPanels(clipPanels: Array<{ clipId: string; finalPanels: StoryboardPanel[] }>) {
+  const rows: Array<{
+    storyboardId: string
+    panelIndex: number
+    text_segment: string
+    description: string
+    characters: string[]
+    props: string[]
+  }> = []
+
+  for (const clipEntry of clipPanels) {
+    for (let index = 0; index < clipEntry.finalPanels.length; index += 1) {
+      const panel = clipEntry.finalPanels[index]
+      rows.push({
+        storyboardId: clipEntry.clipId,
+        panelIndex: index,
+        text_segment: panel.source_text || '',
+        description: panel.description || '',
+        characters: Array.isArray(panel.characters) ? panel.characters.filter(Boolean) : [],
+        props: Array.isArray(panel.props) ? panel.props.filter(Boolean) : [],
+      })
+    }
+  }
+
+  if (rows.length === 0) return '无分镜数据'
+  return JSON.stringify(rows, null, 2)
 }
 
 function shouldRetryStepError(error: unknown, message: string, retryable: boolean) {

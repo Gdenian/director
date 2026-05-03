@@ -322,13 +322,13 @@ describe('billing/service', () => {
     it('prepareTaskBilling tolerates unknown text model pricing in SHADOW mode', async () => {
       modeMock.getBillingMode.mockResolvedValueOnce('SHADOW')
       const unknownTextInfo = buildTaskInfo({
-        taskType: 'story_to_script_run',
+        taskType: 'screenplay_convert',
         apiType: 'text',
         model: 'gpt-5.2',
         quantity: 2400,
         unit: 'token',
         maxFrozenCost: 0,
-        action: 'story_to_script_run',
+        action: 'screenplay_convert',
       })
 
       const shadow = await prepareTaskBilling({
@@ -387,13 +387,13 @@ describe('billing/service', () => {
         userId: 'u1',
         projectId: 'p1',
         billingInfo: buildTaskInfo({
-          taskType: 'story_to_script_run',
+          taskType: 'screenplay_convert',
           apiType: 'text',
           model: 'gpt-5.2',
           quantity: 2400,
           unit: 'token',
           maxFrozenCost: 0,
-          action: 'story_to_script_run',
+          action: 'screenplay_convert',
           modeSnapshot: 'OFF',
           status: 'quoted',
         }),
@@ -413,13 +413,13 @@ describe('billing/service', () => {
         userId: 'u1',
         projectId: 'p1',
         billingInfo: buildTaskInfo({
-          taskType: 'story_to_script_run',
+          taskType: 'screenplay_convert',
           apiType: 'text',
           model: 'gpt-5.2',
           quantity: 2400,
           unit: 'token',
           maxFrozenCost: 0,
-          action: 'story_to_script_run',
+          action: 'screenplay_convert',
           modeSnapshot: 'SHADOW',
           status: 'quoted',
         }),

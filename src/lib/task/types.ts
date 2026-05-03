@@ -60,8 +60,6 @@ export const TASK_TYPE = {
   ASSET_HUB_IMAGE: 'asset_hub_image',
   ASSET_HUB_MODIFY: 'asset_hub_modify',
   ANALYZE_NOVEL: 'analyze_novel',
-  STORY_TO_SCRIPT_RUN: 'story_to_script_run',
-  SCRIPT_TO_STORYBOARD_RUN: 'script_to_storyboard_run',
   CLIPS_BUILD: 'clips_build',
   SCREENPLAY_CONVERT: 'screenplay_convert',
   VOICE_ANALYZE: 'voice_analyze',

@@ -114,7 +114,7 @@ describe('chain contract - text queue behavior', () => {
 
     await addTaskJob({
       taskId: 'task-text-1',
-      type: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
+      type: TASK_TYPE.SCREENPLAY_CONVERT,
       locale: 'zh',
       projectId: 'project-1',
       episodeId: 'episode-1',
@@ -127,17 +127,17 @@ describe('chain contract - text queue behavior', () => {
     const calls = queueState.addCallsByQueue.get(QUEUE_NAME.TEXT) || []
     expect(calls).toHaveLength(1)
     expect(calls[0]).toEqual(expect.objectContaining({
-      jobName: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-      options: expect.objectContaining({ jobId: 'task-text-1', priority: 0, attempts: 1 }),
+      jobName: TASK_TYPE.SCREENPLAY_CONVERT,
+      options: expect.objectContaining({ jobId: 'task-text-1', priority: 0 }),
     }))
   })
 
-  it('forces single queue attempt for core analysis workflows', async () => {
+  it('preserves explicit queue attempts for atomic text tasks', async () => {
     const { addTaskJob, QUEUE_NAME } = await import('@/lib/task/queues')
 
     await addTaskJob({
       taskId: 'task-text-story-1',
-      type: TASK_TYPE.STORY_TO_SCRIPT_RUN,
+      type: TASK_TYPE.CLIPS_BUILD,
       locale: 'zh',
       projectId: 'project-1',
       episodeId: 'episode-1',
@@ -151,7 +151,7 @@ describe('chain contract - text queue behavior', () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]?.options).toEqual(expect.objectContaining({
       jobId: 'task-text-story-1',
-      attempts: 1,
+      attempts: 5,
     }))
   })
 

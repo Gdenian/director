@@ -352,22 +352,6 @@ const ROUTE_CASES: ReadonlyArray<LLMRouteCase> = [
     expectedProjectId: 'project-1',
   },
   {
-    routeFile: 'src/app/api/projects/[projectId]/script-to-storyboard-stream/route.ts',
-    body: { episodeId: 'episode-1' },
-    params: { projectId: 'project-1' },
-    expectedTaskType: TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
-    expectedTargetType: 'ProjectEpisode',
-    expectedProjectId: 'project-1',
-  },
-  {
-    routeFile: 'src/app/api/projects/[projectId]/story-to-script-stream/route.ts',
-    body: { episodeId: 'episode-1', content: 'story text' },
-    params: { projectId: 'project-1' },
-    expectedTaskType: TASK_TYPE.STORY_TO_SCRIPT_RUN,
-    expectedTargetType: 'ProjectEpisode',
-    expectedProjectId: 'project-1',
-  },
-  {
     routeFile: 'src/app/api/projects/[projectId]/voice-analyze/route.ts',
     body: { episodeId: 'episode-1' },
     params: { projectId: 'project-1' },

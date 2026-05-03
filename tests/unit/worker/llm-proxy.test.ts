@@ -21,12 +21,12 @@ function buildJob(type: TaskJobData['type']): Job<TaskJobData> {
 
 describe('worker llm-proxy behavior', () => {
   it('current route map has no enabled proxy task type', () => {
-    expect(isLLMProxyTaskType(TASK_TYPE.STORY_TO_SCRIPT_RUN)).toBe(false)
-    expect(isLLMProxyTaskType(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)).toBe(false)
+    expect(isLLMProxyTaskType(TASK_TYPE.SCREENPLAY_CONVERT)).toBe(false)
+    expect(isLLMProxyTaskType(TASK_TYPE.CLIPS_BUILD)).toBe(false)
   })
 
   it('unsupported proxy task type -> explicit error', async () => {
-    const job = buildJob(TASK_TYPE.STORY_TO_SCRIPT_RUN)
+    const job = buildJob(TASK_TYPE.SCREENPLAY_CONVERT)
     await expect(handleLLMProxyTask(job)).rejects.toThrow('Unsupported llm proxy task type')
   })
 })

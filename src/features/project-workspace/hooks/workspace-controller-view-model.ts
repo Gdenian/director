@@ -6,13 +6,7 @@ import type { TaskPresentationState } from '@/lib/task/presentation'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 import type { CapabilitySelections } from '@/lib/ai-registry/types'
 import { VideoPricingTier } from '@/lib/ai-registry/video-capabilities'
-import type {
-  useScriptToStoryboardRunStream,
-  useStoryToScriptRunStream,
-} from '@/lib/query/hooks'
-
-type StoryToScriptStreamState = ReturnType<typeof useStoryToScriptRunStream>
-type ScriptToStoryboardStreamState = ReturnType<typeof useScriptToStoryboardRunStream>
+import type { RunStreamView } from '@/lib/query/hooks/run-stream/types'
 
 interface ProjectSnapshotInput {
   projectData: unknown
@@ -83,8 +77,8 @@ interface BuildWorkspaceControllerViewModelParams {
     isStartingStoryToScript: boolean
     isStartingScriptToStoryboard: boolean
     transitionProgress: { step?: string; total?: number; current?: number }
-    storyToScriptStream: StoryToScriptStreamState
-    scriptToStoryboardStream: ScriptToStoryboardStreamState
+    storyToScriptStream: RunStreamView
+    scriptToStoryboardStream: RunStreamView
     handleGenerateTTS: () => Promise<void>
     handleAnalyzeAssets: () => Promise<void>
     runStoryToScriptFlow: () => Promise<void>
