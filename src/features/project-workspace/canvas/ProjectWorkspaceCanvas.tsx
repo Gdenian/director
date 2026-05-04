@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyNodeChanges,
   Background,
@@ -25,9 +25,13 @@ import {
   useWorkspaceNodeCanvasProjection,
 } from './hooks/useWorkspaceNodeCanvasProjection'
 import { useWorkspaceNodeCanvasActions } from './hooks/useWorkspaceNodeCanvasActions'
+import {
+  buildWorkspaceCanvasEdgeSignature,
+  buildWorkspaceCanvasNodeSignature,
+} from './hooks/canvas-projection-signature'
 import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
 import CanvasObjectDetailLayer from './details/CanvasObjectDetailLayer'
-import type { WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
+import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
 
 const DEFAULT_VIEWPORT = { x: 48, y: 96, zoom: 0.72 }
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
@@ -51,6 +55,11 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   const runNodeAction = useWorkspaceNodeCanvasActions()
   const [nodes, setNodes] = useState<WorkspaceCanvasFlowNode[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
+  const stableEdgesRef = useRef<{
+    signature: string
+    edges: WorkspaceCanvasFlowEdge[]
+  } | null>(null)
 
   const {
     layout,
@@ -85,10 +94,29 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     translate: t,
     onAction: onNodeAction,
   })
+  const projectionEdges = projection.edges
+
+  const projectionNodeSignature = useMemo(
+    () => buildWorkspaceCanvasNodeSignature(projection.nodes),
+    [projection.nodes],
+  )
+  const projectionEdgeSignature = useMemo(
+    () => buildWorkspaceCanvasEdgeSignature(projectionEdges),
+    [projectionEdges],
+  )
+  if (stableEdgesRef.current?.signature !== projectionEdgeSignature) {
+    stableEdgesRef.current = {
+      signature: projectionEdgeSignature,
+      edges: [...projectionEdges],
+    }
+  }
+  const flowEdges = stableEdgesRef.current.edges
 
   useEffect(() => {
+    if (appliedProjectionNodeSignatureRef.current === projectionNodeSignature) return
+    appliedProjectionNodeSignatureRef.current = projectionNodeSignature
     setNodes([...projection.nodes])
-  }, [projection.nodes])
+  }, [projection.nodes, projectionNodeSignature])
 
   useEffect(() => {
     if (!layout) return
@@ -214,7 +242,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
       <div className="h-[calc(100%-5.75rem)]">
         <ReactFlow
           nodes={nodes}
-          edges={[...projection.edges]}
+          edges={flowEdges}
           nodeTypes={workspaceNodeTypes}
           onNodesChange={handleNodesChange}
           onNodeClick={handleNodeClick}
