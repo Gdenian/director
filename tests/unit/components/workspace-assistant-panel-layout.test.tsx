@@ -35,9 +35,6 @@ describe('workspace assistant panel layout', () => {
       createElement(WorkspaceAssistantPanelHeader, {
         eyebrow: 'AI Assistant',
         title: 'Workspace Chat',
-        episodeLabel: 'Episode 1',
-        workspaceLabel: 'Node Canvas',
-        runLabel: '1 active runs',
         rawContextLabel: 'View full raw context',
         downloadLabel: 'Download Log',
         downloadHref: '/api/projects/project-1/assistant/chat/log',

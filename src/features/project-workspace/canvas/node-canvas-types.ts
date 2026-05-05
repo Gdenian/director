@@ -173,6 +173,8 @@ export interface WorkspaceCanvasFinalDetails {
 
 export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly nodeId?: string
+  readonly projectId?: string
+  readonly episodeName?: string
   readonly kind: WorkspaceCanvasNodeKind
   readonly layoutNodeType: CanvasLayoutNodeType
   readonly targetType: WorkspaceCanvasTargetType

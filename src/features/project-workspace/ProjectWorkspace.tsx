@@ -73,7 +73,7 @@ function ProjectWorkspaceContent(props: ProjectWorkspaceProps) {
         refreshTitle={vm.i18n.t('buttons.refreshData')}
       />
 
-      <div className="pt-24">
+      <div>
         <div>
           <WorkspaceAssistantPanel
             projectId={projectId}

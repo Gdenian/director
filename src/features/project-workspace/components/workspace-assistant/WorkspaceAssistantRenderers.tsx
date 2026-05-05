@@ -23,21 +23,22 @@ import type {
 import { useRevertMutationBatch } from '@/lib/query/hooks'
 import { MarkdownTextPart } from './MarkdownTextPart'
 
-const AGENT_SKILL_LABELS: Record<string, string> = {
-  'creative-direction': '创意方向',
-  screenwriting: '剧本写作',
-  'story-structure': '故事结构',
-  'storyboard-direction': '分镜指导',
-  'visual-continuity': '视觉连续性',
-  'location-selection': '场景选择',
-  'character-selection': '角色选择',
-  'audio-direction': '声音指导',
-  'media-generation': '媒体生成',
+const AGENT_SKILL_LABEL_KEYS: Record<string, string> = {
+  'creative-direction': 'creativeDirection',
+  screenwriting: 'screenwriting',
+  'story-structure': 'storyStructure',
+  'storyboard-direction': 'storyboardDirection',
+  'visual-continuity': 'visualContinuity',
+  'location-selection': 'locationSelection',
+  'character-selection': 'characterSelection',
+  'audio-direction': 'audioDirection',
+  'media-generation': 'mediaGeneration',
 }
 
-function formatSkillLabel(skillId: string | null | undefined): string {
-  if (!skillId) return '未命名技能'
-  return AGENT_SKILL_LABELS[skillId] || skillId
+function formatSkillLabel(skillId: string | null | undefined, t: ReturnType<typeof useTranslations<'assistantAgent'>>): string {
+  if (!skillId) return t('cards.skillLabels.unnamed')
+  const labelKey = AGENT_SKILL_LABEL_KEYS[skillId]
+  return labelKey ? t(`cards.skillLabels.${labelKey}`) : skillId
 }
 
 type MessagePartComponents = NonNullable<ComponentProps<typeof MessagePrimitive.Parts>['components']>
@@ -45,34 +46,32 @@ type MessagePartComponents = NonNullable<ComponentProps<typeof MessagePrimitive.
 function ProjectPhaseDataCard({ data }: DataMessagePartProps<ProjectPhasePartData>) {
   const t = useTranslations('assistantAgent')
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.projectPhase')}</div>
-          <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">{data.phase}</div>
-        </div>
-        <div className="rounded-full bg-[var(--glass-bg-surface)] px-2.5 py-1 text-xs text-[var(--glass-text-secondary)]">
-          {t('cards.runs', { count: data.snapshot.activePlanRunCount })}
-        </div>
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="chart" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">
+          {t('cards.projectPhase')} · {data.phase} · {t('cards.runs', { count: data.snapshot.activePlanRunCount })}
+        </span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 text-[11px] leading-5">
+        {t('cards.clips', { count: data.snapshot.progress.clipCount })} · {t('cards.screenplays', { count: data.snapshot.progress.screenplayClipCount })} · {t('cards.storyboards', { count: data.snapshot.progress.storyboardCount })} · {t('cards.voice', { count: data.snapshot.progress.voiceLineCount })}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--glass-text-secondary)]">
-        <div className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2">{t('cards.clips', { count: data.snapshot.progress.clipCount })}</div>
-        <div className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2">{t('cards.screenplays', { count: data.snapshot.progress.screenplayClipCount })}</div>
-        <div className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2">{t('cards.storyboards', { count: data.snapshot.progress.storyboardCount })}</div>
-        <div className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2">{t('cards.voice', { count: data.snapshot.progress.voiceLineCount })}</div>
-      </div>
-    </div>
+    </details>
   )
 }
 
 export function AgentStopDataCard({ data }: DataMessagePartProps<ProjectAgentStopPartData>) {
   const t = useTranslations('assistantAgent')
   return (
-    <div className="rounded-2xl border border-[var(--glass-tone-warn-fg)]/30 bg-[var(--glass-bg-muted)]/70 p-3 text-xs text-[var(--glass-text-secondary)]">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.maxSteps')}</div>
-      <div className="mt-1">{t('cards.stepUsage', { stepCount: data.stepCount, maxSteps: data.maxSteps })}</div>
-      <div className="mt-2 text-[var(--glass-text-tertiary)]">{t('cards.reason', { reason: data.reason })}</div>
-    </div>
+    <details className="group border-l-2 border-[var(--glass-text-tertiary)]/40 pl-2 text-[12px] leading-5 text-[var(--glass-text-secondary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="alert" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{t('cards.maxSteps')} · {t('cards.stepUsage', { stepCount: data.stepCount, maxSteps: data.maxSteps })}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 text-[11px] text-[var(--glass-text-tertiary)]">{t('cards.reason', { reason: data.reason })}</div>
+    </details>
   )
 }
 
@@ -219,19 +218,23 @@ function TaskSubmittedDataCard({ data }: DataMessagePartProps<TaskSubmittedPartD
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3 text-xs text-[var(--glass-text-secondary)]">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.taskSubmitted')}</div>
-      <div className="mt-2">{t('cards.operationLabel')}: {data.operationId}</div>
-      <div>{t('cards.taskIdLabel')}: {data.taskId}</div>
-      <div>{t('cards.statusLabel')}: {data.status}</div>
-      {data.runId ? <div>{t('cards.runIdLabel')}: {data.runId}</div> : null}
-      {typeof data.deduped === 'boolean' ? <div>{t('cards.dedupedLabel')}: {String(data.deduped)}</div> : null}
-      {data.mutationBatchId ? <div>{t('cards.undoBatchIdLabel')}: {data.mutationBatchId}</div> : null}
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="play" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{t('cards.taskSubmitted')} · {data.operationId} · {data.status}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 space-y-0.5 text-[11px]">
+        <div>{t('cards.taskIdLabel')}: {data.taskId}</div>
+        {data.runId ? <div>{t('cards.runIdLabel')}: {data.runId}</div> : null}
+        {typeof data.deduped === 'boolean' ? <div>{t('cards.dedupedLabel')}: {String(data.deduped)}</div> : null}
+        {data.mutationBatchId ? <div>{t('cards.undoBatchIdLabel')}: {data.mutationBatchId}</div> : null}
+      </div>
       {data.mutationBatchId ? (
-        <div className="mt-3 flex items-center gap-2">
+        <div className="ml-5 mt-2 flex items-center gap-2 text-[11px]">
           <button
             type="button"
-            className="rounded-xl bg-[var(--glass-tone-warn-fg)]/90 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+            className="rounded-md border border-[var(--glass-stroke-base)] bg-white/70 px-2 py-1 text-[11px] text-[var(--glass-text-secondary)] disabled:opacity-60"
             onClick={() => { void handleUndo() }}
             disabled={revertMutationBatch.isPending}
           >
@@ -244,7 +247,7 @@ function TaskSubmittedDataCard({ data }: DataMessagePartProps<TaskSubmittedPartD
           ) : null}
         </div>
       ) : null}
-    </div>
+    </details>
   )
 }
 
@@ -270,22 +273,24 @@ function TaskBatchSubmittedDataCard({ data }: DataMessagePartProps<TaskBatchSubm
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3 text-xs text-[var(--glass-text-secondary)]">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{t('cards.batchTaskSubmitted')}</div>
-      <div className="mt-2">{t('cards.operationLabel')}: {data.operationId}</div>
-      <div>{t('cards.totalLabel')}: {String(data.total)}</div>
-      <div className="mt-2 space-y-1 rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 font-mono text-[10px] text-[var(--glass-text-tertiary)]">
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="play" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{t('cards.batchTaskSubmitted')} · {data.operationId} · {t('cards.totalLabel')}: {String(data.total)}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 space-y-0.5 font-mono text-[11px]">
         {(data.taskIds || []).slice(0, 8).map((taskId: string) => (
           <div key={taskId}>{taskId}</div>
         ))}
         {(data.taskIds || []).length > 8 ? <div>…</div> : null}
       </div>
-      {data.mutationBatchId ? <div className="mt-2">{t('cards.undoBatchIdLabel')}: {data.mutationBatchId}</div> : null}
+      {data.mutationBatchId ? <div className="ml-5 mt-1 text-[11px]">{t('cards.undoBatchIdLabel')}: {data.mutationBatchId}</div> : null}
       {data.mutationBatchId ? (
-        <div className="mt-3 flex items-center gap-2">
+        <div className="ml-5 mt-2 flex items-center gap-2 text-[11px]">
           <button
             type="button"
-            className="rounded-xl bg-[var(--glass-tone-warn-fg)]/90 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+            className="rounded-md border border-[var(--glass-stroke-base)] bg-white/70 px-2 py-1 text-[11px] text-[var(--glass-text-secondary)] disabled:opacity-60"
             onClick={() => { void handleUndo() }}
             disabled={revertMutationBatch.isPending}
           >
@@ -298,54 +303,56 @@ function TaskBatchSubmittedDataCard({ data }: DataMessagePartProps<TaskBatchSubm
           ) : null}
         </div>
       ) : null}
-    </div>
+    </details>
   )
 }
 
 export function AgentPlanDataCard({ data }: DataMessagePartProps<AgentPlanPartData>) {
+  const t = useTranslations('assistantAgent')
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3">
-      <div className="text-sm font-medium text-[var(--glass-text-primary)]">{data.summary || data.goal}</div>
-      <div className="mt-1 text-xs text-[var(--glass-text-secondary)]">
-        {data.validation.ok ? 'Plan validated' : 'Plan needs revision'}
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="bookOpen" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{data.summary || data.goal}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 text-[11px]">
+        {data.validation.ok ? t('cards.planValidated') : t('cards.planNeedsRevision')}
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="ml-5 mt-2 space-y-1 text-[11px]">
         {data.steps.map((step: AgentPlanPartData['steps'][number]) => (
-          <div key={`${data.draftPlanId}:step:${step.stepKey}`} className="rounded-xl bg-[var(--glass-bg-muted)]/70 px-3 py-2 text-xs">
-            <div className="font-medium text-[var(--glass-text-primary)]">{formatSkillLabel(step.skillId)}</div>
-            <div className="mt-1 text-[var(--glass-text-secondary)]">{step.operationId}</div>
-            <div className="mt-1 text-[var(--glass-text-tertiary)]">{step.reason}</div>
+          <div key={`${data.draftPlanId}:step:${step.stepKey}`}>
+            <span className="text-[var(--glass-text-secondary)]">{formatSkillLabel(step.skillId, t)}</span>
+            <span> · {step.operationId} · {step.reason}</span>
           </div>
         ))}
       </div>
-    </div>
+    </details>
   )
 }
 
 function ProjectContextDataCard({ data }: DataMessagePartProps<ProjectContextPartData>) {
   const t = useTranslations('assistantAgent')
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/70 p-3 text-xs text-[var(--glass-text-secondary)]">
-      <div className="font-medium text-[var(--glass-text-primary)]">{t('cards.projectContext')}</div>
-      <div className="mt-2">{t('cards.projectLabel')}: {data.context.projectName}</div>
-      <div>{t('cards.episodeLabel')}: {data.context.episodeName}</div>
-      <div>{t('cards.workspaceLabel')}: {t('panel.workspaceStatus')}</div>
-    </div>
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name="folder" className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{t('cards.projectContext')} · {data.context.projectName} · {data.context.episodeName}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 text-[11px]">
+        {t('cards.workspaceLabel')}: {t('panel.workspaceStatus')}
+      </div>
+    </details>
   )
 }
 
 
 export function WorkspaceAssistantToolCallCard(props: ToolCallMessagePartProps) {
   const t = useTranslations('assistantAgent')
-  const [expanded, setExpanded] = useState(false)
   const toolStatus = props.status.type
   const inputText = JSON.stringify(props.args ?? {}, null, 2)
   const outputText = props.result === undefined ? '' : JSON.stringify(props.result, null, 2)
-  const stateClassName = toolStatus === 'incomplete'
-      ? 'border-[rgba(59,130,246,0.24)] bg-[var(--glass-tone-info-bg)] text-[var(--glass-tone-info-fg)]'
-      : toolStatus === 'requires-action'
-        ? 'border-[rgba(245,158,11,0.24)] bg-[var(--glass-tone-warning-bg)] text-[var(--glass-tone-warning-fg)]'
-        : 'border-[rgba(34,197,94,0.24)] bg-[var(--glass-tone-success-bg)] text-[var(--glass-tone-success-fg)]'
   const summaryText = toolStatus === 'complete'
     ? t('toolCall.success')
     : toolStatus === 'requires-action'
@@ -353,45 +360,27 @@ export function WorkspaceAssistantToolCallCard(props: ToolCallMessagePartProps) 
       : t('toolCall.running')
 
   return (
-    <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[rgba(255,255,255,0.82)]">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
-        onClick={() => setExpanded((current) => !current)}
-      >
-        <div className="min-w-0 max-w-[calc(100%-6rem)] flex-1">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">
-            <AppIcon name="settingsHex" className="h-3.5 w-3.5" />
-            <span>{t('toolCall.title')}</span>
-          </div>
-          <div className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-[var(--glass-text-primary)]">
-            {props.toolName}
-          </div>
+    <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <AppIcon name={toolStatus === 'incomplete' ? 'loader' : 'settingsHex'} className={`h-3.5 w-3.5 shrink-0 ${toolStatus === 'incomplete' ? 'animate-spin' : ''}`} />
+        <span className="min-w-0 truncate">{summaryText} · {props.toolName}</span>
+        <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="ml-5 mt-1 space-y-2 text-[11px]">
+        <div>
+          <div>{t('toolCall.arguments')}</div>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all leading-5">{inputText}</pre>
         </div>
-        <div className="flex min-w-[7.5rem] shrink-0 items-center justify-end gap-2">
-          <div className={`rounded-full border px-3 py-1 text-[11px] font-medium shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] ${stateClassName}`}>
-            {summaryText}
-          </div>
-          <div className="text-[11px] text-[var(--glass-text-tertiary)]">{expanded ? t('toolCall.hide') : t('toolCall.show')}</div>
+        <div>
+          <div>{t('toolCall.result')}</div>
+          {props.result === undefined ? (
+            <div className="mt-1">{t('toolCall.waiting')}</div>
+          ) : (
+            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all leading-5">{outputText}</pre>
+          )}
         </div>
-      </button>
-      {expanded ? (
-        <div className="space-y-2 border-t border-[var(--glass-stroke-base)] px-3 py-3">
-          <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)]/60 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--glass-text-tertiary)]">{t('toolCall.arguments')}</div>
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-[var(--glass-text-secondary)]">{inputText}</pre>
-          </div>
-          <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)]/60 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--glass-text-tertiary)]">{t('toolCall.result')}</div>
-            {props.result === undefined ? (
-              <div className="mt-2 text-xs text-[var(--glass-text-secondary)]">{t('toolCall.waiting')}</div>
-            ) : (
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-[var(--glass-text-secondary)]">{outputText}</pre>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </div>
+      </div>
+    </details>
   )
 }
 
@@ -448,13 +437,11 @@ function HiddenConversationSummaryMessage(props: {
 export function WorkspaceAssistantThreadMessage(props: {
   messagePartComponents: MessagePartComponents
 }) {
-  const t = useTranslations('assistantAgent')
   return (
     <>
       <MessagePrimitive.If user>
-        <div className="ml-auto flex w-full max-w-[88%] flex-col items-end gap-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">{t('thread.user')}</div>
-          <MessagePrimitive.Root className="w-fit rounded-2xl bg-[var(--glass-accent-from)] px-3 py-3 text-sm text-white shadow-[0_12px_30px_rgba(59,130,246,0.18)]">
+        <div className="ml-auto flex w-full max-w-[88%] flex-col items-end">
+          <MessagePrimitive.Root className="w-fit rounded-lg border border-white/80 bg-white/90 px-3 py-2.5 text-sm leading-6 text-[var(--glass-text-primary)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-md">
             <MessagePrimitive.Parts />
           </MessagePrimitive.Root>
         </div>
@@ -462,11 +449,7 @@ export function WorkspaceAssistantThreadMessage(props: {
 
       <MessagePrimitive.If assistant>
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">
-            <AppIcon name="brain" className="h-3.5 w-3.5 text-[var(--glass-accent-from)]" />
-            <span>{t('thread.modelOutput')}</span>
-          </div>
-          <MessagePrimitive.Root className="space-y-3 rounded-[22px] border border-[rgba(59,130,246,0.12)] bg-[rgba(255,255,255,0.8)] px-3 py-3 text-sm text-[var(--glass-text-primary)] shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+          <MessagePrimitive.Root className="space-y-3 px-1 py-1 text-sm leading-6 text-[var(--glass-text-primary)]">
             <MessagePrimitive.Parts components={props.messagePartComponents} />
           </MessagePrimitive.Root>
         </div>
@@ -475,8 +458,7 @@ export function WorkspaceAssistantThreadMessage(props: {
       <MessagePrimitive.If system>
         <HiddenConversationSummaryMessage>
           <div className="space-y-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">{t('thread.executionEvent')}</div>
-            <MessagePrimitive.Root className="space-y-3 rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/78 px-3 py-3 text-sm text-[var(--glass-text-primary)]">
+            <MessagePrimitive.Root className="space-y-2 px-1 py-1 text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
               <MessagePrimitive.Parts components={props.messagePartComponents} />
             </MessagePrimitive.Root>
           </div>

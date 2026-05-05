@@ -3,7 +3,8 @@
 import React, { useEffect, useState, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useTranslations } from 'next-intl'
-import { AppIcon } from '@/components/ui/icons'
+import { AppIcon, type AppIconName } from '@/components/ui/icons'
+import StoryDetail from '../details/StoryDetail'
 import type {
   WorkspaceCanvasAssetRef,
   WorkspaceCanvasFlowNode,
@@ -11,41 +12,22 @@ import type {
   WorkspaceCanvasTextLine,
 } from '../node-canvas-types'
 
-function toneClassName(kind: WorkspaceCanvasFlowNode['data']['kind']): string {
+function nodeIconName(kind: WorkspaceCanvasFlowNode['data']['kind']): AppIconName {
   switch (kind) {
     case 'storyInput':
-      return 'border-[#2f6fed]/25'
+      return 'fileText'
     case 'analysis':
-      return 'border-[#0891b2]/25'
+      return 'chart'
     case 'scriptClip':
-      return 'border-[#7c3aed]/20'
+      return 'bookOpen'
     case 'shot':
-      return 'border-[#059669]/20'
+      return 'clapperboard'
     case 'imageAsset':
-      return 'border-[#d97706]/20'
+      return 'image'
     case 'videoClip':
-      return 'border-[#dc2626]/20'
+      return 'video'
     case 'finalTimeline':
-      return 'border-[#111827]/20'
-  }
-}
-
-function badgeClassName(kind: WorkspaceCanvasFlowNode['data']['kind']): string {
-  switch (kind) {
-    case 'storyInput':
-      return 'bg-[#2f6fed]'
-    case 'analysis':
-      return 'bg-[#0891b2]'
-    case 'scriptClip':
-      return 'bg-[#7c3aed]'
-    case 'shot':
-      return 'bg-[#059669]'
-    case 'imageAsset':
-      return 'bg-[#d97706]'
-    case 'videoClip':
-      return 'bg-[#dc2626]'
-    case 'finalTimeline':
-      return 'bg-[#111827]'
+      return 'film'
   }
 }
 
@@ -55,7 +37,7 @@ function hasText(value: string | null | undefined): value is string {
 
 function renderSection(title: string, children: ReactNode) {
   return (
-    <section className="space-y-1.5 rounded-md border border-black/5 bg-[#f8fafc] p-2.5">
+    <section className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
       <p className="text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]">{title}</p>
       {children}
     </section>
@@ -82,7 +64,7 @@ function renderChips(label: string, values: readonly string[]) {
   return renderSection(label, (
     <div className="flex flex-wrap gap-1.5">
       {values.map((value) => (
-        <span key={value} className="rounded-full border border-black/10 bg-white px-2 py-1 text-[11px] text-[var(--glass-text-secondary)]">
+        <span key={value} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-[var(--glass-text-secondary)]">
           {value}
         </span>
       ))}
@@ -97,7 +79,7 @@ function renderAssetChips(label: string, values: readonly WorkspaceCanvasAssetRe
       {values.map((value) => {
         const key = `${value.name}:${value.appearance ?? ''}`
         return (
-          <span key={key} className="rounded-full border border-black/10 bg-white px-2 py-1 text-[11px] text-[var(--glass-text-secondary)]">
+          <span key={key} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-[var(--glass-text-secondary)]">
             {value.appearance ? `${value.name} / ${value.appearance}` : value.name}
           </span>
         )
@@ -111,7 +93,7 @@ function renderLines(lines: readonly WorkspaceCanvasTextLine[], labels: ReturnTy
   return (
     <div className="space-y-1.5">
       {lines.map((line, index) => (
-        <div key={`${line.kind}-${index}`} className="rounded border border-black/5 bg-white px-2 py-1.5 text-xs leading-5">
+        <div key={`${line.kind}-${index}`} className="rounded-[12px] bg-white px-2.5 py-2 text-xs leading-5 ring-1 ring-slate-100">
           <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]">
             <span>{labels(`lineKind.${line.kind}`)}</span>
             {line.speaker ? <span>{line.speaker}</span> : null}
@@ -125,7 +107,7 @@ function renderLines(lines: readonly WorkspaceCanvasTextLine[], labels: ReturnTy
 
 function renderScene(scene: WorkspaceCanvasScriptScene, index: number, labels: ReturnType<typeof useTranslations>) {
   return (
-    <section key={`${scene.sceneNumber ?? index}-${scene.heading ?? ''}`} className="space-y-2 rounded-md border border-black/5 bg-[#f8fafc] p-2.5">
+    <section key={`${scene.sceneNumber ?? index}-${scene.heading ?? ''}`} className="space-y-2 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]">
           {labels('scene', { index: scene.sceneNumber ?? index + 1 })}
@@ -148,9 +130,20 @@ function StoryContent({
   readonly draft: string
   readonly onDraftChange: (value: string) => void
 }) {
+  if (data.projectId) {
+    return (
+      <StoryDetail
+        projectId={data.projectId}
+        storyText={data.body}
+        episodeName={data.episodeName}
+        variant="node"
+      />
+    )
+  }
+
   return (
     <textarea
-      className="nodrag nowheel h-[116px] w-full resize-none rounded-md border border-[var(--glass-stroke-base)] bg-white px-3 py-3 text-sm leading-6 text-[var(--glass-text-secondary)] outline-none transition focus:border-[#2f6fed]/50"
+      className="nodrag nowheel h-[116px] w-full resize-none rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-[var(--glass-text-secondary)] outline-none transition focus:border-slate-400"
       value={draft}
       placeholder={data.body || data.title}
       onChange={(event) => onDraftChange(event.target.value)}
@@ -233,7 +226,7 @@ function ShotContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode[
 
 function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data'] }) {
   return (
-    <div className="h-[118px] overflow-hidden rounded-md border border-black/10 bg-[#f8fafc]">
+    <div className="h-[118px] overflow-hidden rounded-[18px] border border-slate-200 bg-slate-100">
       {data.previewImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -264,7 +257,7 @@ function ImageContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode
           {details.candidateImages.length > 0 ? renderSection(labels('candidateImages'), (
             <div className="grid grid-cols-3 gap-1.5">
               {details.candidateImages.map((url, index) => (
-                <div key={url} className="overflow-hidden rounded border border-black/10 bg-white">
+                <div key={url} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt={labels('candidateImageAlt', { index: index + 1 })} className="h-12 w-full object-cover" />
                 </div>
@@ -361,48 +354,49 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
   const hasTarget = data.kind !== 'storyInput'
   const hasSource = data.kind !== 'finalTimeline'
   const action = data.action
-  const detailNodeId = data.nodeId
+  const detailNodeId = data.kind === 'storyInput' ? null : data.nodeId
 
   useEffect(() => {
     setStoryDraft(data.body)
   }, [data.body])
 
   return (
-    <article
-      className={`h-full overflow-hidden rounded-lg border bg-white shadow-[0_14px_36px_rgba(15,23,42,0.08)] ${toneClassName(data.kind)}`}
-    >
-      {hasTarget ? <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-white !bg-[#475569]" /> : null}
-      {hasSource ? <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-white !bg-[#475569]" /> : null}
+    <article className="h-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/92 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      {hasTarget ? <Handle type="target" position={Position.Left} className="!h-3.5 !w-3.5 !border-2 !border-white !bg-slate-500 !shadow-sm" /> : null}
+      {hasSource ? <Handle type="source" position={Position.Right} className="!h-3.5 !w-3.5 !border-2 !border-white !bg-slate-500 !shadow-sm" /> : null}
 
-      <header className="flex items-start justify-between gap-3 border-b border-black/5 px-4 py-3">
+      <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--glass-text-tertiary)]">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-[11px] bg-slate-100 text-[var(--glass-text-secondary)]">
+              <AppIcon name={nodeIconName(data.kind)} className="h-4 w-4" />
+            </span>
             {data.indexLabel ? (
-              <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-semibold text-white ${badgeClassName(data.kind)}`}>
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 px-2 text-[11px] font-semibold text-[var(--glass-text-secondary)]">
                 {data.indexLabel}
               </span>
             ) : null}
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--glass-text-tertiary)]">
+            <p className="truncate">
               {data.eyebrow}
             </p>
           </div>
-          <h2 className="mt-1 truncate text-[15px] font-semibold text-[var(--glass-text-primary)]">{data.title}</h2>
+          <h2 className="mt-2 truncate text-xl font-semibold tracking-tight text-[var(--glass-text-primary)]">{data.title}</h2>
         </div>
-        <span className="shrink-0 rounded-full border border-black/10 bg-white px-2 py-1 text-[11px] font-medium text-[var(--glass-text-secondary)]">
+        <span className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-[var(--glass-text-secondary)]">
           {data.statusLabel}
         </span>
       </header>
 
-      <div className="space-y-3 px-4 py-4">
+      <div className="space-y-4 px-5 py-5">
         <NodeContent data={data} draft={storyDraft} setDraft={setStoryDraft} labels={labels} />
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <p className="min-w-0 truncate text-xs text-[var(--glass-text-tertiary)]">{data.meta}</p>
           <div className="flex shrink-0 items-center gap-1.5">
             {detailNodeId && data.kind !== 'analysis' ? (
               <button
                 type="button"
-                className="nodrag inline-flex items-center gap-1.5 rounded-md border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--glass-text-secondary)] shadow-sm transition hover:bg-[#f8fafc]"
+                className="nodrag inline-flex items-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[var(--glass-text-secondary)] shadow-sm transition hover:bg-slate-50"
                 onClick={() => data.onAction?.({ type: 'open_details', nodeId: detailNodeId })}
               >
                 <AppIcon name="edit" className="h-3.5 w-3.5" />
@@ -412,7 +406,7 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
             {action && data.actionLabel ? (
               <button
                 type="button"
-                className="nodrag inline-flex items-center gap-1.5 rounded-md bg-[#111827] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0f172a]"
+                className="nodrag inline-flex items-center gap-1.5 rounded-[14px] bg-slate-950 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-900"
                 onClick={() => data.onAction?.(action)}
               >
                 <AppIcon name="arrowRight" className="h-3.5 w-3.5" />

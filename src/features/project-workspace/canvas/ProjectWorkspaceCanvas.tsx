@@ -33,7 +33,7 @@ import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
 import CanvasObjectDetailLayer from './details/CanvasObjectDetailLayer'
 import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
 
-const DEFAULT_VIEWPORT = { x: 48, y: 96, zoom: 0.72 }
+const DEFAULT_VIEWPORT = { x: 24, y: 136, zoom: 0.82 }
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 112
 
@@ -146,7 +146,9 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   }, [runNodeAction])
 
   const projection = useWorkspaceNodeCanvasProjection({
+    projectId,
     episodeId: episodeId ?? 'pending-episode',
+    episodeName,
     storyText: novelText,
     clips,
     storyboards,
@@ -213,14 +215,16 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   }, [])
 
   const handleNodeClick = useCallback<NodeMouseHandler<WorkspaceCanvasFlowNode>>((_event, node) => {
-    if (node.data.kind === 'analysis') return
+    if (node.data.kind === 'analysis' || node.data.kind === 'storyInput') return
     setSelectedNodeId(node.id)
   }, [])
 
   const resetLayout = useCallback(() => {
     if (!episodeId) return
     const defaultProjection = buildWorkspaceNodeCanvasProjection({
+      projectId,
       episodeId,
+      episodeName,
       storyText: novelText,
       clips,
       storyboards,
@@ -232,7 +236,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     setNodes([...defaultProjection.nodes])
     void reactFlow.setViewport(DEFAULT_VIEWPORT)
     void resetSavedLayout()
-  }, [clips, episodeId, novelText, onNodeAction, reactFlow, resetSavedLayout, shots, storyboards, t])
+  }, [clips, episodeId, episodeName, novelText, onNodeAction, projectId, reactFlow, resetSavedLayout, shots, storyboards, t])
 
   const fitView = useCallback(() => {
     void reactFlow.fitView({ padding: 0.14, duration: 180 })
@@ -266,7 +270,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   if (!episodeId) return null
 
   return (
-    <div className="h-[calc(100dvh-6rem)] min-h-0 w-full overflow-hidden bg-[var(--glass-bg-canvas)]">
+    <div className="h-[100dvh] min-h-0 w-full overflow-hidden bg-[var(--glass-bg-canvas)]">
       <div className="h-full">
         <ReactFlow
           nodes={nodes}
@@ -280,8 +284,6 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
           nodesDraggable
           nodesConnectable={false}
           elementsSelectable
-          fitView
-          fitViewOptions={{ padding: 0.14 }}
           minZoom={0.25}
           maxZoom={1.25}
           defaultViewport={DEFAULT_VIEWPORT}
@@ -292,18 +294,19 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
             pannable
             zoomable
             position="bottom-left"
-            bgColor="var(--glass-bg-canvas)"
-            maskColor="rgba(255,255,255,0.34)"
-            maskStrokeColor="rgba(15,23,42,0.28)"
-            nodeColor="rgba(59,130,246,0.72)"
-            nodeStrokeColor="rgba(15,23,42,0.24)"
+            bgColor="transparent"
+            maskColor="transparent"
+            maskStrokeColor="rgba(100,116,139,0.42)"
+            nodeColor="rgba(148,163,184,0.7)"
+            nodeStrokeColor="rgba(71,85,105,0.46)"
+            nodeBorderRadius={10}
             offsetScale={0}
-            className="!z-[60] !m-0 !overflow-hidden !rounded-lg !border !border-[var(--glass-stroke-base)] !bg-[var(--glass-bg-canvas)] !shadow-lg"
+            className="!z-[60] !m-0 !overflow-hidden !rounded-lg !border !border-[var(--glass-stroke-base)] !bg-transparent !shadow-lg"
             style={{
               left: 16,
               bottom: CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX + 72,
               width: 180,
-              height: 112,
+              height: 96,
             }}
           />
           <Panel
@@ -332,8 +335,6 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
         selectedNode={selectedNode}
         clips={clips}
         storyboards={storyboards}
-        storyText={novelText}
-        episodeName={episodeName}
         onClose={() => setSelectedNodeId(null)}
       />
     </div>

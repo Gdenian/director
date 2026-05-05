@@ -19,14 +19,14 @@ import type {
   WorkspaceCanvasVideoDetails,
 } from '../node-canvas-types'
 
-const STORY_NODE_WIDTH = 360
+const STORY_NODE_WIDTH = 820
 const DEFAULT_NODE_WIDTH = 320
 const MEDIA_NODE_WIDTH = 300
 const FINAL_NODE_WIDTH = 340
 const DEFAULT_NODE_HEIGHT = 214
-const MEDIA_NODE_HEIGHT = 234
-const STORY_NODE_HEIGHT = 260
-const COLUMN_GAP = 430
+const STORY_NODE_HEIGHT = 440
+const STORY_COLUMN_X = 260
+const COLUMN_GAP = 940
 const ROW_GAP = 248
 
 interface TranslateValues {
@@ -36,7 +36,9 @@ interface TranslateValues {
 type Translate = (key: string, values?: TranslateValues) => string
 
 export interface BuildWorkspaceNodeCanvasProjectionInput {
+  readonly projectId?: string
   readonly episodeId: string
+  readonly episodeName?: string
   readonly storyText: string
   readonly clips: readonly ProjectClip[]
   readonly storyboards: readonly ProjectStoryboard[]
@@ -403,7 +405,9 @@ function panelDisplayNumber(panel: ProjectPanel): string {
 }
 
 export function buildWorkspaceNodeCanvasProjection({
+  projectId,
   episodeId,
+  episodeName,
   storyText,
   clips,
   storyboards,
@@ -421,12 +425,14 @@ export function buildWorkspaceNodeCanvasProjection({
   const storyNodeId = `story:${episodeId}`
   nodes.push(createNode({
     id: storyNodeId,
-    fallbackX: 40,
-    fallbackY: 260,
+    fallbackX: STORY_COLUMN_X,
+    fallbackY: 24,
     zIndex: zIndex++,
     savedLayoutByKey,
     data: {
       kind: 'storyInput',
+      projectId,
+      episodeName,
       layoutNodeType: 'story',
       targetType: 'episode',
       targetId: episodeId,
@@ -437,8 +443,6 @@ export function buildWorkspaceNodeCanvasProjection({
       statusLabel: storyBody ? translate('status.ready') : translate('status.empty'),
       width: STORY_NODE_WIDTH,
       height: STORY_NODE_HEIGHT,
-      actionLabel: storyBody ? translate('actions.generateScript') : undefined,
-      action: storyBody ? { type: 'generate_script' } : undefined,
       onAction,
     },
   }))
@@ -448,8 +452,8 @@ export function buildWorkspaceNodeCanvasProjection({
   if (hasStory) {
     nodes.push(createNode({
       id: analysisNodeId,
-      fallbackX: 40 + COLUMN_GAP,
-      fallbackY: 260,
+      fallbackX: STORY_COLUMN_X + COLUMN_GAP,
+      fallbackY: 180,
       zIndex: zIndex++,
       savedLayoutByKey,
       data: {
@@ -481,7 +485,7 @@ export function buildWorkspaceNodeCanvasProjection({
     clipNodeIds.set(clip.id, nodeId)
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: 40 + COLUMN_GAP * 2,
+      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 2,
       fallbackY: 80 + index * ROW_GAP,
       zIndex: zIndex++,
       savedLayoutByKey,
@@ -517,7 +521,7 @@ export function buildWorkspaceNodeCanvasProjection({
     shotNodeIds.set(panel.id, nodeId)
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: 40 + COLUMN_GAP * 3,
+      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 3,
       fallbackY: 24 + index * ROW_GAP,
       zIndex: zIndex++,
       savedLayoutByKey,
@@ -561,7 +565,7 @@ export function buildWorkspaceNodeCanvasProjection({
       const nodeId = `image:${panel.id}`
       nodes.push(createNode({
         id: nodeId,
-        fallbackX: 40 + COLUMN_GAP * 4,
+        fallbackX: STORY_COLUMN_X + COLUMN_GAP * 4,
         fallbackY: 40 + index * ROW_GAP,
         zIndex: zIndex++,
         savedLayoutByKey,
@@ -594,7 +598,7 @@ export function buildWorkspaceNodeCanvasProjection({
       const videoSource = hasImage(panel) ? imageNodeId : source
       nodes.push(createNode({
         id: nodeId,
-        fallbackX: 40 + COLUMN_GAP * 5,
+        fallbackX: STORY_COLUMN_X + COLUMN_GAP * 5,
         fallbackY: 70 + index * ROW_GAP,
         zIndex: zIndex++,
         savedLayoutByKey,
@@ -636,7 +640,7 @@ export function buildWorkspaceNodeCanvasProjection({
     const imageCount = panelsWithStoryboard.filter((item) => hasImage(item.panel)).length
     nodes.push(createNode({
       id: finalNodeId,
-      fallbackX: 40 + COLUMN_GAP * 6,
+      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 6,
       fallbackY: 260,
       zIndex: zIndex++,
       savedLayoutByKey,
@@ -672,18 +676,42 @@ export function buildWorkspaceNodeCanvasProjection({
   return { nodes, edges }
 }
 
-export function useWorkspaceNodeCanvasProjection(input: BuildWorkspaceNodeCanvasProjectionInput): WorkspaceCanvasProjection {
+export function useWorkspaceNodeCanvasProjection({
+  projectId,
+  episodeId,
+  episodeName,
+  storyText,
+  clips,
+  storyboards,
+  shots,
+  savedLayouts,
+  translate,
+  onAction,
+}: BuildWorkspaceNodeCanvasProjectionInput): WorkspaceCanvasProjection {
   return useMemo(
-    () => buildWorkspaceNodeCanvasProjection(input),
+    () => buildWorkspaceNodeCanvasProjection({
+      projectId,
+      episodeId,
+      episodeName,
+      storyText,
+      clips,
+      storyboards,
+      shots,
+      savedLayouts,
+      translate,
+      onAction,
+    }),
     [
-      input.clips,
-      input.episodeId,
-      input.onAction,
-      input.savedLayouts,
-      input.shots,
-      input.storyText,
-      input.storyboards,
-      input.translate,
+      clips,
+      episodeId,
+      episodeName,
+      onAction,
+      projectId,
+      savedLayouts,
+      shots,
+      storyText,
+      storyboards,
+      translate,
     ],
   )
 }

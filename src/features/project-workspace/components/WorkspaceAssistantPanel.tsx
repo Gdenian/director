@@ -7,8 +7,6 @@ import {
   ComposerPrimitive,
   ThreadPrimitive,
 } from '@assistant-ui/react'
-import { AppIcon } from '@/components/ui/icons'
-import { useProjectContext } from '@/lib/query/hooks'
 import {
   ConfirmationActionCard,
   useWorkspaceAssistantMessagePartComponents,
@@ -81,9 +79,6 @@ export default function WorkspaceAssistantPanel({
   const layout = buildWorkspaceAssistantPanelLayout(isCollapsed)
   const [interactionMode, setInteractionMode] = useState<'auto' | 'plan' | 'fast'>('auto')
   const [rawContextOpen, setRawContextOpen] = useState(false)
-  const { data: projectContext } = useProjectContext(projectId, {
-    episodeId,
-  })
   const assistantRuntime = useWorkspaceAssistantRuntime({
     projectId,
     episodeId,
@@ -217,7 +212,6 @@ export default function WorkspaceAssistantPanel({
     onCancelOperation: handleCancelOperation,
     confirmationSubmittingKey,
   })
-  const contextSummary = `${projectContext?.episodeName || episodeId || t('cards.globalScope')} · ${t('panel.workspaceStatus')} · ${t('panel.runs', { count: projectContext?.activePlanRuns.length || 0 })}`
   const statusText = assistantRuntime.syncError
     || assistantRuntime.storageError
     || assistantRuntime.error?.message
@@ -256,7 +250,7 @@ export default function WorkspaceAssistantPanel({
       data-state={layout.state}
     >
       <div
-        className="pointer-events-auto fixed right-0 z-20 overflow-hidden rounded-l-3xl border border-r-0 border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/95 shadow-xl backdrop-blur-md transition-[width] duration-300 ease-out"
+        className="pointer-events-auto fixed right-4 z-20 overflow-hidden rounded-[34px] border border-white/80 bg-white/82 shadow-[0_34px_100px_rgba(15,23,42,0.2)] ring-1 ring-[var(--glass-stroke-base)]/70 backdrop-blur-2xl transition-[width] duration-300 ease-out"
         style={{
           top: WORKSPACE_ASSISTANT_TOP_OFFSET,
           width: `${layout.panelWidthPx}px`,
@@ -269,13 +263,10 @@ export default function WorkspaceAssistantPanel({
           aria-hidden={isCollapsed}
         >
           <AssistantRuntimeProvider runtime={assistantRuntime.runtime}>
-            <ThreadPrimitive.Root className="flex h-full min-h-0 flex-col">
+            <ThreadPrimitive.Root className="relative flex h-full min-h-0 flex-col">
               <WorkspaceAssistantPanelHeader
                 eyebrow={t('panel.eyebrow')}
                 title={t('panel.title')}
-                episodeLabel={projectContext?.episodeName || episodeId || t('cards.globalScope')}
-                workspaceLabel={t('panel.workspaceStatus')}
-                runLabel={t('panel.runs', { count: projectContext?.activePlanRuns.length || 0 })}
                 rawContextLabel={t('panel.rawContext')}
                 downloadLabel={t('panel.downloadLog')}
                 downloadHref={downloadHref}
@@ -311,39 +302,11 @@ export default function WorkspaceAssistantPanel({
 
             <ThreadPrimitive.Viewport
               autoScroll
-              className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0))] px-4 py-4"
+              className="flex-1 overflow-y-auto px-5 pb-44 pt-2"
             >
-              {assistantRuntime.messageCount === 0 ? (
-                <div className="mb-3 rounded-2xl bg-[var(--glass-bg-muted)]/70 px-3 py-4 text-sm text-[var(--glass-text-secondary)]">
-                  {t('panel.empty')}
-                </div>
-              ) : null}
-
               <div className="space-y-3">
-                <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[rgba(255,255,255,0.72)] px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--glass-text-tertiary)]">
-                        {t('panel.executionTraceTitle')}
-                      </div>
-                      <div className="mt-1 text-sm font-medium text-[var(--glass-text-primary)]">
-                        {assistantRuntime.pending ? t('panel.executionTraceRunning') : t('panel.executionTraceIdle')}
-                      </div>
-                    </div>
-                    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
-                      assistantRuntime.pending
-                        ? 'border-[rgba(59,130,246,0.26)] bg-[rgba(59,130,246,0.1)] text-[var(--glass-accent-from)]'
-                        : 'border-[var(--glass-stroke-base)] bg-[rgba(255,255,255,0.9)] text-[var(--glass-text-secondary)]'
-                    }`}
-                    >
-                      <AppIcon name="cpu" className={`h-3.5 w-3.5 ${assistantRuntime.pending ? 'animate-pulse' : ''}`} />
-                      <span>{statusText}</span>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-[var(--glass-text-secondary)]">{contextSummary}</p>
-                </div>
                 {pendingActionItems.length > 0 ? (
-                  <div className="rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)]/80 p-3">
+                  <div className="rounded-[22px] border border-[var(--glass-stroke-base)] bg-white/82 p-3 shadow-[0_12px_34px_rgba(15,23,42,0.06)]">
                     <div className="mb-3 text-sm font-medium text-[var(--glass-text-primary)]">
                       {t('panel.pendingActionsTitle')}
                     </div>
@@ -354,7 +317,7 @@ export default function WorkspaceAssistantPanel({
                           type="button"
                           className={
                             effectiveSelectedPendingActionKey === item.key
-                              ? 'rounded-full bg-[var(--glass-accent-from)] px-3 py-1.5 text-xs font-medium text-white'
+                              ? 'rounded-full bg-[var(--glass-text-primary)] px-3 py-1.5 text-xs font-medium text-white'
                               : 'rounded-full border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] px-3 py-1.5 text-xs text-[var(--glass-text-secondary)]'
                           }
                           onClick={() => setSelectedPendingActionKey(item.key)}
@@ -385,11 +348,11 @@ export default function WorkspaceAssistantPanel({
               </div>
             </ThreadPrimitive.Viewport>
 
-            <div className="border-t border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)]/95 px-4 py-4">
+            <div className="absolute inset-x-4 bottom-4 rounded-[26px] bg-white/92 p-3 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl">
               <ComposerPrimitive.Root>
                 <ComposerPrimitive.Input
                   placeholder={t('panel.composerPlaceholder')}
-                  className="min-h-20 w-full rounded-2xl border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)] px-3 py-3 text-sm text-[var(--glass-text-primary)] outline-none"
+                  className="min-h-20 w-full resize-none rounded-[18px] bg-[var(--glass-bg-muted)] px-4 py-3 text-sm leading-6 text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)]"
                 />
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -403,16 +366,16 @@ export default function WorkspaceAssistantPanel({
                       className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-2 text-xs ${
                         assistantRuntime.error
                           ? 'border-[rgba(239,68,68,0.22)] bg-[rgba(239,68,68,0.08)] text-[rgba(239,68,68,0.92)]'
-                          : assistantRuntime.pending
-                            ? 'border-[rgba(59,130,246,0.22)] bg-[rgba(59,130,246,0.08)] text-[var(--glass-tone-info-fg)]'
-                            : 'border-[rgba(34,197,94,0.22)] bg-[rgba(240,253,244,0.85)] text-[var(--glass-tone-success-fg)]'
+                        : assistantRuntime.pending
+                            ? 'border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)] text-[var(--glass-text-secondary)]'
+                            : 'border-[var(--glass-stroke-base)] bg-[var(--glass-bg-muted)] text-[var(--glass-text-secondary)]'
                       }`}
                     >
-                      <span className={`h-2 w-2 rounded-full ${assistantRuntime.pending ? 'bg-[var(--glass-tone-info-fg)]' : 'bg-[var(--glass-tone-success-fg)]'}`} />
+                      <span className={`h-2 w-2 rounded-full bg-[var(--glass-text-secondary)] ${assistantRuntime.pending ? 'animate-pulse' : ''}`} />
                       <span className="truncate">{statusText}</span>
                     </div>
                   </div>
-                  <ComposerPrimitive.Send className="rounded-xl bg-[var(--glass-accent-from)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+                  <ComposerPrimitive.Send className="rounded-[16px] bg-[var(--glass-text-primary)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
                     {assistantRuntime.pending ? t('panel.sending') : t('panel.send')}
                   </ComposerPrimitive.Send>
                 </div>

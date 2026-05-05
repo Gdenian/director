@@ -17,6 +17,7 @@ interface StoryInputComposerStylePresetOption {
 }
 
 interface StoryInputComposerProps {
+  variant?: 'surface' | 'plain'
   value: string
   onValueChange: (value: string) => void
   placeholder: string
@@ -40,9 +41,13 @@ interface StoryInputComposerProps {
   onCompositionStart?: () => void
   onCompositionEnd?: (event: CompositionEvent<HTMLTextAreaElement>) => void
   textareaClassName?: string
+  textareaShellClassName?: string
+  controlsClassName?: string
+  footerClassName?: string
 }
 
 export default function StoryInputComposer({
+  variant = 'surface',
   value,
   onValueChange,
   placeholder,
@@ -66,6 +71,9 @@ export default function StoryInputComposer({
   onCompositionStart,
   onCompositionEnd,
   textareaClassName,
+  textareaShellClassName,
+  controlsClassName,
+  footerClassName,
 }: StoryInputComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textareaMinHeightRef = useRef<number | null>(null)
@@ -107,9 +115,29 @@ export default function StoryInputComposer({
     autoResizeTextarea()
   }, [value, autoResizeTextarea])
 
+  const isPlain = variant === 'plain'
+  const containerClassName = isPlain
+    ? 'relative w-full'
+    : 'relative w-full glass-surface-elevated rounded-2xl'
+  const textareaShell = textareaShellClassName ?? (isPlain ? '' : 'p-6 pb-4')
+  const textareaClass = textareaClassName ?? (
+    isPlain
+      ? 'min-h-[220px] rounded-lg border border-[var(--glass-stroke-base)] bg-white px-4 py-4 text-sm leading-6'
+      : 'p-5 pb-3'
+  )
+  const controlsClass = controlsClassName ?? (
+    isPlain
+      ? 'mt-3 flex items-center gap-2 overflow-x-auto'
+      : 'flex items-center gap-2 overflow-x-auto px-5 pb-4'
+  )
+  const footerClass = footerClassName ?? (isPlain ? 'mt-2' : 'px-6 pb-4')
+  const textareaBaseClassName = isPlain
+    ? 'w-full resize-none text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)] app-scrollbar'
+    : 'w-full resize-none border-none bg-transparent text-base text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)] app-scrollbar'
+
   return (
-    <div className="relative w-full glass-surface-elevated rounded-2xl">
-      <div className="p-6 pb-4">
+    <div className={containerClassName}>
+      <div className={textareaShell}>
         {topRight && (
           <div className="mb-3 flex items-center justify-end">
             {topRight}
@@ -125,11 +153,11 @@ export default function StoryInputComposer({
           placeholder={placeholder}
           rows={minRows}
           disabled={disabled}
-          className={`w-full resize-none border-none bg-transparent text-base text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)] app-scrollbar ${textareaClassName ?? 'p-5 pb-3'}`}
+          className={`${textareaBaseClassName} ${textareaClass}`}
         />
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto px-5 pb-4">
+      <div className={controlsClass}>
         <div className="flex min-w-max flex-1 items-center gap-2">
           <div className="w-[118px] flex-shrink-0">
             <RatioSelector
@@ -163,7 +191,7 @@ export default function StoryInputComposer({
       </div>
 
       {footer && (
-        <div className="px-6 pb-4">
+        <div className={footerClass}>
           {footer}
         </div>
       )}

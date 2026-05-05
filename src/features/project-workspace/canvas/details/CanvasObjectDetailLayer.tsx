@@ -31,7 +31,6 @@ import FinalDetail from './FinalDetail'
 import ImageDetail from './ImageDetail'
 import ScriptClipDetail from './ScriptClipDetail'
 import ShotDetail from './ShotDetail'
-import StoryDetail from './StoryDetail'
 import VideoDetail from './VideoDetail'
 import {
   downloadBlob,
@@ -45,8 +44,6 @@ interface CanvasObjectDetailLayerProps {
   readonly selectedNode: WorkspaceCanvasFlowNode | null
   readonly clips: readonly ProjectClip[]
   readonly storyboards: readonly ProjectStoryboard[]
-  readonly storyText: string
-  readonly episodeName?: string
   readonly onClose: () => void
 }
 
@@ -62,8 +59,6 @@ export default function CanvasObjectDetailLayer({
   selectedNode,
   clips,
   storyboards,
-  storyText,
-  episodeName,
   onClose,
 }: CanvasObjectDetailLayerProps) {
   const t = useTranslations('projectWorkflow.canvas.workspace.detail')
@@ -94,7 +89,7 @@ export default function CanvasObjectDetailLayer({
     : null
   const tone = selectedNode ? resolveTone(selectedNode.data.kind) : 'story'
 
-  if (!selectedNode || selectedNode.data.kind === 'analysis') return null
+  if (!selectedNode || selectedNode.data.kind === 'analysis' || selectedNode.data.kind === 'storyInput') return null
 
   const refreshAll = async () => {
     await Promise.all([
@@ -228,16 +223,6 @@ export default function CanvasObjectDetailLayer({
   }
 
   const content = (() => {
-    if (selectedNode.data.kind === 'storyInput') {
-      return (
-        <StoryDetail
-          projectId={projectId}
-          storyText={storyText}
-          episodeName={episodeName}
-        />
-      )
-    }
-
     if (selectedNode.data.kind === 'scriptClip' && clip) {
       return (
         <ScriptClipDetail

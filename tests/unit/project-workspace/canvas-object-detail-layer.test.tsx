@@ -171,17 +171,19 @@ function createClip(): ProjectClip {
 }
 
 function createNode(
-  kind: 'scriptClip' | 'shot' | 'imageAsset' | 'videoClip' | 'finalTimeline',
+  kind: 'storyInput' | 'scriptClip' | 'shot' | 'imageAsset' | 'videoClip' | 'finalTimeline',
   targetType: WorkspaceCanvasFlowNode['data']['targetType'],
   targetId: string,
 ): WorkspaceCanvasFlowNode {
+  const layoutNodeType = kind === 'storyInput' ? 'story' : kind
+
   return {
     id: `${kind}:${targetId}`,
     type: 'workspaceNode',
     position: { x: 0, y: 0 },
     data: {
       kind,
-      layoutNodeType: kind,
+      layoutNodeType,
       targetType,
       targetId,
       title: `${kind} title`,
@@ -202,13 +204,18 @@ function renderDetail(selectedNode: WorkspaceCanvasFlowNode): string {
       selectedNode={selectedNode}
       clips={[createClip()]}
       storyboards={[createStoryboard(panel)]}
-      storyText="原始故事"
       onClose={() => undefined}
     />,
   )
 }
 
 describe('canvas object detail layer', () => {
+  it('does not render a detail layer for story input nodes', () => {
+    const html = renderDetail(createNode('storyInput', 'episode', 'episode-1'))
+
+    expect(html).toBe('')
+  })
+
   it('renders script details with editable screenplay, raw clip, and asset fields', () => {
     const html = renderDetail(createNode('scriptClip', 'clip', 'clip-1'))
 

@@ -122,6 +122,7 @@ describe('workspace node canvas projection', () => {
 
     expect(projection.nodes.map((node) => node.id)).toEqual(['story:episode-1'])
     expect(projection.edges).toEqual([])
+    expect(projection.nodes[0].data.action).toBeUndefined()
   })
 
   it('projects real story, clips, shots, image nodes, video nodes, and final timeline without mock data', () => {

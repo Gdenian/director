@@ -21,6 +21,7 @@ interface StoryDetailProps {
   readonly projectId: string
   readonly storyText: string
   readonly episodeName?: string
+  readonly variant?: 'panel' | 'node'
 }
 
 function encodePresetValue(value: { readonly presetSource: 'system' | 'user'; readonly presetId: string }): string {
@@ -33,7 +34,7 @@ function decodePresetValue(value: string): { readonly presetSource: 'system' | '
   return { presetSource, presetId }
 }
 
-export default function StoryDetail({ projectId, storyText, episodeName }: StoryDetailProps) {
+export default function StoryDetail({ projectId, storyText, episodeName, variant = 'panel' }: StoryDetailProps) {
   const t = useTranslations('projectWorkflow')
   const homeT = useTranslations('home.aiWrite')
   const locale = useLocale()
@@ -118,83 +119,100 @@ export default function StoryDetail({ projectId, storyText, episodeName }: Story
     })
   }
 
+  const isNodeVariant = variant === 'node'
+  const minRows = isNodeVariant ? 7 : 8
+  const maxHeightViewportRatio = isNodeVariant ? 0.24 : 0.42
+  const secondaryButtonClassName = isNodeVariant
+    ? 'glass-btn-base h-9 flex-shrink-0 px-3 text-xs'
+    : 'glass-btn-base h-10 flex-shrink-0 px-3 text-sm'
+  const primaryButtonClassName = isNodeVariant
+    ? 'glass-btn-base glass-btn-primary h-9 flex-shrink-0 px-4 text-xs disabled:opacity-50'
+    : 'glass-btn-base glass-btn-primary h-10 flex-shrink-0 px-5 text-sm disabled:opacity-50'
+
+  const composer = (
+    <StoryInputComposer
+      variant={isNodeVariant ? 'plain' : 'surface'}
+      value={draft}
+      onValueChange={(value) => { void saveStory(value) }}
+      placeholder={t('canvas.workspace.detail.empty.storyPlaceholder')}
+      minRows={minRows}
+      maxHeightViewportRatio={maxHeightViewportRatio}
+      disabled={isGeneratingScript}
+      videoRatio={runtime.videoRatio || '16:9'}
+      onVideoRatioChange={(value) => { void runtime.onVideoRatioChange(value) }}
+      ratioOptions={ratioOptions}
+      getRatioUsage={(ratio) => {
+        const key = ratio.replace(':', '_')
+        return t(`storyInput.ratioUsage.${key}`)
+      }}
+      artStyle={visualStyleValue}
+      onArtStyleChange={(value) => {
+        const ref = decodePresetValue(value)
+        if (!ref) return
+        void runtime.onVisualStylePresetChange(ref)
+      }}
+      styleOptions={visualStyleOptions}
+      stylePresetValue={directorStyleValue}
+      onStylePresetChange={(value) => {
+        const ref = decodePresetValue(value)
+        void runtime.onDirectorStylePresetRefChange(ref)
+      }}
+      stylePresetOptions={directorStyleOptions}
+      secondaryActions={(
+        <>
+          <button
+            type="button"
+            onClick={() => setAiWriteOpen(true)}
+            disabled={isGeneratingScript}
+            className={secondaryButtonClassName}
+          >
+            <AppIcon name="sparkles" className="h-4 w-4 text-[#7c3aed]" />
+            {t('canvas.workspace.detail.actions.aiWrite')}
+          </button>
+          <button
+            type="button"
+            onClick={() => { void runSmartSplit() }}
+            disabled={isGeneratingScript || splitProjectEpisodes.isPending || saveProjectEpisodesBatch.isPending || !draft.trim()}
+            className={`${secondaryButtonClassName} disabled:opacity-50`}
+          >
+            {t('canvas.workspace.detail.actions.smartSplit')}
+          </button>
+        </>
+      )}
+      primaryAction={(
+        <button
+          type="button"
+          onClick={() => { void runScriptGeneration() }}
+          disabled={!draft.trim() || isGeneratingScript}
+          className={primaryButtonClassName}
+        >
+          {isGeneratingScript ? t('storyInput.creating') : t('canvas.workspace.actions.generateScript')}
+          <AppIcon name="arrowRight" className="h-4 w-4" />
+        </button>
+      )}
+      footer={(
+        <p className="text-xs text-[var(--glass-text-tertiary)]">
+          {t('storyInput.currentConfigSummary', {
+            ratio: runtime.videoRatio || '16:9',
+            style: runtime.artStyle || ART_STYLES[0]?.label || '',
+          })}
+        </p>
+      )}
+    />
+  )
+
   return (
-    <div className="space-y-4">
+    <div className={isNodeVariant ? 'nodrag nowheel' : 'space-y-4'}>
+      {isNodeVariant ? composer : (
       <DetailSection title={t('canvas.workspace.detail.sections.storyInput')}>
         {episodeName ? (
           <p className="rounded-md bg-white px-3 py-2 text-xs text-[var(--glass-text-secondary)]">
             {t('storyInput.currentEditing', { name: episodeName })}
           </p>
         ) : null}
-        <StoryInputComposer
-          value={draft}
-          onValueChange={(value) => { void saveStory(value) }}
-          placeholder={t('canvas.workspace.detail.empty.storyPlaceholder')}
-          minRows={8}
-          maxHeightViewportRatio={0.42}
-          disabled={isGeneratingScript}
-          videoRatio={runtime.videoRatio || '16:9'}
-          onVideoRatioChange={(value) => { void runtime.onVideoRatioChange(value) }}
-          ratioOptions={ratioOptions}
-          getRatioUsage={(ratio) => {
-            const key = ratio.replace(':', '_')
-            return t(`storyInput.ratioUsage.${key}`)
-          }}
-          artStyle={visualStyleValue}
-          onArtStyleChange={(value) => {
-            const ref = decodePresetValue(value)
-            if (!ref) return
-            void runtime.onVisualStylePresetChange(ref)
-          }}
-          styleOptions={visualStyleOptions}
-          stylePresetValue={directorStyleValue}
-          onStylePresetChange={(value) => {
-            const ref = decodePresetValue(value)
-            void runtime.onDirectorStylePresetRefChange(ref)
-          }}
-          stylePresetOptions={directorStyleOptions}
-          secondaryActions={(
-            <>
-              <button
-                type="button"
-                onClick={() => setAiWriteOpen(true)}
-                disabled={isGeneratingScript}
-                className="glass-btn-base h-10 flex-shrink-0 px-3 text-sm"
-              >
-                <AppIcon name="sparkles" className="h-4 w-4 text-[#7c3aed]" />
-                {t('canvas.workspace.detail.actions.aiWrite')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { void runSmartSplit() }}
-                disabled={isGeneratingScript || splitProjectEpisodes.isPending || saveProjectEpisodesBatch.isPending || !draft.trim()}
-                className="glass-btn-base h-10 flex-shrink-0 px-3 text-sm disabled:opacity-50"
-              >
-                {t('canvas.workspace.detail.actions.smartSplit')}
-              </button>
-            </>
-          )}
-          primaryAction={(
-            <button
-              type="button"
-              onClick={() => { void runScriptGeneration() }}
-              disabled={!draft.trim() || isGeneratingScript}
-              className="glass-btn-base glass-btn-primary h-10 flex-shrink-0 px-5 text-sm disabled:opacity-50"
-            >
-              {isGeneratingScript ? t('storyInput.creating') : t('canvas.workspace.actions.generateScript')}
-              <AppIcon name="arrowRight" className="h-4 w-4" />
-            </button>
-          )}
-          footer={(
-            <p className="text-xs text-[var(--glass-text-tertiary)]">
-              {t('storyInput.currentConfigSummary', {
-                ratio: runtime.videoRatio || '16:9',
-                style: runtime.artStyle || ART_STYLES[0]?.label || '',
-              })}
-            </p>
-          )}
-        />
+        {composer}
       </DetailSection>
+      )}
       <AiWriteModal
         open={aiWriteOpen}
         loading={aiWriteLoading}
