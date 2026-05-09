@@ -90,12 +90,12 @@ const renderWithIntl = (node: ReactElement) => {
   )
 }
 
-describe('Navbar download logs entry', () => {
+describe('Navbar compact split navigation', () => {
   beforeEach(() => {
     useSessionMock.mockReset()
   })
 
-  it('renders the download logs entry on the far-right action group for signed-in users', () => {
+  it('keeps download logs available inside the signed-in settings surface', () => {
     Reflect.set(globalThis, 'React', React)
     useSessionMock.mockReturnValue({
       data: { user: { name: 'Earth' } },
@@ -108,6 +108,10 @@ describe('Navbar download logs entry', () => {
     expect(html).toContain('href="/home"')
     expect(html).toContain('href="/api/admin/download-logs"')
     expect(html).toContain('download=""')
+    expect(html).not.toContain('LanguageSwitcher')
+    expect(html).toContain('pointer-events-none fixed')
+    expect(html).toContain('glass-surface-nav')
+    expect(html).not.toContain('glass-nav sticky')
   })
 
   it('renders settings center dropdown targets for signed-in users', () => {
@@ -123,6 +127,7 @@ describe('Navbar download logs entry', () => {
     expect(html).toContain('href="/profile?section=apiConfig"')
     expect(html).toContain('href="/profile?section=stylePresets"')
     expect(html).toContain('href="/profile?section=billing"')
+    expect(html).toContain('检查更新')
     expect(html.indexOf('API 配置')).toBeLessThan(html.indexOf('我的风格'))
     expect(html.indexOf('我的风格')).toBeLessThan(html.indexOf('扣费记录'))
   })

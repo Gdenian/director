@@ -30,7 +30,7 @@ export default function Navbar() {
   const settingsMenuRef = useRef<HTMLDivElement>(null)
   const downloadLogsHref = '/api/admin/download-logs'
   const settingsMenuId = 'navbar-settings-menu'
-  const navControlClass = 'glass-selection-control flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-medium'
+  const navControlClass = 'glass-selection-control inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium'
 
   const settingsMenuItems: Array<{
     section: ProfileSection
@@ -130,67 +130,69 @@ export default function Navbar() {
           <span>{item.label}</span>
         </Link>
       ))}
+      <div className="my-2 h-px bg-[var(--glass-stroke-base)]" />
+      <div className="rounded-lg px-1 py-1">
+        <LanguageSwitcher />
+      </div>
+      <a
+        href={downloadLogsHref}
+        download
+        role="menuitem"
+        className="glass-selection-control group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium"
+        title={t('downloadLogs')}
+      >
+        <AppIcon name="download" className="h-4 w-4 transition-transform group-hover:scale-110" />
+        <span>{t('downloadLogs')}</span>
+      </a>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => void handleCheckUpdate()}
+        disabled={manualChecking}
+        className="glass-selection-control group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium disabled:opacity-50"
+      >
+        <AppIcon name="refresh" className={`h-4 w-4 transition-transform group-hover:scale-110 ${manualChecking ? 'animate-spin' : ''}`} />
+        <span>{tc('updateNotice.checkUpdate')}</span>
+      </button>
     </div>
   )
 
   return (
     <>
-      <nav className="glass-nav sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
+      <nav className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4">
+            <div className="pointer-events-auto flex h-[52px] items-center gap-2">
               <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group">
                 <Image
                   src="/logo-small.png?v=1"
                   alt={tc('appName')}
-                  width={80}
-                  height={80}
-                  className="object-contain transition-transform group-hover:scale-110"
+                  width={250}
+                  height={78}
+                  className="h-[78px] w-[250px] object-contain transition-transform group-hover:scale-105"
                 />
               </Link>
-              <button
-                type="button"
-                onClick={openModal}
-                disabled={!update}
-                className={`relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.02em] transition-all ${update
-                  ? 'border-[var(--glass-tone-warning-fg)]/40 bg-[linear-gradient(135deg,var(--glass-tone-warning-bg),var(--glass-bg-surface-strong))] text-[var(--glass-tone-warning-fg)] shadow-[0_8px_24px_-16px_rgba(245,158,11,0.9)] hover:brightness-105'
-                  : 'border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] text-[var(--glass-text-secondary)] hover:border-[var(--glass-stroke-focus)] hover:text-[var(--glass-text-primary)] disabled:cursor-default'
-                  }`}
-                aria-label={tc('updateNotice.openDialog')}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <AppIcon name="sparkles" className="h-3.5 w-3.5" />
-                  {tc('betaVersion', { version: currentVersion })}
-                  {update ? (
-                    <span className="relative inline-flex items-center">
-                      {shouldPulse ? <span className="absolute -inset-1.5 animate-ping rounded-full bg-[var(--glass-tone-warning-fg)] opacity-20" /> : null}
-                      <span className="relative inline-flex items-center gap-1 rounded-full bg-[var(--glass-tone-warning-fg)]/16 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em]">
-                        <AppIcon name="upload" className="h-3 w-3" />
-                        {tc('updateNotice.updateTag')}
-                      </span>
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCheckUpdate()}
-                disabled={manualChecking}
-                className="rounded-full p-1.5 text-[var(--glass-text-tertiary)] hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-secondary)] transition-colors disabled:opacity-40"
-                title={tc('updateNotice.checkUpdate')}
-              >
-                <AppIcon name="refresh" className={`h-3.5 w-3.5 ${manualChecking ? 'animate-spin' : ''}`} />
-              </button>
-              {checkMsg === 'upToDate' && !update && (
+              {update ? (
+                <button
+                  type="button"
+                  onClick={openModal}
+                  className="relative inline-flex items-center gap-1.5 rounded-full border border-[var(--glass-tone-warning-fg)]/40 bg-[linear-gradient(135deg,var(--glass-tone-warning-bg),var(--glass-bg-surface-strong))] px-2.5 py-1 text-[11px] font-semibold text-[var(--glass-tone-warning-fg)] shadow-[0_8px_24px_-16px_rgba(245,158,11,0.9)] transition-all hover:brightness-105"
+                  aria-label={tc('updateNotice.openDialog')}
+                >
+                  {shouldPulse ? <span className="absolute -inset-1 animate-ping rounded-full bg-[var(--glass-tone-warning-fg)] opacity-20" /> : null}
+                  <AppIcon name="upload" className="h-3.5 w-3.5" />
+                  {tc('updateNotice.updateTag')}
+                </button>
+              ) : checkMsg === 'upToDate' ? (
                 <span
-                  className="text-[11px] text-[var(--glass-tone-success-fg)] font-medium transition-opacity duration-1000"
+                  className="text-[11px] font-medium text-[var(--glass-tone-success-fg)] transition-opacity duration-1000"
                   style={{ opacity: checkMsgFading ? 0 : 1 }}
                 >
                   ✓ {tc('updateNotice.upToDate')}
                 </span>
-              )}
+              ) : null}
+              <span className="sr-only">{tc('betaVersion', { version: currentVersion })}</span>
             </div>
-            <div className="flex items-center space-x-6">
+            <div className="glass-surface-nav pointer-events-auto flex min-h-[52px] items-center gap-2 px-2 py-2">
               {status === 'loading' ? (
                 /* Session 加载中骨架屏 */
                 <div className="flex items-center space-x-4">
@@ -224,7 +226,7 @@ export default function Navbar() {
                       className={navControlClass}
                       title={t('profile')}
                     >
-                      <AppIcon name="userRoundCog" className="w-5 h-5" />
+                      <AppIcon name="settingsHexAlt" className="h-4 w-4" />
                       {t('profile')}
                       <AppIcon name="chevronDown" className={`h-3.5 w-3.5 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -239,18 +241,10 @@ export default function Navbar() {
                           {item.label}
                         </Link>
                       ))}
+                      <a href={downloadLogsHref} download>{t('downloadLogs')}</a>
+                      <span>{tc('updateNotice.checkUpdate')}</span>
                     </div>
                   ) : null}
-                  <LanguageSwitcher />
-                  <a
-                    href={downloadLogsHref}
-                    download
-                    className={navControlClass}
-                    title={t('downloadLogs')}
-                  >
-                    <AppIcon name="download" className="w-4 h-4" />
-                    {t('downloadLogs')}
-                  </a>
                 </>
 
               ) : (
@@ -271,9 +265,9 @@ export default function Navbar() {
                 </>
               )}
             </div>
-          </div>
         </div>
       </nav>
+      <div aria-hidden="true" className="h-16" />
       {update ? (
         <UpdateNoticeModal
           show={showModal}
