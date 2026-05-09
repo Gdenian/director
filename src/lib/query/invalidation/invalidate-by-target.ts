@@ -45,6 +45,7 @@ function invalidateProjectAssetLists(params: {
   queryClient: QueryClient
   projectId: string
   kind?: 'character' | 'location' | null
+  episodeId?: string | null
 }) {
   params.queryClient.invalidateQueries({ queryKey: queryKeys.assets.all('project', params.projectId) })
   if (params.kind === 'character') {
@@ -53,6 +54,9 @@ function invalidateProjectAssetLists(params: {
     params.queryClient.invalidateQueries({ queryKey: queryKeys.projectAssets.locations(params.projectId) })
   }
   params.queryClient.invalidateQueries({ queryKey: queryKeys.projectAssets.all(params.projectId) })
+  if (params.episodeId) {
+    params.queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(params.projectId, params.episodeId) })
+  }
 }
 
 export function invalidateByTarget(params: InvalidateByTargetParams) {
@@ -76,15 +80,29 @@ export function invalidateByTarget(params: InvalidateByTargetParams) {
   }
 
   if (params.targetType === 'CharacterAppearance' || params.targetType === 'ProjectCharacter') {
-    invalidateProjectAssetLists({ queryClient: params.queryClient, projectId: params.projectId, kind: 'character' })
+    invalidateProjectAssetLists({
+      queryClient: params.queryClient,
+      projectId: params.projectId,
+      kind: 'character',
+      episodeId: params.episodeId,
+    })
     return
   }
   if (params.targetType === 'LocationImage' || params.targetType === 'ProjectLocation') {
-    invalidateProjectAssetLists({ queryClient: params.queryClient, projectId: params.projectId, kind: 'location' })
+    invalidateProjectAssetLists({
+      queryClient: params.queryClient,
+      projectId: params.projectId,
+      kind: 'location',
+      episodeId: params.episodeId,
+    })
     return
   }
   if (params.targetType === 'ProjectAsset' || params.targetType === 'ProjectProp') {
-    invalidateProjectAssetLists({ queryClient: params.queryClient, projectId: params.projectId })
+    invalidateProjectAssetLists({
+      queryClient: params.queryClient,
+      projectId: params.projectId,
+      episodeId: params.episodeId,
+    })
     return
   }
   if (params.targetType === 'ProjectVoiceLine') {

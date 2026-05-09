@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { NextIntlClientProvider } from 'next-intl'
 import type { AbstractIntlMessages } from 'next-intl'
-import Navbar from '@/components/Navbar'
+import Navbar, { shouldCloseNavbarSettingsMenu } from '@/components/Navbar'
 
 const useSessionMock = vi.fn()
 vi.mock('next-auth/react', () => ({
@@ -157,5 +157,31 @@ describe('Navbar compact split navigation', () => {
 
     expect(html).not.toContain('下载日志')
     expect(html).not.toContain('/api/admin/download-logs')
+  })
+
+  it('can skip layout space reservation for full-screen canvas pages', () => {
+    Reflect.set(globalThis, 'React', React)
+    useSessionMock.mockReturnValue({
+      data: { user: { name: 'Earth' } },
+      status: 'authenticated',
+    })
+
+    const html = renderWithIntl(createElement(Navbar, { reserveLayoutSpace: false }))
+
+    expect(html).toContain('pointer-events-none fixed')
+    expect(html).not.toContain('class="h-16"')
+  })
+
+  it('closes the settings surface for blank page clicks outside the trigger and menu', () => {
+    const triggerTarget = {} as Node
+    const menuTarget = {} as Node
+    const pageTarget = {} as Node
+    const trigger = { contains: (target: Node | null) => target === triggerTarget }
+    const menu = { contains: (target: Node | null) => target === menuTarget }
+
+    expect(shouldCloseNavbarSettingsMenu(triggerTarget, trigger, menu)).toBe(false)
+    expect(shouldCloseNavbarSettingsMenu(menuTarget, trigger, menu)).toBe(false)
+    expect(shouldCloseNavbarSettingsMenu(pageTarget, trigger, menu)).toBe(true)
+    expect(shouldCloseNavbarSettingsMenu(null, trigger, menu)).toBe(false)
   })
 })

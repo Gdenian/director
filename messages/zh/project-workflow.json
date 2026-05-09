@@ -245,7 +245,8 @@
         "regenerateImage": "重新生成",
         "generateVideo": "生成视频",
         "generateAllVideos": "批量生成",
-        "generateEditAssets": "全部生成"
+        "generateEditAssets": "全部生成",
+        "generateEditAsset": "生成资产"
       },
       "status": {
         "empty": "待输入",
@@ -273,6 +274,8 @@
       },
       "nodeFields": {
         "openDetails": "详情",
+        "expandDetails": "展开",
+        "collapseDetails": "收起",
         "screenplay": "剧本",
         "originalClip": "原始片段",
         "scene": "场景 {index}",
@@ -323,10 +326,10 @@
         "totalDuration": "总时长",
         "videoOrder": "视频顺序",
         "editScriptMeta": "剪辑表信息",
+        "shotIndexHeader": "镜头",
         "shotIndex": "镜头 {index}",
         "charactersAndScene": "人物/场景",
         "sound": "声音",
-        "transition": "转场",
         "linkedShots": "关联镜头",
         "targetAsset": "资产 ID",
         "characterAsset": "需求人物",

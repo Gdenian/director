@@ -1,0 +1,128 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { aiDesign } from '@/lib/asset-utils/ai-design'
+import {
+  buildEditAssetDesignInstruction,
+  designEditAssetRequirements,
+} from '@/lib/edit-script/asset-design'
+import type { EditAssetRequirement, EditScriptShot } from '@/lib/edit-script/types'
+
+vi.mock('@/lib/asset-utils/ai-design', () => ({
+  aiDesign: vi.fn(),
+}))
+
+const aiDesignMock = vi.mocked(aiDesign)
+
+const shots: readonly EditScriptShot[] = [
+  {
+    shotNumber: 1,
+    durationSec: 8,
+    visualAction: '冷静研究员站在环形太空舱中控台前，红色状态灯缓慢闪烁。',
+    charactersAndScene: '冷静研究员 / 环形太空舱中控室',
+    camera: '对称远景，固定镜头',
+    videoPrompt: '冷静研究员站在环形太空舱中控室，对称远景固定镜头。',
+    sound: '低频舱体嗡鸣',
+  },
+]
+
+const requirements: readonly EditAssetRequirement[] = [
+  {
+    kind: 'character',
+    name: '冷静研究员',
+    description: '主要出镜人物，贯穿太空舱镜头。',
+    shotNumbers: [1],
+    status: 'pending',
+    targetId: null,
+    errorMessage: null,
+  },
+  {
+    kind: 'location',
+    name: '环形太空舱中控室',
+    description: '主要场景，研究员在此执行操作。',
+    shotNumbers: [1],
+    status: 'pending',
+    targetId: null,
+    errorMessage: null,
+  },
+]
+
+describe('edit script asset design', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('builds a structured asset design instruction from edit table shots', () => {
+    const instruction = buildEditAssetDesignInstruction({
+      userPrompt: '一分钟科幻短片',
+      requirement: requirements[0],
+      shots,
+    })
+
+    const parsed = JSON.parse(instruction) as {
+      readonly task: string
+      readonly asset: { readonly kind: string; readonly name: string }
+      readonly linkedShots: ReadonlyArray<{ readonly shotNumber: number; readonly visualAction: string }>
+    }
+    expect(parsed.task).toBe('design_edit_first_required_asset_for_image_generation')
+    expect(parsed.asset).toMatchObject({ kind: 'character', name: '冷静研究员' })
+    expect(parsed.linkedShots).toEqual([
+      expect.objectContaining({
+        shotNumber: 1,
+        visualAction: '冷静研究员站在环形太空舱中控台前，红色状态灯缓慢闪烁。',
+      }),
+    ])
+  })
+
+  it('uses existing character/create and location/create design prompts for final asset descriptions', async () => {
+    aiDesignMock
+      .mockResolvedValueOnce({
+        success: true,
+        prompt: '冷静研究员，约三十五岁，短发整齐，穿银灰色极简航天制服，黑色软底工作靴。',
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        prompt: '「环形太空舱中控室」广角镜头展示环形墙面、中控台和远处观察窗。',
+        availableSlots: ['中控台前方留出的站立位置'],
+      })
+
+    const designed = await designEditAssetRequirements({
+      userId: 'user-1',
+      projectId: 'project-1',
+      locale: 'zh',
+      analysisModel: 'analysis-model',
+      userPrompt: '一分钟科幻短片',
+      shots,
+      requirements,
+    })
+
+    expect(aiDesignMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      assetType: 'character',
+      analysisModel: 'analysis-model',
+      userInstruction: expect.stringContaining('"kind": "character"'),
+    }))
+    expect(aiDesignMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      assetType: 'location',
+      userInstruction: expect.stringContaining('"name": "环形太空舱中控室"'),
+    }))
+    expect(designed[0]?.description).toBe('冷静研究员，约三十五岁，短发整齐，穿银灰色极简航天制服，黑色软底工作靴。')
+    expect(designed[1]?.description).toContain('「环形太空舱中控室」广角镜头展示环形墙面、中控台和远处观察窗。')
+    expect(designed[1]?.description).toContain('可站位置：')
+    expect(designed[1]?.description).toContain('- 中控台前方留出的站立位置')
+  })
+
+  it('fails explicitly when the reused asset design prompt returns no usable prompt', async () => {
+    aiDesignMock.mockResolvedValueOnce({
+      success: false,
+      error: 'AI返回格式错误',
+    })
+
+    await expect(designEditAssetRequirements({
+      userId: 'user-1',
+      projectId: 'project-1',
+      locale: 'zh',
+      analysisModel: 'analysis-model',
+      userPrompt: '一分钟科幻短片',
+      shots,
+      requirements: [requirements[0]],
+    })).rejects.toThrow('EDIT_SCRIPT_ASSET_DESIGN_FAILED:character:冷静研究员:AI返回格式错误')
+  })
+})

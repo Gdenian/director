@@ -8,10 +8,6 @@ export function useWorkspaceNodeCanvasActions() {
   const runtime = useWorkspaceRuntime()
 
   return useCallback((action: WorkspaceCanvasNodeAction) => {
-    if (action.type === 'open_details') {
-      return
-    }
-
     if (action.type === 'update_story') {
       void runtime.onNovelTextChange(action.value)
       return
@@ -105,12 +101,25 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'generate_all_videos') {
-      void runtime.onGenerateAllVideos()
+      void runtime.onGenerateAllVideos({
+        videoModel: action.videoModel ?? '',
+        generationOptions: action.generationOptions,
+      })
       return
     }
 
     if (action.type === 'generate_edit_assets') {
       void runtime.onGenerateEditAssets(action.editScriptId)
+      return
+    }
+
+    if (action.type === 'generate_edit_asset') {
+      void runtime.onGenerateEditAssets(action.editScriptId, action.requirementId)
+      return
+    }
+
+    if (action.type === 'generate_edit_storyboard') {
+      void runtime.onGenerateEditStoryboard(action.editScriptId)
     }
   }, [runtime])
 }

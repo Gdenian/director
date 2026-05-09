@@ -53,7 +53,8 @@ export interface WorkspaceRuntimeValue {
     panelId?: string,
   ) => Promise<void>
   onGenerateAllVideos: (options?: BatchVideoGenerationParams) => Promise<void>
-  onGenerateEditAssets: (editScriptId: string) => Promise<void>
+  onGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
+  onGenerateEditStoryboard: (editScriptId: string) => Promise<void>
   onUpdateVideoPrompt: (
     storyboardId: string,
     panelIndex: number,

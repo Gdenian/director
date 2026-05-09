@@ -26,15 +26,26 @@ import type {
   WorkspaceCanvasVideoDetails,
 } from '../node-canvas-types'
 
-const STORY_NODE_WIDTH = 820
 const DEFAULT_NODE_WIDTH = 320
 const MEDIA_NODE_WIDTH = 300
 const FINAL_NODE_WIDTH = 340
 const DEFAULT_NODE_HEIGHT = 214
-const STORY_NODE_HEIGHT = 440
+const EDIT_SCRIPT_NODE_HEIGHT = 620
+const EDIT_ASSET_NODE_HEIGHT = 520
 const STORY_COLUMN_X = 260
 const COLUMN_GAP = 940
 const ROW_GAP = 248
+const EDIT_SCRIPT_TABLE_NODE_WIDTH = 1480
+const EDIT_ASSET_NODE_WIDTH = 420
+const EDIT_ASSET_GRID_COLUMNS = 4
+const EDIT_ASSET_GRID_GAP_X = 44
+const EDIT_ASSET_GRID_GAP_Y = 120
+const PANEL_GRID_COLUMNS = 5
+const PANEL_GRID_GAP_X = 44
+const SHOT_NODE_HEIGHT = 560
+const SHOT_GRID_ROW_GAP = 632
+const MEDIA_GRID_ROW_GAP = 462
+const PANEL_GRID_BASE_X = STORY_COLUMN_X + COLUMN_GAP * 2
 
 interface TranslateValues {
   readonly [key: string]: string | number
@@ -51,6 +62,7 @@ export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly storyboards: readonly ProjectStoryboard[]
   readonly shots?: readonly ProjectShot[]
   readonly editScript?: ProjectEditScript | null
+  readonly defaultVideoModel?: string | null
   readonly savedLayouts: readonly CanvasNodeLayout[]
   readonly translate: Translate
   readonly onAction?: WorkspaceCanvasNodeActionHandler
@@ -240,6 +252,13 @@ function createImageDetails(panel: ProjectPanel): WorkspaceCanvasImageDetails {
   }
 }
 
+function primaryPanelImageUrl(panel: ProjectPanel): string | null {
+  return panel.media?.url
+    ?? panel.imageUrl
+    ?? parseCandidateImages(panel.candidateImages).find((url) => !url.startsWith('PENDING:'))
+    ?? null
+}
+
 function createVideoDetails(panel: ProjectPanel): WorkspaceCanvasVideoDetails {
   return {
     videoPrompt: panel.videoPrompt,
@@ -308,6 +327,36 @@ function compactText(value: string | null | undefined, fallback: string): string
   return text.length > 220 ? `${text.slice(0, 220)}...` : text
 }
 
+function estimateWrappedLineCount(text: string | null | undefined, charactersPerLine: number): number {
+  const normalized = text?.trim()
+  if (!normalized) return 1
+  return normalized
+    .split(/\r?\n/)
+    .reduce((total, line) => total + Math.max(1, Math.ceil(line.trim().length / charactersPerLine)), 0)
+}
+
+function estimateEditScriptNodeHeight(editScript: ProjectEditScript): number {
+  if (editScript.shots.length <= 8) return EDIT_SCRIPT_NODE_HEIGHT
+  const rowHeightTotal = editScript.shots.reduce((total, shot) => {
+    const textLength = [
+      shot.visualAction,
+      shot.charactersAndScene,
+      shot.camera,
+      shot.videoPrompt,
+      shot.sound,
+    ].reduce((sum, value) => sum + (value?.trim().length ?? 0), 0)
+    return total + Math.max(110, 74 + Math.ceil(textLength / 120) * 22)
+  }, 0)
+  const summaryHeight = estimateWrappedLineCount(editScript.logline || editScript.userPrompt, 90) * 22
+  return 230 + summaryHeight + rowHeightTotal
+}
+
+function estimateEditAssetNodeHeight(asset: ProjectEditAssetRequirement): number {
+  return asset.status === 'pending' || asset.status === 'failed'
+    ? EDIT_ASSET_NODE_HEIGHT + 64
+    : EDIT_ASSET_NODE_HEIGHT
+}
+
 function sortPanels(panels: readonly ProjectPanel[]): ProjectPanel[] {
   return [...panels].sort((a, b) => {
     const aNumber = a.panelNumber ?? a.panelIndex
@@ -325,6 +374,21 @@ function sortedStoryboards(storyboards: readonly ProjectStoryboard[], clipOrder:
   })
 }
 
+function gridPosition(input: {
+  readonly index: number
+  readonly baseX: number
+  readonly baseY: number
+  readonly width: number
+  readonly rowGap: number
+}): { readonly x: number; readonly y: number } {
+  const column = input.index % PANEL_GRID_COLUMNS
+  const row = Math.floor(input.index / PANEL_GRID_COLUMNS)
+  return {
+    x: input.baseX + column * (input.width + PANEL_GRID_GAP_X),
+    y: input.baseY + row * input.rowGap,
+  }
+}
+
 function layoutStyle(width: number, height: number): CSSProperties {
   return { width, height }
 }
@@ -334,7 +398,9 @@ function resolvePosition(params: {
   readonly fallbackX: number
   readonly fallbackY: number
   readonly savedLayoutByKey: ReadonlyMap<string, CanvasNodeLayout>
+  readonly ignoreSavedLayout?: boolean
 }): { readonly x: number; readonly y: number } {
+  if (params.ignoreSavedLayout) return { x: params.fallbackX, y: params.fallbackY }
   const saved = params.savedLayoutByKey.get(params.nodeKey)
   if (!saved) return { x: params.fallbackX, y: params.fallbackY }
   return { x: saved.x, y: saved.y }
@@ -347,12 +413,14 @@ function createNode(params: {
   readonly zIndex: number
   readonly data: WorkspaceCanvasNodeData
   readonly savedLayoutByKey: ReadonlyMap<string, CanvasNodeLayout>
+  readonly ignoreSavedLayout?: boolean
 }): WorkspaceCanvasFlowNode {
   const position = resolvePosition({
     nodeKey: params.id,
     fallbackX: params.fallbackX,
     fallbackY: params.fallbackY,
     savedLayoutByKey: params.savedLayoutByKey,
+    ignoreSavedLayout: params.ignoreSavedLayout,
   })
 
   return {
@@ -408,6 +476,18 @@ function hasVideo(panel: ProjectPanel): boolean {
   )
 }
 
+function hasGeneratedVideo(panel: ProjectPanel): boolean {
+  return Boolean(panel.videoUrl || panel.videoMedia?.url)
+}
+
+function canGenerateVideo(panel: ProjectPanel): boolean {
+  return Boolean((panel.imageUrl || panel.media?.url) && !panel.videoTaskRunning)
+}
+
+function shouldShowVideoNode(panel: ProjectPanel): boolean {
+  return hasVideo(panel) || canGenerateVideo(panel)
+}
+
 function panelDisplayNumber(panel: ProjectPanel): string {
   return String(panel.panelNumber ?? panel.panelIndex + 1).padStart(2, '0')
 }
@@ -424,14 +504,13 @@ function assetKindLabel(kind: ProjectEditAssetRequirement['kind'], translate: Tr
 }
 
 export function buildWorkspaceNodeCanvasProjection({
-  projectId,
   episodeId,
-  episodeName,
   storyText,
   clips,
   storyboards,
   shots = [],
   editScript,
+  defaultVideoModel,
   savedLayouts,
   translate,
   onAction,
@@ -442,37 +521,12 @@ export function buildWorkspaceNodeCanvasProjection({
   let zIndex = 0
 
   const storyBody = storyText.trim()
-  const storyNodeId = `story:${episodeId}`
-  nodes.push(createNode({
-    id: storyNodeId,
-    fallbackX: STORY_COLUMN_X,
-    fallbackY: 24,
-    zIndex: zIndex++,
-    savedLayoutByKey,
-    data: {
-      kind: 'storyInput',
-      projectId,
-      episodeName,
-      layoutNodeType: 'story',
-      targetType: 'episode',
-      targetId: episodeId,
-      title: translate('nodes.story.title'),
-      eyebrow: translate('nodes.story.eyebrow'),
-      body: storyBody,
-      meta: translate('nodes.story.meta', { chars: storyBody.length }),
-      statusLabel: storyBody ? translate('status.ready') : translate('status.empty'),
-      width: STORY_NODE_WIDTH,
-      height: STORY_NODE_HEIGHT,
-      onAction,
-    },
-  }))
-
   const hasStory = storyBody.length > 0
   const analysisNodeId = `analysis:${episodeId}`
   if (hasStory) {
     nodes.push(createNode({
       id: analysisNodeId,
-      fallbackX: STORY_COLUMN_X + COLUMN_GAP,
+      fallbackX: STORY_COLUMN_X,
       fallbackY: 180,
       zIndex: zIndex++,
       savedLayoutByKey,
@@ -495,19 +549,27 @@ export function buildWorkspaceNodeCanvasProjection({
         onAction,
       },
     }))
-    edges.push(createEdge('edge:story-analysis', storyNodeId, analysisNodeId))
   }
 
   if (editScript) {
     const editScriptNodeId = `edit-script:${editScript.id}`
+    const editScriptFallbackY = hasStory ? 430 : 180
+    const editScriptHeight = estimateEditScriptNodeHeight(editScript)
     const assetsToGenerate = editScript.requirements.some((asset) => asset.status !== 'completed')
     const completedAssets = editScript.requirements.filter((asset) => asset.status === 'completed').length
+    const hasStoryboardPanels = storyboards.some((storyboard) => (storyboard.panels?.length ?? 0) > 0)
+    const editScriptAction = assetsToGenerate
+      ? { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
+      : hasStoryboardPanels
+        ? null
+        : { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
     nodes.push(createNode({
       id: editScriptNodeId,
-      fallbackX: STORY_COLUMN_X + COLUMN_GAP,
-      fallbackY: hasStory ? 430 : 180,
+      fallbackX: STORY_COLUMN_X,
+      fallbackY: editScriptFallbackY,
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: true,
       data: {
         kind: 'editScript',
         layoutNodeType: 'editScript',
@@ -523,29 +585,40 @@ export function buildWorkspaceNodeCanvasProjection({
           completed: completedAssets,
         }),
         statusLabel: translate('status.ready'),
-        width: 520,
-        height: 430,
+        width: EDIT_SCRIPT_TABLE_NODE_WIDTH,
+        height: editScriptHeight,
         indexLabel: 'E',
         editScriptDetails: {
           durationSec: editScript.durationSec,
           shotCount: editScript.shotCount,
           shots: editScript.shots,
         },
-        actionLabel: assetsToGenerate ? translate('actions.generateEditAssets') : undefined,
-        action: assetsToGenerate ? { type: 'generate_edit_assets', editScriptId: editScript.id } : undefined,
+        actionLabel: editScriptAction?.label,
+        action: editScriptAction?.action,
         onAction,
       },
     }))
-    edges.push(createEdge(`edge:story-edit-script:${editScript.id}`, storyNodeId, editScriptNodeId))
 
+    const assetBaseY = editScriptFallbackY + editScriptHeight + 120
+    let assetRowY = assetBaseY
+    let assetRowMaxHeight = 0
     editScript.requirements.forEach((asset, index) => {
       const nodeId = `edit-asset:${asset.id}`
+      const canGenerateAsset = asset.status === 'pending' || asset.status === 'failed'
+      const nodeHeight = estimateEditAssetNodeHeight(asset)
+      const column = index % EDIT_ASSET_GRID_COLUMNS
+      if (column === 0 && index > 0) {
+        assetRowY += assetRowMaxHeight + EDIT_ASSET_GRID_GAP_Y
+        assetRowMaxHeight = 0
+      }
+      assetRowMaxHeight = Math.max(assetRowMaxHeight, nodeHeight)
       nodes.push(createNode({
         id: nodeId,
-        fallbackX: STORY_COLUMN_X + COLUMN_GAP * 2,
-        fallbackY: 430 + index * ROW_GAP,
+        fallbackX: STORY_COLUMN_X + column * (EDIT_ASSET_NODE_WIDTH + EDIT_ASSET_GRID_GAP_X),
+        fallbackY: assetRowY,
         zIndex: zIndex++,
         savedLayoutByKey,
+        ignoreSavedLayout: true,
         data: {
           kind: 'editRequiredAsset',
           layoutNodeType: 'editRequiredAsset',
@@ -556,8 +629,8 @@ export function buildWorkspaceNodeCanvasProjection({
           body: compactText(asset.description, translate('empty.editAsset')),
           meta: translate('nodes.editAsset.meta', { shots: asset.shotNumbers.join(', ') }),
           statusLabel: assetStatusLabel(asset.status, translate),
-          width: MEDIA_NODE_WIDTH,
-          height: 330,
+          width: EDIT_ASSET_NODE_WIDTH,
+          height: nodeHeight,
           indexLabel: asset.kind === 'character' ? 'C' : 'L',
           previewImageUrl: asset.previewImageUrl,
           editAssetDetails: {
@@ -567,6 +640,8 @@ export function buildWorkspaceNodeCanvasProjection({
             targetId: asset.targetId,
             errorMessage: asset.errorMessage,
           },
+          actionLabel: canGenerateAsset ? translate('actions.generateEditAsset') : undefined,
+          action: canGenerateAsset ? { type: 'generate_edit_asset', editScriptId: editScript.id, requirementId: asset.id } : undefined,
           onAction,
         },
       }))
@@ -581,7 +656,7 @@ export function buildWorkspaceNodeCanvasProjection({
     clipNodeIds.set(clip.id, nodeId)
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 2,
+      fallbackX: STORY_COLUMN_X + COLUMN_GAP,
       fallbackY: 80 + index * ROW_GAP,
       zIndex: zIndex++,
       savedLayoutByKey,
@@ -604,21 +679,33 @@ export function buildWorkspaceNodeCanvasProjection({
         onAction,
       },
     }))
-    edges.push(createEdge(`edge:analysis-clip:${clip.id}`, hasStory ? analysisNodeId : storyNodeId, nodeId))
+    if (hasStory) {
+      edges.push(createEdge(`edge:analysis-clip:${clip.id}`, analysisNodeId, nodeId))
+    }
   })
 
   const panelsWithStoryboard = sortedStoryboards(storyboards, clipOrder).flatMap((storyboard) => (
     sortPanels(storyboard.panels ?? []).map((panel) => ({ storyboard, panel }))
   ))
+  const panelGridRows = Math.max(1, Math.ceil(panelsWithStoryboard.length / PANEL_GRID_COLUMNS))
+  const shotGridBaseY = 24
+  const videoGridBaseY = shotGridBaseY + panelGridRows * SHOT_GRID_ROW_GAP + 160
 
   const shotNodeIds = new Map<string, string>()
   panelsWithStoryboard.forEach(({ storyboard, panel }, index) => {
     const nodeId = `shot:${panel.id}`
     shotNodeIds.set(panel.id, nodeId)
+    const position = gridPosition({
+      index,
+      baseX: PANEL_GRID_BASE_X,
+      baseY: shotGridBaseY,
+      width: DEFAULT_NODE_WIDTH,
+      rowGap: SHOT_GRID_ROW_GAP,
+    })
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 3,
-      fallbackY: 24 + index * ROW_GAP,
+      fallbackX: position.x,
+      fallbackY: position.y,
       zIndex: zIndex++,
       savedLayoutByKey,
       data: {
@@ -634,9 +721,11 @@ export function buildWorkspaceNodeCanvasProjection({
         }),
         statusLabel: panel.imageTaskRunning ? translate('status.processing') : translate('status.ready'),
         width: DEFAULT_NODE_WIDTH,
-        height: 380,
+        height: SHOT_NODE_HEIGHT,
         indexLabel: panelDisplayNumber(panel),
+        previewImageUrl: primaryPanelImageUrl(panel),
         shotDetails: createShotDetails(panel, storyboard, shots),
+        imageDetails: createImageDetails(panel),
         actionLabel: panel.imageTaskRunning
           ? undefined
           : hasImage(panel)
@@ -650,52 +739,28 @@ export function buildWorkspaceNodeCanvasProjection({
     }))
 
     const source = clipNodeIds.get(storyboard.clipId) ?? analysisNodeId
-    edges.push(createEdge(`edge:clip-shot:${panel.id}`, source, nodeId))
+    if (clipNodeIds.has(storyboard.clipId) || hasStory) {
+      edges.push(createEdge(`edge:clip-shot:${panel.id}`, source, nodeId))
+    }
   })
 
   panelsWithStoryboard.forEach(({ panel }, index) => {
     const source = shotNodeIds.get(panel.id)
     if (!source) return
 
-    if (hasImage(panel)) {
-      const nodeId = `image:${panel.id}`
-      nodes.push(createNode({
-        id: nodeId,
-        fallbackX: STORY_COLUMN_X + COLUMN_GAP * 4,
-        fallbackY: 40 + index * ROW_GAP,
-        zIndex: zIndex++,
-        savedLayoutByKey,
-        data: {
-          kind: 'imageAsset',
-          layoutNodeType: 'imageAsset',
-          targetType: 'panel',
-          targetId: panel.id,
-          title: translate('nodes.image.title', { index: panelDisplayNumber(panel) }),
-          eyebrow: translate('nodes.image.eyebrow'),
-          body: compactText(panel.imagePrompt || panel.description, translate('empty.image')),
-          meta: translate('nodes.image.meta'),
-          statusLabel: panel.imageTaskRunning ? translate('status.processing') : translate('status.ready'),
-          width: MEDIA_NODE_WIDTH,
-          height: 390,
-          indexLabel: `I${panelDisplayNumber(panel)}`,
-          previewImageUrl: panel.media?.url ?? panel.imageUrl,
-          imageDetails: createImageDetails(panel),
-          actionLabel: panel.imageTaskRunning ? undefined : translate('actions.regenerateImage'),
-          action: panel.imageTaskRunning ? undefined : { type: 'generate_image', panelId: panel.id },
-          onAction,
-        },
-      }))
-      edges.push(createEdge(`edge:shot-image:${panel.id}`, source, nodeId))
-    }
-
-    if (hasVideo(panel)) {
+    if (shouldShowVideoNode(panel)) {
       const nodeId = `video:${panel.id}`
-      const imageNodeId = `image:${panel.id}`
-      const videoSource = hasImage(panel) ? imageNodeId : source
+      const position = gridPosition({
+        index,
+        baseX: PANEL_GRID_BASE_X,
+        baseY: videoGridBaseY,
+        width: MEDIA_NODE_WIDTH,
+        rowGap: MEDIA_GRID_ROW_GAP,
+      })
       nodes.push(createNode({
         id: nodeId,
-        fallbackX: STORY_COLUMN_X + COLUMN_GAP * 5,
-        fallbackY: 70 + index * ROW_GAP,
+        fallbackX: position.x,
+        fallbackY: position.y,
         zIndex: zIndex++,
         savedLayoutByKey,
         data: {
@@ -711,7 +776,7 @@ export function buildWorkspaceNodeCanvasProjection({
           width: MEDIA_NODE_WIDTH,
           height: 410,
           indexLabel: `V${panelDisplayNumber(panel)}`,
-          previewImageUrl: panel.videoMedia?.url ?? panel.videoUrl ?? panel.media?.url ?? panel.imageUrl,
+          previewImageUrl: panel.videoMedia?.url ?? panel.videoUrl ?? primaryPanelImageUrl(panel),
           videoDetails: createVideoDetails(panel),
           actionLabel: panel.videoTaskRunning ? undefined : translate('actions.generateVideo'),
           action: panel.videoTaskRunning
@@ -721,11 +786,12 @@ export function buildWorkspaceNodeCanvasProjection({
                 storyboardId: panel.storyboardId,
                 panelIndex: panel.panelIndex,
                 panelId: panel.id,
+                videoModel: panel.videoModel || defaultVideoModel || undefined,
               },
           onAction,
         },
       }))
-      edges.push(createEdge(`edge:image-video:${panel.id}`, videoSource, nodeId))
+      edges.push(createEdge(`edge:shot-video:${panel.id}`, source, nodeId))
     }
   })
 
@@ -734,10 +800,11 @@ export function buildWorkspaceNodeCanvasProjection({
     const finalNodeId = `final:${episodeId}`
     const totalDuration = panelsWithStoryboard.reduce((total, item) => total + (item.panel.duration ?? 0), 0)
     const imageCount = panelsWithStoryboard.filter((item) => hasImage(item.panel)).length
+    const generatedVideoCount = panelsWithStoryboard.filter((item) => hasGeneratedVideo(item.panel)).length
     nodes.push(createNode({
       id: finalNodeId,
-      fallbackX: STORY_COLUMN_X + COLUMN_GAP * 6,
-      fallbackY: 260,
+      fallbackX: PANEL_GRID_BASE_X,
+      fallbackY: videoGridBaseY + panelGridRows * MEDIA_GRID_ROW_GAP + 180,
       zIndex: zIndex++,
       savedLayoutByKey,
       data: {
@@ -755,12 +822,15 @@ export function buildWorkspaceNodeCanvasProjection({
         finalDetails: {
           totalShots: panelsWithStoryboard.length,
           totalImages: imageCount,
-          totalVideos: videoNodeIds.length,
+          totalVideos: generatedVideoCount,
           totalDuration: totalDuration > 0 ? totalDuration : null,
           orderedVideoLabels: videoNodeIds.map((videoNodeId) => videoNodeId.replace('video:', '')),
         },
         actionLabel: translate('actions.generateAllVideos'),
-        action: { type: 'generate_all_videos' },
+        action: {
+          type: 'generate_all_videos',
+          videoModel: defaultVideoModel || undefined,
+        },
         onAction,
       },
     }))
@@ -781,6 +851,7 @@ export function useWorkspaceNodeCanvasProjection({
   storyboards,
   shots,
   editScript,
+  defaultVideoModel,
   savedLayouts,
   translate,
   onAction,
@@ -795,6 +866,7 @@ export function useWorkspaceNodeCanvasProjection({
       storyboards,
       shots,
       editScript,
+      defaultVideoModel,
       savedLayouts,
       translate,
       onAction,
@@ -805,6 +877,7 @@ export function useWorkspaceNodeCanvasProjection({
       episodeName,
       onAction,
       projectId,
+      defaultVideoModel,
       savedLayouts,
       shots,
       editScript,

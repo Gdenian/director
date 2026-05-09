@@ -80,4 +80,15 @@ describe('task error message normalization', () => {
     expect(summary.code).toBe('EMPTY_RESPONSE')
     expect(summary.message).toContain('模型返回空响应')
   })
+
+  it('prefers user-friendly message for NETWORK_ERROR', () => {
+    const summary = resolveTaskErrorSummary({
+      error: {
+        code: 'NETWORK_ERROR',
+        message: 'exception TypeError: fetch failed sending request',
+      },
+    })
+    expect(summary.code).toBe('NETWORK_ERROR')
+    expect(summary.message).toBe('网络异常，请稍后重试。')
+  })
 })

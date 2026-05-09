@@ -46,6 +46,7 @@ type AssetGenerateInput = AssetActionTarget & {
   request: NextRequest
   body: Record<string, unknown>
   access: AssetWriteAccess
+  episodeId?: string | null
 }
 
 type AssetModifyInput = AssetActionTarget & {
@@ -261,6 +262,7 @@ async function submitGlobalAssetGenerateTask(input: AssetGenerateInput) {
     locale,
     requestId: getRequestId(input.request),
     projectId: 'global-asset-hub',
+    episodeId: input.episodeId ?? null,
     type: TASK_TYPE.ASSET_HUB_IMAGE,
     targetType,
     targetId,
@@ -361,6 +363,7 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
     locale,
     requestId: getRequestId(input.request),
     projectId,
+    episodeId: input.episodeId ?? null,
     type: taskType,
     targetType,
     targetId,

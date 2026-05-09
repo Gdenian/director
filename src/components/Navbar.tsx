@@ -14,8 +14,26 @@ import { Link } from '@/i18n/navigation'
 import { buildAuthenticatedHomeTarget } from '@/lib/home/default-route'
 import type { ProfileSection } from '@/lib/profile/sections'
 
+interface NavbarSettingsBoundary {
+  contains(target: Node | null): boolean
+}
 
-export default function Navbar() {
+interface NavbarProps {
+  reserveLayoutSpace?: boolean
+}
+
+export function shouldCloseNavbarSettingsMenu(
+  target: Node | null,
+  trigger: NavbarSettingsBoundary | null | undefined,
+  menu: NavbarSettingsBoundary | null | undefined,
+) {
+  if (target === null) return false
+  if (trigger?.contains(target)) return false
+  if (menu?.contains(target)) return false
+  return true
+}
+
+export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
   const { data: session, status } = useSession()
   const t = useTranslations('nav')
   const tc = useTranslations('common')
@@ -81,12 +99,12 @@ export default function Navbar() {
       })
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (settingsTriggerRef.current?.contains(target)) return
-      if (settingsMenuRef.current?.contains(target)) return
-      setSettingsOpen(false)
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return
+
+      if (shouldCloseNavbarSettingsMenu(event.target, settingsTriggerRef.current, settingsMenuRef.current)) {
+        setSettingsOpen(false)
+      }
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -98,13 +116,13 @@ export default function Navbar() {
     updatePosition()
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition, true)
-    document.addEventListener('mousedown', handlePointerDown)
+    window.addEventListener('pointerdown', handlePointerDown, true)
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
-      document.removeEventListener('mousedown', handlePointerDown)
+      window.removeEventListener('pointerdown', handlePointerDown, true)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [settingsOpen])
@@ -267,7 +285,7 @@ export default function Navbar() {
             </div>
         </div>
       </nav>
-      <div aria-hidden="true" className="h-16" />
+      {reserveLayoutSpace ? <div aria-hidden="true" className="h-16" /> : null}
       {update ? (
         <UpdateNoticeModal
           show={showModal}

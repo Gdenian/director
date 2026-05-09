@@ -376,7 +376,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className={isEpisodeWorkspaceReady ? 'glass-page flex h-[100dvh] flex-col overflow-hidden' : 'glass-page min-h-screen flex flex-col'}>
-      <Navbar />
+      <Navbar reserveLayoutSpace={!isEpisodeWorkspaceReady} />
 
       {/* V3 UI: 浮动导航替代了旧的 Sidebar */}
 

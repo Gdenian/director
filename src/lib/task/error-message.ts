@@ -91,6 +91,7 @@ export function resolveTaskErrorSummary(payload: unknown, fallbackMessage = 'Tas
   const shouldPreferUserFriendlyMessage =
     normalized?.code === 'MODEL_NOT_OPEN'
     || normalized?.code === 'EMPTY_RESPONSE'
+    || normalized?.code === 'NETWORK_ERROR'
 
   return {
     code: normalized?.code || code || null,

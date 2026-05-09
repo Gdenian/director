@@ -71,7 +71,39 @@ describe('workspace node rendering', () => {
     expect(html).not.toContain('nodeFields.openDetails')
   })
 
-  it('renders script clip structure instead of only the summary body', () => {
+  it('renders storage keys through the signed storage display route', () => {
+    const html = renderNode({
+      kind: 'editRequiredAsset',
+      layoutNodeType: 'editRequiredAsset',
+      targetType: 'editAssetRequirement',
+      targetId: 'req-1',
+      title: 'Asset node',
+      eyebrow: 'Asset',
+      body: 'asset description',
+      meta: 'shots 1',
+      statusLabel: 'Ready',
+      width: 360,
+      height: 380,
+      previewImageUrl: 'images/character-1.jpg',
+      editAssetDetails: {
+        kind: 'character',
+        description: 'asset description',
+        shotNumbers: [1],
+        targetId: 'asset-target-id',
+        errorMessage: null,
+      },
+    })
+
+    expect(html).toContain('/api/storage/sign?key=images%2Fcharacter-1.jpg')
+    expect(html).toContain('object-contain')
+    expect(html).toContain('h-[240px]')
+    expect(html).not.toContain('Asset ID')
+    expect(html).not.toContain('asset-target-id')
+    expect(html).not.toContain('shots 1')
+    expect(html).not.toContain('src="images/character-1.jpg"')
+  })
+
+  it('renders script clip summary by default without internal scroll', () => {
     const html = renderNode({
       kind: 'scriptClip',
       layoutNodeType: 'scriptClip',
@@ -105,12 +137,16 @@ describe('workspace node rendering', () => {
     })
 
     expect(html).toContain('Robot / Default')
-    expect(html).toContain('EXT · Street · Night')
-    expect(html).toContain('original source text')
-    expect(html).toContain('hello')
+    expect(html).toContain('Street')
+    expect(html).toContain('screenplay raw')
+    expect(html).toContain('expandDetails')
+    expect(html).not.toContain('EXT · Street · Night')
+    expect(html).not.toContain('original source text')
+    expect(html).not.toContain('hello')
+    expect(html).not.toContain('overflow-y-auto')
   })
 
-  it('renders shot, image, video, and final details without stage containers', () => {
+  it('renders shot, image, video, and final summaries without internal scroll', () => {
     const shotHtml = renderNode({
       kind: 'shot',
       layoutNodeType: 'shot',
@@ -199,13 +235,128 @@ describe('workspace node rendering', () => {
       },
     })
 
-    expect(shotHtml).toContain('photo rules')
-    expect(shotHtml).toContain('acting notes')
-    expect(imageHtml).toContain('history')
-    expect(imageHtml).toContain('https://example.com/sketch.png')
-    expect(videoHtml).toContain('first last prompt')
+    expect(shotHtml).toContain('Street')
+    expect(shotHtml).toContain('Girl')
+    expect(shotHtml).toContain('shot description')
+    expect(shotHtml).not.toContain('photo rules')
+    expect(shotHtml).not.toContain('acting notes')
+    expect(imageHtml).toContain('image prompt')
+    expect(imageHtml).not.toContain('history')
+    expect(imageHtml).not.toContain('https://example.com/sketch.png')
+    expect(videoHtml).toContain('video prompt')
+    expect(videoHtml).toContain('<video')
+    expect(videoHtml).toContain('src="https://example.com/video.mp4"')
+    expect(videoHtml).not.toContain('alt="Video node"')
+    expect(videoHtml).not.toContain('first last prompt')
     expect(videoHtml).not.toContain('lip.mp4')
-    expect(finalHtml).toContain('panel-1')
+    expect(finalHtml).not.toContain('panel-1')
     expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('StoryboardStage')
+    expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('overflow-y-auto')
+  })
+
+  it('does not render empty expanded detail sections as blank cards', () => {
+    const emptyShotHtml = renderNode({
+      kind: 'shot',
+      layoutNodeType: 'shot',
+      targetType: 'panel',
+      targetId: 'panel-empty',
+      title: 'Empty shot',
+      eyebrow: 'Shot',
+      body: 'shot description',
+      meta: 'location',
+      statusLabel: 'Ready',
+      width: 320,
+      height: 520,
+      expanded: true,
+      shotDetails: {
+        shotType: 'wide',
+        cameraMove: 'push in',
+        characters: [],
+        location: 'Street',
+        props: [],
+        srtSegment: 'shot description',
+        imagePrompt: 'image prompt',
+        videoPrompt: 'video prompt',
+        photographyRules: '',
+        actingNotes: null,
+        errorMessage: null,
+      },
+    })
+    const errorShotHtml = renderNode({
+      kind: 'shot',
+      layoutNodeType: 'shot',
+      targetType: 'panel',
+      targetId: 'panel-error',
+      title: 'Error shot',
+      eyebrow: 'Shot',
+      body: 'shot description',
+      meta: 'location',
+      statusLabel: 'Ready',
+      width: 320,
+      height: 520,
+      expanded: true,
+      shotDetails: {
+        shotType: 'wide',
+        cameraMove: 'push in',
+        characters: [],
+        location: 'Street',
+        props: [],
+        srtSegment: 'shot description',
+        imagePrompt: 'image prompt',
+        videoPrompt: 'video prompt',
+        photographyRules: '',
+        actingNotes: null,
+        errorMessage: 'image generation failed',
+      },
+    })
+    const emptyImageHtml = renderNode({
+      kind: 'imageAsset',
+      layoutNodeType: 'imageAsset',
+      targetType: 'panel',
+      targetId: 'panel-image-empty',
+      title: 'Image node',
+      eyebrow: 'Image',
+      body: 'image body',
+      meta: 'bound',
+      statusLabel: 'Ready',
+      width: 300,
+      height: 390,
+      expanded: true,
+      imageDetails: {
+        imagePrompt: 'image prompt',
+        candidateImages: [],
+        imageHistory: null,
+        errorMessage: null,
+      },
+    })
+    const emptyVideoHtml = renderNode({
+      kind: 'videoClip',
+      layoutNodeType: 'videoClip',
+      targetType: 'panel',
+      targetId: 'panel-video-empty',
+      title: 'Video node',
+      eyebrow: 'Video',
+      body: 'video body',
+      meta: 'bound',
+      statusLabel: 'Ready',
+      width: 300,
+      height: 410,
+      expanded: true,
+      videoDetails: {
+        videoPrompt: 'video prompt',
+        firstLastFramePrompt: null,
+        errorMessage: null,
+      },
+    })
+
+    expect(emptyShotHtml).not.toContain('>error<')
+    expect(emptyShotHtml).not.toContain('>actingNotes<')
+    expect(emptyShotHtml).not.toContain('>photographyRules<')
+    expect(errorShotHtml).toContain('>error<')
+    expect(errorShotHtml).toContain('image generation failed')
+    expect(emptyImageHtml).not.toContain('>error<')
+    expect(emptyImageHtml).not.toContain('>imageHistory<')
+    expect(emptyVideoHtml).not.toContain('>error<')
+    expect(emptyVideoHtml).not.toContain('>firstLastFramePrompt<')
   })
 })

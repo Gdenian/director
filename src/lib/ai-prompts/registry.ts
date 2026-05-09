@@ -179,6 +179,10 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
     pathStem: 'music/lyria-prompt-expand',
     variableKeys: ['user_input', 'duration_seconds', 'vocal_mode', 'genre', 'mood'],
   },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS]: {
+    pathStem: 'edit-script/brief-questions',
+    variableKeys: ['user_request', 'duration_seconds', 'shot_count', 'style_context'],
+  },
   [AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE]: {
     pathStem: 'edit-script/timeline',
     variableKeys: ['user_request', 'duration_seconds', 'shot_count'],

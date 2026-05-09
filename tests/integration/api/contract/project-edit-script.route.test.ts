@@ -6,6 +6,28 @@ const authState = vi.hoisted(() => ({
 }))
 
 const serviceMock = vi.hoisted(() => ({
+  generateProjectEditScriptBriefQuestions: vi.fn(async () => ({
+    questions: [
+      {
+        id: 'visual_direction',
+        label: '这条短片更偏向哪种视觉方向？',
+        options: [
+          { id: 'A', label: '冷峻对称' },
+          { id: 'B', label: '神秘留白' },
+          { id: 'C', label: '压迫推进' },
+        ],
+      },
+      {
+        id: 'ending_tone',
+        label: '结尾更需要哪种余味？',
+        options: [
+          { id: 'A', label: '开放留白' },
+          { id: 'B', label: '反转揭示' },
+          { id: 'C', label: '冷峻收束' },
+        ],
+      },
+    ],
+  })),
   readProjectEditScript: vi.fn(async () => ({
     id: 'edit-1',
     projectId: 'project-1',
@@ -67,6 +89,11 @@ const serviceMock = vi.hoisted(() => ({
       },
     ],
   })),
+  generateProjectEditScriptStoryboard: vi.fn(async () => ({
+    storyboardId: 'storyboard-1',
+    panelCount: 8,
+    submittedImageTasks: 8,
+  })),
 }))
 
 vi.mock('@/lib/api-auth', () => {
@@ -99,6 +126,12 @@ import {
 import {
   POST as editScriptAssetsGeneratePost,
 } from '@/app/api/projects/[projectId]/edit-script/assets/generate/route'
+import {
+  POST as editScriptBriefQuestionsPost,
+} from '@/app/api/projects/[projectId]/edit-script/brief-questions/route'
+import {
+  POST as editScriptStoryboardGeneratePost,
+} from '@/app/api/projects/[projectId]/edit-script/storyboard/generate/route'
 
 describe('project edit script route', () => {
   beforeEach(() => {
@@ -132,6 +165,40 @@ describe('project edit script route', () => {
     }))
   })
 
+  it('POST /api/projects/[projectId]/edit-script/brief-questions -> asks AI for clickable questions', async () => {
+    const request = buildMockRequest({
+      path: '/api/projects/project-1/edit-script/brief-questions',
+      method: 'POST',
+      headers: { 'accept-language': 'zh' },
+      body: {
+        episodeId: 'episode-1',
+        prompt: '我需要一个太空漫游库布里克风格的短片',
+      },
+    })
+
+    const response = await editScriptBriefQuestionsPost(request, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.briefQuestions.questions).toHaveLength(2)
+    expect(payload.briefQuestions.questions[0]).toEqual({
+      id: 'visual_direction',
+      label: '这条短片更偏向哪种视觉方向？',
+      options: [
+        { id: 'A', label: '冷峻对称' },
+        { id: 'B', label: '神秘留白' },
+        { id: 'C', label: '压迫推进' },
+      ],
+    })
+    expect(serviceMock.generateProjectEditScriptBriefQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userId: 'user-1',
+      locale: 'zh',
+      prompt: '我需要一个太空漫游库布里克风格的短片',
+    }))
+  })
+
   it('GET /api/projects/[projectId]/edit-script -> returns the persisted edit table and requirements', async () => {
     const request = buildMockRequest({
       path: '/api/projects/project-1/edit-script?episodeId=episode-1',
@@ -157,6 +224,7 @@ describe('project edit script route', () => {
       body: {
         episodeId: 'episode-1',
         editScriptId: 'edit-1',
+        requirementId: 'req-1',
       },
     })
 
@@ -166,6 +234,36 @@ describe('project edit script route', () => {
     expect(response.status).toBe(200)
     expect(payload.editScript.requirements[0].status).toBe('generating')
     expect(serviceMock.generateProjectEditScriptAssets).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      requirementId: 'req-1',
+      userId: 'user-1',
+      locale: 'zh',
+    }))
+  })
+
+  it('POST /api/projects/[projectId]/edit-script/storyboard/generate -> creates storyboard panels from the edit table', async () => {
+    const request = buildMockRequest({
+      path: '/api/projects/project-1/edit-script/storyboard/generate',
+      method: 'POST',
+      headers: { 'accept-language': 'zh' },
+      body: {
+        episodeId: 'episode-1',
+        editScriptId: 'edit-1',
+      },
+    })
+
+    const response = await editScriptStoryboardGeneratePost(request, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      storyboardId: 'storyboard-1',
+      panelCount: 8,
+      submittedImageTasks: 8,
+    })
+    expect(serviceMock.generateProjectEditScriptStoryboard).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
       episodeId: 'episode-1',
       editScriptId: 'edit-1',

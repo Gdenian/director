@@ -252,7 +252,6 @@ export interface ProjectEditScriptShot {
   camera: string
   videoPrompt: string
   sound: string
-  transition: string
 }
 
 export interface ProjectEditAssetRequirement {

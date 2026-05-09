@@ -72,17 +72,93 @@ describe('plan run executor', () => {
     }))
     expect(invokeStep).toHaveBeenNthCalledWith(1, expect.objectContaining({
       operationId: 'get_project_context',
-      input: { confirmed: true },
+      input: { confirmed: true, episodeId: 'episode-1' },
     }))
     expect(invokeStep).toHaveBeenNthCalledWith(2, expect.objectContaining({
       operationId: 'get_project_snapshot',
-      input: { confirmed: true },
+      input: { confirmed: true, episodeId: 'episode-1' },
     }))
     expect(serviceMock.completePlanRun).toHaveBeenCalledWith({
       planRunId: 'plan-run-1',
       userId: 'user-1',
       projectId: 'project-1',
     })
+  })
+
+  it('injects the current episode id into step operation input when the step omits it', async () => {
+    const invokeStep = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        taskId: 'task-screenplay-1',
+      },
+    }))
+
+    const result = await executeAgentPlan({
+      userId: 'user-1',
+      projectId: 'project-1',
+      episodeId: 'episode-current',
+      input: {
+        goal: 'write screenplay',
+        steps: [
+          {
+            stepKey: 'write_script_01',
+            skillId: 'screenwriting',
+            operationId: 'write_screenplay',
+          },
+        ],
+      },
+      invokeStep,
+    })
+
+    expect(result).toMatchObject({
+      success: true,
+      status: 'waiting_task',
+      waitingTaskId: 'task-screenplay-1',
+    })
+    expect(invokeStep).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'write_screenplay',
+      input: {
+        episodeId: 'episode-current',
+        confirmed: true,
+      },
+    }))
+  })
+
+  it('preserves an explicit step episode id over the current PlanRun episode id', async () => {
+    const invokeStep = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        value: 'done',
+      },
+    }))
+
+    await executeAgentPlan({
+      userId: 'user-1',
+      projectId: 'project-1',
+      episodeId: 'episode-current',
+      input: {
+        goal: 'write screenplay for a selected episode',
+        steps: [
+          {
+            stepKey: 'write_script_01',
+            skillId: 'screenwriting',
+            operationId: 'write_screenplay',
+            input: {
+              episodeId: 'episode-explicit',
+            },
+          },
+        ],
+      },
+      invokeStep,
+    })
+
+    expect(invokeStep).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'write_screenplay',
+      input: {
+        episodeId: 'episode-explicit',
+        confirmed: true,
+      },
+    }))
   })
 
   it('stops after an async task submission and records the waiting task', async () => {

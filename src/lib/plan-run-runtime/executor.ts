@@ -41,6 +41,19 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function buildOperationInput(params: {
+  readonly stepInput?: JsonRecord | null
+  readonly episodeId?: string | null
+}): JsonRecord {
+  const stepInput = params.stepInput ?? {}
+  const episodeId = readString(stepInput.episodeId) ?? readString(params.episodeId)
+  return {
+    ...stepInput,
+    ...(episodeId ? { episodeId } : {}),
+    confirmed: true,
+  }
+}
+
 function sanitizeValue(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[MaxDepth]'
   if (typeof value === 'string') {
@@ -154,10 +167,10 @@ export async function executeAgentPlan(params: {
       stepKey: step.stepKey,
     })
 
-    const operationInput = {
-      ...(step.input ?? {}),
-      confirmed: true,
-    }
+    const operationInput = buildOperationInput({
+      stepInput: step.input,
+      episodeId: params.episodeId,
+    })
     const result = await params.invokeStep({
       skillId: step.skillId,
       operationId: step.operationId,

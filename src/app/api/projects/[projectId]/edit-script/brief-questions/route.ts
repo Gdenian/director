@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isErrorResponse, requireProjectAuth } from '@/lib/api-auth'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
-import { generateProjectEditScriptAssets } from '@/lib/edit-script/service'
-import { generateEditAssetsRequestSchema } from '@/lib/edit-script/types'
+import { generateProjectEditScriptBriefQuestions } from '@/lib/edit-script/service'
+import { createEditScriptBriefQuestionsRequestSchema } from '@/lib/edit-script/types'
 
 export const POST = apiHandler(async (
   request: NextRequest,
@@ -14,20 +14,19 @@ export const POST = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
 
   const body = await request.json().catch(() => ({})) as unknown
-  const parsed = generateEditAssetsRequestSchema.safeParse(body)
+  const parsed = createEditScriptBriefQuestionsRequestSchema.safeParse(body)
   if (!parsed.success) {
     throw new ApiError('INVALID_PARAMS')
   }
 
-  const editScript = await generateProjectEditScriptAssets({
+  const briefQuestions = await generateProjectEditScriptBriefQuestions({
     request,
     projectId,
     episodeId: parsed.data.episodeId,
     userId: authResult.session.user.id,
     locale: resolveRequiredTaskLocale(request, body),
-    editScriptId: parsed.data.editScriptId,
-    requirementId: parsed.data.requirementId,
+    prompt: parsed.data.prompt,
   })
 
-  return NextResponse.json({ editScript })
+  return NextResponse.json({ briefQuestions })
 })

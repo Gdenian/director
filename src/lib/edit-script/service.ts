@@ -6,13 +6,16 @@ import { executeAiTextStep } from '@/lib/ai-exec/engine'
 import { AI_PROMPT_IDS, buildAiPrompt } from '@/lib/ai-prompts'
 import { withTextBilling } from '@/lib/billing'
 import { getProjectModelConfig } from '@/lib/config-service'
+import { resolveModelSelection } from '@/lib/user-api/runtime-config'
 import { safeParseJsonObject } from '@/lib/json-repair'
 import { encodeImageUrls, decodeImageUrlsFromDb } from '@/lib/contracts/image-urls-contract'
 import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { submitAssetGenerateTask } from '@/lib/assets/services/asset-actions'
+import { executeProjectAgentOperationFromApi } from '@/lib/adapters/api/execute-project-agent-operation'
 import type { Locale } from '@/i18n/routing'
 import {
   normalizeEditAssetRequirements,
+  normalizeEditScriptBriefQuestions,
   normalizeEditScriptCore,
   resolveEditScriptDefaults,
 } from './normalize'
@@ -20,11 +23,22 @@ import type {
   EditAssetKind,
   EditAssetRequirement,
   EditAssetStatus,
+  EditScriptBriefQuestionsPayload,
   EditScriptPayload,
   EditScriptShot,
 } from './types'
+import { designEditAssetRequirements } from './asset-design'
 
 interface GenerateEditScriptInput {
+  readonly request: NextRequest
+  readonly projectId: string
+  readonly episodeId: string
+  readonly userId: string
+  readonly locale: Locale
+  readonly prompt: string
+}
+
+interface GenerateEditScriptBriefQuestionsInput {
   readonly request: NextRequest
   readonly projectId: string
   readonly episodeId: string
@@ -40,9 +54,20 @@ interface GenerateEditScriptAssetsInput {
   readonly userId: string
   readonly locale: Locale
   readonly editScriptId?: string
+  readonly requirementId?: string
+}
+
+interface GenerateEditScriptStoryboardInput {
+  readonly request: NextRequest
+  readonly projectId: string
+  readonly episodeId: string
+  readonly userId: string
+  readonly locale: Locale
+  readonly editScriptId?: string
 }
 
 type PromptStepId =
+  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VISUAL_ACTION
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_CAMERA
@@ -80,6 +105,42 @@ interface ExistingAssetRef {
   readonly id: string
   readonly previewImageUrl: string | null
   readonly hasOutput: boolean
+  readonly taskTargetType: 'CharacterAppearance' | 'LocationImage'
+  readonly taskTargetId: string
+}
+
+interface StoryboardCharacterRef {
+  readonly characterId: string
+  readonly name: string
+  readonly appearanceId: string
+  readonly appearanceIndex: number
+  readonly appearance: string
+}
+
+interface PanelDraft {
+  readonly panelIndex: number
+  readonly panelNumber: number
+  readonly shotType: string
+  readonly cameraMove: string
+  readonly description: string
+  readonly location: string | null
+  readonly characters: string | null
+  readonly props: string | null
+  readonly srtSegment: string
+  readonly srtStart: number
+  readonly srtEnd: number
+  readonly duration: number
+  readonly imagePrompt: string
+  readonly videoPrompt: string
+  readonly photographyRules: string
+  readonly actingNotes: string | null
+}
+
+interface StoryboardPanelTaskTarget {
+  readonly id: string
+  readonly panelIndex: number
+  readonly imageUrl: string | null
+  readonly candidateImages: string | null
 }
 
 function stringifyForPrompt(value: unknown): string {
@@ -194,7 +255,6 @@ function parseShotsJson(value: Prisma.JsonValue): EditScriptShot[] {
       camera: String(item.camera ?? ''),
       videoPrompt: String(item.videoPrompt ?? ''),
       sound: String(item.sound ?? ''),
-      transition: String(item.transition ?? ''),
     }]
   })
 }
@@ -209,6 +269,7 @@ async function resolveCharacterAsset(projectId: string, targetId: string | null)
         orderBy: { appearanceIndex: 'asc' },
         take: 1,
         select: {
+          id: true,
           imageUrl: true,
           imageMediaId: true,
           imageUrls: true,
@@ -224,6 +285,8 @@ async function resolveCharacterAsset(projectId: string, targetId: string | null)
     id: character.id,
     previewImageUrl,
     hasOutput: Boolean(appearance.imageMediaId || previewImageUrl),
+    taskTargetType: 'CharacterAppearance',
+    taskTargetId: appearance.id,
   }
 }
 
@@ -249,6 +312,8 @@ async function resolveLocationAsset(projectId: string, targetId: string | null):
     id: location.id,
     previewImageUrl: image.imageUrl || null,
     hasOutput: Boolean(image.imageMediaId || image.imageUrl),
+    taskTargetType: 'LocationImage',
+    taskTargetId: location.id,
   }
 }
 
@@ -258,11 +323,40 @@ async function resolveRequirementAsset(projectId: string, requirement: Persisted
   return null
 }
 
+async function resolveAssetTaskFailure(input: {
+  readonly projectId: string
+  readonly taskTargetType: ExistingAssetRef['taskTargetType']
+  readonly taskTargetId: string
+}): Promise<string | null> {
+  const task = await prisma.task.findFirst({
+    where: {
+      projectId: input.projectId,
+      targetType: input.taskTargetType,
+      targetId: input.taskTargetId,
+    },
+    orderBy: { updatedAt: 'desc' },
+    select: {
+      status: true,
+      errorMessage: true,
+      errorCode: true,
+    },
+  })
+  if (task?.status !== 'failed') return null
+  return task.errorMessage || task.errorCode || 'Asset generation failed'
+}
+
 async function mapPersistedEditScript(script: PersistedEditScript): Promise<EditScriptPayload> {
   const requirements = await Promise.all(script.requirements.map(async (requirement): Promise<EditAssetRequirement> => {
     const resolvedAsset = await resolveRequirementAsset(script.projectId, requirement)
     const storedStatus = normalizeStoredStatus(requirement.status)
-    const status = resolvedAsset?.hasOutput ? 'completed' : storedStatus
+    const taskFailure = !resolvedAsset?.hasOutput && resolvedAsset
+      ? await resolveAssetTaskFailure({
+        projectId: script.projectId,
+        taskTargetType: resolvedAsset.taskTargetType,
+        taskTargetId: resolvedAsset.taskTargetId,
+      })
+      : null
+    const status = resolvedAsset?.hasOutput ? 'completed' : taskFailure ? 'failed' : storedStatus
     return {
       id: requirement.id,
       kind: isEditAssetKind(requirement.kind) ? requirement.kind : 'character',
@@ -271,7 +365,7 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
       shotNumbers: readShotNumbers(requirement.shotIndexes),
       status,
       targetId: requirement.targetId,
-      errorMessage: status === 'failed' ? requirement.errorMessage : null,
+      errorMessage: status === 'failed' ? taskFailure || requirement.errorMessage : null,
       previewImageUrl: resolvedAsset?.previewImageUrl ?? null,
     }
   }))
@@ -315,6 +409,54 @@ export async function readProjectEditScript(input: {
 }): Promise<EditScriptPayload | null> {
   const script = await getPersistedEditScript(input.projectId, input.episodeId)
   return script ? mapPersistedEditScript(script) : null
+}
+
+export async function generateProjectEditScriptBriefQuestions(
+  input: GenerateEditScriptBriefQuestionsInput,
+): Promise<EditScriptBriefQuestionsPayload> {
+  const locale = assertLocale(input.locale)
+  const [episode, project, config] = await Promise.all([
+    prisma.projectEpisode.findFirst({
+      where: { id: input.episodeId, projectId: input.projectId },
+      select: { id: true },
+    }),
+    prisma.project.findFirst({
+      where: { id: input.projectId, userId: input.userId },
+      select: {
+        id: true,
+        artStyle: true,
+        directorStyleDoc: true,
+        videoRatio: true,
+      },
+    }),
+    getProjectModelConfig(input.projectId, input.userId),
+  ])
+  if (!episode || !project) throw new ApiError('NOT_FOUND')
+
+  const model = resolveTextModel(config)
+  const defaults = resolveEditScriptDefaults(input.prompt)
+  const rawQuestions = await runPromptStep({
+    userId: input.userId,
+    projectId: input.projectId,
+    model,
+    locale,
+    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS,
+    variables: {
+      user_request: input.prompt,
+      duration_seconds: String(defaults.durationSeconds),
+      shot_count: String(defaults.shotCount),
+      style_context: buildStyleContext({
+        artStyle: project.artStyle,
+        directorStyleDoc: project.directorStyleDoc,
+        videoRatio: project.videoRatio,
+      }),
+    },
+    stepTitle: 'Edit brief questions',
+    stepIndex: 1,
+    stepTotal: 1,
+  })
+
+  return normalizeEditScriptBriefQuestions(rawQuestions)
 }
 
 export async function generateProjectEditScript(input: GenerateEditScriptInput): Promise<EditScriptPayload> {
@@ -454,7 +596,15 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     stepIndex: 7,
     stepTotal: 7,
   })
-  const requirements = normalizeEditAssetRequirements(assetRaw, core.shots)
+  const requirements = await designEditAssetRequirements({
+    userId: input.userId,
+    projectId: input.projectId,
+    locale,
+    analysisModel: model,
+    userPrompt: input.prompt,
+    shots: core.shots,
+    requirements: normalizeEditAssetRequirements(assetRaw, core.shots),
+  })
 
   const saved = await prisma.$transaction(async (tx) => {
     const script = await tx.projectEditScript.upsert({
@@ -530,6 +680,7 @@ async function findExistingAsset(input: {
           orderBy: { appearanceIndex: 'asc' },
           take: 1,
           select: {
+            id: true,
             imageUrl: true,
             imageMediaId: true,
             imageUrls: true,
@@ -546,6 +697,8 @@ async function findExistingAsset(input: {
       id: character.id,
       previewImageUrl,
       hasOutput: Boolean(appearance?.imageMediaId || previewImageUrl),
+      taskTargetType: 'CharacterAppearance',
+      taskTargetId: appearance?.id ?? character.id,
     }
   }
 
@@ -571,6 +724,8 @@ async function findExistingAsset(input: {
     id: location.id,
     previewImageUrl: image?.imageUrl || null,
     hasOutput: Boolean(image?.imageMediaId || image?.imageUrl),
+    taskTargetType: 'LocationImage',
+    taskTargetId: location.id,
   }
 }
 
@@ -597,9 +752,22 @@ async function createRequiredAsset(input: {
           },
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        appearances: {
+          orderBy: { appearanceIndex: 'asc' },
+          take: 1,
+          select: { id: true },
+        },
+      },
     })
-    return { id: character.id, previewImageUrl: null, hasOutput: false }
+    return {
+      id: character.id,
+      previewImageUrl: null,
+      hasOutput: false,
+      taskTargetType: 'CharacterAppearance',
+      taskTargetId: character.appearances[0]?.id ?? character.id,
+    }
   }
 
   const location = await prisma.projectLocation.create({
@@ -617,7 +785,13 @@ async function createRequiredAsset(input: {
     },
     select: { id: true },
   })
-  return { id: location.id, previewImageUrl: null, hasOutput: false }
+  return {
+    id: location.id,
+    previewImageUrl: null,
+    hasOutput: false,
+    taskTargetType: 'LocationImage',
+    taskTargetId: location.id,
+  }
 }
 
 async function deleteCreatedAsset(input: {
@@ -634,6 +808,7 @@ async function deleteCreatedAsset(input: {
 async function submitRequirementImageTask(input: {
   readonly request: NextRequest
   readonly projectId: string
+  readonly episodeId: string
   readonly userId: string
   readonly locale: Locale
   readonly kind: EditAssetKind
@@ -654,6 +829,7 @@ async function submitRequirementImageTask(input: {
     request: input.request,
     kind: input.kind,
     assetId: input.assetId,
+    episodeId: input.episodeId,
     body: {
       count: 1,
       ...(characterAppearance
@@ -678,7 +854,12 @@ export async function generateProjectEditScriptAssets(input: GenerateEditScriptA
   const script = await getPersistedEditScript(input.projectId, input.episodeId, input.editScriptId)
   if (!script) throw new ApiError('NOT_FOUND')
 
-  for (const requirement of script.requirements) {
+  const requirements = input.requirementId
+    ? script.requirements.filter((requirement) => requirement.id === input.requirementId)
+    : script.requirements
+  if (input.requirementId && requirements.length === 0) throw new ApiError('NOT_FOUND')
+
+  for (const requirement of requirements) {
     if (!isEditAssetKind(requirement.kind)) {
       await prisma.projectEditAssetRequirement.update({
         where: { id: requirement.id },
@@ -722,6 +903,7 @@ export async function generateProjectEditScriptAssets(input: GenerateEditScriptA
       await submitRequirementImageTask({
         request: input.request,
         projectId: input.projectId,
+        episodeId: input.episodeId,
         userId: input.userId,
         locale: input.locale,
         kind: requirement.kind,
@@ -745,4 +927,319 @@ export async function generateProjectEditScriptAssets(input: GenerateEditScriptA
   const updated = await getPersistedEditScript(input.projectId, input.episodeId, script.id)
   if (!updated) throw new ApiError('NOT_FOUND')
   return await mapPersistedEditScript(updated)
+}
+
+function buildEditStoryboardMarker(editScriptId: string): string {
+  return JSON.stringify({
+    source: 'edit_script',
+    editScriptId,
+  })
+}
+
+async function assertStoryboardImageModelReady(input: {
+  readonly projectId: string
+  readonly userId: string
+}): Promise<void> {
+  const config = await getProjectModelConfig(input.projectId, input.userId)
+  if (!config.storyboardModel) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'STORYBOARD_MODEL_NOT_CONFIGURED',
+      message: 'Storyboard image model is required before generating edit-first storyboards',
+    })
+  }
+  await resolveModelSelection(input.userId, config.storyboardModel, 'image')
+}
+
+async function resolveCompletedEditScript(input: {
+  readonly projectId: string
+  readonly episodeId: string
+  readonly editScriptId?: string
+}): Promise<EditScriptPayload> {
+  const persisted = await getPersistedEditScript(input.projectId, input.episodeId, input.editScriptId)
+  if (!persisted) throw new ApiError('NOT_FOUND')
+  const editScript = await mapPersistedEditScript(persisted)
+  const notReady = editScript.requirements.filter((requirement) => requirement.status !== 'completed' || !requirement.targetId)
+  if (notReady.length > 0) {
+    throw new ApiError('CONFLICT', {
+      code: 'EDIT_SCRIPT_ASSETS_NOT_READY',
+      message: `Edit script assets must be completed before storyboard generation: ${notReady.map((item) => item.name).join(', ')}`,
+    })
+  }
+  if (!editScript.id) {
+    throw new Error('EDIT_SCRIPT_ID_REQUIRED')
+  }
+  return editScript
+}
+
+async function buildCharacterRefsByRequirementId(
+  requirements: readonly EditAssetRequirement[],
+): Promise<Map<string, StoryboardCharacterRef>> {
+  const characterRequirements = requirements.filter((requirement): requirement is EditAssetRequirement & { readonly targetId: string } =>
+    requirement.kind === 'character' && Boolean(requirement.targetId),
+  )
+  const characters = await prisma.projectCharacter.findMany({
+    where: {
+      id: { in: characterRequirements.map((requirement) => requirement.targetId) },
+    },
+    select: {
+      id: true,
+      name: true,
+      appearances: {
+        orderBy: { appearanceIndex: 'asc' },
+        take: 1,
+        select: {
+          id: true,
+          appearanceIndex: true,
+          changeReason: true,
+        },
+      },
+    },
+  })
+  const characterById = new Map(characters.map((character) => [character.id, character]))
+  const output = new Map<string, StoryboardCharacterRef>()
+  for (const requirement of characterRequirements) {
+    if (!requirement.id) continue
+    const character = characterById.get(requirement.targetId)
+    const appearance = character?.appearances[0]
+    if (!character || !appearance) {
+      throw new Error(`EDIT_SCRIPT_STORYBOARD_CHARACTER_ASSET_INVALID:${requirement.name}`)
+    }
+    output.set(requirement.id, {
+      characterId: character.id,
+      name: character.name,
+      appearanceId: appearance.id,
+      appearanceIndex: appearance.appearanceIndex,
+      appearance: appearance.changeReason || 'primary',
+    })
+  }
+  return output
+}
+
+function buildShotPanelDrafts(input: {
+  readonly editScript: EditScriptPayload
+  readonly characterRefsByRequirementId: ReadonlyMap<string, StoryboardCharacterRef>
+}): PanelDraft[] {
+  let cursor = 0
+  return input.editScript.shots.map((shot, index) => {
+    const shotNumber = shot.shotNumber
+    const characterRefs = input.editScript.requirements
+      .filter((requirement) => requirement.kind === 'character' && requirement.id && requirement.shotNumbers.includes(shotNumber))
+      .map((requirement) => input.characterRefsByRequirementId.get(requirement.id!))
+      .filter((reference): reference is StoryboardCharacterRef => Boolean(reference))
+    const location = input.editScript.requirements
+      .find((requirement) => requirement.kind === 'location' && requirement.shotNumbers.includes(shotNumber))
+    const srtStart = cursor
+    const srtEnd = cursor + shot.durationSec
+    cursor = srtEnd
+    const imagePrompt = [
+      shot.visualAction,
+      `人物/场景：${shot.charactersAndScene}`,
+      `镜头方式：${shot.camera}`,
+      `视频提示词：${shot.videoPrompt}`,
+    ].join('\n')
+
+    return {
+      panelIndex: index,
+      panelNumber: shotNumber,
+      shotType: shot.camera,
+      cameraMove: shot.camera,
+      description: shot.visualAction,
+      location: location?.name ?? null,
+      characters: characterRefs.length > 0 ? JSON.stringify(characterRefs) : null,
+      props: null,
+      srtSegment: shot.visualAction,
+      srtStart,
+      srtEnd,
+      duration: shot.durationSec,
+      imagePrompt,
+      videoPrompt: shot.videoPrompt,
+      photographyRules: JSON.stringify({
+        source: 'edit_script',
+        editScriptId: input.editScript.id,
+        shotNumber,
+        camera: shot.camera,
+        sound: shot.sound,
+      }),
+      actingNotes: null,
+    }
+  })
+}
+
+async function upsertEditScriptStoryboardPanels(input: {
+  readonly editScript: EditScriptPayload
+  readonly panelDrafts: readonly PanelDraft[]
+}) {
+  const editScriptId = input.editScript.id
+  const episodeId = input.editScript.episodeId
+  if (!editScriptId || !episodeId) throw new Error('EDIT_SCRIPT_STORYBOARD_INPUT_INVALID')
+  const marker = buildEditStoryboardMarker(editScriptId)
+  const markerNeedle = `"editScriptId":"${editScriptId}"`
+  const existing = await prisma.projectStoryboard.findFirst({
+    where: {
+      episodeId,
+      clip: {
+        screenplay: {
+          contains: markerNeedle,
+        },
+      },
+    },
+    include: {
+      clip: true,
+      panels: {
+        orderBy: { panelIndex: 'asc' },
+      },
+    },
+  })
+
+  const storyboard = existing ?? await prisma.$transaction(async (tx) => {
+    const clip = await tx.projectClip.create({
+      data: {
+        episodeId,
+        start: 0,
+        end: input.editScript.durationSec,
+        duration: input.editScript.durationSec,
+        summary: input.editScript.title,
+        location: input.editScript.requirements
+          .filter((requirement) => requirement.kind === 'location')
+          .map((requirement) => requirement.name)
+          .join('、') || null,
+        characters: JSON.stringify(input.editScript.requirements
+          .filter((requirement) => requirement.kind === 'character')
+          .map((requirement) => requirement.name)),
+        props: null,
+        content: input.editScript.logline || input.editScript.userPrompt || input.editScript.title,
+        shotCount: input.editScript.shotCount,
+        screenplay: marker,
+      },
+    })
+    const createdStoryboard = await tx.projectStoryboard.create({
+      data: {
+        episodeId,
+        clipId: clip.id,
+        panelCount: input.panelDrafts.length,
+        storyboardTextJson: JSON.stringify({
+          source: 'edit_script',
+          editScriptId,
+          title: input.editScript.title,
+          shots: input.editScript.shots,
+        }),
+        photographyPlan: JSON.stringify({
+          source: 'edit_script',
+          editScriptId,
+          rules: 'Use edit-script camera and video prompt fields as the absolute source of truth.',
+        }),
+      },
+      include: {
+        clip: true,
+        panels: true,
+      },
+    })
+    return createdStoryboard
+  })
+
+  const existingPanels = new Map(storyboard.panels.map((panel) => [panel.panelIndex, panel]))
+  const panelTargets: StoryboardPanelTaskTarget[] = []
+  for (const draft of input.panelDrafts) {
+    const existingPanel = existingPanels.get(draft.panelIndex)
+    if (existingPanel) {
+      panelTargets.push({
+        id: existingPanel.id,
+        panelIndex: existingPanel.panelIndex,
+        imageUrl: existingPanel.imageUrl,
+        candidateImages: existingPanel.candidateImages,
+      })
+      continue
+    }
+    const panel = await prisma.projectPanel.create({
+      data: {
+        storyboardId: storyboard.id,
+        panelIndex: draft.panelIndex,
+        panelNumber: draft.panelNumber,
+        shotType: draft.shotType,
+        cameraMove: draft.cameraMove,
+        description: draft.description,
+        location: draft.location,
+        characters: draft.characters,
+        props: draft.props,
+        srtSegment: draft.srtSegment,
+        srtStart: draft.srtStart,
+        srtEnd: draft.srtEnd,
+        duration: draft.duration,
+        imagePrompt: draft.imagePrompt,
+        videoPrompt: draft.videoPrompt,
+        photographyRules: draft.photographyRules,
+        actingNotes: draft.actingNotes,
+      },
+    })
+    panelTargets.push({
+      id: panel.id,
+      panelIndex: panel.panelIndex,
+      imageUrl: panel.imageUrl,
+      candidateImages: panel.candidateImages,
+    })
+  }
+
+  await prisma.projectStoryboard.update({
+    where: { id: storyboard.id },
+    data: {
+      panelCount: input.panelDrafts.length,
+    },
+  })
+
+  return {
+    storyboardId: storyboard.id,
+    panels: panelTargets,
+  }
+}
+
+export async function generateProjectEditScriptStoryboard(input: GenerateEditScriptStoryboardInput): Promise<{
+  readonly storyboardId: string
+  readonly panelCount: number
+  readonly submittedImageTasks: number
+}> {
+  await assertStoryboardImageModelReady({
+    projectId: input.projectId,
+    userId: input.userId,
+  })
+  const editScript = await resolveCompletedEditScript({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    editScriptId: input.editScriptId,
+  })
+  const characterRefsByRequirementId = await buildCharacterRefsByRequirementId(editScript.requirements)
+  const panelDrafts = buildShotPanelDrafts({
+    editScript,
+    characterRefsByRequirementId,
+  })
+  const storyboard = await upsertEditScriptStoryboardPanels({
+    editScript,
+    panelDrafts,
+  })
+
+  let submittedImageTasks = 0
+  for (const panel of storyboard.panels) {
+    if (panel.imageUrl || panel.candidateImages) continue
+    await executeProjectAgentOperationFromApi({
+      request: input.request,
+      operationId: 'regenerate_panel_image',
+      projectId: input.projectId,
+      userId: input.userId,
+      context: {
+        locale: input.locale,
+        episodeId: input.episodeId,
+      },
+      input: {
+        panelId: panel.id,
+        count: 1,
+      },
+      source: 'project-ui',
+    })
+    submittedImageTasks += 1
+  }
+
+  return {
+    storyboardId: storyboard.storyboardId,
+    panelCount: storyboard.panels.length,
+    submittedImageTasks,
+  }
 }

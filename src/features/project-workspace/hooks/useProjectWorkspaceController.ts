@@ -18,7 +18,7 @@ import { useWorkspaceImageActions } from './useWorkspaceImageActions'
 import { buildWorkspaceControllerViewModel } from './workspace-controller-view-model'
 import type { ProjectWorkspaceProps } from '../types'
 import { useRouter } from '@/i18n/navigation'
-import { useGenerateProjectEditScriptAssets } from '@/lib/query/hooks'
+import { useGenerateProjectEditScriptAssets, useGenerateProjectEditScriptStoryboard } from '@/lib/query/hooks'
 
 export function useProjectWorkspaceController({
   project,
@@ -106,9 +106,15 @@ export function useProjectWorkspaceController({
     episodeId,
   })
   const generateEditAssets = useGenerateProjectEditScriptAssets(projectId)
-  const handleGenerateEditAssets = async (editScriptId: string) => {
+  const generateEditStoryboard = useGenerateProjectEditScriptStoryboard(projectId)
+  const handleGenerateEditAssets = async (editScriptId: string, requirementId?: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
-    await generateEditAssets.mutateAsync({ episodeId, editScriptId })
+    await generateEditAssets.mutateAsync({ episodeId, editScriptId, requirementId })
+    await onRefresh({ mode: 'full' })
+  }
+  const handleGenerateEditStoryboard = async (editScriptId: string) => {
+    if (!episodeId) throw new Error('Episode ID is required')
+    await generateEditStoryboard.mutateAsync({ episodeId, editScriptId })
     await onRefresh({ mode: 'full' })
   }
 
@@ -136,6 +142,7 @@ export function useProjectWorkspaceController({
     handleGenerateVideo: videoActions.handleGenerateVideo,
     handleGenerateAllVideos: videoActions.handleGenerateAllVideos,
     handleGenerateEditAssets,
+    handleGenerateEditStoryboard,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
     handleUpdatePanelVideoModel: videoActions.handleUpdatePanelVideoModel,
   })

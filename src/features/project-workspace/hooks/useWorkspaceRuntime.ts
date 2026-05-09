@@ -48,7 +48,8 @@ interface UseWorkspaceRuntimeParams {
     panelId?: string,
   ) => Promise<void>
   handleGenerateAllVideos: (options?: BatchVideoGenerationParams) => Promise<void>
-  handleGenerateEditAssets: (editScriptId: string) => Promise<void>
+  handleGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
+  handleGenerateEditStoryboard: (editScriptId: string) => Promise<void>
   handleUpdateVideoPrompt: (
     storyboardId: string,
     panelIndex: number,
@@ -82,6 +83,7 @@ export function useWorkspaceRuntime({
   handleGenerateVideo,
   handleGenerateAllVideos,
   handleGenerateEditAssets,
+  handleGenerateEditStoryboard,
   handleUpdateVideoPrompt,
   handleUpdatePanelVideoModel,
 }: UseWorkspaceRuntimeParams) {
@@ -123,6 +125,7 @@ export function useWorkspaceRuntime({
     onGenerateVideo: handleGenerateVideo,
     onGenerateAllVideos: handleGenerateAllVideos,
     onGenerateEditAssets: handleGenerateEditAssets,
+    onGenerateEditStoryboard: handleGenerateEditStoryboard,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
     onUpdatePanelVideoModel: handleUpdatePanelVideoModel,
     onOpenAssetLibraryForCharacter: (characterId, refreshAssets) => openAssetLibrary(characterId, refreshAssets),
@@ -135,6 +138,7 @@ export function useWorkspaceRuntime({
     assetsLoading,
     handleGenerateAllVideos,
     handleGenerateEditAssets,
+    handleGenerateEditStoryboard,
     handleGeneratePanelImage,
     handleGenerateVideo,
     handleUpdateClip,

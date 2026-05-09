@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useLocale, useTranslations } from 'next-intl'
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
   ThreadPrimitive,
 } from '@assistant-ui/react'
 import {
@@ -16,11 +15,18 @@ import {
   collectPendingConfirmationActions,
   removeConfirmationRequestFromMessages,
 } from './workspace-assistant/approval-state'
-import { createAssistantMessage } from './workspace-assistant/assistant-messages'
+import { createAssistantMessage, createUserMessage } from './workspace-assistant/assistant-messages'
+import {
+  buildEditFirstPromptWithAnswers,
+  type EditFirstAnswer,
+  type EditFirstQuestion,
+} from './workspace-assistant/edit-first-questions'
 import { useWorkspaceAssistantRuntime } from './workspace-assistant/useWorkspaceAssistantRuntime'
 import { apiFetch } from '@/lib/api-fetch'
+import { useCreateProjectEditScript, useCreateProjectEditScriptBriefQuestions } from '@/lib/query/hooks'
+import type { EditBriefOptionId } from '@/lib/edit-script/types'
 import { EditFirstComposer } from './workspace-assistant/EditFirstComposer'
-import { WorkspaceAssistantModePicker } from './workspace-assistant/WorkspaceAssistantModePicker'
+import { EditFirstInlineReply, type EditFirstProgressKind } from './workspace-assistant/EditFirstInlineReply'
 import { WorkspaceAssistantPanelHeader } from './workspace-assistant/WorkspaceAssistantPanelHeader'
 import { WorkspaceAssistantPanelRail } from './workspace-assistant/WorkspaceAssistantPanelRail'
 import { WorkspaceAssistantRawContextDialog } from './workspace-assistant/WorkspaceAssistantRawContextDialog'
@@ -48,6 +54,15 @@ interface WorkspaceAssistantPanelProps {
 }
 
 const WORKSPACE_ASSISTANT_WIDTH_STORAGE_KEY = 'workspace-assistant-panel-width'
+
+type EditFirstPhase = 'idle' | 'briefQuestions' | 'answeringQuestions' | 'editScript'
+
+interface EditFirstBriefFlow {
+  readonly originalPrompt: string
+  readonly questionIndex: number
+  readonly questions: readonly EditFirstQuestion[]
+  readonly answers: readonly EditFirstAnswer[]
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -102,8 +117,13 @@ export default function WorkspaceAssistantPanel({
     currentWidth: number
   } | null>(null)
   const layout = buildWorkspaceAssistantPanelLayout(isCollapsed, assistantPanelWidth)
-  const [interactionMode, setInteractionMode] = useState<'auto' | 'plan' | 'fast'>('auto')
   const [rawContextOpen, setRawContextOpen] = useState(false)
+  const [composerText, setComposerText] = useState('')
+  const [composerError, setComposerError] = useState<string | null>(null)
+  const [editFirstPhase, setEditFirstPhase] = useState<EditFirstPhase>('idle')
+  const [briefFlow, setBriefFlow] = useState<EditFirstBriefFlow | null>(null)
+  const createBriefQuestions = useCreateProjectEditScriptBriefQuestions(projectId)
+  const createEditScript = useCreateProjectEditScript(projectId)
   const assistantRuntime = useWorkspaceAssistantRuntime({
     projectId,
     episodeId,
@@ -112,39 +132,169 @@ export default function WorkspaceAssistantPanel({
     selectedPanelId: selection?.selectedPanelId ?? null,
     selectedClipId: selection?.selectedClipId ?? null,
     selectedAssetId: selection?.selectedAssetId ?? null,
-    interactionMode,
+    interactionMode: 'fast',
   })
-  const { sendMessage } = assistantRuntime
   const consumedMessageKeysRef = useRef<Set<string>>(new Set())
-  const sendAssistantMessageOnce = useCallback(async (key: string, message: string) => {
+  const buildAnswerSummaries = useCallback((answers: readonly EditFirstAnswer[]) => answers.map((answer) => (
+    `${answer.questionLabel}: ${answer.optionId}: ${answer.optionLabel}`
+  )), [])
+  const generateEditGraphFromBrief = useCallback(async (
+    originalPrompt: string,
+    answers: readonly EditFirstAnswer[],
+    options?: { clearComposer?: boolean },
+  ) => {
+    if (!episodeId) {
+      const errorMessage = t('panel.episodeRequired')
+      setComposerError(errorMessage)
+      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: errorMessage }])])
+      return
+    }
+
+    const prompt = buildEditFirstPromptWithAnswers({
+      originalPrompt,
+      answerSectionTitle: t('panel.briefAnswerPromptTitle'),
+      answers: buildAnswerSummaries(answers),
+    })
+
+    setComposerError(null)
+    setEditFirstPhase('editScript')
+    try {
+      const editScript = await createEditScript.mutateAsync({ episodeId, prompt })
+      assistantRuntime.appendMessages([
+        createAssistantMessage([
+          {
+            type: 'text',
+            text: t('panel.editFirstComplete', {
+              shots: editScript.shotCount,
+              duration: editScript.durationSec,
+              assets: editScript.requirements.length,
+            }),
+          },
+        ]),
+      ])
+      setBriefFlow(null)
+      setEditFirstPhase('idle')
+      if (options?.clearComposer) setComposerText('')
+    } catch (caught) {
+      const messageText = caught instanceof Error ? caught.message : String(caught)
+      setComposerError(messageText)
+      setBriefFlow(null)
+      setEditFirstPhase('idle')
+      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: messageText }])])
+    }
+  }, [assistantRuntime, buildAnswerSummaries, createEditScript, episodeId, t])
+  const startEditGraphBrief = useCallback(async (message: string, options?: { clearComposer?: boolean }) => {
+    const normalizedMessage = message.trim()
+    if (!normalizedMessage) return
+    if (!episodeId) {
+      const errorMessage = t('panel.episodeRequired')
+      setComposerError(errorMessage)
+      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: errorMessage }])])
+      return
+    }
+
+    setComposerError(null)
+    assistantRuntime.appendMessages([createUserMessage(normalizedMessage)])
+    if (options?.clearComposer) setComposerText('')
+    setEditFirstPhase('briefQuestions')
+    try {
+      const briefQuestions = await createBriefQuestions.mutateAsync({
+        episodeId,
+        prompt: normalizedMessage,
+      })
+      setBriefFlow({
+        originalPrompt: normalizedMessage,
+        questionIndex: 0,
+        questions: briefQuestions.questions,
+        answers: [],
+      })
+      setEditFirstPhase('answeringQuestions')
+    } catch (caught) {
+      const messageText = caught instanceof Error ? caught.message : String(caught)
+      setComposerError(messageText)
+      setBriefFlow(null)
+      setEditFirstPhase('idle')
+      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: messageText }])])
+    }
+  }, [assistantRuntime, createBriefQuestions, episodeId, t])
+  const createEditGraphOnce = useCallback(async (key: string, message: string) => {
     const normalizedKey = key.trim()
     const normalizedMessage = message.trim()
     if (!normalizedKey || !normalizedMessage) return
     if (consumedMessageKeysRef.current.has(normalizedKey)) return
     consumedMessageKeysRef.current.add(normalizedKey)
-    await sendMessage(normalizedMessage)
-  }, [sendMessage])
+    await startEditGraphBrief(normalizedMessage)
+  }, [startEditGraphBrief])
+  const handleComposerSubmit = useCallback(async () => {
+    await startEditGraphBrief(composerText, { clearComposer: true })
+  }, [composerText, startEditGraphBrief])
+  const handleBriefOptionSelect = useCallback((optionId: EditBriefOptionId) => {
+    if (!briefFlow || createBriefQuestions.isPending || createEditScript.isPending) return
+    const currentQuestion = briefFlow.questions[briefFlow.questionIndex]
+    if (!currentQuestion) {
+      setComposerError(t('panel.briefQuestionMissing'))
+      return
+    }
+    const selectedOption = currentQuestion.options.find((option) => option.id === optionId)
+    if (!selectedOption) {
+      setComposerError(t('panel.briefQuestionMissing'))
+      return
+    }
+    const nextAnswers: readonly EditFirstAnswer[] = [
+      ...briefFlow.answers,
+      {
+        questionId: currentQuestion.id,
+        questionLabel: currentQuestion.label,
+        optionId,
+        optionLabel: selectedOption.label,
+      },
+    ]
+    const nextQuestionIndex = briefFlow.questionIndex + 1
+    if (nextQuestionIndex >= briefFlow.questions.length) {
+      setBriefFlow(null)
+      setEditFirstPhase('editScript')
+      void generateEditGraphFromBrief(briefFlow.originalPrompt, nextAnswers, { clearComposer: true })
+      return
+    }
+
+    setBriefFlow({
+      originalPrompt: briefFlow.originalPrompt,
+      questionIndex: nextQuestionIndex,
+      questions: briefFlow.questions,
+      answers: nextAnswers,
+    })
+  }, [briefFlow, createBriefQuestions.isPending, createEditScript.isPending, generateEditGraphFromBrief, t])
+  const activeBriefQuestion = briefFlow
+    ? briefFlow.questions[briefFlow.questionIndex] ?? null
+    : null
+  const editFirstProgressKind: EditFirstProgressKind | null =
+    editFirstPhase === 'briefQuestions' || createBriefQuestions.isPending
+      ? 'briefQuestions'
+      : editFirstPhase === 'editScript' || createEditScript.isPending
+        ? 'editScript'
+        : null
   useEffect(() => {
     if (!autoStartMessage || !autoStartKey) return
-    if (assistantRuntime.storageLoading || assistantRuntime.pending) return
-    void sendAssistantMessageOnce(autoStartKey, autoStartMessage)
+    if (assistantRuntime.storageLoading || createBriefQuestions.isPending || createEditScript.isPending) return
+    void createEditGraphOnce(autoStartKey, autoStartMessage)
       .finally(() => onAutoStartConsumed?.())
   }, [
-    assistantRuntime.pending,
     assistantRuntime.storageLoading,
     autoStartKey,
     autoStartMessage,
+    createEditGraphOnce,
+    createBriefQuestions.isPending,
+    createEditScript.isPending,
     onAutoStartConsumed,
-    sendAssistantMessageOnce,
   ])
   useEffect(() => {
     const handleSendMessage = (event: Event) => {
       if (!isWorkspaceAssistantSendMessageEvent(event)) return
-      void sendAssistantMessageOnce(event.detail.key, event.detail.message)
+      void createEditGraphOnce(event.detail.key, event.detail.message)
     }
     window.addEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
     return () => window.removeEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
-  }, [sendAssistantMessageOnce])
+  }, [createEditGraphOnce])
   const pendingConfirmationActions = useMemo(
     () => collectPendingConfirmationActions(assistantRuntime.messages),
     [assistantRuntime.messages],
@@ -237,23 +387,6 @@ export default function WorkspaceAssistantPanel({
     onCancelOperation: handleCancelOperation,
     confirmationSubmittingKey,
   })
-  const modeOptions = useMemo(() => ([
-    {
-      value: 'auto' as const,
-      label: t('panel.modeAuto'),
-      description: t('panel.modeDescriptionAuto'),
-    },
-    {
-      value: 'plan' as const,
-      label: t('panel.modePlan'),
-      description: t('panel.modeDescriptionPlan'),
-    },
-    {
-      value: 'fast' as const,
-      label: t('panel.modeFast'),
-      description: t('panel.modeDescriptionFast'),
-    },
-  ]), [t])
   const downloadHref = useMemo(() => {
     const search = new URLSearchParams()
     if (episodeId) search.set('episodeId', episodeId)
@@ -416,41 +549,25 @@ export default function WorkspaceAssistantPanel({
                     <WorkspaceAssistantThreadMessage messagePartComponents={partComponents} />
                   )}
                 </ThreadPrimitive.Messages>
+                <EditFirstInlineReply
+                  pending={createBriefQuestions.isPending || createEditScript.isPending}
+                  progressKind={editFirstProgressKind}
+                  activeQuestion={activeBriefQuestion}
+                  onSelectOption={handleBriefOptionSelect}
+                />
 
               </div>
             </ThreadPrimitive.Viewport>
 
             <div className="mx-4 mb-3 shrink-0 rounded-[22px] border border-[var(--glass-stroke-base)] bg-white/92 p-2.5 backdrop-blur-xl">
               <EditFirstComposer
-                projectId={projectId}
                 episodeId={episodeId}
-                appendMessages={assistantRuntime.appendMessages}
+                value={composerText}
+                error={composerError || (assistantRuntime.error ? assistantRuntime.error.message || 'UNKNOWN_ERROR' : null)}
+                pending={createBriefQuestions.isPending || createEditScript.isPending}
+                onChange={setComposerText}
+                onSubmit={handleComposerSubmit}
               />
-              <ComposerPrimitive.Root>
-                <ComposerPrimitive.Input
-                  rows={1}
-                  placeholder={t('panel.composerPlaceholder')}
-                  className="max-h-[5.5rem] min-h-9 w-full resize-none overflow-y-auto rounded-[14px] bg-[var(--glass-bg-muted)] px-3.5 py-2 text-sm leading-5 text-[var(--glass-text-primary)] outline-none [field-sizing:content] placeholder:text-[var(--glass-text-tertiary)]"
-                />
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <WorkspaceAssistantModePicker
-                      value={interactionMode}
-                      options={modeOptions}
-                      onChange={setInteractionMode}
-                      label={t('panel.modeLabel')}
-                    />
-                  </div>
-                  <ComposerPrimitive.Send className="h-10 rounded-[14px] bg-[var(--glass-text-primary)] px-4 text-sm font-semibold text-white disabled:opacity-60">
-                    {assistantRuntime.pending ? t('panel.sending') : t('panel.send')}
-                  </ComposerPrimitive.Send>
-                </div>
-                {assistantRuntime.error ? (
-                  <div className="mt-2 text-xs text-[rgba(239,68,68,0.92)]">
-                    {assistantRuntime.error.message || 'UNKNOWN_ERROR'} · <a href={downloadHref} className="underline">{t('panel.downloadLog')}</a>
-                  </div>
-                ) : null}
-              </ComposerPrimitive.Root>
             </div>
             </ThreadPrimitive.Root>
           </AssistantRuntimeProvider>

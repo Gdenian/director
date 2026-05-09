@@ -1,6 +1,7 @@
-import type { EditAssetRequirement, EditScriptPayload, EditScriptShot } from './types'
+import type { EditAssetRequirement, EditScriptBriefQuestionsPayload, EditScriptPayload, EditScriptShot } from './types'
 import {
   editAssetExtractionSchema,
+  editScriptBriefQuestionsSchema,
   editScriptCoreSchema,
 } from './types'
 
@@ -13,11 +14,6 @@ function uniquePositiveNumbers(values: readonly number[]): number[] {
     output.push(value)
   })
   return output.sort((left, right) => left - right)
-}
-
-function normalizeTransition(value: string): string {
-  const text = value.trim()
-  return text.length > 0 ? text : 'hard cut'
 }
 
 export function normalizeEditScriptCore(raw: unknown, expectedShotCount: number): Omit<EditScriptPayload, 'requirements'> {
@@ -35,7 +31,6 @@ export function normalizeEditScriptCore(raw: unknown, expectedShotCount: number)
       camera: shot.camera.trim(),
       videoPrompt: shot.videoPrompt.trim(),
       sound: shot.sound.trim(),
-      transition: normalizeTransition(shot.transition),
     }))
     .sort((left, right) => left.shotNumber - right.shotNumber)
 
@@ -91,6 +86,37 @@ export function normalizeEditAssetRequirements(
   }
 
   return assets
+}
+
+export function normalizeEditScriptBriefQuestions(raw: unknown): EditScriptBriefQuestionsPayload {
+  const parsed = editScriptBriefQuestionsSchema.parse(raw)
+  const seenQuestionIds = new Set<string>()
+  return {
+    questions: parsed.questions.map((question) => {
+      const questionId = question.id.trim()
+      if (seenQuestionIds.has(questionId)) {
+        throw new Error(`EDIT_SCRIPT_BRIEF_DUPLICATE_QUESTION:${questionId}`)
+      }
+      seenQuestionIds.add(questionId)
+
+      const optionIds = question.options.map((option) => option.id)
+      const expectedOptionIds = ['A', 'B', 'C'] as const
+      expectedOptionIds.forEach((expectedId, index) => {
+        if (optionIds[index] !== expectedId) {
+          throw new Error(`EDIT_SCRIPT_BRIEF_OPTION_ORDER:${questionId}`)
+        }
+      })
+
+      return {
+        id: questionId,
+        label: question.label.trim(),
+        options: question.options.map((option) => ({
+          id: option.id,
+          label: option.label.trim(),
+        })),
+      }
+    }),
+  }
 }
 
 export function resolveEditScriptDefaults(userPrompt: string): { durationSeconds: number; shotCount: number } {

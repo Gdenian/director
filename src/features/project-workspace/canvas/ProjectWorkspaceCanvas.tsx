@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { WheelEvent } from 'react'
 import {
   applyNodeChanges,
   Background,
@@ -11,15 +12,18 @@ import {
   ReactFlowProvider,
   type NodeMouseHandler,
   type NodeChange,
+  type Viewport,
   useReactFlow,
 } from '@xyflow/react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
+import { logWarn as _ulogWarn } from '@/lib/logging/core'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
 import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
 import { useProjectEditScript } from '@/lib/query/hooks'
 import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageData'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
+import { useWorkspaceRuntime } from '../WorkspaceRuntimeContext'
 import { useCanvasLayoutPersistence } from './hooks/useCanvasLayoutPersistence'
 import {
   buildWorkspaceNodeCanvasProjection,
@@ -31,12 +35,14 @@ import {
   buildWorkspaceCanvasNodeSignature,
 } from './hooks/canvas-projection-signature'
 import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
-import CanvasObjectDetailLayer from './details/CanvasObjectDetailLayer'
 import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
 
 const DEFAULT_VIEWPORT = { x: 24, y: 136, zoom: 0.82 }
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
+const CANVAS_MIN_ZOOM = 0.25
+const CANVAS_MAX_ZOOM = 1.25
+const WHEEL_ZOOM_SPEED = 0.0018
 
 export interface WorkspaceAssistantSelectionContext {
   selectedScopeRef?: string | null
@@ -117,12 +123,16 @@ function CanvasViewportControls({
 function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWorkspaceCanvasContentProps) {
   const t = useTranslations('projectWorkflow.canvas.workspace')
   const { projectId, episodeId } = useWorkspaceProvider()
+  const runtime = useWorkspaceRuntime()
   const { episodeName, novelText, clips, storyboards, shots } = useWorkspaceEpisodeStageData()
   const { data: editScript } = useProjectEditScript(projectId, episodeId ?? null)
   const reactFlow = useReactFlow<WorkspaceCanvasFlowNode>()
   const runNodeAction = useWorkspaceNodeCanvasActions()
+  const canvasRef = useRef<HTMLDivElement | null>(null)
   const [nodes, setNodes] = useState<WorkspaceCanvasFlowNode[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [expandedNodeIds, setExpandedNodeIds] = useState<ReadonlySet<string>>(() => new Set())
+  const expandedNodeIdsRef = useRef<ReadonlySet<string>>(expandedNodeIds)
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
@@ -140,12 +150,27 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
 
   const savedNodeLayouts = layout?.nodeLayouts ?? EMPTY_SAVED_NODE_LAYOUTS
   const onNodeAction = useCallback((action: WorkspaceCanvasNodeAction) => {
-    if (action.type === 'open_details') {
-      setSelectedNodeId(action.nodeId)
-      return
-    }
     runNodeAction(action)
   }, [runNodeAction])
+  const toggleNodeExpanded = useCallback((nodeId: string) => {
+    setExpandedNodeIds((current) => {
+      const next = new Set(current)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }, [])
+  const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => inputNodes.map((node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      expanded: expandedNodeIdsRef.current.has(node.id),
+      onToggleExpanded: toggleNodeExpanded,
+    },
+  })), [toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -156,6 +181,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     storyboards,
     shots,
     editScript,
+    defaultVideoModel: runtime.videoModel ?? null,
     savedLayouts: savedNodeLayouts,
     translate: t,
     onAction: onNodeAction,
@@ -181,8 +207,20 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   useEffect(() => {
     if (appliedProjectionNodeSignatureRef.current === projectionNodeSignature) return
     appliedProjectionNodeSignatureRef.current = projectionNodeSignature
-    setNodes([...projection.nodes])
-  }, [projection.nodes, projectionNodeSignature])
+    setNodes(attachNodeUiState(projection.nodes))
+  }, [attachNodeUiState, projection.nodes, projectionNodeSignature])
+
+  useEffect(() => {
+    expandedNodeIdsRef.current = expandedNodeIds
+    setNodes((currentNodes) => currentNodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        expanded: expandedNodeIds.has(node.id),
+        onToggleExpanded: toggleNodeExpanded,
+      },
+    })))
+  }, [expandedNodeIds, toggleNodeExpanded])
 
   useEffect(() => {
     if (!layout) return
@@ -213,6 +251,12 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     await saveLayout(input)
   }, [episodeId, reactFlow, saveLayout])
 
+  const persistCurrentLayoutSafely = useCallback((nextNodes: readonly WorkspaceCanvasFlowNode[]) => {
+    void persistCurrentLayout(nextNodes).catch((error: unknown) => {
+      _ulogWarn('[ProjectWorkspaceCanvas] canvas layout save failed', error)
+    })
+  }, [persistCurrentLayout])
+
   const handleNodesChange = useCallback((changes: NodeChange<WorkspaceCanvasFlowNode>[]) => {
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
   }, [])
@@ -221,6 +265,31 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     if (node.data.kind === 'analysis' || node.data.kind === 'storyInput') return
     setSelectedNodeId(node.id)
   }, [])
+
+  const applyWheelZoom = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    const bounds = canvasRef.current?.getBoundingClientRect()
+    if (!bounds) return
+
+    event.preventDefault()
+
+    const viewport = reactFlow.getViewport()
+    const nextZoom = Math.min(
+      CANVAS_MAX_ZOOM,
+      Math.max(CANVAS_MIN_ZOOM, viewport.zoom * Math.exp(-event.deltaY * WHEEL_ZOOM_SPEED)),
+    )
+    if (nextZoom === viewport.zoom) return
+
+    const pointerX = event.clientX - bounds.left
+    const pointerY = event.clientY - bounds.top
+    const zoomRatio = nextZoom / viewport.zoom
+    const nextViewport: Viewport = {
+      x: pointerX - (pointerX - viewport.x) * zoomRatio,
+      y: pointerY - (pointerY - viewport.y) * zoomRatio,
+      zoom: nextZoom,
+    }
+
+    void reactFlow.setViewport(nextViewport)
+  }, [reactFlow])
 
   const resetLayout = useCallback(() => {
     if (!episodeId) return
@@ -232,14 +301,18 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
       clips,
       storyboards,
       shots,
+      editScript,
+      defaultVideoModel: runtime.videoModel ?? null,
       savedLayouts: EMPTY_SAVED_NODE_LAYOUTS,
       translate: t,
       onAction: onNodeAction,
     })
-    setNodes([...defaultProjection.nodes])
+    setNodes(attachNodeUiState(defaultProjection.nodes))
     void reactFlow.setViewport(DEFAULT_VIEWPORT)
-    void resetSavedLayout()
-  }, [clips, episodeId, episodeName, novelText, onNodeAction, projectId, reactFlow, resetSavedLayout, shots, storyboards, t])
+    void resetSavedLayout().catch((error: unknown) => {
+      _ulogWarn('[ProjectWorkspaceCanvas] canvas layout reset failed', error)
+    })
+  }, [attachNodeUiState, clips, editScript, episodeId, episodeName, novelText, onNodeAction, projectId, reactFlow, resetSavedLayout, runtime.videoModel, shots, storyboards, t])
 
   const fitView = useCallback(() => {
     void reactFlow.fitView({ padding: 0.14, duration: 180 })
@@ -274,7 +347,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
 
   return (
     <div className="h-full min-h-0 w-full overflow-hidden bg-[var(--glass-bg-canvas)]">
-      <div className="h-full">
+      <div ref={canvasRef} className="h-full" onWheelCapture={applyWheelZoom}>
         <ReactFlow
           nodes={nodes}
           edges={flowEdges}
@@ -282,15 +355,15 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
           onNodesChange={handleNodesChange}
           onNodeClick={handleNodeClick}
           onPaneClick={() => setSelectedNodeId(null)}
-          onNodeDragStop={async () => persistCurrentLayout(nodes)}
-          onMoveEnd={async () => persistCurrentLayout(nodes)}
+          onNodeDragStop={() => persistCurrentLayoutSafely(nodes)}
+          onMoveEnd={() => persistCurrentLayoutSafely(nodes)}
           nodesDraggable
           nodesConnectable={false}
           elementsSelectable
-          minZoom={0.25}
-          maxZoom={1.25}
+          minZoom={CANVAS_MIN_ZOOM}
+          maxZoom={CANVAS_MAX_ZOOM}
+          zoomOnScroll={false}
           defaultViewport={DEFAULT_VIEWPORT}
-          onlyRenderVisibleElements
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
@@ -334,13 +407,6 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
           </Panel>
         </ReactFlow>
       </div>
-
-      <CanvasObjectDetailLayer
-        selectedNode={selectedNode}
-        clips={clips}
-        storyboards={storyboards}
-        onClose={() => setSelectedNodeId(null)}
-      />
     </div>
   )
 }

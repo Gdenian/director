@@ -1,11 +1,83 @@
 import { describe, expect, it } from 'vitest'
 import {
   normalizeEditAssetRequirements,
+  normalizeEditScriptBriefQuestions,
   normalizeEditScriptCore,
   resolveEditScriptDefaults,
 } from '@/lib/edit-script/normalize'
 
 describe('edit script normalization', () => {
+  it('accepts AI generated brief questions with exactly A/B/C options', () => {
+    expect(normalizeEditScriptBriefQuestions({
+      questions: [
+        {
+          id: 'visual_direction',
+          label: '这条短片更偏向哪种视觉方向？',
+          options: [
+            { id: 'A', label: '冷峻对称' },
+            { id: 'B', label: '神秘留白' },
+            { id: 'C', label: '压迫推进' },
+          ],
+        },
+        {
+          id: 'ending_tone',
+          label: '结尾更需要哪种余味？',
+          options: [
+            { id: 'A', label: '开放留白' },
+            { id: 'B', label: '反转揭示' },
+            { id: 'C', label: '冷峻收束' },
+          ],
+        },
+      ],
+    })).toEqual({
+      questions: [
+        {
+          id: 'visual_direction',
+          label: '这条短片更偏向哪种视觉方向？',
+          options: [
+            { id: 'A', label: '冷峻对称' },
+            { id: 'B', label: '神秘留白' },
+            { id: 'C', label: '压迫推进' },
+          ],
+        },
+        {
+          id: 'ending_tone',
+          label: '结尾更需要哪种余味？',
+          options: [
+            { id: 'A', label: '开放留白' },
+            { id: 'B', label: '反转揭示' },
+            { id: 'C', label: '冷峻收束' },
+          ],
+        },
+      ],
+    })
+  })
+
+  it('rejects AI generated brief questions with invalid option order', () => {
+    expect(() => normalizeEditScriptBriefQuestions({
+      questions: [
+        {
+          id: 'visual_direction',
+          label: '这条短片更偏向哪种视觉方向？',
+          options: [
+            { id: 'A', label: '冷峻对称' },
+            { id: 'C', label: '压迫推进' },
+            { id: 'B', label: '神秘留白' },
+          ],
+        },
+        {
+          id: 'ending_tone',
+          label: '结尾更需要哪种余味？',
+          options: [
+            { id: 'A', label: '开放留白' },
+            { id: 'B', label: '反转揭示' },
+            { id: 'C', label: '冷峻收束' },
+          ],
+        },
+      ],
+    })).toThrow('EDIT_SCRIPT_BRIEF_OPTION_ORDER')
+  })
+
   it('keeps the minimum edit table fields and enforces continuous shot numbers', () => {
     const normalized = normalizeEditScriptCore({
       title: 'Orbital Silence',
@@ -19,7 +91,6 @@ describe('edit script normalization', () => {
           camera: 'locked wide shot, slow push in',
           videoPrompt: 'A pilot in a sterile white corridor, locked wide shot.',
           sound: 'low air-conditioning hum',
-          transition: 'hard cut',
         },
         {
           shotNumber: 2,
@@ -29,7 +100,6 @@ describe('edit script normalization', () => {
           camera: 'centered medium shot, slow dolly',
           videoPrompt: 'A red observation room revealed with a centered dolly.',
           sound: 'sub-bass pulse',
-          transition: 'hard cut',
         },
       ],
     }, 2)
@@ -44,7 +114,6 @@ describe('edit script normalization', () => {
       camera: 'locked wide shot, slow push in',
       videoPrompt: 'A pilot in a sterile white corridor, locked wide shot.',
       sound: 'low air-conditioning hum',
-      transition: 'hard cut',
     })
   })
 
@@ -61,7 +130,6 @@ describe('edit script normalization', () => {
           camera: 'wide',
           videoPrompt: 'first',
           sound: 'tone',
-          transition: 'hard cut',
         },
         {
           shotNumber: 3,
@@ -71,7 +139,6 @@ describe('edit script normalization', () => {
           camera: 'wide',
           videoPrompt: 'third',
           sound: 'tone',
-          transition: 'hard cut',
         },
       ],
     }, 2)).toThrow('EDIT_SCRIPT_SHOT_NUMBER_NOT_CONTINUOUS')
@@ -90,7 +157,6 @@ describe('edit script normalization', () => {
           camera: 'wide',
           videoPrompt: 'pilot at dock',
           sound: 'hum',
-          transition: 'hard cut',
         },
         {
           shotNumber: 2,
@@ -100,7 +166,6 @@ describe('edit script normalization', () => {
           camera: 'medium',
           videoPrompt: 'pilot enters dock',
           sound: 'door',
-          transition: 'hard cut',
         },
       ],
     }, 2).shots

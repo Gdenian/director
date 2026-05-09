@@ -6,6 +6,24 @@ export type EditAssetKind = (typeof EDIT_ASSET_KINDS)[number]
 export const EDIT_ASSET_STATUSES = ['pending', 'generating', 'completed', 'failed'] as const
 export type EditAssetStatus = (typeof EDIT_ASSET_STATUSES)[number]
 
+export const EDIT_BRIEF_OPTION_IDS = ['A', 'B', 'C'] as const
+export type EditBriefOptionId = (typeof EDIT_BRIEF_OPTION_IDS)[number]
+
+export interface EditScriptBriefQuestionOption {
+  readonly id: EditBriefOptionId
+  readonly label: string
+}
+
+export interface EditScriptBriefQuestion {
+  readonly id: string
+  readonly label: string
+  readonly options: readonly EditScriptBriefQuestionOption[]
+}
+
+export interface EditScriptBriefQuestionsPayload {
+  readonly questions: readonly EditScriptBriefQuestion[]
+}
+
 export interface EditScriptShot {
   readonly shotNumber: number
   readonly durationSec: number
@@ -14,7 +32,6 @@ export interface EditScriptShot {
   readonly camera: string
   readonly videoPrompt: string
   readonly sound: string
-  readonly transition: string
 }
 
 export interface EditAssetRequirement {
@@ -51,7 +68,6 @@ export const editScriptShotSchema = z.object({
   camera: z.string().trim().min(1),
   videoPrompt: z.string().trim().min(1),
   sound: z.string().trim().min(1),
-  transition: z.string().trim().min(1),
 })
 
 export const editScriptCoreSchema = z.object({
@@ -72,7 +88,27 @@ export const editAssetExtractionSchema = z.object({
   assets: z.array(editAssetRequirementSchema).min(1).max(40),
 })
 
+export const editScriptBriefQuestionOptionSchema = z.object({
+  id: z.enum(EDIT_BRIEF_OPTION_IDS),
+  label: z.string().trim().min(1),
+})
+
+export const editScriptBriefQuestionSchema = z.object({
+  id: z.string().trim().min(1),
+  label: z.string().trim().min(1),
+  options: z.array(editScriptBriefQuestionOptionSchema).length(3),
+})
+
+export const editScriptBriefQuestionsSchema = z.object({
+  questions: z.array(editScriptBriefQuestionSchema).min(2).max(4),
+})
+
 export const createEditScriptRequestSchema = z.object({
+  episodeId: z.string().trim().min(1),
+  prompt: z.string().trim().min(1),
+})
+
+export const createEditScriptBriefQuestionsRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
   prompt: z.string().trim().min(1),
 })
@@ -82,6 +118,12 @@ export const getEditScriptRequestSchema = z.object({
 })
 
 export const generateEditAssetsRequestSchema = z.object({
+  episodeId: z.string().trim().min(1),
+  editScriptId: z.string().trim().min(1).optional(),
+  requirementId: z.string().trim().min(1).optional(),
+})
+
+export const generateEditStoryboardRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
   editScriptId: z.string().trim().min(1).optional(),
 })

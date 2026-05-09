@@ -15,7 +15,6 @@ export type WorkspaceCanvasNodeKind =
 export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'panel' | 'editScript' | 'editAssetRequirement'
 
 export type WorkspaceCanvasNodeAction =
-  | { readonly type: 'open_details'; readonly nodeId: string }
   | { readonly type: 'update_story'; readonly value: string }
   | { readonly type: 'generate_script' }
   | { readonly type: 'generate_storyboard' }
@@ -79,8 +78,14 @@ export type WorkspaceCanvasNodeAction =
     }
   | { readonly type: 'update_panel_video_model'; readonly storyboardId: string; readonly panelIndex: number; readonly model: string }
   | { readonly type: 'toggle_panel_link'; readonly storyboardId: string; readonly panelIndex: number; readonly linked: boolean }
-  | { readonly type: 'generate_all_videos' }
+  | {
+      readonly type: 'generate_all_videos'
+      readonly videoModel?: string
+      readonly generationOptions?: Record<string, string | number | boolean>
+    }
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
+  | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
+  | { readonly type: 'generate_edit_storyboard'; readonly editScriptId: string }
 
 export type WorkspaceCanvasNodeActionHandler = (action: WorkspaceCanvasNodeAction) => void
 
@@ -185,7 +190,6 @@ export interface WorkspaceCanvasEditScriptDetails {
     readonly camera: string
     readonly videoPrompt: string
     readonly sound: string
-    readonly transition: string
   }[]
 }
 
@@ -215,6 +219,8 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly actionLabel?: string
   readonly action?: WorkspaceCanvasNodeAction
   readonly onAction?: WorkspaceCanvasNodeActionHandler
+  readonly expanded?: boolean
+  readonly onToggleExpanded?: (nodeId: string) => void
   readonly indexLabel?: string
   readonly previewImageUrl?: string | null
   readonly scriptDetails?: WorkspaceCanvasScriptDetails

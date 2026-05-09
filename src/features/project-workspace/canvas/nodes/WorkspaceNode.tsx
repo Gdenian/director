@@ -4,6 +4,7 @@ import React, { useEffect, useState, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useTranslations } from 'next-intl'
 import { AppIcon, type AppIconName } from '@/components/ui/icons'
+import { toDisplayImageUrl } from '@/lib/media/image-url'
 import StoryDetail from '../details/StoryDetail'
 import type {
   WorkspaceCanvasAssetRef,
@@ -61,6 +62,17 @@ function renderValue(label: string, value: string | number | null | undefined) {
 function renderTextBlock(value: string | null | undefined) {
   if (!hasText(value)) return null
   return <p className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--glass-text-secondary)]">{value}</p>
+}
+
+function renderTextSection(title: string, value: string | null | undefined) {
+  const content = renderTextBlock(value)
+  return content ? renderSection(title, content) : null
+}
+
+function renderSummaryText(value: string | null | undefined, lines = 3) {
+  if (!hasText(value)) return null
+  const lineClampClass = lines === 2 ? 'line-clamp-2' : lines === 4 ? 'line-clamp-4' : 'line-clamp-3'
+  return <p className={`${lineClampClass} break-words text-xs leading-5 text-[var(--glass-text-secondary)]`}>{value}</p>
 }
 
 function renderChips(label: string, values: readonly string[]) {
@@ -164,11 +176,28 @@ function AnalysisContent({ data }: { readonly data: WorkspaceCanvasFlowNode['dat
   return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
 }
 
-function ScriptClipContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function ScriptClipContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.scriptDetails
   if (!details) return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
+  if (!expanded) {
+    return (
+      <div className="space-y-2">
+        {renderAssetChips(labels('characters'), details.characters)}
+        {renderChips(labels('locations'), details.locations)}
+        {renderSection(labels('description'), renderSummaryText(details.screenplayText || data.body, 4))}
+      </div>
+    )
+  }
   return (
-    <div className="nodrag nowheel max-h-[238px] space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2">
       {renderAssetChips(labels('characters'), details.characters)}
       {renderChips(labels('locations'), details.locations)}
       {renderChips(labels('props'), details.props)}
@@ -187,12 +216,37 @@ function ScriptClipContent({ data, labels }: { readonly data: WorkspaceCanvasFlo
   )
 }
 
-function ShotContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function ShotContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.shotDetails
   if (!details) return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
   const promptShot = details.promptShot
+  const shouldShowPreview = hasText(data.previewImageUrl)
+  if (!expanded) {
+    return (
+      <div className="space-y-2">
+        {shouldShowPreview ? <MediaPreview data={data} /> : null}
+        {renderSection(labels('shotCore'), (
+          <div className="space-y-1">
+            {renderValue(labels('location'), details.location)}
+            {renderValue(labels('duration'), details.duration)}
+          </div>
+        ))}
+        {renderAssetChips(labels('characters'), details.characters)}
+        {renderSection(labels('description'), renderSummaryText(data.body, 4))}
+      </div>
+    )
+  }
   return (
-    <div className="nodrag nowheel max-h-[258px] space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2">
+      {shouldShowPreview ? <MediaPreview data={data} /> : null}
       {renderSection(labels('shotCore'), (
         <div className="space-y-1">
           {renderValue(labels('shotType'), details.shotType)}
@@ -204,12 +258,12 @@ function ShotContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode[
       ))}
       {renderAssetChips(labels('characters'), details.characters)}
       {renderChips(labels('props'), details.props)}
-      {renderSection(labels('description'), renderTextBlock(data.body))}
-      {renderSection(labels('srtSegment'), renderTextBlock(details.srtSegment))}
-      {renderSection(labels('imagePrompt'), renderTextBlock(details.imagePrompt))}
-      {renderSection(labels('videoPrompt'), renderTextBlock(details.videoPrompt))}
-      {renderSection(labels('photographyRules'), renderTextBlock(details.photographyRules))}
-      {renderSection(labels('actingNotes'), renderTextBlock(details.actingNotes))}
+      {renderTextSection(labels('description'), data.body)}
+      {renderTextSection(labels('srtSegment'), details.srtSegment)}
+      {renderTextSection(labels('imagePrompt'), details.imagePrompt)}
+      {renderTextSection(labels('videoPrompt'), details.videoPrompt)}
+      {renderTextSection(labels('photographyRules'), details.photographyRules)}
+      {renderTextSection(labels('actingNotes'), details.actingNotes)}
       {promptShot ? renderSection(labels('promptShot'), (
         <div className="space-y-1">
           {renderValue(labels('sequence'), promptShot.sequence)}
@@ -223,20 +277,30 @@ function ShotContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode[
           {renderValue(labels('summary'), promptShot.zhSummarize)}
         </div>
       )) : null}
-      {renderSection(labels('error'), renderTextBlock(details.errorMessage))}
+      {renderTextSection(labels('error'), details.errorMessage)}
     </div>
   )
 }
 
 function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data'] }) {
+  const displayVideoUrl = data.kind === 'videoClip' ? toDisplayImageUrl(data.videoDetails?.videoUrl) : null
+  const displayImageUrl = toDisplayImageUrl(data.previewImageUrl)
+  const isEditAsset = data.kind === 'editRequiredAsset'
   return (
-    <div className="h-[118px] overflow-hidden rounded-[18px] border border-slate-200 bg-slate-100">
-      {data.previewImageUrl ? (
+    <div className={`${isEditAsset ? 'h-[240px]' : 'h-[118px]'} overflow-hidden rounded-[18px] border border-slate-200 bg-slate-100`}>
+      {displayVideoUrl ? (
+        <video
+          src={displayVideoUrl}
+          aria-label={data.title}
+          controls
+          className="h-full w-full bg-black object-contain"
+        />
+      ) : displayImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={data.previewImageUrl}
+          src={displayImageUrl}
           alt={data.title}
-          className="h-full w-full object-cover"
+          className={isEditAsset ? 'h-full w-full object-contain' : 'h-full w-full object-cover'}
         />
       ) : (
         <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc_0%,#e2e8f0_48%,#cbd5e1_100%)]">
@@ -249,67 +313,99 @@ function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data']
   )
 }
 
-function ImageContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function ImageContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.imageDetails
   return (
-    <div className="nodrag nowheel max-h-[270px] space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2">
       <MediaPreview data={data} />
       {details ? (
         <>
-          {renderSection(labels('imagePrompt'), renderTextBlock(details.imagePrompt))}
-          {renderSection(labels('description'), renderTextBlock(details.description))}
-          {details.candidateImages.length > 0 ? renderSection(labels('candidateImages'), (
-            <div className="grid grid-cols-3 gap-1.5">
-              {details.candidateImages.map((url, index) => (
-                <div key={url} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={labels('candidateImageAlt', { index: index + 1 })} className="h-12 w-full object-cover" />
+          {renderSection(labels('imagePrompt'), expanded ? renderTextBlock(details.imagePrompt) : renderSummaryText(details.imagePrompt || details.description, 3))}
+          {expanded ? (
+            <>
+              {renderTextSection(labels('description'), details.description)}
+              {details.candidateImages.length > 0 ? renderSection(labels('candidateImages'), (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {details.candidateImages.map((url, index) => (
+                    <div key={url} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={toDisplayImageUrl(url) ?? url} alt={labels('candidateImageAlt', { index: index + 1 })} className="h-12 w-full object-cover" />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )) : null}
-          {renderSection(labels('imageHistory'), renderTextBlock(details.imageHistory))}
-          {renderValue(labels('sketchImage'), details.sketchImageUrl)}
-          {renderValue(labels('previousImage'), details.previousImageUrl)}
-          {renderSection(labels('error'), renderTextBlock(details.errorMessage))}
+              )) : null}
+              {renderTextSection(labels('imageHistory'), details.imageHistory)}
+              {renderValue(labels('sketchImage'), details.sketchImageUrl)}
+              {renderValue(labels('previousImage'), details.previousImageUrl)}
+              {renderTextSection(labels('error'), details.errorMessage)}
+            </>
+          ) : null}
         </>
       ) : null}
     </div>
   )
 }
 
-function VideoContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function VideoContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.videoDetails
   return (
-    <div className="nodrag nowheel max-h-[290px] space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2">
       <MediaPreview data={data} />
       {details ? (
         <>
-          {renderSection(labels('videoPrompt'), renderTextBlock(details.videoPrompt))}
-          {renderSection(labels('firstLastFramePrompt'), renderTextBlock(details.firstLastFramePrompt))}
-          {renderSection(labels('videoMeta'), (
-            <div className="space-y-1">
-              {renderValue(labels('generationMode'), details.videoGenerationMode)}
-              {renderValue(labels('videoModel'), details.videoModel)}
-              {renderValue(labels('linkedToNextPanel'), details.linkedToNextPanel === true ? labels('yes') : null)}
-              {renderValue(labels('baseVideo'), details.videoUrl)}
-            </div>
-          ))}
-          {details.lastVideoGenerationOptions && details.lastVideoGenerationOptions.length > 0
-            ? renderSection(labels('lastOptions'), renderLines(details.lastVideoGenerationOptions, labels))
-            : null}
-          {renderSection(labels('error'), renderTextBlock(details.errorMessage))}
+          {renderSection(labels('videoPrompt'), expanded ? renderTextBlock(details.videoPrompt) : renderSummaryText(details.videoPrompt || data.body, 3))}
+          {expanded ? (
+            <>
+              {renderTextSection(labels('firstLastFramePrompt'), details.firstLastFramePrompt)}
+              {renderSection(labels('videoMeta'), (
+                <div className="space-y-1">
+                  {renderValue(labels('generationMode'), details.videoGenerationMode)}
+                  {renderValue(labels('videoModel'), details.videoModel)}
+                  {renderValue(labels('linkedToNextPanel'), details.linkedToNextPanel === true ? labels('yes') : null)}
+                  {renderValue(labels('baseVideo'), details.videoUrl)}
+                </div>
+              ))}
+              {details.lastVideoGenerationOptions && details.lastVideoGenerationOptions.length > 0
+                ? renderSection(labels('lastOptions'), renderLines(details.lastVideoGenerationOptions, labels))
+                : null}
+              {renderTextSection(labels('error'), details.errorMessage)}
+            </>
+          ) : null}
         </>
       ) : null}
     </div>
   )
 }
 
-function FinalContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function FinalContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.finalDetails
   if (!details) return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
   return (
-    <div className="nodrag nowheel max-h-[158px] space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2">
       {renderSection(labels('finalStats'), (
         <div className="space-y-1">
           {renderValue(labels('totalShots'), details.totalShots)}
@@ -318,52 +414,98 @@ function FinalContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode
           {renderValue(labels('totalDuration'), details.totalDuration)}
         </div>
       ))}
-      {renderChips(labels('videoOrder'), details.orderedVideoLabels)}
+      {expanded ? renderChips(labels('videoOrder'), details.orderedVideoLabels) : null}
     </div>
   )
 }
 
-function EditScriptContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function renderEditScriptCell(label: string, children: ReactNode, className = '') {
+  return (
+    <td aria-label={label} className={`border-l border-slate-100 px-3 py-3 align-top text-xs leading-5 text-[var(--glass-text-secondary)] first:border-l-0 ${className}`}>
+      <div className="whitespace-pre-wrap break-words">{children}</div>
+    </td>
+  )
+}
+
+function EditScriptContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.editScriptDetails
   if (!details) return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
   return (
-    <div className="nodrag nowheel max-h-[288px] space-y-2 overflow-y-auto pr-1">
-      {renderSection(labels('editScriptMeta'), (
-        <div className="space-y-1">
-          {renderValue(labels('totalDuration'), details.durationSec)}
-          {renderValue(labels('shotCount'), details.shotCount)}
-        </div>
-      ))}
-      <div className="space-y-2">
-        {details.shots.map((shot) => (
-          <section key={shot.shotNumber} className="space-y-1.5 rounded-[14px] bg-slate-50 p-3 ring-1 ring-slate-100">
-            <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]">
-              <span>{labels('shotIndex', { index: shot.shotNumber })}</span>
-              <span>{shot.durationSec}s</span>
-            </div>
-            {renderValue(labels('description'), shot.visualAction)}
-            {renderValue(labels('charactersAndScene'), shot.charactersAndScene)}
-            {renderValue(labels('cameraMove'), shot.camera)}
-            {renderValue(labels('videoPrompt'), shot.videoPrompt)}
-            {renderValue(labels('sound'), shot.sound)}
-            {renderValue(labels('transition'), shot.transition)}
-          </section>
+    <div className="nodrag nowheel space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        {renderSection(labels('editScriptMeta'), (
+          <div className="space-y-1">
+            {renderValue(labels('totalDuration'), details.durationSec)}
+            {renderValue(labels('shotCount'), details.shotCount)}
+          </div>
         ))}
+        {renderSection(labels('description'), renderTextBlock(data.body))}
+      </div>
+      <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white">
+        <table className="w-full border-collapse text-left">
+          <thead className="bg-slate-50">
+            <tr className="text-[10px] font-semibold uppercase tracking-normal text-[var(--glass-text-tertiary)]">
+              <th className="w-16 px-3 py-2">{labels('shotIndexHeader')}</th>
+              <th className="w-16 border-l border-slate-100 px-3 py-2">{labels('duration')}</th>
+              <th className="w-[22%] border-l border-slate-100 px-3 py-2">{labels('description')}</th>
+              <th className="w-[14%] border-l border-slate-100 px-3 py-2">{labels('charactersAndScene')}</th>
+              {expanded ? (
+                <>
+                  <th className="w-[13%] border-l border-slate-100 px-3 py-2">{labels('cameraMove')}</th>
+                  <th className="w-[28%] border-l border-slate-100 px-3 py-2">{labels('videoPrompt')}</th>
+                  <th className="w-[14%] border-l border-slate-100 px-3 py-2">{labels('sound')}</th>
+                </>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody>
+            {details.shots.map((shot) => (
+              <tr key={shot.shotNumber} className="border-t border-slate-100">
+                {renderEditScriptCell(labels('shotIndexHeader'), shot.shotNumber, 'font-semibold text-[var(--glass-text-primary)]')}
+                {renderEditScriptCell(labels('duration'), `${shot.durationSec}s`)}
+                {renderEditScriptCell(labels('description'), expanded ? shot.visualAction : renderSummaryText(shot.visualAction, 2))}
+                {renderEditScriptCell(labels('charactersAndScene'), shot.charactersAndScene)}
+                {expanded ? (
+                  <>
+                    {renderEditScriptCell(labels('cameraMove'), shot.camera)}
+                    {renderEditScriptCell(labels('videoPrompt'), shot.videoPrompt)}
+                    {renderEditScriptCell(labels('sound'), shot.sound)}
+                  </>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
 
-function EditAssetContent({ data, labels }: { readonly data: WorkspaceCanvasFlowNode['data']; readonly labels: ReturnType<typeof useTranslations> }) {
+function EditAssetContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
   const details = data.editAssetDetails
   if (!details) return <p className="text-sm leading-6 text-[var(--glass-text-secondary)]">{data.body}</p>
   return (
-    <div className="nodrag nowheel max-h-[210px] space-y-2 overflow-y-auto pr-1">
+    <div className="nodrag nowheel space-y-2">
       <MediaPreview data={data} />
-      {renderSection(labels('description'), renderTextBlock(details.description))}
       {renderChips(labels('linkedShots'), details.shotNumbers.map((shotNumber) => String(shotNumber)))}
-      {renderValue(labels('targetAsset'), details.targetId)}
-      {renderSection(labels('error'), renderTextBlock(details.errorMessage))}
+      {expanded ? renderSection(labels('description'), renderTextBlock(details.description)) : null}
+      {expanded && details.errorMessage ? renderSection(labels('error'), renderTextBlock(details.errorMessage)) : null}
     </div>
   )
 }
@@ -373,11 +515,13 @@ function NodeContent({
   draft,
   setDraft,
   labels,
+  expanded,
 }: {
   readonly data: WorkspaceCanvasFlowNode['data']
   readonly draft: string
   readonly setDraft: (value: string) => void
   readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
 }) {
   switch (data.kind) {
     case 'storyInput':
@@ -385,29 +529,32 @@ function NodeContent({
     case 'analysis':
       return <AnalysisContent data={data} />
     case 'scriptClip':
-      return <ScriptClipContent data={data} labels={labels} />
+      return <ScriptClipContent data={data} labels={labels} expanded={expanded} />
     case 'shot':
-      return <ShotContent data={data} labels={labels} />
+      return <ShotContent data={data} labels={labels} expanded={expanded} />
     case 'imageAsset':
-      return <ImageContent data={data} labels={labels} />
+      return <ImageContent data={data} labels={labels} expanded={expanded} />
     case 'videoClip':
-      return <VideoContent data={data} labels={labels} />
+      return <VideoContent data={data} labels={labels} expanded={expanded} />
     case 'finalTimeline':
-      return <FinalContent data={data} labels={labels} />
+      return <FinalContent data={data} labels={labels} expanded={expanded} />
     case 'editScript':
-      return <EditScriptContent data={data} labels={labels} />
+      return <EditScriptContent data={data} labels={labels} expanded={expanded} />
     case 'editRequiredAsset':
-      return <EditAssetContent data={data} labels={labels} />
+      return <EditAssetContent data={data} labels={labels} expanded={expanded} />
   }
 }
 
 export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNode>) {
   const labels = useTranslations('projectWorkflow.canvas.workspace.nodeFields')
   const [storyDraft, setStoryDraft] = useState(data.body)
+  const expanded = data.expanded === true
   const hasTarget = data.kind !== 'storyInput'
   const hasSource = data.kind !== 'finalTimeline'
   const action = data.action
-  const detailNodeId = data.kind === 'storyInput' ? null : data.nodeId
+  const canToggleDetails = data.kind !== 'storyInput' && data.kind !== 'analysis'
+  const isEditRequiredAsset = data.kind === 'editRequiredAsset'
+  const shouldShowFooter = canToggleDetails || !isEditRequiredAsset || Boolean(action && data.actionLabel)
 
   useEffect(() => {
     setStoryDraft(data.body)
@@ -418,7 +565,7 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
       {hasTarget ? <Handle type="target" position={Position.Left} className="!z-10 !h-3.5 !w-3.5 !border-2 !border-white !bg-slate-500 !shadow-sm" /> : null}
       {hasSource ? <Handle type="source" position={Position.Right} className="!z-10 !h-3.5 !w-3.5 !border-2 !border-white !bg-slate-500 !shadow-sm" /> : null}
 
-      <article className="h-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/92 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <article className="min-h-full overflow-visible rounded-[24px] border border-slate-200 bg-white/92 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--glass-text-tertiary)]">
@@ -442,33 +589,36 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
         </header>
 
         <div className="space-y-4 px-5 py-5">
-          <NodeContent data={data} draft={storyDraft} setDraft={setStoryDraft} labels={labels} />
+          <NodeContent data={data} draft={storyDraft} setDraft={setStoryDraft} labels={labels} expanded={expanded} />
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-            <p className="min-w-0 truncate text-xs text-[var(--glass-text-tertiary)]">{data.meta}</p>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {detailNodeId && data.kind !== 'analysis' ? (
-                <button
-                  type="button"
-                  className="nodrag inline-flex items-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[var(--glass-text-secondary)] shadow-sm transition hover:bg-slate-50"
-                  onClick={() => data.onAction?.({ type: 'open_details', nodeId: detailNodeId })}
-                >
-                  <AppIcon name="edit" className="h-3.5 w-3.5" />
-                  {labels('openDetails')}
-                </button>
-              ) : null}
-              {action && data.actionLabel ? (
-                <button
-                  type="button"
-                  className="nodrag inline-flex items-center gap-1.5 rounded-[14px] bg-slate-950 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-900"
-                  onClick={() => data.onAction?.(action)}
-                >
-                  <AppIcon name="arrowRight" className="h-3.5 w-3.5" />
-                  {data.actionLabel}
-                </button>
-              ) : null}
+          {shouldShowFooter ? (
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <p className="min-w-0 truncate text-xs text-[var(--glass-text-tertiary)]">
+                {data.kind === 'editRequiredAsset' ? '' : data.meta}
+              </p>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {canToggleDetails ? (
+                  <button
+                    type="button"
+                    className="nodrag inline-flex items-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[var(--glass-text-secondary)] transition hover:bg-slate-50"
+                    onClick={() => data.nodeId ? data.onToggleExpanded?.(data.nodeId) : undefined}
+                  >
+                    {expanded ? labels('collapseDetails') : labels('expandDetails')}
+                  </button>
+                ) : null}
+                {action && data.actionLabel ? (
+                  <button
+                    type="button"
+                    className="nodrag inline-flex items-center gap-1.5 rounded-[14px] bg-slate-950 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-900"
+                    onClick={() => data.onAction?.(action)}
+                  >
+                    <AppIcon name="arrowRight" className="h-3.5 w-3.5" />
+                    {data.actionLabel}
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </article>
     </div>

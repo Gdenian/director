@@ -245,7 +245,8 @@
         "regenerateImage": "Regenerate",
         "generateVideo": "Generate Video",
         "generateAllVideos": "Batch Generate",
-        "generateEditAssets": "Generate All"
+        "generateEditAssets": "Generate All",
+        "generateEditAsset": "Generate Asset"
       },
       "status": {
         "empty": "Empty",
@@ -273,6 +274,8 @@
       },
       "nodeFields": {
         "openDetails": "Details",
+        "expandDetails": "Expand",
+        "collapseDetails": "Collapse",
         "screenplay": "Screenplay",
         "originalClip": "Original Clip",
         "scene": "Scene {index}",
@@ -323,10 +326,10 @@
         "totalDuration": "Total Duration",
         "videoOrder": "Video Order",
         "editScriptMeta": "Edit Table Info",
+        "shotIndexHeader": "Shot",
         "shotIndex": "Shot {index}",
         "charactersAndScene": "Characters / Scene",
         "sound": "Sound",
-        "transition": "Transition",
         "linkedShots": "Linked Shots",
         "targetAsset": "Asset ID",
         "characterAsset": "Required Character",

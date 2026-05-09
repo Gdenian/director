@@ -110,7 +110,7 @@ function createStoryboard(input: {
 }
 
 describe('workspace node canvas projection', () => {
-  it('shows only the story input node when the episode has no story data', () => {
+  it('keeps the canvas empty when the episode has no generated data', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: '',
@@ -120,9 +120,8 @@ describe('workspace node canvas projection', () => {
       translate: t,
     })
 
-    expect(projection.nodes.map((node) => node.id)).toEqual(['story:episode-1'])
+    expect(projection.nodes.map((node) => node.id)).toEqual([])
     expect(projection.edges).toEqual([])
-    expect(projection.nodes[0].data.action).toBeUndefined()
   })
 
   it('projects real story, clips, shots, image nodes, video nodes, and final timeline without mock data', () => {
@@ -154,28 +153,44 @@ describe('workspace node canvas projection', () => {
         }),
       ],
       savedLayouts: [],
+      defaultVideoModel: 'project-video-model',
       translate: t,
     })
 
     expect(projection.nodes.map((node) => node.id)).toEqual([
-      'story:episode-1',
       'analysis:episode-1',
       'clip:clip-1',
       'clip:clip-2',
       'shot:panel-1',
       'shot:panel-2',
-      'image:panel-1',
+      'video:panel-1',
       'video:panel-2',
       'final:episode-1',
     ])
-    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('story:episode-1->analysis:episode-1')
+    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('analysis:episode-1->clip:clip-1')
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('clip:clip-1->shot:panel-1')
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('video:panel-2->final:episode-1')
 
     const shotNode = projection.nodes.find((node) => node.id === 'shot:panel-1')
-    const imageNode = projection.nodes.find((node) => node.id === 'image:panel-1')
     expect(shotNode?.data.action).toEqual({ type: 'generate_image', panelId: 'panel-1' })
-    expect(imageNode?.data.action).toEqual({ type: 'generate_image', panelId: 'panel-1' })
+    expect(shotNode?.data.previewImageUrl).toBe('https://example.com/panel-1.png')
+    expect(projection.nodes.some((node) => node.id === 'image:panel-1')).toBe(false)
+
+    const pendingVideoNode = projection.nodes.find((node) => node.id === 'video:panel-1')
+    expect(pendingVideoNode?.data.action).toEqual({
+      type: 'generate_video',
+      storyboardId: 'storyboard-1',
+      panelIndex: 0,
+      panelId: 'panel-1',
+      videoModel: 'project-video-model',
+    })
+
+    const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
+    expect(finalNode?.data.finalDetails?.totalVideos).toBe(1)
+    expect(finalNode?.data.action).toEqual({
+      type: 'generate_all_videos',
+      videoModel: 'project-video-model',
+    })
   })
 
   it('uses saved layout only for node position and preserves business ordering', () => {
@@ -211,6 +226,37 @@ describe('workspace node canvas projection', () => {
     const shotNodes = projection.nodes.filter((node) => node.data.kind === 'shot')
     expect(shotNodes.map((node) => node.id)).toEqual(['shot:panel-early', 'shot:panel-late'])
     expect(shotNodes[0].position).toEqual({ x: 999, y: 888 })
+  })
+
+  it('places panel-derived nodes in a five-column default grid', () => {
+    const panels = Array.from({ length: 6 }, (_item, index) => createPanel({
+      id: `panel-${index + 1}`,
+      panelIndex: index,
+      imageUrl: `https://example.com/panel-${index + 1}.png`,
+    }))
+
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: 'A real story',
+      clips: [createClip('clip-1', 'clip content')],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels,
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const shotNodes = projection.nodes.filter((node) => node.data.kind === 'shot')
+    expect(shotNodes).toHaveLength(6)
+    expect(projection.nodes.filter((node) => node.data.kind === 'imageAsset')).toHaveLength(0)
+    expect(shotNodes[1].position.x).toBeGreaterThan(shotNodes[0].position.x)
+    expect(shotNodes[1].position.y).toBe(shotNodes[0].position.y)
+    expect(shotNodes[5].position.x).toBe(shotNodes[0].position.x)
+    expect(shotNodes[5].position.y).toBeGreaterThan(shotNodes[0].position.y)
   })
 
   it('projects full non-voice business details into typed node data', () => {
@@ -317,8 +363,8 @@ describe('workspace node canvas projection', () => {
     expect(shotNode?.data.shotDetails?.characters).toEqual([{ name: '小女孩', appearance: '初始形象' }])
     expect(shotNode?.data.shotDetails?.promptShot?.plot).toBe('prompt plot')
 
-    const imageNode = projection.nodes.find((node) => node.id === 'image:panel-rich')
-    expect(imageNode?.data.imageDetails).toMatchObject({
+    expect(shotNode?.data.previewImageUrl).toBe('https://example.com/a.png')
+    expect(shotNode?.data.imageDetails).toMatchObject({
       imagePrompt: 'rich image prompt',
       candidateImages: ['https://example.com/a.png', 'PENDING:1'],
       imageHistory: 'image history json',
@@ -382,7 +428,6 @@ describe('workspace node canvas projection', () => {
             camera: 'locked wide shot',
             videoPrompt: 'Pilot crosses a sterile docking bay.',
             sound: 'air hum',
-            transition: 'hard cut',
           },
           {
             shotNumber: 2,
@@ -392,7 +437,6 @@ describe('workspace node canvas projection', () => {
             camera: 'slow push in',
             videoPrompt: 'A red machine eye opens in a chamber.',
             sound: 'sub bass pulse',
-            transition: 'hard cut',
           },
         ],
         requirements: [
@@ -410,7 +454,7 @@ describe('workspace node canvas projection', () => {
             id: 'req-location',
             kind: 'location',
             name: 'Docking Bay',
-            description: 'A sterile white docking bay with red warning light.',
+            description: 'A sterile white docking bay with red warning light.\nPossible positions:\n- wide entrance angle\n- central axis view\n- distant observation point near the airlock',
             shotNumbers: [1],
             status: 'completed',
             targetId: 'location-1',
@@ -422,7 +466,6 @@ describe('workspace node canvas projection', () => {
     })
 
     expect(projection.nodes.map((node) => node.id)).toEqual([
-      'story:episode-1',
       'edit-script:edit-1',
       'edit-asset:req-character',
       'edit-asset:req-location',
@@ -431,14 +474,80 @@ describe('workspace node canvas projection', () => {
     expect(editNode?.data.kind).toBe('editScript')
     expect(editNode?.data.action).toEqual({ type: 'generate_edit_assets', editScriptId: 'edit-1' })
     expect(editNode?.data.editScriptDetails?.shots).toHaveLength(2)
+    expect(editNode?.data.width).toBeGreaterThan(1000)
+    expect(editNode?.data.height).toBeGreaterThan(400)
+
+    const pendingAssetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-character')
+    expect(pendingAssetNode?.data.action).toEqual({
+      type: 'generate_edit_asset',
+      editScriptId: 'edit-1',
+      requirementId: 'req-character',
+    })
 
     const assetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-location')
     expect(assetNode?.data.kind).toBe('editRequiredAsset')
+    expect(assetNode?.data.width).toBeGreaterThan(300)
+    expect(assetNode?.data.height).toBe(520)
+    expect(assetNode?.position.y).toBe(pendingAssetNode?.position.y)
+    expect(assetNode?.position.x ?? 0).toBeGreaterThan(pendingAssetNode?.position.x ?? 0)
+    expect(assetNode?.position.y ?? 0).toBeGreaterThan((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0))
+    expect(assetNode?.data.action).toBeUndefined()
     expect(assetNode?.data.previewImageUrl).toBe('https://example.com/location.png')
     expect(assetNode?.data.editAssetDetails).toMatchObject({
       kind: 'location',
       targetId: 'location-1',
       shotNumbers: [1],
+    })
+  })
+
+  it('offers edit-first storyboard generation after all required assets are ready', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [],
+      savedLayouts: [],
+      translate: t,
+      editScript: {
+        id: 'edit-ready',
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        userPrompt: 'one minute sci-fi',
+        title: 'Orbital Silence',
+        logline: 'A pilot meets a machine intelligence.',
+        durationSec: 60,
+        shotCount: 1,
+        status: 'ready',
+        shots: [
+          {
+            shotNumber: 1,
+            durationSec: 60,
+            visualAction: 'Pilot watches the station rotate.',
+            charactersAndScene: 'Pilot / Station',
+            camera: 'locked symmetrical wide shot',
+            videoPrompt: 'A pilot watches a rotating space station.',
+            sound: 'low air hum',
+          },
+        ],
+        requirements: [
+          {
+            id: 'req-character',
+            kind: 'character',
+            name: 'Pilot',
+            description: 'A quiet astronaut in a minimal suit.',
+            shotNumbers: [1],
+            status: 'completed',
+            targetId: 'character-1',
+            errorMessage: null,
+          },
+        ],
+      },
+    })
+
+    const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-ready')
+    expect(editNode?.data.action).toEqual({
+      type: 'generate_edit_storyboard',
+      editScriptId: 'edit-ready',
     })
   })
 })

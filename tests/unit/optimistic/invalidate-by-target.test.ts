@@ -85,6 +85,26 @@ describe('invalidateByTarget', () => {
     })).toBe(true)
   })
 
+  it('CharacterAppearance invalidates episode scoped edit script query', () => {
+    const testClient = createQueryClient()
+
+    invalidateByTarget({
+      queryClient: testClient.queryClient,
+      projectId: 'project-1',
+      targetType: 'CharacterAppearance',
+      episodeId: 'episode-1',
+    })
+
+    expect(hasInvalidation(testClient, (arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.project.editScript('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'edit-script'
+        && key[3] === 'episode-1'
+    })).toBe(true)
+  })
+
   it('GlobalVoice invalidates global voice asset queries', () => {
     const testClient = createQueryClient()
 
