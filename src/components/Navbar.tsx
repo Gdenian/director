@@ -140,6 +140,8 @@ export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
         <Link
           key={item.section}
           href={{ pathname: '/profile', query: { section: item.section } }}
+          target="_blank"
+          rel="noopener noreferrer"
           role="menuitem"
           onClick={() => setSettingsOpen(false)}
           className="glass-selection-control group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium"
@@ -180,7 +182,12 @@ export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
       <nav className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-start justify-between gap-4">
             <div className="pointer-events-auto flex h-[52px] items-center gap-2">
-              <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group">
+              <Link
+                href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }}
+                target={session ? '_blank' : undefined}
+                rel={session ? 'noopener noreferrer' : undefined}
+                className="group"
+              >
                 <Image
                   src="/logo-small.png?v=1"
                   alt={tc('appName')}
@@ -222,6 +229,8 @@ export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
                 <>
                   <Link
                     href={{ pathname: '/workspace' }}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={navControlClass}
                   >
                     <AppIcon name="monitor" className="w-4 h-4" />
@@ -229,6 +238,8 @@ export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
                   </Link>
                   <Link
                     href={{ pathname: '/workspace/asset-hub' }}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={navControlClass}
                   >
                     <AppIcon name="folderHeart" className="w-4 h-4" />
@@ -255,6 +266,8 @@ export default function Navbar({ reserveLayoutSpace = true }: NavbarProps) {
                         <Link
                           key={item.section}
                           href={{ pathname: '/profile', query: { section: item.section } }}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
                           {item.label}
                         </Link>

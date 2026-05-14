@@ -47,6 +47,8 @@ interface WorkspaceHeaderShellProps {
   storyboardModel: string | null | undefined
   editModel: string | null | undefined
   videoModel: string | null | undefined
+  singleShotVideoModel: string | null | undefined
+  sequenceVideoModel: string | null | undefined
   audioModel: string | null | undefined
   capabilityOverrides: CapabilitySelections
   videoRatio: string | null | undefined
@@ -81,6 +83,8 @@ export default function WorkspaceHeaderShell({
   storyboardModel,
   editModel,
   videoModel,
+  singleShotVideoModel,
+  sequenceVideoModel,
   audioModel,
   capabilityOverrides,
   videoRatio,
@@ -114,6 +118,8 @@ export default function WorkspaceHeaderShell({
         imageModel={storyboardModel ?? undefined}
         editModel={editModel ?? undefined}
         videoModel={videoModel ?? undefined}
+        singleShotVideoModel={singleShotVideoModel ?? videoModel ?? undefined}
+        sequenceVideoModel={sequenceVideoModel ?? undefined}
         audioModel={audioModel ?? undefined}
         videoRatio={videoRatio ?? undefined}
         capabilityOverrides={capabilityOverrides}
@@ -124,6 +130,8 @@ export default function WorkspaceHeaderShell({
         onImageModelChange={(value) => { onUpdateConfig('storyboardModel', value) }}
         onEditModelChange={(value) => { onUpdateConfig('editModel', value) }}
         onVideoModelChange={(value) => { onUpdateConfig('videoModel', value) }}
+        onSingleShotVideoModelChange={(value) => { onUpdateConfig('singleShotVideoModel', value) }}
+        onSequenceVideoModelChange={(value) => { onUpdateConfig('sequenceVideoModel', value) }}
         onAudioModelChange={(value) => { onUpdateConfig('audioModel', value) }}
         onVideoRatioChange={(value) => { onUpdateConfig('videoRatio', value) }}
         onCapabilityOverridesChange={(value) => { onUpdateConfig('capabilityOverrides', value) }}

@@ -79,7 +79,7 @@ export function useUpdateProjectPanelVideoPrompt(projectId: string, episodeId?: 
       storyboardId: string
       panelIndex: number
       value: string
-      field?: 'videoPrompt' | 'firstLastFramePrompt'
+      field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt'
     }) =>
       await requestJsonWithError(
         `/api/projects/${projectId}/panel`,
@@ -89,9 +89,11 @@ export function useUpdateProjectPanelVideoPrompt(projectId: string, episodeId?: 
           body: JSON.stringify({
             storyboardId,
             panelIndex,
-            ...(field === 'firstLastFramePrompt'
-              ? { firstLastFramePrompt: value }
-              : { videoPrompt: value }),
+            ...(field === 'imagePrompt'
+              ? { imagePrompt: value }
+              : field === 'firstLastFramePrompt'
+                ? { firstLastFramePrompt: value }
+                : { videoPrompt: value }),
           }),
         },
         'update failed',

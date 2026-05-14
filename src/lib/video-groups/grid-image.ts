@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { generateUniqueKey, getObjectBuffer, toFetchableUrl, uploadObject } from '@/lib/storage'
-import { ensureMediaObjectFromStorageKey } from '@/lib/media/service'
+import { ensureMediaObjectFromStorageKey, resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import type { MediaRef } from '@/lib/media/types'
 import type { VideoGridMode } from './types'
 
@@ -18,6 +18,8 @@ async function loadImageBuffer(cell: GridImageCell): Promise<Buffer> {
   if (cell.storageKey) return await getObjectBuffer(cell.storageKey)
   const imageUrl = typeof cell.imageUrl === 'string' ? cell.imageUrl.trim() : ''
   if (!imageUrl) throw new Error('VIDEO_GROUP_REFERENCE_IMAGE_MISSING')
+  const storageKey = await resolveStorageKeyFromMediaValue(imageUrl)
+  if (storageKey) return await getObjectBuffer(storageKey)
   const response = await fetch(toFetchableUrl(imageUrl))
   if (!response.ok) {
     throw new Error(`VIDEO_GROUP_REFERENCE_IMAGE_DOWNLOAD_FAILED:${response.status}`)
@@ -32,8 +34,8 @@ export async function composeAndStoreGridReferenceImage(params: {
 }): Promise<MediaRef> {
   const side = GRID_SIDE[params.gridMode]
   const expectedCells = side * side
-  if (params.cells.length !== expectedCells) {
-    throw new Error(`VIDEO_GROUP_REFERENCE_CELL_COUNT_MISMATCH:${params.cells.length}:${expectedCells}`)
+  if (params.cells.length < 1 || params.cells.length > expectedCells) {
+    throw new Error(`VIDEO_GROUP_REFERENCE_CELL_COUNT_MISMATCH:${params.cells.length}:1-${expectedCells}`)
   }
 
   const cellSize = params.gridMode === '2x2' ? 768 : 512

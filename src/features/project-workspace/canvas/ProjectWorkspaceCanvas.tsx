@@ -35,15 +35,18 @@ import {
   buildWorkspaceCanvasEdgeSignature,
   buildWorkspaceCanvasNodeSignature,
 } from './hooks/canvas-projection-signature'
+import {
+  DEFAULT_WORKSPACE_CANVAS_VIEWPORT,
+  getNextWorkspaceCanvasWheelZoom,
+  WORKSPACE_CANVAS_MAX_ZOOM,
+  WORKSPACE_CANVAS_MIN_ZOOM,
+} from './canvasViewport'
 import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
 import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
 
-const DEFAULT_VIEWPORT = { x: 24, y: 136, zoom: 0.82 }
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
-const CANVAS_MIN_ZOOM = 0.25
-const CANVAS_MAX_ZOOM = 1.25
-const WHEEL_ZOOM_SPEED = 0.0018
+const OPTIMISTIC_NODE_RUNNING_TIMEOUT_MS = 15000
 
 export interface WorkspaceAssistantSelectionContext {
   selectedScopeRef?: string | null
@@ -54,6 +57,7 @@ export interface WorkspaceAssistantSelectionContext {
 
 interface ProjectWorkspaceCanvasContentProps {
   onAssistantSelectionChange?: (selection: WorkspaceAssistantSelectionContext) => void
+  editScriptPending?: boolean
 }
 
 interface CanvasViewportControlsProps {
@@ -121,7 +125,7 @@ function CanvasViewportControls({
   )
 }
 
-function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWorkspaceCanvasContentProps) {
+function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptPending = false }: ProjectWorkspaceCanvasContentProps) {
   const t = useTranslations('projectWorkflow.canvas.workspace')
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceRuntime()
@@ -134,6 +138,8 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<ReadonlySet<string>>(() => new Set())
   const expandedNodeIdsRef = useRef<ReadonlySet<string>>(expandedNodeIds)
+  const optimisticRunningNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
+  const optimisticRunningClearTimersRef = useRef<Map<string, number>>(new Map())
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
@@ -159,9 +165,70 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
   const finalRenderTaskState = useTaskTargetStateMap(projectId, finalRenderTargets, {
     enabled: Boolean(projectId && episodeId),
   }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
-  const onNodeAction = useCallback((action: WorkspaceCanvasNodeAction) => {
-    runNodeAction(action)
-  }, [runNodeAction])
+  const nodeRunningStatusLabel = useCallback((node: WorkspaceCanvasFlowNode): string => (
+    node.data.kind === 'finalTimeline' ? t('status.aiEditing') : t('status.processing')
+  ), [t])
+  const clearOptimisticRunningNode = useCallback((nodeId: string) => {
+    const timer = optimisticRunningClearTimersRef.current.get(nodeId)
+    if (timer !== undefined) {
+      window.clearTimeout(timer)
+      optimisticRunningClearTimersRef.current.delete(nodeId)
+    }
+    const nextIds = new Set(optimisticRunningNodeIdsRef.current)
+    nextIds.delete(nodeId)
+    optimisticRunningNodeIdsRef.current = nextIds
+  }, [])
+  const markNodeOptimisticallyRunning = useCallback((nodeId: string) => {
+    const previousTimer = optimisticRunningClearTimersRef.current.get(nodeId)
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer)
+    const nextIds = new Set(optimisticRunningNodeIdsRef.current)
+    nextIds.add(nodeId)
+    optimisticRunningNodeIdsRef.current = nextIds
+    const timer = window.setTimeout(() => {
+      clearOptimisticRunningNode(nodeId)
+      setNodes((currentNodes) => currentNodes.map((node) => node.id === nodeId
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              isRunning: false,
+            },
+          }
+        : node))
+    }, OPTIMISTIC_NODE_RUNNING_TIMEOUT_MS)
+    optimisticRunningClearTimersRef.current.set(nodeId, timer)
+    setNodes((currentNodes) => currentNodes.map((node) => node.id === nodeId
+      ? {
+          ...node,
+          data: {
+            ...node.data,
+            isRunning: true,
+            statusLabel: nodeRunningStatusLabel(node),
+          },
+        }
+      : node))
+  }, [clearOptimisticRunningNode, nodeRunningStatusLabel])
+  const onNodeAction = useCallback(async (action: WorkspaceCanvasNodeAction, nodeId?: string) => {
+    if (nodeId) markNodeOptimisticallyRunning(nodeId)
+    try {
+      await runNodeAction(action)
+    } catch (error: unknown) {
+      if (nodeId) {
+        clearOptimisticRunningNode(nodeId)
+        setNodes((currentNodes) => currentNodes.map((node) => node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                isRunning: false,
+              },
+            }
+          : node))
+      }
+      _ulogWarn('[ProjectWorkspaceCanvas] node action failed', error)
+      throw error
+    }
+  }, [clearOptimisticRunningNode, markNodeOptimisticallyRunning, runNodeAction])
   const toggleNodeExpanded = useCallback((nodeId: string) => {
     setExpandedNodeIds((current) => {
       const next = new Set(current)
@@ -173,14 +240,23 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
       return next
     })
   }, [])
-  const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => inputNodes.map((node) => ({
-    ...node,
-    data: {
-      ...node.data,
-      expanded: expandedNodeIdsRef.current.has(node.id),
-      onToggleExpanded: toggleNodeExpanded,
-    },
-  })), [toggleNodeExpanded])
+  const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => inputNodes.map((node) => {
+    const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        ...(isOptimisticallyRunning
+          ? {
+              isRunning: true,
+              statusLabel: nodeRunningStatusLabel(node),
+            }
+          : {}),
+        expanded: expandedNodeIdsRef.current.has(node.id),
+        onToggleExpanded: toggleNodeExpanded,
+      },
+    }
+  }), [nodeRunningStatusLabel, toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -191,9 +267,11 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     storyboards,
     shots,
     editScript,
+    editScriptPending,
     finalVideo,
     videoGroups,
-    defaultVideoModel: runtime.videoModel ?? null,
+    defaultVideoModel: runtime.singleShotVideoModel ?? runtime.videoModel ?? null,
+    defaultSequenceVideoModel: runtime.sequenceVideoModel ?? null,
     finalRenderPhase: finalRenderTaskState?.phase,
     finalRenderErrorMessage: finalRenderTaskState?.lastError?.message ?? null,
     savedLayouts: savedNodeLayouts,
@@ -223,6 +301,31 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     appliedProjectionNodeSignatureRef.current = projectionNodeSignature
     setNodes(attachNodeUiState(projection.nodes))
   }, [attachNodeUiState, projection.nodes, projectionNodeSignature])
+
+  useEffect(() => {
+    const projectionByNodeId = new Map(projection.nodes.map((node) => [node.id, node]))
+    let changed = false
+    const nextIds = new Set<string>()
+    optimisticRunningNodeIdsRef.current.forEach((nodeId) => {
+      const projectedNode = projectionByNodeId.get(nodeId)
+      if (!projectedNode || projectedNode.data.isRunning === true) {
+        const timer = optimisticRunningClearTimersRef.current.get(nodeId)
+        if (timer !== undefined) {
+          window.clearTimeout(timer)
+          optimisticRunningClearTimersRef.current.delete(nodeId)
+        }
+        changed = true
+        return
+      }
+      nextIds.add(nodeId)
+    })
+    if (changed) optimisticRunningNodeIdsRef.current = nextIds
+  }, [projection.nodes, projectionNodeSignature])
+
+  useEffect(() => () => {
+    optimisticRunningClearTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    optimisticRunningClearTimersRef.current.clear()
+  }, [])
 
   useEffect(() => {
     expandedNodeIdsRef.current = expandedNodeIds
@@ -287,10 +390,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
     event.preventDefault()
 
     const viewport = reactFlow.getViewport()
-    const nextZoom = Math.min(
-      CANVAS_MAX_ZOOM,
-      Math.max(CANVAS_MIN_ZOOM, viewport.zoom * Math.exp(-event.deltaY * WHEEL_ZOOM_SPEED)),
-    )
+    const nextZoom = getNextWorkspaceCanvasWheelZoom(viewport.zoom, event.deltaY)
     if (nextZoom === viewport.zoom) return
 
     const pointerX = event.clientX - bounds.left
@@ -316,9 +416,11 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
       storyboards,
       shots,
       editScript,
+      editScriptPending,
       finalVideo,
       videoGroups,
-      defaultVideoModel: runtime.videoModel ?? null,
+      defaultVideoModel: runtime.singleShotVideoModel ?? runtime.videoModel ?? null,
+      defaultSequenceVideoModel: runtime.sequenceVideoModel ?? null,
       finalRenderPhase: finalRenderTaskState?.phase,
       finalRenderErrorMessage: finalRenderTaskState?.lastError?.message ?? null,
       savedLayouts: EMPTY_SAVED_NODE_LAYOUTS,
@@ -326,11 +428,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
       onAction: onNodeAction,
     })
     setNodes(attachNodeUiState(defaultProjection.nodes))
-    void reactFlow.setViewport(DEFAULT_VIEWPORT)
     void resetSavedLayout().catch((error: unknown) => {
       _ulogWarn('[ProjectWorkspaceCanvas] canvas layout reset failed', error)
     })
-  }, [attachNodeUiState, clips, editScript, episodeId, episodeName, finalRenderTaskState?.lastError?.message, finalRenderTaskState?.phase, finalVideo, novelText, onNodeAction, projectId, reactFlow, resetSavedLayout, runtime.videoModel, shots, storyboards, t, videoGroups])
+  }, [attachNodeUiState, clips, editScript, editScriptPending, episodeId, episodeName, finalRenderTaskState?.lastError?.message, finalRenderTaskState?.phase, finalVideo, novelText, onNodeAction, projectId, resetSavedLayout, runtime.sequenceVideoModel, runtime.singleShotVideoModel, runtime.videoModel, shots, storyboards, t, videoGroups])
 
   const fitView = useCallback(() => {
     void reactFlow.fitView({ padding: 0.14, duration: 180 })
@@ -378,10 +479,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
           nodesDraggable
           nodesConnectable={false}
           elementsSelectable
-          minZoom={CANVAS_MIN_ZOOM}
-          maxZoom={CANVAS_MAX_ZOOM}
+          minZoom={WORKSPACE_CANVAS_MIN_ZOOM}
+          maxZoom={WORKSPACE_CANVAS_MAX_ZOOM}
           zoomOnScroll={false}
-          defaultViewport={DEFAULT_VIEWPORT}
+          defaultViewport={DEFAULT_WORKSPACE_CANVAS_VIEWPORT}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
@@ -389,14 +490,14 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
             pannable
             zoomable
             position="bottom-left"
-            bgColor="transparent"
-            maskColor="transparent"
-            maskStrokeColor="rgba(100,116,139,0.42)"
+            bgColor="rgba(255,255,255,0.82)"
+            maskColor="rgba(100,116,139,0.2)"
+            maskStrokeColor="rgba(71,85,105,0.68)"
             nodeColor="rgba(148,163,184,0.7)"
             nodeStrokeColor="rgba(71,85,105,0.46)"
             nodeBorderRadius={10}
             offsetScale={0}
-            className="!z-[60] !m-0 !overflow-hidden !rounded-lg !border !border-[var(--glass-stroke-base)] !bg-transparent !shadow-lg"
+            className="!z-[60] !m-0 !overflow-hidden !rounded-[22px] !border-0 !bg-white/82 !shadow-lg !ring-1 !ring-[var(--glass-stroke-base)]/70 !backdrop-blur-2xl"
             style={{
               left: 16,
               bottom: CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX + 72,
@@ -431,12 +532,16 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange }: ProjectWo
 
 interface ProjectWorkspaceCanvasProps {
   onAssistantSelectionChange?: (selection: WorkspaceAssistantSelectionContext) => void
+  editScriptPending?: boolean
 }
 
-export default function ProjectWorkspaceCanvas({ onAssistantSelectionChange }: ProjectWorkspaceCanvasProps) {
+export default function ProjectWorkspaceCanvas({ onAssistantSelectionChange, editScriptPending = false }: ProjectWorkspaceCanvasProps) {
   return (
     <ReactFlowProvider>
-      <ProjectWorkspaceCanvasContent onAssistantSelectionChange={onAssistantSelectionChange} />
+      <ProjectWorkspaceCanvasContent
+        onAssistantSelectionChange={onAssistantSelectionChange}
+        editScriptPending={editScriptPending}
+      />
     </ReactFlowProvider>
   )
 }

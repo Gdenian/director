@@ -18,7 +18,11 @@ import { useWorkspaceImageActions } from './useWorkspaceImageActions'
 import { buildWorkspaceControllerViewModel } from './workspace-controller-view-model'
 import type { ProjectWorkspaceProps } from '../types'
 import { useRouter } from '@/i18n/navigation'
-import { useGenerateProjectEditScriptAssets, useGenerateProjectEditScriptStoryboard } from '@/lib/query/hooks'
+import {
+  useGenerateProjectEditScriptAssets,
+  useGenerateProjectEditScriptStoryboard,
+  useUpdateProjectEditScriptVideoBlockPrompt,
+} from '@/lib/query/hooks'
 
 export function useProjectWorkspaceController({
   project,
@@ -100,6 +104,8 @@ export function useProjectWorkspaceController({
     projectId,
     episodeId,
     t,
+    singleShotVideoModel: projectSnapshot.singleShotVideoModel,
+    sequenceVideoModel: projectSnapshot.sequenceVideoModel,
   })
   const imageActions = useWorkspaceImageActions({
     projectId,
@@ -107,6 +113,7 @@ export function useProjectWorkspaceController({
   })
   const generateEditAssets = useGenerateProjectEditScriptAssets(projectId)
   const generateEditStoryboard = useGenerateProjectEditScriptStoryboard(projectId)
+  const updateVideoPlanPrompt = useUpdateProjectEditScriptVideoBlockPrompt(projectId)
   const handleGenerateEditAssets = async (editScriptId: string, requirementId?: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await generateEditAssets.mutateAsync({ episodeId, editScriptId, requirementId })
@@ -115,6 +122,11 @@ export function useProjectWorkspaceController({
   const handleGenerateEditStoryboard = async (editScriptId: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await generateEditStoryboard.mutateAsync({ episodeId, editScriptId })
+    await onRefresh({ mode: 'full' })
+  }
+  const handleUpdateVideoPlanPrompt = async (editScriptId: string, blockIndex: number, prompt: string) => {
+    if (!episodeId) throw new Error('Episode ID is required')
+    await updateVideoPlanPrompt.mutateAsync({ episodeId, editScriptId, blockIndex, prompt })
     await onRefresh({ mode: 'full' })
   }
 
@@ -131,6 +143,8 @@ export function useProjectWorkspaceController({
     directorStylePresetSource: projectSnapshot.directorStylePresetSource,
     directorStylePresetId: projectSnapshot.directorStylePresetId,
     videoModel: projectSnapshot.videoModel,
+    singleShotVideoModel: projectSnapshot.singleShotVideoModel,
+    sequenceVideoModel: projectSnapshot.sequenceVideoModel,
     capabilityOverrides: projectSnapshot.capabilityOverrides,
     userVideoModels: userModels.userVideoModels || [],
     handleUpdateEpisode: configActions.handleUpdateEpisode,
@@ -145,6 +159,7 @@ export function useProjectWorkspaceController({
     handleGenerateEditAssets,
     handleGenerateEditStoryboard,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
+    handleUpdateVideoPlanPrompt,
     handleUpdatePanelVideoModel: videoActions.handleUpdatePanelVideoModel,
   })
 

@@ -185,10 +185,16 @@ describe('edit script normalization', () => {
           sound: 'sub-bass pulse',
         },
       ],
+      videoBlocks: [
+        { type: 'group', shotNumbers: [1, 2], gridMode: '2x2', reason: 'continuous corridor movement', prompt: 'final continuous corridor prompt' },
+      ],
     })
 
     expect(normalized.shotCount).toBe(2)
     expect(normalized.durationSec).toBe(9)
+    expect(normalized.videoBlocks).toEqual([
+      { kind: 'group', shotNumbers: [1, 2], gridMode: '2x2', reason: 'continuous corridor movement', prompt: 'final continuous corridor prompt' },
+    ])
     expect(normalized.shots[0]).toEqual({
       shotNumber: 1,
       durationSec: 5,
@@ -224,6 +230,9 @@ describe('edit script normalization', () => {
           sound: 'tone',
         },
       ],
+      videoBlocks: [
+        { type: 'group', shotNumbers: [1, 3], gridMode: '2x2', reason: 'invalid gap should fail earlier', prompt: 'invalid gap prompt' },
+      ],
     })).toThrow('EDIT_SCRIPT_SHOT_NUMBER_NOT_CONTINUOUS')
   })
 
@@ -242,7 +251,58 @@ describe('edit script normalization', () => {
           sound: 'tone',
         },
       ],
+      videoBlocks: [
+        { type: 'single', shotNumbers: [1], reason: 'single long shot', prompt: 'single long prompt' },
+      ],
     })).toThrow()
+  })
+
+  it('rejects videoBlocks whose grouped duration exceeds Seedance 2.0 limit', () => {
+    expect(() => normalizeEditScriptCore({
+      title: 'Too Long Group',
+      durationSec: 17,
+      shots: [
+        {
+          shotNumber: 1,
+          durationSec: 5,
+          visualAction: 'First move.',
+          charactersAndScene: 'A / Room',
+          camera: 'wide',
+          videoPrompt: 'first',
+          sound: 'tone',
+        },
+        {
+          shotNumber: 2,
+          durationSec: 4,
+          visualAction: 'Second move.',
+          charactersAndScene: 'A / Room',
+          camera: 'wide',
+          videoPrompt: 'second',
+          sound: 'tone',
+        },
+        {
+          shotNumber: 3,
+          durationSec: 3,
+          visualAction: 'Third move.',
+          charactersAndScene: 'A / Room',
+          camera: 'wide',
+          videoPrompt: 'third',
+          sound: 'tone',
+        },
+        {
+          shotNumber: 4,
+          durationSec: 5,
+          visualAction: 'Fourth move.',
+          charactersAndScene: 'A / Room',
+          camera: 'wide',
+          videoPrompt: 'fourth',
+          sound: 'tone',
+        },
+      ],
+      videoBlocks: [
+        { type: 'group', shotNumbers: [1, 2, 3, 4], gridMode: '2x2', reason: 'too long for one Seedance segment', prompt: 'too long group prompt' },
+      ],
+    })).toThrow('VIDEO_GENERATION_PLAN_GROUP_DURATION_UNSUPPORTED:17')
   })
 
   it('extracts only character and location requirements linked to real shots', () => {
@@ -268,6 +328,9 @@ describe('edit script normalization', () => {
           videoPrompt: 'pilot enters dock',
           sound: 'door',
         },
+      ],
+      videoBlocks: [
+        { type: 'group', shotNumbers: [1, 2], gridMode: '2x2', reason: 'shared dock motion', prompt: 'shared dock prompt' },
       ],
     }).shots
 

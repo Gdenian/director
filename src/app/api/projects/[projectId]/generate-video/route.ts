@@ -28,7 +28,15 @@ export const POST = apiHandler(async (
   }
   if (body.all === true) input.all = true
   if (body.mode === 'grid') input.mode = 'grid'
+  if (body.mode === 'auto') input.mode = 'auto'
+  if (body.mode === 'auto' && body.all !== true) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'AUTO_VIDEO_REQUIRES_BATCH',
+      field: 'mode',
+    })
+  }
   if (body.gridMode === '2x2' || body.gridMode === '3x3') input.gridMode = body.gridMode
+  if (typeof body.groupVideoModel === 'string') input.groupVideoModel = body.groupVideoModel
   if (Array.isArray(body.shotNumbers)) input.shotNumbers = body.shotNumbers
   if (typeof body.episodeId === 'string') input.episodeId = body.episodeId
   if (typeof body.panelId === 'string') input.panelId = body.panelId
@@ -38,9 +46,11 @@ export const POST = apiHandler(async (
   if (body.firstLastFrame !== undefined) input.firstLastFrame = body.firstLastFrame
   if (isRecord(body.generationOptions)) input.generationOptions = body.generationOptions
 
-  const operationId = body.mode === 'grid'
-    ? (body.all === true ? 'generate_episode_video_groups' : 'generate_video_group')
-    : (body.all === true ? 'generate_episode_videos' : 'generate_panel_video')
+  const operationId = body.mode === 'auto'
+    ? 'generate_episode_videos_auto'
+    : body.mode === 'grid'
+      ? (body.all === true ? 'generate_episode_video_groups' : 'generate_video_group')
+      : (body.all === true ? 'generate_episode_videos' : 'generate_panel_video')
 
   const result = await executeProjectAgentOperationFromApi({
     request,

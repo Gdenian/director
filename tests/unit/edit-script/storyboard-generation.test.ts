@@ -13,6 +13,7 @@ const txMock = vi.hoisted(() => ({
 const prismaMock = vi.hoisted(() => ({
   projectEditScript: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
   projectCharacter: {
     findFirst: vi.fn(),
@@ -54,7 +55,10 @@ vi.mock('@/lib/ai-exec/engine', () => ({ executeAiTextStep: vi.fn() }))
 vi.mock('@/lib/billing', () => ({ withTextBilling: vi.fn(), buildDefaultTaskBillingInfo: vi.fn() }))
 vi.mock('@/lib/assets/services/asset-actions', () => ({ submitAssetGenerateTask: vi.fn() }))
 
-import { generateProjectEditScriptStoryboard } from '@/lib/edit-script/service'
+import {
+  generateProjectEditScriptStoryboard,
+  updateProjectEditScriptVideoBlockPrompt,
+} from '@/lib/edit-script/service'
 
 function createRequest(): NextRequest {
   return new Request('http://localhost/api/projects/project-1/edit-script/storyboard/generate', {
@@ -70,6 +74,121 @@ describe('generateProjectEditScriptStoryboard', () => {
     runtimeConfigMock.resolveModelSelection.mockResolvedValue({ id: 'image-model' })
     operationMock.executeProjectAgentOperationFromApi.mockResolvedValue({ taskId: 'task-1', status: 'queued' })
     prismaMock.task.findFirst.mockResolvedValue(null)
+  })
+
+  it('updates a video arrangement prompt without changing the rest of the plan', async () => {
+    prismaMock.projectEditScript.findFirst.mockResolvedValue({
+      id: 'edit-1',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userPrompt: 'one minute sci-fi',
+      title: 'Orbital Silence',
+      logline: 'A pilot meets a machine intelligence.',
+      durationSec: 8,
+      shotCount: 2,
+      status: 'ready',
+      shotsJson: [
+        {
+          shotNumber: 1,
+          durationSec: 4,
+          visualAction: 'Pilot watches the station rotate.',
+          charactersAndScene: 'Pilot / Station',
+          camera: 'wide locked shot',
+          videoPrompt: 'old prompt 1',
+          sound: 'low hum',
+        },
+        {
+          shotNumber: 2,
+          durationSec: 4,
+          visualAction: 'A monitor flickers.',
+          charactersAndScene: 'Monitor / Station',
+          camera: 'close-up',
+          videoPrompt: 'old prompt 2',
+          sound: 'static pulse',
+        },
+      ],
+      videoBlocksJson: [
+        {
+          kind: 'group',
+          shotNumbers: [1, 2],
+          gridMode: '2x2',
+          reason: 'continuous station movement',
+          prompt: 'old combined prompt',
+        },
+      ],
+      requirements: [],
+    })
+    prismaMock.projectEditScript.update.mockResolvedValue({
+      id: 'edit-1',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userPrompt: 'one minute sci-fi',
+      title: 'Orbital Silence',
+      logline: 'A pilot meets a machine intelligence.',
+      durationSec: 8,
+      shotCount: 2,
+      status: 'ready',
+      shotsJson: [
+        {
+          shotNumber: 1,
+          durationSec: 4,
+          visualAction: 'Pilot watches the station rotate.',
+          charactersAndScene: 'Pilot / Station',
+          camera: 'wide locked shot',
+          videoPrompt: 'old prompt 1',
+          sound: 'low hum',
+        },
+        {
+          shotNumber: 2,
+          durationSec: 4,
+          visualAction: 'A monitor flickers.',
+          charactersAndScene: 'Monitor / Station',
+          camera: 'close-up',
+          videoPrompt: 'old prompt 2',
+          sound: 'static pulse',
+        },
+      ],
+      videoBlocksJson: [
+        {
+          kind: 'group',
+          shotNumbers: [1, 2],
+          gridMode: '2x2',
+          reason: 'continuous station movement',
+          prompt: 'new combined prompt',
+        },
+      ],
+      requirements: [],
+    })
+
+    const updated = await updateProjectEditScriptVideoBlockPrompt({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      blockIndex: 0,
+      prompt: ' new combined prompt ',
+    })
+
+    expect(updated.videoBlocks[0]).toMatchObject({
+      kind: 'group',
+      shotNumbers: [1, 2],
+      gridMode: '2x2',
+      reason: 'continuous station movement',
+      prompt: 'new combined prompt',
+    })
+    expect(prismaMock.projectEditScript.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'edit-1' },
+      data: {
+        videoBlocksJson: [
+          {
+            kind: 'group',
+            shotNumbers: [1, 2],
+            gridMode: '2x2',
+            reason: 'continuous station movement',
+            prompt: 'new combined prompt',
+          },
+        ],
+      },
+    }))
   })
 
   it('converts completed edit-script shots into storyboard panels and submits panel image tasks', async () => {

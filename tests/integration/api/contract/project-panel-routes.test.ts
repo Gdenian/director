@@ -93,7 +93,7 @@ describe('api contract - project panel routes (operation adapter)', () => {
       buildMockRequest({
         path: '/api/projects/project-1/panel',
         method: 'PATCH',
-        body: { panelId: 'panel-1', videoPrompt: 'prompt' },
+        body: { panelId: 'panel-1', imagePrompt: 'image prompt', videoPrompt: 'video prompt' },
       }),
       { params: Promise.resolve({ projectId: 'project-1' }) },
     )
@@ -101,7 +101,7 @@ describe('api contract - project panel routes (operation adapter)', () => {
     expect(res.status).toBe(200)
     expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenCalledWith(expect.objectContaining({
       operationId: 'update_storyboard_panel_prompt',
-      input: { panelId: 'panel-1', videoPrompt: 'prompt' },
+      input: { panelId: 'panel-1', imagePrompt: 'image prompt', videoPrompt: 'video prompt' },
     }))
   })
 

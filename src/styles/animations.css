@@ -166,3 +166,29 @@
   background-size: 200% 100%;
   animation: shimmer 3s linear infinite;
 }
+
+@keyframes workspaceNodeLightSweep {
+  0% {
+    transform: translateX(-140%) skewX(-14deg);
+  }
+
+  100% {
+    transform: translateX(240%) skewX(-14deg);
+  }
+}
+
+.workspace-node-loading-surface {
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-node-loading-surface::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  width: 44%;
+  z-index: 8;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.78), transparent);
+  animation: workspaceNodeLightSweep 1.45s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

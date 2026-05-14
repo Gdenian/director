@@ -277,10 +277,22 @@
         "editScript": "暂无剪辑表",
         "editAsset": "暂无资产描述"
       },
+      "errors": {
+        "videoPlanSingleInvalid": "单镜头编排只能包含 1 个镜头",
+        "videoPlanGroupCountInvalid": "连续片段必须包含 2-9 个镜头",
+        "videoPlanGroupDurationInvalid": "连续片段时长必须在 2-15 秒之间",
+        "sequenceVideoModelMissing": "请先在项目配置中设置编排镜头视频模型"
+      },
       "nodeFields": {
         "openDetails": "详情",
         "expandDetails": "展开",
         "collapseDetails": "收起",
+        "editPrompt": "编辑",
+        "savePrompt": "保存",
+        "cancelEdit": "取消",
+        "promptSaving": "保存中",
+        "promptSaved": "已保存",
+        "promptSaveFailed": "保存失败",
         "screenplay": "剧本",
         "originalClip": "原始片段",
         "scene": "场景 {index}",
@@ -318,6 +330,15 @@
         "firstLastFramePrompt": "首尾帧提示词",
         "videoMeta": "视频信息",
         "generationMode": "生成模式",
+        "gridMode": "宫格",
+        "reason": "判断理由",
+        "videoPlanMeta": "编排信息",
+        "videoPlanPrompt": "汇总提示词",
+        "videoPlanGroup": "连续片段",
+        "videoPlanSingle": "编排片段",
+        "videoPlanReference": "图片",
+        "videoPlanOutput": "视频",
+        "videoPlanShotAlt": "编排镜头 {shot}",
         "videoModel": "视频模型",
         "linkedToNextPanel": "衔接下镜",
         "baseVideo": "基础视频",
@@ -396,6 +417,7 @@
           "videoModel": "视频模型",
           "linkedToNextPanel": "衔接下一个镜头",
           "generationOptions": "生成参数 JSON",
+          "autoVideoMode": "按剪辑编排",
           "singleVideoMode": "单镜头",
           "gridVideoMode": "宫格连续",
           "grid2x2": "2x2 四宫格",
@@ -440,6 +462,7 @@
           "generateVideo": "生成视频",
           "generateFirstLastVideo": "首尾帧生成",
           "generateAllVideos": "批量生成视频",
+          "generateAutoVideos": "按编排生成视频",
           "generateGridVideos": "生成宫格连续视频",
           "renderFinalVideo": "AI剪辑",
           "openFinalVideo": "打开成片",
@@ -540,6 +563,12 @@
           "body": "按剪辑先行顺序生成的连续视频片段",
           "meta": "{grid} · 镜头 {shots} · {duration} 秒"
         },
+        "videoPlan": {
+          "title": "视频编排 {index}",
+          "eyebrow": "视频生成编排",
+          "body": "剪辑先行表中的视频生成块",
+          "meta": "{mode} · 镜头 {shots} · {duration} 秒"
+        },
         "final": {
           "title": "成片时间线",
           "eyebrow": "最终输出",
@@ -549,7 +578,10 @@
         },
         "editScript": {
           "eyebrow": "核心剪辑表",
-          "meta": "{shots} 个镜头 · {duration} 秒 · 资产 {completed}/{assets}"
+          "meta": "{shots} 个镜头 · {duration} 秒 · 资产 {completed}/{assets}",
+          "pendingTitle": "剪辑表生成中",
+          "pendingBody": "AI 正在根据当前短片需求生成剪辑先行表，并提取人物、场景、镜头节奏、视频编排和声音设计。",
+          "pendingMeta": "生成完成后会替换为可编辑剪辑表"
         },
         "editAsset": {
           "meta": "关联镜头：{shots}"

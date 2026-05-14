@@ -44,6 +44,21 @@
       "videoPrompt": "视频提示词",
       "sound": "声音"
     }
+  ],
+  "videoBlocks": [
+    {
+      "type": "group",
+      "shotNumbers": [1, 2, 3],
+      "gridMode": "2x2",
+      "reason": "连续动作和运镜适合合并为 Seedance 2.0 连续片段",
+      "prompt": "最终传给视频模型的连续视频提示词，必须按时间线写清每个镜头如何衔接，输出全屏连续画面，不要生成宫格或分屏"
+    },
+    {
+      "type": "single",
+      "shotNumbers": [4],
+      "reason": "与前后镜头空间跳跃明显，单镜头生成更稳定",
+      "prompt": "最终传给视频模型的单镜头提示词，包含画面主体、动作、机位运镜、光线、风格、画幅和声音节奏"
+    }
   ]
 }
 
@@ -53,5 +68,14 @@
 - 每个镜头必须包含 7 个最小字段：shotNumber、durationSec、visualAction、charactersAndScene、camera、videoPrompt、sound。
 - 不要输出 transition 或转场字段。
 - durationSec 必须为 1 到 5 的正整数，单个镜头绝对不能超过 5 秒，总时长接近用户需求。
+- 必须输出 videoBlocks，videoBlocks 是后续视频生成编排表，不是转场表。
+- videoBlocks 必须覆盖所有镜头且只能按 shotNumber 原顺序排列，不得跳号、重复、重排。
+- 每个 videoBlock 必须包含 prompt。prompt 是最终发给视频模型的提示词，不是给系统看的摘要；后续点击生成视频时会直接使用这个 prompt，不会再调用模型重写。
+- 默认优先使用 group，single 只是特殊情况。只有空间/时间断裂严重、静态展示或连续生成会污染画面时才使用 single。
+- group 的 shotNumbers 必须是 2-9 个连续镜头，且这些镜头 durationSec 累加后必须在 2-15 秒之间。
+- 2-4 个连续镜头使用 gridMode "2x2"；5-9 个连续镜头使用 gridMode "3x3"。不要为了凑满宫格而分组，空格允许留空。
+- 如果连续镜头适合 group 但累计超过 15 秒，必须在 15 秒以内拆分。例如 5+4+3+5=17 秒，不能作为一个 group，可以先把前 3 个镜头组成 12 秒 group，第 4 个再单独或与后续镜头判断。
+- group prompt 必须重组为一个完整连续片段：写明整体类型、摄影质感、色彩、光线、运动节奏、主体连续性和镜头衔接方式；必须保留 [00:00-00:03] 这种时间线；参考宫格只是分镜索引，绝对不要要求生成 2x2、3x3、拼贴图、分屏、镜头编号或 UI 标签；空白占位格必须忽略。
+- single prompt 必须只描述这个单镜头的最终视频画面，不要提及宫格、编排、shotNumber 或系统字段。
 - 不输出 screenplay、clips、storyboard、panel、image 或 video 结构。
 - 不要新增专业 agent 没有支持的资产名；如果需要统一名称，只做同义合并。

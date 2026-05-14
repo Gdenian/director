@@ -21,9 +21,8 @@ import { parseModelKeyStrict } from '@/lib/ai-registry/selection'
 import { getProviderConfig } from '@/lib/user-api/runtime-config'
 import { handleFinalVideoRenderTask } from './final-video-render'
 import { composeAndStoreGridReferenceImage } from '@/lib/video-groups/grid-image'
-import { buildVideoGroupPromptInstruction, totalVideoGroupDuration } from '@/lib/video-groups/core'
+import { totalVideoGroupDuration, validateVideoGroupShotNumbers } from '@/lib/video-groups/core'
 import type { VideoGridMode, VideoGroupShot } from '@/lib/video-groups/types'
-import { executeAiTextStep } from '@/lib/ai-exec/engine'
 import { ensureMediaObjectFromStorageKey } from '@/lib/media/service'
 
 type AnyObj = Record<string, unknown>
@@ -60,10 +59,22 @@ function extractGenerationOptions(payload: AnyObj): VideoOptionMap {
 function toPersistedVideoGenerationOptions(options: VideoOptionMap): VideoOptionMap | typeof Prisma.DbNull {
   const persisted: VideoOptionMap = {}
   for (const [key, value] of Object.entries(options)) {
-    if (key === 'aspectRatio' || key === 'generationMode') continue
+    if (key === 'aspectRatio' || key === 'generationMode' || key === 'duration') continue
     persisted[key] = value
   }
   return Object.keys(persisted).length > 0 ? persisted : Prisma.DbNull
+}
+
+function requirePanelVideoDurationSec(panel: PanelRecord): number {
+  if (
+    typeof panel.duration !== 'number' ||
+    !Number.isFinite(panel.duration) ||
+    !Number.isInteger(panel.duration) ||
+    panel.duration <= 0
+  ) {
+    throw new Error(`VIDEO_PANEL_DURATION_REQUIRED:${panel.id}`)
+  }
+  return panel.duration
 }
 
 async function fetchPanelByStoryboardIndex(storyboardId: string, panelIndex: number) {
@@ -132,6 +143,7 @@ async function generateVideoForPanel(
   const requestedGenerateAudio = typeof generationOptions.generateAudio === 'boolean'
     ? generationOptions.generateAudio
     : undefined
+  const durationSec = requirePanelVideoDurationSec(panel)
   let model = modelId
 
   if (firstLastFramePayload) {
@@ -169,6 +181,7 @@ async function generateVideoForPanel(
       prompt,
       ...(projectVideoRatio ? { aspectRatio: projectVideoRatio } : {}),
       ...generationOptions,
+      duration: durationSec,
       generationMode,
       ...(typeof requestedGenerateAudio === 'boolean' ? { generateAudio: requestedGenerateAudio } : {}),
       ...(lastFrameImageBase64 ? { lastFrameImageUrl: lastFrameImageBase64 } : {}),
@@ -274,11 +287,33 @@ function parseEditScriptShots(value: unknown): VideoGroupShot[] {
   })
 }
 
-function normalizeGeneratedVideoGroupPrompt(value: string): string {
-  return value
-    .replace(/^```(?:text|markdown)?/i, '')
-    .replace(/```$/i, '')
-    .trim()
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function sameShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((shotNumber, index) => shotNumber === right[index])
+}
+
+function readVideoBlockShotNumbers(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+}
+
+function resolveStoredVideoGroupPrompt(input: {
+  readonly videoBlocksJson: unknown
+  readonly shotNumbers: readonly number[]
+}): string {
+  if (!Array.isArray(input.videoBlocksJson)) throw new Error('VIDEO_GROUP_VIDEO_BLOCKS_REQUIRED')
+  const block = input.videoBlocksJson.find((item) => {
+    if (!isJsonRecord(item)) return false
+    return sameShotNumbers(readVideoBlockShotNumbers(item.shotNumbers), input.shotNumbers)
+  })
+  if (!isJsonRecord(block)) throw new Error(`VIDEO_GROUP_VIDEO_BLOCK_NOT_FOUND:${input.shotNumbers.join(',')}`)
+  const prompt = normalizeString(block.prompt)
+  if (!prompt) throw new Error(`VIDEO_GROUP_PROMPT_REQUIRED:${input.shotNumbers.join(',')}`)
+  return prompt
 }
 
 async function handleVideoGroupTask(job: Job<TaskJobData>) {
@@ -288,7 +323,10 @@ async function handleVideoGroupTask(job: Job<TaskJobData>) {
   const modelId = normalizeString(payload.videoModel)
   if (!modelId) throw new Error('VIDEO_MODEL_REQUIRED: payload.videoModel is required')
   const gridMode: VideoGridMode = payload.gridMode === '3x3' ? '3x3' : '2x2'
-  const shotNumbers = parseShotNumbers(payload.shotNumbers)
+  const shotNumbers = validateVideoGroupShotNumbers({
+    gridMode,
+    shotNumbers: parseShotNumbers(payload.shotNumbers),
+  })
   const generationOptions = extractGenerationOptions(payload)
 
   await prisma.projectVideoGroup.update({
@@ -306,18 +344,14 @@ async function handleVideoGroupTask(job: Job<TaskJobData>) {
     prisma.project.findUnique({
       where: { id: job.data.projectId },
       select: {
-        analysisModel: true,
         videoRatio: true,
-        artStyle: true,
-        directorStyleDoc: true,
       },
     }),
     prisma.projectEditScript.findFirst({
       where: { projectId: job.data.projectId, episodeId: job.data.episodeId || normalizeString(payload.episodeId) },
       select: {
-        title: true,
-        logline: true,
         shotsJson: true,
+        videoBlocksJson: true,
       },
     }),
     prisma.projectPanel.findMany({
@@ -332,8 +366,6 @@ async function handleVideoGroupTask(job: Job<TaskJobData>) {
   ])
   if (!project) throw new Error('VIDEO_GROUP_PROJECT_NOT_FOUND')
   if (!editScript) throw new Error('VIDEO_GROUP_EDIT_SCRIPT_REQUIRED')
-  const analysisModel = normalizeString(project.analysisModel)
-  if (!analysisModel) throw new Error('VIDEO_GROUP_ANALYSIS_MODEL_REQUIRED')
 
   const allShots = parseEditScriptShots(editScript.shotsJson)
   const shots = shotNumbers.map((shotNumber) => {
@@ -372,33 +404,10 @@ async function handleVideoGroupTask(job: Job<TaskJobData>) {
   })
 
   await reportTaskProgress(job, 26, { stage: 'video_group_prompt', groupId })
-  const promptInstruction = buildVideoGroupPromptInstruction({
-    title: editScript.title,
-    logline: editScript.logline,
-    aspectRatio: project.videoRatio,
-    gridMode,
-    styleContext: [
-      normalizeString(project.artStyle),
-      normalizeString(project.directorStyleDoc),
-    ].filter(Boolean).join('\n'),
-    shots,
-  }, job.data.locale)
-  const promptCompletion = await executeAiTextStep({
-    userId: job.data.userId,
-    model: analysisModel,
-    messages: [{ role: 'user', content: promptInstruction }],
-    temperature: 0.4,
-    projectId: job.data.projectId,
-    action: 'video_group_prompt',
-    meta: {
-      stepId: 'video_group_prompt',
-      stepTitle: '宫格连续视频提示词',
-      stepIndex: 1,
-      stepTotal: 1,
-    },
+  const prompt = resolveStoredVideoGroupPrompt({
+    videoBlocksJson: editScript.videoBlocksJson,
+    shotNumbers,
   })
-  const prompt = normalizeGeneratedVideoGroupPrompt(promptCompletion.text)
-  if (!prompt) throw new Error('VIDEO_GROUP_PROMPT_EMPTY')
   await prisma.projectVideoGroup.update({
     where: { id: groupId },
     data: { prompt },

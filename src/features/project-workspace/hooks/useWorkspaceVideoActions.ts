@@ -9,6 +9,8 @@ interface UseWorkspaceVideoActionsParams {
   projectId: string
   episodeId?: string
   t: (key: string) => string
+  singleShotVideoModel?: string | null
+  sequenceVideoModel?: string | null
 }
 
 function isAbortError(err: unknown): boolean {
@@ -31,6 +33,8 @@ export function useWorkspaceVideoActions({
   projectId,
   episodeId,
   t,
+  singleShotVideoModel,
+  sequenceVideoModel,
 }: UseWorkspaceVideoActionsParams) {
   const generateVideoMutation = useGenerateVideo(projectId, episodeId || null)
   const batchGenerateVideosMutation = useBatchGenerateVideos(projectId, episodeId || null)
@@ -52,7 +56,11 @@ export function useWorkspaceVideoActions({
     generationOptions?: VideoGenerationOptions,
     panelId?: string,
   ) => {
-    const normalizedVideoModel = typeof videoModel === 'string' ? videoModel.trim() : ''
+    const normalizedVideoModel = typeof videoModel === 'string' && videoModel.trim()
+      ? videoModel.trim()
+      : typeof singleShotVideoModel === 'string'
+        ? singleShotVideoModel.trim()
+        : ''
     if (!normalizedVideoModel) {
       alert('Video model is required')
       return
@@ -81,7 +89,11 @@ export function useWorkspaceVideoActions({
       alert(t('execution.selectEpisode'))
       return
     }
-    const normalizedVideoModel = typeof options?.videoModel === 'string' ? options.videoModel.trim() : ''
+    const normalizedVideoModel = typeof options?.videoModel === 'string' && options.videoModel.trim()
+      ? options.videoModel.trim()
+      : typeof singleShotVideoModel === 'string'
+        ? singleShotVideoModel.trim()
+        : ''
     if (!normalizedVideoModel) {
       alert('Video model is required')
       return
@@ -91,6 +103,7 @@ export function useWorkspaceVideoActions({
       await batchGenerateVideosMutation.mutateAsync({
         ...options,
         videoModel: normalizedVideoModel,
+        groupVideoModel: options?.groupVideoModel ?? sequenceVideoModel ?? undefined,
       })
     } catch (err: unknown) {
       if (isAbortError(err)) {
@@ -123,7 +136,7 @@ export function useWorkspaceVideoActions({
     storyboardId: string,
     panelIndex: number,
     value: string,
-    field: 'videoPrompt' | 'firstLastFramePrompt' = 'videoPrompt',
+    field: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt' = 'videoPrompt',
   ) => {
     await updateProjectPanelVideoPromptMutation.mutateAsync({ storyboardId, panelIndex, value, field })
   }
@@ -133,7 +146,7 @@ export function useWorkspaceVideoActions({
     if (!normalizedModel) return
     try {
       await updateProjectConfigMutation.mutateAsync({
-        key: 'videoModel',
+        key: 'singleShotVideoModel',
         value: normalizedModel,
       })
     } catch (err: unknown) {

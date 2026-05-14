@@ -19,6 +19,8 @@ interface UseWorkspaceRuntimeParams {
   directorStylePresetSource: string | undefined
   directorStylePresetId: string | undefined
   videoModel: string | undefined
+  singleShotVideoModel: string | undefined
+  sequenceVideoModel: string | undefined
   capabilityOverrides: CapabilitySelections
   userVideoModels: Array<{
     value: string
@@ -55,8 +57,9 @@ interface UseWorkspaceRuntimeParams {
     storyboardId: string,
     panelIndex: number,
     value: string,
-    field?: 'videoPrompt' | 'firstLastFramePrompt',
+    field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt',
   ) => Promise<void>
+  handleUpdateVideoPlanPrompt: (editScriptId: string, blockIndex: number, prompt: string) => Promise<void>
   handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
 }
 
@@ -73,6 +76,8 @@ export function useWorkspaceRuntime({
   directorStylePresetSource,
   directorStylePresetId,
   videoModel,
+  singleShotVideoModel,
+  sequenceVideoModel,
   capabilityOverrides,
   userVideoModels,
   handleUpdateEpisode,
@@ -87,6 +92,7 @@ export function useWorkspaceRuntime({
   handleGenerateEditAssets,
   handleGenerateEditStoryboard,
   handleUpdateVideoPrompt,
+  handleUpdateVideoPlanPrompt,
   handleUpdatePanelVideoModel,
 }: UseWorkspaceRuntimeParams) {
   const resolvedUserVideoModels = useMemo(
@@ -107,6 +113,8 @@ export function useWorkspaceRuntime({
     directorStylePresetSource,
     directorStylePresetId,
     videoModel,
+    singleShotVideoModel,
+    sequenceVideoModel,
     capabilityOverrides,
     userVideoModels: resolvedUserVideoModels,
     onNovelTextChange: (value) => handleUpdateEpisode('novelText', value),
@@ -130,6 +138,7 @@ export function useWorkspaceRuntime({
     onGenerateEditAssets: handleGenerateEditAssets,
     onGenerateEditStoryboard: handleGenerateEditStoryboard,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
+    onUpdateVideoPlanPrompt: handleUpdateVideoPlanPrompt,
     onUpdatePanelVideoModel: handleUpdatePanelVideoModel,
     onOpenAssetLibraryForCharacter: (characterId, refreshAssets) => openAssetLibrary(characterId, refreshAssets),
   }), [
@@ -149,6 +158,7 @@ export function useWorkspaceRuntime({
     handleUpdateConfig,
     handleUpdateEpisode,
     handleUpdatePanelVideoModel,
+    handleUpdateVideoPlanPrompt,
     handleUpdateVideoPrompt,
     isConfirmingAssets,
     isStartingPlan,
@@ -158,6 +168,8 @@ export function useWorkspaceRuntime({
     onRequestAssistantPlan,
     resolvedUserVideoModels,
     capabilityOverrides,
+    singleShotVideoModel,
+    sequenceVideoModel,
     videoModel,
     videoRatio,
   ])

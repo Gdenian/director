@@ -85,6 +85,10 @@ describe('system - generate video', () => {
 
   it('queued external generation -> polling -> videoUrl persisted', async () => {
     const seeded = await seedMinimalDomainState()
+    await prisma.projectPanel.update({
+      where: { id: seeded.panel.id },
+      data: { duration: 5 },
+    })
     mockAuthenticated(seeded.user.id)
     workers = await startSystemWorkers(['video'])
 
@@ -98,7 +102,6 @@ describe('system - generate video', () => {
         panelIndex: 0,
         videoModel: 'fal::seedance/video',
         generationOptions: {
-          duration: 5,
           resolution: '720p',
         },
       },
@@ -119,7 +122,6 @@ describe('system - generate video', () => {
     })
     expect(panel?.videoUrl).toBe(videoState.uploadedCosKey)
     expect(panel?.lastVideoGenerationOptions).toEqual({
-      duration: 5,
       resolution: '720p',
     })
 

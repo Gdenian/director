@@ -19,6 +19,8 @@ interface ProjectSnapshotInput {
   storyboardModel: string | undefined
   editModel: string | undefined
   videoModel: string | undefined
+  singleShotVideoModel: string | undefined
+  sequenceVideoModel: string | undefined
   audioModel: string | undefined
   musicModel: string | undefined
   videoRatio: string | undefined
@@ -97,7 +99,7 @@ interface BuildWorkspaceControllerViewModelParams {
       storyboardId: string,
       panelIndex: number,
       value: string,
-      field?: 'videoPrompt' | 'firstLastFramePrompt',
+      field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt',
     ) => Promise<void>
     handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
     handleUpdateClip: (clipId: string, updates: Record<string, unknown>) => Promise<void>

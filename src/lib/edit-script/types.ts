@@ -37,6 +37,14 @@ export interface EditScriptShot {
   readonly sound: string
 }
 
+export interface EditScriptVideoBlock {
+  readonly kind: 'single' | 'group'
+  readonly shotNumbers: readonly number[]
+  readonly gridMode?: '2x2' | '3x3'
+  readonly reason: string
+  readonly prompt: string
+}
+
 export interface EditAssetRequirement {
   readonly id?: string
   readonly kind: EditAssetKind
@@ -60,6 +68,7 @@ export interface EditScriptPayload {
   readonly shotCount: number
   readonly status?: string
   readonly shots: readonly EditScriptShot[]
+  readonly videoBlocks: readonly EditScriptVideoBlock[]
   readonly requirements: readonly EditAssetRequirement[]
 }
 
@@ -78,6 +87,14 @@ export const editScriptCoreSchema = z.object({
   logline: z.string().trim().optional().nullable(),
   durationSec: z.number().int().positive(),
   shots: z.array(editScriptShotSchema).min(1).max(60),
+  videoBlocks: z.array(z.object({
+    type: z.enum(['single', 'group']).optional(),
+    kind: z.enum(['single', 'group']).optional(),
+    shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
+    gridMode: z.enum(['2x2', '3x3']).optional(),
+    reason: z.string().trim().min(1),
+    prompt: z.string().trim().min(1),
+  })).min(1).max(60),
 })
 
 export const editAssetRequirementSchema = z.object({
@@ -119,6 +136,13 @@ export const createEditScriptBriefQuestionsRequestSchema = z.object({
 
 export const getEditScriptRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
+})
+
+export const updateEditScriptVideoBlockPromptRequestSchema = z.object({
+  episodeId: z.string().trim().min(1),
+  editScriptId: z.string().trim().min(1),
+  blockIndex: z.number().int().min(0).max(59),
+  prompt: z.string().trim().min(1),
 })
 
 export const generateEditAssetsRequestSchema = z.object({

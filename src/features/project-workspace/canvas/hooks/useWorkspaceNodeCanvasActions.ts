@@ -7,14 +7,14 @@ import type { WorkspaceCanvasNodeAction } from '../node-canvas-types'
 export function useWorkspaceNodeCanvasActions() {
   const runtime = useWorkspaceRuntime()
 
-  return useCallback((action: WorkspaceCanvasNodeAction) => {
+  return useCallback(async (action: WorkspaceCanvasNodeAction) => {
     if (action.type === 'update_story') {
-      void runtime.onNovelTextChange(action.value)
+      await runtime.onNovelTextChange(action.value)
       return
     }
 
     if (action.type === 'update_clip') {
-      void runtime.onClipUpdate(action.clipId, action.data)
+      await runtime.onClipUpdate(action.clipId, action.data)
       return
     }
 
@@ -24,12 +24,12 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'generate_script') {
-      void runtime.onRequestAssistantPlan()
+      await runtime.onRequestAssistantPlan()
       return
     }
 
     if (action.type === 'generate_storyboard') {
-      void runtime.onRequestAssistantPlan()
+      await runtime.onRequestAssistantPlan()
       return
     }
 
@@ -54,7 +54,7 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'generate_image') {
-      void runtime.onGeneratePanelImage(action.panelId)
+      await runtime.onGeneratePanelImage(action.panelId)
       return
     }
 
@@ -75,7 +75,7 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'generate_video') {
-      void runtime.onGenerateVideo(
+      await runtime.onGenerateVideo(
         action.storyboardId,
         action.panelIndex,
         action.videoModel,
@@ -87,12 +87,17 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'update_video_prompt') {
-      void runtime.onUpdateVideoPrompt(action.storyboardId, action.panelIndex, action.value, action.field)
+      await runtime.onUpdateVideoPrompt(action.storyboardId, action.panelIndex, action.value, action.field)
+      return
+    }
+
+    if (action.type === 'update_video_plan_prompt') {
+      await runtime.onUpdateVideoPlanPrompt(action.editScriptId, action.blockIndex, action.prompt)
       return
     }
 
     if (action.type === 'update_panel_video_model') {
-      void runtime.onUpdatePanelVideoModel(action.storyboardId, action.panelIndex, action.model)
+      await runtime.onUpdatePanelVideoModel(action.storyboardId, action.panelIndex, action.model)
       return
     }
 
@@ -101,30 +106,41 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'generate_all_videos') {
-      void runtime.onGenerateAllVideos({
+      await runtime.onGenerateAllVideos({
         videoModel: action.videoModel ?? '',
         generationOptions: action.generationOptions,
       })
       return
     }
 
+    if (action.type === 'generate_video_group') {
+      await runtime.onGenerateAllVideos({
+        videoModel: action.videoModel,
+        generationOptions: action.generationOptions,
+        mode: 'grid',
+        gridMode: action.gridMode,
+        shotNumbers: action.shotNumbers,
+      })
+      return
+    }
+
     if (action.type === 'render_final_video') {
-      void runtime.onRenderFinalVideo()
+      await runtime.onRenderFinalVideo()
       return
     }
 
     if (action.type === 'generate_edit_assets') {
-      void runtime.onGenerateEditAssets(action.editScriptId)
+      await runtime.onGenerateEditAssets(action.editScriptId)
       return
     }
 
     if (action.type === 'generate_edit_asset') {
-      void runtime.onGenerateEditAssets(action.editScriptId, action.requirementId)
+      await runtime.onGenerateEditAssets(action.editScriptId, action.requirementId)
       return
     }
 
     if (action.type === 'generate_edit_storyboard') {
-      void runtime.onGenerateEditStoryboard(action.editScriptId)
+      await runtime.onGenerateEditStoryboard(action.editScriptId)
     }
   }, [runtime])
 }

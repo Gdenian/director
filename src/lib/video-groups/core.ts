@@ -49,11 +49,17 @@ export function validateVideoGroupShotNumbers(params: {
   readonly shotNumbers: readonly number[]
 }): number[] {
   const normalized = normalizeShotNumbers(params.shotNumbers)
-  const expectedCount = videoGridCellCount(params.gridMode)
-  if (normalized.length !== expectedCount) {
-    throw new Error(`VIDEO_GROUP_SHOT_COUNT_MISMATCH:${normalized.length}:${expectedCount}`)
+  const maxCount = videoGridCellCount(params.gridMode)
+  if (normalized.length < 2 || normalized.length > maxCount) {
+    throw new Error(`VIDEO_GROUP_SHOT_COUNT_MISMATCH:${normalized.length}:2-${maxCount}`)
   }
   return normalized
+}
+
+export function inferVideoGridModeForShotCount(shotCount: number): VideoGridMode {
+  if (Number.isInteger(shotCount) && shotCount >= 2 && shotCount <= 4) return '2x2'
+  if (Number.isInteger(shotCount) && shotCount >= 5 && shotCount <= 9) return '3x3'
+  throw new Error(`VIDEO_GROUP_SHOT_COUNT_UNSUPPORTED:${shotCount}`)
 }
 
 export function chunkVideoGroupShots(params: {
@@ -63,8 +69,9 @@ export function chunkVideoGroupShots(params: {
   const normalized = normalizeShotNumbers(params.shotNumbers)
   const cellCount = videoGridCellCount(params.gridMode)
   const chunks: number[][] = []
-  for (let index = 0; index + cellCount <= normalized.length; index += cellCount) {
-    chunks.push(normalized.slice(index, index + cellCount))
+  for (let index = 0; index < normalized.length; index += cellCount) {
+    const chunk = normalized.slice(index, index + cellCount)
+    if (chunk.length >= 2) chunks.push(chunk)
   }
   return chunks
 }
@@ -72,8 +79,10 @@ export function chunkVideoGroupShots(params: {
 export function buildVideoGroupPromptInstruction(input: VideoGroupPromptInput, locale: AiPromptLocale): string {
   const labels = locale === 'zh' ? GRID_LABELS_ZH[input.gridMode] : GRID_LABELS_EN[input.gridMode]
   let cursorSeconds = 0
-  const gridMap = input.shots.map((shot, index) =>
-    `${labels[index] ?? `Cell ${index + 1}`} = Shot ${shot.shotNumber}`).join('\n')
+  const gridMap = labels.map((label, index) => {
+    const shot = input.shots[index]
+    return shot ? `${label} = Shot ${shot.shotNumber}` : `${label} = Empty placeholder, ignore`
+  }).join('\n')
   const timelineMap = input.shots.map((shot) => {
     const start = cursorSeconds
     cursorSeconds += shot.durationSec

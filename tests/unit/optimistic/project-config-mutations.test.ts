@@ -61,6 +61,8 @@ function buildProject(): Project {
     storyboardModel: null,
     editModel: null,
     videoModel: null,
+    singleShotVideoModel: null,
+    sequenceVideoModel: null,
     audioModel: null,
     musicModel: null,
     videoRatio: '9:16',

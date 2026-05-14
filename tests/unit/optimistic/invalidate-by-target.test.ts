@@ -60,6 +60,31 @@ describe('invalidateByTarget', () => {
     })).toBe(true)
   })
 
+  it('ProjectVideoGroup invalidates episode scoped GUI queries', () => {
+    const testClient = createQueryClient()
+
+    invalidateByTarget({
+      queryClient: testClient.queryClient,
+      projectId: 'project-1',
+      targetType: 'ProjectVideoGroup',
+      episodeId: 'episode-1',
+    })
+
+    expect(hasInvalidation(testClient, (arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.episodeData('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'episode-1'
+    })).toBe(true)
+    expect(hasInvalidation(testClient, (arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.storyboards.all('episode-1')[0]
+        && key[1] === 'episode-1'
+    })).toBe(true)
+  })
+
   it('ProjectCharacter invalidates project asset queries', () => {
     const testClient = createQueryClient()
 

@@ -51,6 +51,7 @@ interface WorkspaceAssistantPanelProps {
   onAutoStartConsumed?: () => void
   isCollapsed: boolean
   onToggleCollapsed: () => void
+  onEditScriptPendingChange?: (pending: boolean) => void
 }
 
 const WORKSPACE_ASSISTANT_WIDTH_STORAGE_KEY = 'workspace-assistant-panel-width'
@@ -114,6 +115,7 @@ export default function WorkspaceAssistantPanel({
   onAutoStartConsumed,
   isCollapsed,
   onToggleCollapsed,
+  onEditScriptPendingChange,
 }: WorkspaceAssistantPanelProps) {
   const t = useTranslations('assistantAgent')
   const locale = useLocale()
@@ -286,6 +288,10 @@ export default function WorkspaceAssistantPanel({
       : editFirstPhase === 'editScript' || createEditScript.isPending
         ? 'editScript'
         : null
+  useEffect(() => {
+    onEditScriptPendingChange?.(editFirstProgressKind === 'editScript')
+    return () => onEditScriptPendingChange?.(false)
+  }, [editFirstProgressKind, onEditScriptPendingChange])
   useEffect(() => {
     if (!autoStartMessage || !autoStartKey) return
     if (assistantRuntime.storageLoading || createBriefQuestions.isPending || createEditScript.isPending) return

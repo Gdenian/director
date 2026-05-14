@@ -7,6 +7,7 @@ import type {
   ProjectClip,
   ProjectShot,
   ProjectStoryboard,
+  ProjectVideoGroup,
 } from '@/types/project'
 import { parseDirectorStyleDoc } from '@/lib/director-style'
 
@@ -31,6 +32,8 @@ type ProjectWorkflowSource = {
   storyboardModel?: string | null
   editModel?: string | null
   videoModel?: string | null
+  singleShotVideoModel?: string | null
+  sequenceVideoModel?: string | null
   audioModel?: string | null
   musicModel?: string | null
   videoRatio?: string | null
@@ -52,6 +55,7 @@ type ProjectWorkflowSource = {
   clips?: ProjectRecord[]
   storyboards?: ProjectRecord[]
   shots?: ProjectRecord[]
+  videoGroups?: ProjectRecord[]
 }
 
 function splitProjectLocations(locations: ProjectLocationLike[] | undefined): Pick<ProjectWorkflowData, 'locations' | 'props'> {
@@ -74,6 +78,8 @@ function buildProjectWorkflowData(source: ProjectWorkflowSource): ProjectWorkflo
     storyboardModel: source.storyboardModel ?? null,
     editModel: source.editModel ?? null,
     videoModel: source.videoModel ?? null,
+    singleShotVideoModel: source.singleShotVideoModel ?? source.videoModel ?? null,
+    sequenceVideoModel: source.sequenceVideoModel ?? null,
     audioModel: source.audioModel ?? null,
     musicModel: source.musicModel ?? null,
     videoRatio: source.videoRatio ?? null,
@@ -96,6 +102,7 @@ function buildProjectWorkflowData(source: ProjectWorkflowSource): ProjectWorkflo
     clips: (source.clips || []) as unknown as ProjectClip[],
     storyboards: (source.storyboards || []) as unknown as ProjectStoryboard[],
     shots: (source.shots || []) as unknown as ProjectShot[],
+    videoGroups: (source.videoGroups || []) as unknown as ProjectVideoGroup[],
   }
 }
 

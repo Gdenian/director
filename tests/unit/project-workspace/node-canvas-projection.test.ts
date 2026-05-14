@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ProjectClip, ProjectPanel, ProjectShot, ProjectStoryboard } from '@/types/project'
+import type { ProjectClip, ProjectEditScript, ProjectPanel, ProjectShot, ProjectStoryboard } from '@/types/project'
 import {
   buildWorkspaceNodeCanvasProjection,
 } from '@/features/project-workspace/canvas/hooks/useWorkspaceNodeCanvasProjection'
@@ -109,6 +109,40 @@ function createStoryboard(input: {
   }
 }
 
+function createSingleVideoEditScript(input?: Partial<ProjectEditScript>): ProjectEditScript {
+  return {
+    id: input?.id ?? 'edit-video',
+    projectId: input?.projectId ?? 'project-1',
+    episodeId: input?.episodeId ?? 'episode-1',
+    userPrompt: input?.userPrompt ?? 'single video',
+    title: input?.title ?? 'Single Video',
+    logline: input?.logline ?? null,
+    durationSec: input?.durationSec ?? 2,
+    shotCount: input?.shotCount ?? 1,
+    status: input?.status ?? 'ready',
+    shots: input?.shots ?? [
+      {
+        shotNumber: 1,
+        durationSec: 2,
+        visualAction: 'A camera watches the room.',
+        charactersAndScene: 'Empty room',
+        camera: 'locked wide shot',
+        videoPrompt: 'A quiet room.',
+        sound: 'low room tone',
+      },
+    ],
+    videoBlocks: input?.videoBlocks ?? [
+      {
+        kind: 'single',
+        shotNumbers: [1],
+        reason: 'One isolated beat.',
+        prompt: 'Edit-first single video prompt.',
+      },
+    ],
+    requirements: input?.requirements ?? [],
+  }
+}
+
 describe('workspace node canvas projection', () => {
   it('keeps the canvas empty when the episode has no generated data', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
@@ -124,7 +158,7 @@ describe('workspace node canvas projection', () => {
     expect(projection.edges).toEqual([])
   })
 
-  it('projects real story, clips, shots, image nodes, video nodes, and final timeline without mock data', () => {
+  it('projects real story, clips, and shots without old video fallback nodes', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: 'A real story',
@@ -173,13 +207,9 @@ describe('workspace node canvas projection', () => {
       'clip:clip-2',
       'shot:panel-1',
       'shot:panel-2',
-      'video:panel-1',
-      'video:panel-2',
-      'final:episode-1',
     ])
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('analysis:episode-1->clip:clip-1')
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('clip:clip-1->shot:panel-1')
-    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('video:panel-2->final:episode-1')
 
     const shotNode = projection.nodes.find((node) => node.id === 'shot:panel-1')
     expect(shotNode?.data.action).toEqual({ type: 'generate_image', panelId: 'panel-1' })
@@ -187,22 +217,8 @@ describe('workspace node canvas projection', () => {
     expect(shotNode?.data.previewAspectRatio).toBeCloseTo(1080 / 1920)
     expect(shotNode?.data.previewDisplayHeight).toBeGreaterThan(118)
     expect(projection.nodes.some((node) => node.id === 'image:panel-1')).toBe(false)
-
-    const pendingVideoNode = projection.nodes.find((node) => node.id === 'video:panel-1')
-    expect(pendingVideoNode?.data.action).toEqual({
-      type: 'generate_video',
-      storyboardId: 'storyboard-1',
-      panelIndex: 0,
-      panelId: 'panel-1',
-      videoModel: 'project-video-model',
-    })
-
-    const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
-    expect(finalNode?.data.finalDetails?.totalVideos).toBe(1)
-    expect(finalNode?.data.action).toEqual({
-      type: 'render_final_video',
-    })
-    expect(finalNode?.data.actionLabel).toBe('actions.renderFinalVideo')
+    expect(projection.nodes.some((node) => node.data.kind === 'videoClip')).toBe(false)
+    expect(projection.nodes.some((node) => node.data.kind === 'finalTimeline')).toBe(false)
   })
 
   it('marks final timeline as AI editing while final render task is running', () => {
@@ -218,11 +234,13 @@ describe('workspace node canvas projection', () => {
             createPanel({
               id: 'panel-1',
               panelIndex: 0,
+              imageUrl: 'https://example.com/panel-1.png',
               videoUrl: 'https://example.com/panel-1.mp4',
             }),
           ],
         }),
       ],
+      editScript: createSingleVideoEditScript(),
       savedLayouts: [],
       finalRenderPhase: 'processing',
       translate: t,
@@ -230,8 +248,35 @@ describe('workspace node canvas projection', () => {
 
     const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
     expect(finalNode?.data.statusLabel).toBe('status.aiEditing')
+    expect(finalNode?.data.isRunning).toBe(true)
     expect(finalNode?.data.actionLabel).toBe('actions.aiEditing')
     expect(finalNode?.data.actionDisabled).toBe(true)
+  })
+
+  it('shows a running edit table placeholder while the assistant is generating it', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: 'A real story',
+      clips: [],
+      storyboards: [],
+      editScriptPending: true,
+      savedLayouts: [],
+      translate: t,
+    })
+
+    expect(projection.nodes.map((node) => node.id)).toEqual([
+      'analysis:episode-1',
+      'edit-script:pending:episode-1',
+    ])
+
+    const pendingNode = projection.nodes.find((node) => node.id === 'edit-script:pending:episode-1')
+    expect(pendingNode?.data.kind).toBe('editScript')
+    expect(pendingNode?.data.statusLabel).toBe('status.processing')
+    expect(pendingNode?.data.isRunning).toBe(true)
+    expect(pendingNode?.data.title).toBe('nodes.editScript.pendingTitle')
+    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain(
+      'analysis:episode-1->edit-script:pending:episode-1',
+    )
   })
 
   it('shows final render failures on the final timeline node', () => {
@@ -247,11 +292,13 @@ describe('workspace node canvas projection', () => {
             createPanel({
               id: 'panel-1',
               panelIndex: 0,
+              imageUrl: 'https://example.com/panel-1.png',
               videoUrl: 'https://example.com/panel-1.mp4',
             }),
           ],
         }),
       ],
+      editScript: createSingleVideoEditScript(),
       savedLayouts: [],
       finalRenderPhase: 'failed',
       finalRenderErrorMessage: 'Google music network failed',
@@ -278,11 +325,13 @@ describe('workspace node canvas projection', () => {
             createPanel({
               id: 'panel-1',
               panelIndex: 0,
+              imageUrl: 'https://example.com/panel-1.png',
               videoUrl: 'https://example.com/panel-1.mp4',
             }),
           ],
         }),
       ],
+      editScript: createSingleVideoEditScript(),
       finalVideo: {
         id: 'editor-1',
         episodeId: 'episode-1',
@@ -439,6 +488,18 @@ describe('workspace node canvas projection', () => {
         lastError: 'storyboard failed',
       }],
       shots: [createShot('shot-rich', '01')],
+      editScript: createSingleVideoEditScript({
+        id: 'edit-rich',
+        title: 'Rich Detail Script',
+        videoBlocks: [
+          {
+            kind: 'single',
+            shotNumbers: [1],
+            reason: 'The shot should remain isolated.',
+            prompt: 'Edit-first rich video prompt.',
+          },
+        ],
+      }),
       savedLayouts: [],
       translate: t,
     })
@@ -482,22 +543,15 @@ describe('workspace node canvas projection', () => {
       errorMessage: 'image failed',
     })
 
-    const videoNode = projection.nodes.find((node) => node.id === 'video:panel-rich')
-    expect(videoNode?.data.videoDetails).toMatchObject({
-      videoPrompt: 'rich video prompt',
-      firstLastFramePrompt: 'first last prompt',
-      videoGenerationMode: 'firstlastframe',
-      videoUrl: 'https://example.com/video.mp4',
-      videoModel: 'video-model',
-      linkedToNextPanel: true,
-      errorMessage: 'video failed',
+    const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-rich:1')
+    expect(videoPlanNode?.data.kind).toBe('videoPlan')
+    expect(videoPlanNode?.data.videoPlanDetails).toMatchObject({
+      kind: 'single',
+      shotNumbers: [1],
+      prompt: 'Edit-first rich video prompt.',
+      outputUrl: 'https://example.com/video.mp4',
     })
-    expect(videoNode?.data.videoDetails).not.toHaveProperty('lipSyncVideoUrl')
-    expect(videoNode?.data.videoDetails).not.toHaveProperty('lipSyncErrorMessage')
-    expect(videoNode?.data.videoDetails?.lastVideoGenerationOptions).toEqual([
-      { kind: 'text', speaker: 'duration', text: '5' },
-      { kind: 'text', speaker: 'enhance', text: 'true' },
-    ])
+    expect(projection.nodes.some((node) => node.data.kind === 'videoClip')).toBe(false)
 
     const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
     expect(finalNode?.data.finalDetails).toMatchObject({
@@ -548,6 +602,15 @@ describe('workspace node canvas projection', () => {
             sound: 'sub bass pulse',
           },
         ],
+        videoBlocks: [
+          {
+            kind: 'group',
+            shotNumbers: [1, 2],
+            gridMode: '2x2',
+            reason: 'Shared corridor motion should be generated as one segment.',
+            prompt: 'Edit-first continuous corridor prompt.',
+          },
+        ],
         requirements: [
           {
             id: 'req-character',
@@ -586,6 +649,8 @@ describe('workspace node canvas projection', () => {
     expect(editNode?.data.width).toBeGreaterThan(1000)
     expect(editNode?.data.height).toBeGreaterThan(400)
 
+    expect(projection.nodes.some((node) => node.data.kind === 'videoPlan')).toBe(false)
+
     const pendingAssetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-character')
     expect(pendingAssetNode?.data.action).toEqual({
       type: 'generate_edit_asset',
@@ -599,7 +664,7 @@ describe('workspace node canvas projection', () => {
     expect(assetNode?.data.height).toBe(520)
     expect(assetNode?.position.y).toBe(pendingAssetNode?.position.y)
     expect(assetNode?.position.x ?? 0).toBeGreaterThan(pendingAssetNode?.position.x ?? 0)
-    expect(assetNode?.position.y ?? 0).toBeGreaterThan((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0))
+    expect(assetNode?.position.y ?? 0).toBeGreaterThanOrEqual((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + 240)
     expect(assetNode?.data.action).toBeUndefined()
     expect(assetNode?.data.previewImageUrl).toBe('https://example.com/location.png')
     expect(assetNode?.data.editAssetDetails).toMatchObject({
@@ -607,6 +672,206 @@ describe('workspace node canvas projection', () => {
       targetId: 'location-1',
       shotNumbers: [1],
     })
+  })
+
+  it('projects video arrangement nodes only after storyboard images exist', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels: [
+            createPanel({
+              id: 'panel-1',
+              panelIndex: 0,
+              panelNumber: 1,
+              imageUrl: 'https://example.com/shot-1.png',
+              media: {
+                id: 'media-shot-1',
+                publicId: 'media-shot-1',
+                url: 'https://example.com/shot-1.png',
+                mimeType: 'image/png',
+                sizeBytes: null,
+                width: 1920,
+                height: 1080,
+                durationMs: null,
+              },
+            }),
+            createPanel({
+              id: 'panel-2',
+              panelIndex: 1,
+              panelNumber: 2,
+              imageUrl: 'https://example.com/shot-2.png',
+              media: {
+                id: 'media-shot-2',
+                publicId: 'media-shot-2',
+                url: 'https://example.com/shot-2.png',
+                mimeType: 'image/png',
+                sizeBytes: null,
+                width: 1920,
+                height: 1080,
+                durationMs: null,
+              },
+            }),
+          ],
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+      defaultSequenceVideoModel: 'ark::sequence-project-model',
+      editScript: {
+        id: 'edit-2',
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        userPrompt: 'short sci-fi',
+        title: 'Orbital Silence',
+        logline: 'A pilot meets a machine intelligence.',
+        durationSec: 9,
+        shotCount: 2,
+        status: 'ready',
+        shots: [
+          {
+            shotNumber: 1,
+            durationSec: 5,
+            visualAction: 'Pilot crosses the docking bay.',
+            charactersAndScene: 'Pilot / Docking Bay',
+            camera: 'locked wide shot',
+            videoPrompt: 'Pilot crosses a sterile docking bay.',
+            sound: 'air hum',
+          },
+          {
+            shotNumber: 2,
+            durationSec: 4,
+            visualAction: 'A red machine eye opens.',
+            charactersAndScene: 'Pilot / AI Chamber',
+            camera: 'slow push in',
+            videoPrompt: 'A red machine eye opens in a chamber.',
+            sound: 'sub bass pulse',
+          },
+        ],
+        videoBlocks: [
+          {
+            kind: 'group',
+            shotNumbers: [1, 2],
+            gridMode: '2x2',
+            reason: 'Shared camera movement should be generated as one segment.',
+            prompt: 'Edit-first combined prompt.',
+          },
+        ],
+        requirements: [],
+      },
+      videoGroups: [
+        {
+          id: 'group-1',
+          projectId: 'project-1',
+          episodeId: 'episode-1',
+          gridMode: '2x2',
+          shotNumbers: [1, 2],
+          durationSec: 9,
+          prompt: 'Combined continuous prompt.',
+          status: 'completed',
+          taskId: null,
+          errorCode: null,
+          errorMessage: null,
+          referenceImageUrl: null,
+          referenceImageMedia: null,
+          videoUrl: 'https://example.com/group.mp4',
+          videoMedia: null,
+        },
+      ],
+    })
+
+    const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-2:1')
+    expect(videoPlanNode?.data.kind).toBe('videoPlan')
+    expect(videoPlanNode?.data.width).toBe(420)
+    expect(videoPlanNode?.data.height).toBe(560)
+    expect(videoPlanNode?.data.action).toEqual({
+      type: 'generate_video_group',
+      videoModel: 'ark::sequence-project-model',
+      gridMode: '2x2',
+      shotNumbers: [1, 2],
+    })
+    expect(videoPlanNode?.data.videoPlanDetails).toMatchObject({
+      kind: 'group',
+      shotNumbers: [1, 2],
+      durationSec: 9,
+      prompt: 'Edit-first combined prompt.',
+      outputUrl: 'https://example.com/group.mp4',
+      validationMessage: null,
+      sourceImages: [
+        { shotNumber: 1, imageUrl: 'https://example.com/shot-1.png', aspectRatio: 1920 / 1080 },
+        { shotNumber: 2, imageUrl: 'https://example.com/shot-2.png', aspectRatio: 1920 / 1080 },
+      ],
+    })
+    expect(projection.nodes.some((node) => node.id.startsWith('video:'))).toBe(false)
+    expect(projection.nodes.some((node) => node.id.startsWith('video-group:'))).toBe(false)
+    expect(projection.edges.some((edge) => edge.id === 'edge:shot-video-plan:video-plan:edit-2:1')).toBe(true)
+  })
+
+  it('projects one-shot video arrangement blocks without separate video nodes', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels: [
+            createPanel({ id: 'panel-1', panelIndex: 0, panelNumber: 1, imageUrl: 'https://example.com/shot-1.png' }),
+          ],
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+      defaultVideoModel: 'google::veo-test',
+      editScript: {
+        id: 'edit-single',
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        userPrompt: 'single beat',
+        title: 'Quiet Door',
+        logline: null,
+        durationSec: 4,
+        shotCount: 1,
+        status: 'ready',
+        shots: [
+          {
+            shotNumber: 1,
+            durationSec: 4,
+            visualAction: 'A door opens slowly.',
+            charactersAndScene: 'Empty corridor',
+            camera: 'locked off',
+            videoPrompt: 'A quiet door opens slowly.',
+            sound: 'soft hinge',
+          },
+        ],
+        videoBlocks: [
+          {
+            kind: 'single',
+            shotNumbers: [1],
+            reason: 'This beat should stay isolated.',
+            prompt: 'Edit-first single shot prompt.',
+          },
+        ],
+        requirements: [],
+      },
+    })
+
+    const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-single:1')
+    expect(videoPlanNode?.data.kind).toBe('videoPlan')
+    expect(videoPlanNode?.data.action).toEqual({
+      type: 'generate_video',
+      storyboardId: 'storyboard-1',
+      panelIndex: 0,
+      panelId: 'panel-1',
+      videoModel: 'google::veo-test',
+    })
+    expect(videoPlanNode?.data.videoPlanDetails?.prompt).toBe('Edit-first single shot prompt.')
+    expect(projection.nodes.some((node) => node.id.startsWith('video:'))).toBe(false)
   })
 
   it('offers edit-first storyboard generation after all required assets are ready', () => {
@@ -636,6 +901,14 @@ describe('workspace node canvas projection', () => {
             camera: 'locked symmetrical wide shot',
             videoPrompt: 'A pilot watches a rotating space station.',
             sound: 'low air hum',
+          },
+        ],
+        videoBlocks: [
+          {
+            kind: 'single',
+            shotNumbers: [1],
+            reason: 'Standalone station shot.',
+            prompt: 'Edit-first station prompt.',
           },
         ],
         requirements: [

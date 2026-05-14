@@ -153,7 +153,7 @@ export default function VideoPanelCardBody({ runtime }: VideoPanelCardBodyProps)
                     capabilityFields={videoModel.capabilityFields}
                     capabilityOverrides={videoModel.generationOptions}
                     onCapabilityChange={(field, rawValue) => videoModel.setCapabilityValue(field, rawValue)}
-                    fields={['resolution', 'duration']}
+                    fields={['resolution']}
                     disabled={taskStatus.isVideoTaskRunning}
                     className="min-w-0"
                     size="xs"

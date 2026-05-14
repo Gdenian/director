@@ -277,7 +277,16 @@ export interface ProjectEditScript {
   shotCount: number
   status: string
   shots: ProjectEditScriptShot[]
+  videoBlocks: ProjectEditScriptVideoBlock[]
   requirements: ProjectEditAssetRequirement[]
+}
+
+export interface ProjectEditScriptVideoBlock {
+  kind: 'single' | 'group'
+  shotNumbers: number[]
+  gridMode?: '2x2' | '3x3'
+  reason: string
+  prompt: string
 }
 
 export interface ProjectFinalVideo {
@@ -332,6 +341,8 @@ export interface ProjectWorkflowData {
   storyboardModel: string | null
   editModel: string | null
   videoModel: string | null
+  singleShotVideoModel: string | null
+  sequenceVideoModel: string | null
   audioModel: string | null
   musicModel: string | null
   videoRatio: string | null

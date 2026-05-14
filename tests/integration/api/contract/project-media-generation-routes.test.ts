@@ -168,6 +168,7 @@ describe('api contract - project media generation routes (operation adapter)', (
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: true })
 
     const singleRes = await generateVideoPost(
       buildMockRequest({
@@ -217,10 +218,26 @@ describe('api contract - project media generation routes (operation adapter)', (
       { params: Promise.resolve({ projectId: 'project-1' }) },
     )
 
+    const autoBatchRes = await generateVideoPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/generate-video',
+        method: 'POST',
+        body: {
+          episodeId: 'episode-1',
+          mode: 'auto',
+          all: true,
+          videoModel: 'provider/model',
+          groupVideoModel: 'ark::doubao-seedance-2-0-260128',
+        },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
     expect(singleRes.status).toBe(200)
     expect(batchRes.status).toBe(200)
     expect(gridSingleRes.status).toBe(200)
     expect(gridBatchRes.status).toBe(200)
+    expect(autoBatchRes.status).toBe(200)
     expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenNthCalledWith(1, expect.objectContaining({
       operationId: 'generate_panel_video',
     }))
@@ -238,6 +255,13 @@ describe('api contract - project media generation routes (operation adapter)', (
       operationId: 'generate_episode_video_groups',
       input: expect.objectContaining({
         gridMode: '3x3',
+      }),
+    }))
+    expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenNthCalledWith(5, expect.objectContaining({
+      operationId: 'generate_episode_videos_auto',
+      input: expect.objectContaining({
+        mode: 'auto',
+        groupVideoModel: 'ark::doubao-seedance-2-0-260128',
       }),
     }))
   })

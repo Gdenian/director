@@ -277,10 +277,22 @@
         "editScript": "No edit table",
         "editAsset": "No asset description"
       },
+      "errors": {
+        "videoPlanSingleInvalid": "A single-shot arrangement must contain exactly 1 shot",
+        "videoPlanGroupCountInvalid": "A continuous segment must contain 2-9 shots",
+        "videoPlanGroupDurationInvalid": "A continuous segment must be 2-15 seconds",
+        "sequenceVideoModelMissing": "Set the arrangement video model in project config first"
+      },
       "nodeFields": {
         "openDetails": "Details",
         "expandDetails": "Expand",
         "collapseDetails": "Collapse",
+        "editPrompt": "Edit",
+        "savePrompt": "Save",
+        "cancelEdit": "Cancel",
+        "promptSaving": "Saving",
+        "promptSaved": "Saved",
+        "promptSaveFailed": "Save failed",
         "screenplay": "Screenplay",
         "originalClip": "Original Clip",
         "scene": "Scene {index}",
@@ -318,6 +330,15 @@
         "firstLastFramePrompt": "First/Last Frame Prompt",
         "videoMeta": "Video Info",
         "generationMode": "Generation Mode",
+        "gridMode": "Grid",
+        "reason": "Reason",
+        "videoPlanMeta": "Arrangement Info",
+        "videoPlanPrompt": "Combined Prompt",
+        "videoPlanGroup": "Continuous Segment",
+        "videoPlanSingle": "Arranged Segment",
+        "videoPlanReference": "Images",
+        "videoPlanOutput": "Video",
+        "videoPlanShotAlt": "Arrangement shot {shot}",
         "videoModel": "Video Model",
         "linkedToNextPanel": "Linked To Next",
         "baseVideo": "Base Video",
@@ -396,6 +417,7 @@
           "videoModel": "Video Model",
           "linkedToNextPanel": "Linked To Next Shot",
           "generationOptions": "Generation Options JSON",
+          "autoVideoMode": "Edit Arrangement",
           "singleVideoMode": "Single Shot",
           "gridVideoMode": "Grid Continuous",
           "grid2x2": "2x2 Four-grid",
@@ -440,6 +462,7 @@
           "generateVideo": "Generate Video",
           "generateFirstLastVideo": "Generate First/Last Video",
           "generateAllVideos": "Batch Generate Videos",
+          "generateAutoVideos": "Generate From Arrangement",
           "generateGridVideos": "Generate Grid Videos",
           "renderFinalVideo": "AI Edit",
           "openFinalVideo": "Open Final Video",
@@ -540,6 +563,12 @@
           "body": "Continuous video segment generated from edit-first order",
           "meta": "{grid} · shots {shots} · {duration}s"
         },
+        "videoPlan": {
+          "title": "Video Arrangement {index}",
+          "eyebrow": "Video Generation Arrangement",
+          "body": "Video generation block from the edit-first table",
+          "meta": "{mode} · shots {shots} · {duration}s"
+        },
         "final": {
           "title": "Final Timeline",
           "eyebrow": "Final Output",
@@ -549,7 +578,10 @@
         },
         "editScript": {
           "eyebrow": "Core Edit Table",
-          "meta": "{shots} shots · {duration}s · assets {completed}/{assets}"
+          "meta": "{shots} shots · {duration}s · assets {completed}/{assets}",
+          "pendingTitle": "Generating Edit Table",
+          "pendingBody": "AI is generating the edit-first table from the current video brief, including characters, locations, shot rhythm, video arrangement, and sound design.",
+          "pendingMeta": "This will become an editable edit table when generation completes"
         },
         "editAsset": {
           "meta": "Linked shots: {shots}"

@@ -10,6 +10,7 @@ export type WorkspaceCanvasNodeKind =
   | 'videoClip'
   | 'finalTimeline'
   | 'editScript'
+  | 'videoPlan'
   | 'editRequiredAsset'
 
 export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'panel' | 'videoGroup' | 'editScript' | 'editAssetRequirement'
@@ -74,7 +75,13 @@ export type WorkspaceCanvasNodeAction =
       readonly storyboardId: string
       readonly panelIndex: number
       readonly value: string
-      readonly field?: 'videoPrompt' | 'firstLastFramePrompt'
+      readonly field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt'
+    }
+  | {
+      readonly type: 'update_video_plan_prompt'
+      readonly editScriptId: string
+      readonly blockIndex: number
+      readonly prompt: string
     }
   | { readonly type: 'update_panel_video_model'; readonly storyboardId: string; readonly panelIndex: number; readonly model: string }
   | { readonly type: 'toggle_panel_link'; readonly storyboardId: string; readonly panelIndex: number; readonly linked: boolean }
@@ -83,12 +90,22 @@ export type WorkspaceCanvasNodeAction =
       readonly videoModel?: string
       readonly generationOptions?: Record<string, string | number | boolean>
     }
+  | {
+      readonly type: 'generate_video_group'
+      readonly videoModel: string
+      readonly gridMode: '2x2' | '3x3'
+      readonly shotNumbers: readonly number[]
+      readonly generationOptions?: Record<string, string | number | boolean>
+    }
   | { readonly type: 'render_final_video' }
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
   | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
   | { readonly type: 'generate_edit_storyboard'; readonly editScriptId: string }
 
-export type WorkspaceCanvasNodeActionHandler = (action: WorkspaceCanvasNodeAction) => void
+export type WorkspaceCanvasNodeActionHandler = (
+  action: WorkspaceCanvasNodeAction,
+  nodeId?: string,
+) => Promise<void> | void
 
 export interface WorkspaceCanvasAssetRef {
   readonly name: string
@@ -196,6 +213,26 @@ export interface WorkspaceCanvasEditScriptDetails {
   }[]
 }
 
+export interface WorkspaceCanvasVideoPlanDetails {
+  readonly editScriptId: string
+  readonly blockIndex: number
+  readonly kind: 'single' | 'group'
+  readonly shotNumbers: readonly number[]
+  readonly durationSec: number
+  readonly gridMode?: '2x2' | '3x3'
+  readonly reason: string
+  readonly prompt?: string | null
+  readonly outputUrl?: string | null
+  readonly outputAspectRatio?: number | null
+  readonly errorMessage?: string | null
+  readonly sourceImages: readonly {
+    readonly shotNumber: number
+    readonly imageUrl?: string | null
+    readonly aspectRatio?: number | null
+  }[]
+  readonly validationMessage?: string | null
+}
+
 export interface WorkspaceCanvasEditAssetDetails {
   readonly kind: 'character' | 'location'
   readonly description: string
@@ -212,11 +249,14 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly layoutNodeType: CanvasLayoutNodeType
   readonly targetType: WorkspaceCanvasTargetType
   readonly targetId: string
+  readonly storyboardId?: string
+  readonly panelIndex?: number
   readonly title: string
   readonly eyebrow: string
   readonly body: string
   readonly meta: string
   readonly statusLabel: string
+  readonly isRunning?: boolean
   readonly width: number
   readonly height: number
   readonly actionLabel?: string
@@ -235,6 +275,7 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly videoDetails?: WorkspaceCanvasVideoDetails
   readonly finalDetails?: WorkspaceCanvasFinalDetails
   readonly editScriptDetails?: WorkspaceCanvasEditScriptDetails
+  readonly videoPlanDetails?: WorkspaceCanvasVideoPlanDetails
   readonly editAssetDetails?: WorkspaceCanvasEditAssetDetails
 }
 

@@ -254,6 +254,98 @@ describe('workspace node rendering', () => {
     expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('overflow-y-auto')
   })
 
+  it('keeps canvas node text non-selectable so drag gestures stay reliable', () => {
+    const html = renderNode({
+      kind: 'shot',
+      layoutNodeType: 'shot',
+      targetType: 'panel',
+      targetId: 'panel-1',
+      title: 'Selectable shot title',
+      eyebrow: 'Shot',
+      body: 'selectable shot description',
+      meta: 'selectable meta',
+      statusLabel: 'Ready',
+      width: 320,
+      height: 380,
+      shotDetails: {
+        shotType: 'wide',
+        cameraMove: 'push in',
+        characters: [{ name: 'Selectable character' }],
+        location: 'Selectable street',
+        props: ['Selectable lamp'],
+        imagePrompt: 'selectable image prompt',
+        videoPrompt: 'selectable video prompt',
+      },
+    })
+
+    expect(html).toContain('select-none')
+    expect(html).not.toContain('select-text')
+    expect(html).toMatch(/select-none[^"]*">Selectable shot title<\/h2>/)
+    expect(html).toMatch(/select-none[^"]*">selectable shot description<\/p>/)
+    expect(html).toMatch(/select-none[^"]*">Selectable character<\/span>/)
+  })
+
+  it('renders edit actions for image, video, and arrangement prompts only when save targets exist', () => {
+    const onAction = vi.fn()
+    const shotHtml = renderNode({
+      kind: 'shot',
+      layoutNodeType: 'shot',
+      targetType: 'panel',
+      targetId: 'panel-1',
+      storyboardId: 'storyboard-1',
+      panelIndex: 0,
+      title: 'Editable shot',
+      eyebrow: 'Shot',
+      body: 'shot description',
+      meta: 'location',
+      statusLabel: 'Ready',
+      width: 320,
+      height: 520,
+      expanded: true,
+      onAction,
+      shotDetails: {
+        shotType: 'wide',
+        cameraMove: 'push in',
+        characters: [],
+        location: 'Street',
+        props: [],
+        imagePrompt: 'editable image prompt',
+        videoPrompt: 'editable video prompt',
+      },
+    })
+    const videoPlanHtml = renderNode({
+      kind: 'videoPlan',
+      layoutNodeType: 'videoPlan',
+      targetType: 'editScript',
+      targetId: 'edit-1:video-block:1',
+      title: 'Video plan',
+      eyebrow: 'Plan',
+      body: 'reason',
+      meta: 'shots',
+      statusLabel: 'Ready',
+      width: 420,
+      height: 560,
+      expanded: true,
+      onAction,
+      videoPlanDetails: {
+        editScriptId: 'edit-1',
+        blockIndex: 0,
+        kind: 'group',
+        shotNumbers: [1, 2],
+        durationSec: 8,
+        gridMode: '2x2',
+        reason: 'motion continuity',
+        prompt: 'editable arrangement prompt',
+        sourceImages: [],
+      },
+    })
+
+    expect(shotHtml.match(/aria-label="editPrompt"/g)).toHaveLength(2)
+    expect(videoPlanHtml.match(/aria-label="editPrompt"/g)).toHaveLength(1)
+    expect(`${shotHtml}${videoPlanHtml}`).toContain('data-icon="edit"')
+    expect(`${shotHtml}${videoPlanHtml}`).not.toContain('<textarea')
+  })
+
   it('does not render empty expanded detail sections as blank cards', () => {
     const emptyShotHtml = renderNode({
       kind: 'shot',

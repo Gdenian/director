@@ -19,6 +19,7 @@ function ProjectWorkspaceContent(props: ProjectWorkspaceProps) {
   const vm = useProjectWorkspaceController(props)
   const [isAssistantPanelCollapsed, setIsAssistantPanelCollapsed] = useState(false)
   const [assistantSelection, setAssistantSelection] = useState<WorkspaceAssistantSelectionContext>({})
+  const [editScriptPending, setEditScriptPending] = useState(false)
   const isEpisodeWorkspace = props.viewMode === 'episode'
 
   const {
@@ -54,6 +55,8 @@ function ProjectWorkspaceContent(props: ProjectWorkspaceProps) {
         storyboardModel={vm.project.storyboardModel}
         editModel={vm.project.editModel}
         videoModel={vm.project.videoModel}
+        singleShotVideoModel={vm.project.singleShotVideoModel}
+        sequenceVideoModel={vm.project.sequenceVideoModel}
         audioModel={vm.project.audioModel}
         capabilityOverrides={vm.project.capabilityOverrides}
         videoRatio={vm.project.videoRatio}
@@ -85,11 +88,15 @@ function ProjectWorkspaceContent(props: ProjectWorkspaceProps) {
             onAutoStartConsumed={props.onAssistantAutoStartConsumed}
             isCollapsed={isAssistantPanelCollapsed}
             onToggleCollapsed={() => setIsAssistantPanelCollapsed((current) => !current)}
+            onEditScriptPendingChange={setEditScriptPending}
           />
 
           <div className={isEpisodeWorkspace ? 'h-full min-w-0 overflow-hidden' : 'min-w-0'}>
             <WorkspaceRuntimeProvider value={vm.runtime.workspaceRuntime}>
-              <ProjectWorkspaceCanvas onAssistantSelectionChange={setAssistantSelection} />
+              <ProjectWorkspaceCanvas
+                onAssistantSelectionChange={setAssistantSelection}
+                editScriptPending={editScriptPending}
+              />
             </WorkspaceRuntimeProvider>
           </div>
         </div>

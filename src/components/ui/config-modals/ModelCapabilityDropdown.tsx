@@ -72,6 +72,7 @@ export interface ModelCapabilityDropdownProps {
 }
 
 const DEFAULT_PANEL_MAX_HEIGHT = 520
+const MIN_COMFORTABLE_PANEL_HEIGHT = 320
 const VIEWPORT_EDGE_GAP = 16
 
 // ─── Helpers ──────────────────────────────────────────
@@ -148,7 +149,10 @@ export function ModelCapabilityDropdown({
         const spaceBelow = Math.max(0, viewportHeight - rect.bottom - VIEWPORT_EDGE_GAP)
         const preferAutoPlacement = placementMode === 'auto'
         const shouldOpenUpward = preferAutoPlacement
-            ? (spaceBelow < DEFAULT_PANEL_MAX_HEIGHT && spaceAbove > spaceBelow)
+            ? (
+                spaceBelow < MIN_COMFORTABLE_PANEL_HEIGHT && spaceAbove > spaceBelow
+                || spaceBelow < DEFAULT_PANEL_MAX_HEIGHT && spaceAbove >= DEFAULT_PANEL_MAX_HEIGHT
+            )
             : false
         const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow
         const clampedMaxHeight = Math.max(0, Math.min(DEFAULT_PANEL_MAX_HEIGHT, Math.floor(availableSpace)))

@@ -112,7 +112,8 @@ export function invalidateByTarget(params: InvalidateByTargetParams) {
   if (
     params.targetType === 'ProjectPanel' ||
     params.targetType === 'ProjectStoryboard' ||
-    params.targetType === 'ProjectShot'
+    params.targetType === 'ProjectShot' ||
+    params.targetType === 'ProjectVideoGroup'
   ) {
     invalidateEpisodeScoped(params)
     return

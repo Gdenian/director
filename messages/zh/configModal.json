@@ -15,6 +15,8 @@
     "storyboardModel": "分镜图像模型",
     "editModel": "修图/编辑模型",
     "videoModel": "视频模型",
+    "singleShotVideoModel": "单镜头视频模型",
+    "sequenceVideoModel": "编排镜头视频模型",
     "audioModel": "语音合成模型",
     "videoResolution": "视频分辨率",
     "ttsVoice": "旁白音色",

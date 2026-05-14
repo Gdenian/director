@@ -269,7 +269,6 @@ describe('panel video generation defaults', () => {
       capabilityOverrides: {
         'provider::video-model': {
           resolution: '480p',
-          duration: 5,
           aspectRatio: '16:9',
         },
       },
@@ -279,7 +278,6 @@ describe('panel video generation defaults', () => {
     })
 
     expect(result).toEqual({
-      duration: 5,
       resolution: '720p',
     })
   })

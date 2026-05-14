@@ -6,6 +6,7 @@ import type {
   EditScriptPayload,
   EditScriptShot,
 } from './types'
+import { normalizeVideoGenerationPlanResponse } from '@/lib/video-groups/planner'
 import {
   editAssetExtractionSchema,
   editScriptBriefQuestionsSchema,
@@ -46,12 +47,18 @@ export function normalizeEditScriptCore(raw: unknown): Omit<EditScriptPayload, '
   })
 
   const durationSec = shots.reduce((total, shot) => total + shot.durationSec, 0)
+  const videoBlocks = normalizeVideoGenerationPlanResponse({
+    response: { items: parsed.videoBlocks },
+    allShotNumbers: shots.map((shot) => shot.shotNumber),
+    shots,
+  }).items
   return {
     title: parsed.title.trim(),
     logline: parsed.logline?.trim() || null,
     durationSec,
     shotCount: shots.length,
     shots,
+    videoBlocks,
   }
 }
 

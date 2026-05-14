@@ -12,6 +12,7 @@ export const projectCanvasNodeTypeSchema = z.enum([
   'videoClip',
   'finalTimeline',
   'editScript',
+  'videoPlan',
   'editRequiredAsset',
 ])
 

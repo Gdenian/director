@@ -94,6 +94,28 @@ const serviceMock = vi.hoisted(() => ({
     panelCount: 8,
     submittedImageTasks: 8,
   })),
+  updateProjectEditScriptVideoBlockPrompt: vi.fn(async () => ({
+    id: 'edit-1',
+    projectId: 'project-1',
+    episodeId: 'episode-1',
+    userPrompt: 'one minute sci-fi',
+    title: 'Orbital Silence',
+    logline: 'A pilot meets a machine intelligence.',
+    durationSec: 60,
+    shotCount: 8,
+    status: 'ready',
+    shots: [],
+    videoBlocks: [
+      {
+        kind: 'group',
+        shotNumbers: [1, 2, 3],
+        gridMode: '2x2',
+        reason: 'continuous motion',
+        prompt: 'updated combined prompt',
+      },
+    ],
+    requirements: [],
+  })),
 }))
 
 vi.mock('@/lib/api-auth', () => {
@@ -121,6 +143,7 @@ vi.mock('@/lib/edit-script/service', () => serviceMock)
 
 import {
   GET as editScriptGet,
+  PATCH as editScriptPatch,
   POST as editScriptPost,
 } from '@/app/api/projects/[projectId]/edit-script/route'
 import {
@@ -272,5 +295,31 @@ describe('project edit script route', () => {
       userId: 'user-1',
       locale: 'zh',
     }))
+  })
+
+  it('PATCH /api/projects/[projectId]/edit-script -> updates one video arrangement prompt', async () => {
+    const request = buildMockRequest({
+      path: '/api/projects/project-1/edit-script',
+      method: 'PATCH',
+      body: {
+        episodeId: 'episode-1',
+        editScriptId: 'edit-1',
+        blockIndex: 0,
+        prompt: 'updated combined prompt',
+      },
+    })
+
+    const response = await editScriptPatch(request, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.editScript.videoBlocks[0].prompt).toBe('updated combined prompt')
+    expect(serviceMock.updateProjectEditScriptVideoBlockPrompt).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      blockIndex: 0,
+      prompt: 'updated combined prompt',
+    })
   })
 })

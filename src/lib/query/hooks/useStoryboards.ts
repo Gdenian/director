@@ -55,8 +55,10 @@ type VideoGenerationOptions = Record<string, VideoGenerationOptionValue>
 interface BatchVideoGenerationParams {
     videoModel: string
     generationOptions?: VideoGenerationOptions
-    mode?: 'single' | 'grid'
+    mode?: 'single' | 'grid' | 'auto'
     gridMode?: '2x2' | '3x3'
+    shotNumbers?: readonly number[]
+    groupVideoModel?: string
 }
 
 // ============ 查询 Hooks ============
@@ -274,17 +276,25 @@ export function useBatchGenerateVideos(projectId: string | null, episodeId: stri
                 episodeId: string
                 videoModel: string
                 generationOptions?: VideoGenerationOptions
-                mode?: 'single' | 'grid'
+                mode?: 'single' | 'grid' | 'auto'
                 gridMode?: '2x2' | '3x3'
+                shotNumbers?: readonly number[]
+                groupVideoModel?: string
             } = {
-                all: true,
+                all: !(params.mode === 'grid' && Array.isArray(params.shotNumbers) && params.shotNumbers.length > 0),
                 episodeId,
                 videoModel: params.videoModel,
             }
-            if (params.mode === 'grid') {
-                requestBody.mode = 'grid'
-                requestBody.gridMode = params.gridMode === '3x3' ? '3x3' : '2x2'
+            if (params.mode === 'grid' || params.mode === 'auto') {
+                requestBody.mode = params.mode
             }
+            if (params.mode === 'grid') {
+                requestBody.gridMode = params.gridMode === '3x3' ? '3x3' : '2x2'
+                if (Array.isArray(params.shotNumbers) && params.shotNumbers.length > 0) {
+                    requestBody.shotNumbers = params.shotNumbers
+                }
+            }
+            if (params.groupVideoModel) requestBody.groupVideoModel = params.groupVideoModel
             if (params.generationOptions && typeof params.generationOptions === 'object') {
                 requestBody.generationOptions = params.generationOptions
             }

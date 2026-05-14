@@ -19,6 +19,7 @@ Edit-first timeline:
 
 Writing requirements:
 - The reference image is only a storyboard index. The final video must be full-screen continuous cinematic footage. Never generate a 2x2 grid, 3x3 grid, collage, or split-screen image.
+- Empty placeholder cells in the grid are not visual content. Ignore them completely; do not generate black screens, white screens, or placeholder frames.
 - Do not copy individual shot prompts. Recompose them into one continuous movement and describe how shots connect naturally.
 - State the overall genre, cinematography, color, lighting, movement rhythm, camera language, and subject continuity.
 - Preserve the timeline and write each segment as [00:00-00:03].

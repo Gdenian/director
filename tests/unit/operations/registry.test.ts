@@ -44,6 +44,7 @@ describe('project agent operation registry', () => {
     expect(registry.generate_episode_videos?.channels?.api ?? false).toBe(true)
     expect(registry.generate_video_group?.channels).toEqual({ tool: true, api: true })
     expect(registry.generate_episode_video_groups?.channels).toEqual({ tool: true, api: true })
+    expect(registry.generate_episode_videos_auto?.channels).toEqual({ tool: true, api: true })
     expect(registry.render_final_video?.channels).toEqual({ tool: true, api: true })
 
     expect(registry.delete_storyboard_panel?.groupPath).toEqual(['storyboard', 'edit'])

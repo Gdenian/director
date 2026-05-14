@@ -26,6 +26,8 @@ const MODEL_FIELDS = [
   'storyboardModel',
   'editModel',
   'videoModel',
+  'singleShotVideoModel',
+  'sequenceVideoModel',
   'audioModel',
   'musicModel',
 ] as const
@@ -37,6 +39,8 @@ const MODEL_FIELD_TO_TYPE: Record<typeof MODEL_FIELDS[number], UnifiedModelType>
   storyboardModel: 'image',
   editModel: 'image',
   videoModel: 'video',
+  singleShotVideoModel: 'video',
+  sequenceVideoModel: 'video',
   audioModel: 'audio',
   musicModel: 'music',
 }
@@ -156,6 +160,8 @@ function getNextProjectModelMap(
     storyboardModel: string | null
     editModel: string | null
     videoModel: string | null
+    singleShotVideoModel: string | null
+    sequenceVideoModel: string | null
     audioModel: string | null
     musicModel: string | null
   },
@@ -270,6 +276,8 @@ export function createConfigOperations(): ProjectAgentOperationRegistryDraft {
             storyboardModel: true,
             editModel: true,
             videoModel: true,
+            singleShotVideoModel: true,
+            sequenceVideoModel: true,
             audioModel: true,
             musicModel: true,
           },
@@ -317,6 +325,8 @@ export function createConfigOperations(): ProjectAgentOperationRegistryDraft {
           storyboardModel: projectData.storyboardModel,
           editModel: projectData.editModel,
           videoModel: projectData.videoModel,
+          singleShotVideoModel: projectData.singleShotVideoModel,
+          sequenceVideoModel: projectData.sequenceVideoModel,
           audioModel: projectData.audioModel,
           musicModel: projectData.musicModel,
         }, {})
@@ -361,6 +371,8 @@ export function createConfigOperations(): ProjectAgentOperationRegistryDraft {
         storyboardModel: z.string().nullable().optional(),
         editModel: z.string().nullable().optional(),
         videoModel: z.string().nullable().optional(),
+        singleShotVideoModel: z.string().nullable().optional(),
+        sequenceVideoModel: z.string().nullable().optional(),
         audioModel: z.string().nullable().optional(),
         musicModel: z.string().nullable().optional(),
         videoRatio: z.string().optional(),
@@ -391,6 +403,8 @@ export function createConfigOperations(): ProjectAgentOperationRegistryDraft {
             storyboardModel: true,
             editModel: true,
             videoModel: true,
+            singleShotVideoModel: true,
+            sequenceVideoModel: true,
             audioModel: true,
             musicModel: true,
           },

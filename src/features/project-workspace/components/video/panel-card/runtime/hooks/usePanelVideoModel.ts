@@ -126,7 +126,7 @@ export function usePanelVideoModel({
     () => resolveEffectiveVideoCapabilityDefinitions({
       videoCapabilities: selectedOption?.capabilities?.video,
       pricingTiers,
-    }),
+    }).filter((definition) => definition.field !== 'duration'),
     [pricingTiers, selectedOption?.capabilities?.video],
   )
 

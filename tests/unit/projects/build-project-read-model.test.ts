@@ -35,6 +35,25 @@ describe('buildProjectReadModel', () => {
         { id: 'location-1', name: 'Palace', summary: null, images: [], assetKind: 'location' },
         { id: 'prop-1', name: 'Sword', summary: null, images: [], assetKind: 'prop' },
       ],
+      videoGroups: [
+        {
+          id: 'video-group-1',
+          projectId: 'project-1',
+          episodeId: 'episode-1',
+          gridMode: '2x2',
+          shotNumbers: [1, 2],
+          durationSec: 8,
+          prompt: 'continuous prompt',
+          status: 'completed',
+          taskId: null,
+          errorCode: null,
+          errorMessage: null,
+          referenceImageUrl: null,
+          videoUrl: '/m/video-group-1',
+          createdAt: new Date('2026-04-15T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-15T00:00:00.000Z'),
+        },
+      ],
     })
 
     expect(readModel.analysisModel).toBe('llm::analysis')
@@ -44,6 +63,7 @@ describe('buildProjectReadModel', () => {
     expect(readModel.episodes?.map((episode) => episode.id)).toEqual(['episode-1'])
     expect(readModel.locations?.map((location) => location.id)).toEqual(['location-1'])
     expect(readModel.props?.map((prop) => prop.id)).toEqual(['prop-1'])
+    expect(readModel.videoGroups?.map((group) => group.id)).toEqual(['video-group-1'])
     expect(readModel).not.toHaveProperty('projectData')
   })
 })

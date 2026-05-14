@@ -106,6 +106,8 @@ export interface ProjectModelConfig {
   storyboardModel: string | null
   editModel: string | null
   videoModel: string | null
+  singleShotVideoModel: string | null
+  sequenceVideoModel: string | null
   audioModel: string | null
   musicModel: string | null
   videoRatio: string | null
@@ -164,6 +166,8 @@ export async function getProjectModelConfig(
     storyboardModel: extractModelKey(projectData?.storyboardModel) || null,
     editModel: extractModelKey(projectData?.editModel) || null,
     videoModel: extractModelKey(projectData?.videoModel) || null,
+    singleShotVideoModel: extractModelKey(projectData?.singleShotVideoModel) || extractModelKey(projectData?.videoModel) || null,
+    sequenceVideoModel: extractModelKey(projectData?.sequenceVideoModel) || null,
     audioModel: extractModelKey(projectData?.audioModel) || extractModelKey(userPref?.audioModel) || null,
     musicModel: extractModelKey(projectData?.musicModel) || extractModelKey(userPref?.musicModel) || null,
     videoRatio: projectData?.videoRatio || '9:16',
@@ -259,6 +263,8 @@ export function checkRequiredModels(
     storyboardModel: '分镜图像模型',
     editModel: '修图/编辑模型',
     videoModel: '视频模型',
+    singleShotVideoModel: '单镜头视频模型',
+    sequenceVideoModel: '编排视频模型',
     audioModel: '语音合成模型',
   }
 

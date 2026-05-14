@@ -21,7 +21,7 @@ interface VideoDetailProps {
   readonly context: PanelContext
   readonly storyboards: readonly PanelContext['storyboard'][]
   readonly node: WorkspaceCanvasFlowNode
-  readonly onUpdatePrompt: (storyboardId: string, panelIndex: number, value: string, field?: 'videoPrompt' | 'firstLastFramePrompt') => Promise<void>
+  readonly onUpdatePrompt: (storyboardId: string, panelIndex: number, value: string, field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt') => Promise<void>
   readonly onUpdateModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
   readonly onToggleLink: (storyboardId: string, panelIndex: number, linked: boolean) => Promise<void>
   readonly onGenerateVideo: (
@@ -40,7 +40,7 @@ interface VideoDetailProps {
   readonly onGenerateAllVideos: (
     model: string,
     generationOptions: VideoGenerationOptions,
-    mode?: 'single' | 'grid',
+    mode?: 'single' | 'grid' | 'auto',
     gridMode?: '2x2' | '3x3',
   ) => Promise<void>
   readonly onDownloadVideos: () => Promise<void>
@@ -52,12 +52,12 @@ export default function VideoDetail(props: VideoDetailProps) {
   const { panel, storyboard } = props.context
   const [videoPrompt, setVideoPrompt] = useState(panel.videoPrompt ?? '')
   const [firstLastPrompt, setFirstLastPrompt] = useState(panel.firstLastFramePrompt ?? '')
-  const [flModel, setFlModel] = useState(panel.videoModel ?? runtime.videoModel ?? '')
-  const [batchMode, setBatchMode] = useState<'single' | 'grid'>('single')
+  const [flModel, setFlModel] = useState(panel.videoModel ?? runtime.singleShotVideoModel ?? runtime.videoModel ?? '')
+  const [batchMode, setBatchMode] = useState<'single' | 'grid' | 'auto'>('auto')
   const [gridMode, setGridMode] = useState<'2x2' | '3x3'>('2x2')
   const nextContext = useMemo(() => findNextPanelContext(props.storyboards, props.context), [props.context, props.storyboards])
   const videoModel = usePanelVideoModel({
-    defaultVideoModel: panel.videoModel ?? runtime.videoModel ?? '',
+    defaultVideoModel: panel.videoModel ?? runtime.singleShotVideoModel ?? runtime.videoModel ?? '',
     capabilityOverrides: runtime.capabilityOverrides,
     lastVideoGenerationOptions: panel.lastVideoGenerationOptions,
     userVideoModels: runtime.userVideoModels as VideoModelOption[],
@@ -75,8 +75,8 @@ export default function VideoDetail(props: VideoDetailProps) {
   useEffect(() => {
     setVideoPrompt(panel.videoPrompt ?? '')
     setFirstLastPrompt(panel.firstLastFramePrompt ?? '')
-    setFlModel(panel.videoModel ?? runtime.videoModel ?? '')
-  }, [panel, runtime.videoModel])
+    setFlModel(panel.videoModel ?? runtime.singleShotVideoModel ?? runtime.videoModel ?? '')
+  }, [panel, runtime.singleShotVideoModel, runtime.videoModel])
 
   return (
     <div className="space-y-4">
@@ -185,6 +185,13 @@ export default function VideoDetail(props: VideoDetailProps) {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => setBatchMode('auto')}
+              className={`rounded-md border px-3 py-2 text-sm ${batchMode === 'auto' ? 'border-black bg-black text-white' : 'border-black/10 bg-white text-[var(--glass-text-secondary)]'}`}
+            >
+              {t('fields.autoVideoMode')}
+            </button>
+            <button
+              type="button"
               onClick={() => setBatchMode('single')}
               className={`rounded-md border px-3 py-2 text-sm ${batchMode === 'single' ? 'border-black bg-black text-white' : 'border-black/10 bg-white text-[var(--glass-text-secondary)]'}`}
             >
@@ -219,7 +226,11 @@ export default function VideoDetail(props: VideoDetailProps) {
             disabled={!videoModel.selectedModel || missingCapabilities.length > 0}
             variant="primary"
           >
-            {batchMode === 'grid' ? t('actions.generateGridVideos') : t('actions.generateAllVideos')}
+            {batchMode === 'auto'
+              ? t('actions.generateAutoVideos')
+              : batchMode === 'grid'
+                ? t('actions.generateGridVideos')
+                : t('actions.generateAllVideos')}
           </ActionButton>
           <ActionButton onClick={props.onDownloadVideos}>{t('actions.downloadVideos')}</ActionButton>
           </div>

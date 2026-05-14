@@ -183,6 +183,15 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
     pathStem: 'music/final-render-bgm',
     variableKeys: ['title', 'story_context', 'duration_seconds', 'timeline_map'],
   },
+  [AI_PROMPT_IDS.VIDEO_GENERATION_PLAN]: {
+    pathStem: 'video/generation-plan',
+    variableKeys: [
+      'title',
+      'story_context',
+      'aspect_ratio',
+      'shots_json',
+    ],
+  },
   [AI_PROMPT_IDS.VIDEO_GROUP_GRID_PROMPT]: {
     pathStem: 'video/group-grid-prompt',
     variableKeys: [

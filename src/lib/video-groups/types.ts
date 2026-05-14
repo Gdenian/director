@@ -19,3 +19,17 @@ export interface VideoGroupPromptInput {
   readonly styleContext?: string | null
   readonly shots: readonly VideoGroupShot[]
 }
+
+export type VideoGenerationPlanItemKind = 'single' | 'group'
+
+export interface VideoGenerationPlanItem {
+  readonly kind: VideoGenerationPlanItemKind
+  readonly shotNumbers: readonly number[]
+  readonly gridMode?: VideoGridMode
+  readonly reason: string
+  readonly prompt: string
+}
+
+export interface VideoGenerationPlan {
+  readonly items: readonly VideoGenerationPlanItem[]
+}

@@ -27,6 +27,8 @@ export interface WorkspaceRuntimeValue {
   directorStylePresetSource: string | null | undefined
   directorStylePresetId: string | null | undefined
   videoModel: string | null | undefined
+  singleShotVideoModel: string | null | undefined
+  sequenceVideoModel: string | null | undefined
   capabilityOverrides: CapabilitySelections
   userVideoModels: WorkspaceVideoModelOption[]
   onNovelTextChange: (value: string) => Promise<void>
@@ -60,8 +62,9 @@ export interface WorkspaceRuntimeValue {
     storyboardId: string,
     panelIndex: number,
     value: string,
-    field?: 'videoPrompt' | 'firstLastFramePrompt',
+    field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt',
   ) => Promise<void>
+  onUpdateVideoPlanPrompt: (editScriptId: string, blockIndex: number, prompt: string) => Promise<void>
   onUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
   onOpenAssetLibraryForCharacter: (characterId?: string | null, refreshAssets?: boolean) => void
 }

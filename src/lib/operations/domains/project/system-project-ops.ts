@@ -17,6 +17,7 @@ import {
   validateProjectDraft,
   type ProjectDraftInput,
 } from '@/lib/projects/validation'
+import { DEFAULT_GROUP_VIDEO_MODEL } from '@/lib/ai-exec/video-defaults'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
 
@@ -333,6 +334,8 @@ export function createSystemProjectOperations(): ProjectAgentOperationRegistryDr
               storyboardModel: userPreference.storyboardModel,
               editModel: userPreference.editModel,
               videoModel: userPreference.videoModel,
+              singleShotVideoModel: userPreference.videoModel,
+              sequenceVideoModel: DEFAULT_GROUP_VIDEO_MODEL,
               audioModel: userPreference.audioModel,
               musicModel: userPreference.musicModel,
               videoRatio: userPreference.videoRatio,

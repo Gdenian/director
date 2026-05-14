@@ -215,8 +215,6 @@ describe('worker video processor behavior', () => {
       directorStyleDoc: null,
     })
     prismaMock.projectEditScript.findFirst.mockResolvedValue({
-      title: 'Grid Film',
-      logline: 'A continuous test.',
       shotsJson: [
         {
           shotNumber: 1,
@@ -253,6 +251,15 @@ describe('worker video processor behavior', () => {
           camera: 'pull back',
           videoPrompt: 'shot four prompt',
           sound: 'release',
+        },
+      ],
+      videoBlocksJson: [
+        {
+          kind: 'group',
+          shotNumbers: [1, 2, 3, 4],
+          gridMode: '2x2',
+          reason: 'continuous group',
+          prompt: 'stored continuous group prompt',
         },
       ],
     })
@@ -296,13 +303,11 @@ describe('worker video processor behavior', () => {
       gridMode: '2x2',
       targetId: 'group-1',
     }))
-    expect(videoGroupMocks.executeAiTextStep).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'video_group_prompt',
-    }))
+    expect(videoGroupMocks.executeAiTextStep).not.toHaveBeenCalled()
     expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       modelId: 'google::veo',
       options: expect.objectContaining({
-        prompt: 'continuous group prompt',
+        prompt: 'stored continuous group prompt',
         duration: 14,
         aspectRatio: '9:16',
       }),
@@ -315,6 +320,60 @@ describe('worker video processor behavior', () => {
         videoMediaId: 'video-media-1',
       }),
     }))
+  })
+
+  it('VIDEO_GROUP: fails explicitly when the edit-first video block has no stored prompt', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    prismaMock.projectEditScript.findFirst.mockResolvedValueOnce({
+      shotsJson: [
+        {
+          shotNumber: 1,
+          durationSec: 2,
+          visualAction: 'Shot one',
+          charactersAndScene: 'A',
+          camera: 'wide',
+          videoPrompt: 'shot one prompt',
+          sound: 'tone',
+        },
+        {
+          shotNumber: 2,
+          durationSec: 3,
+          visualAction: 'Shot two',
+          charactersAndScene: 'B',
+          camera: 'medium',
+          videoPrompt: 'shot two prompt',
+          sound: 'pulse',
+        },
+      ],
+      videoBlocksJson: [
+        {
+          kind: 'group',
+          shotNumbers: [1, 2],
+          gridMode: '2x2',
+          reason: 'continuous group',
+        },
+      ],
+    })
+    prismaMock.projectPanel.findMany.mockResolvedValueOnce([
+      { ...buildPanel({ id: 'panel-1' }), panelNumber: 1, imageMedia: { storageKey: 'images/panel-1.png' } },
+      { ...buildPanel({ id: 'panel-2' }), panelNumber: 2, imageMedia: { storageKey: 'images/panel-2.png' } },
+    ])
+
+    await expect(processor!(buildJob({
+      type: TASK_TYPE.VIDEO_GROUP,
+      targetType: 'ProjectVideoGroup',
+      targetId: 'group-1',
+      payload: {
+        videoModel: 'google::veo',
+        gridMode: '2x2',
+        shotNumbers: [1, 2],
+      },
+    }))).rejects.toThrow('VIDEO_GROUP_PROMPT_REQUIRED:1,2')
+
+    expect(videoGroupMocks.executeAiTextStep).not.toHaveBeenCalled()
+    expect(utilsMock.resolveVideoSourceFromGeneration).not.toHaveBeenCalled()
   })
 
   it('VIDEO_PANEL: 缺少 payload.videoModel 时显式失败', async () => {
@@ -415,7 +474,7 @@ describe('worker video processor behavior', () => {
       expect.objectContaining({
         options: expect.objectContaining({
           aspectRatio: '16:9',
-          duration: 8,
+          duration: 5,
           resolution: '720p',
           generateAudio: true,
           generationMode: 'normal',
@@ -428,12 +487,30 @@ describe('worker video processor behavior', () => {
         videoUrl: 'cos/lip-sync/video.mp4',
         videoGenerationMode: 'normal',
         lastVideoGenerationOptions: {
-          duration: 8,
           resolution: '720p',
           generateAudio: true,
         },
       },
     })
+  })
+
+  it('VIDEO_PANEL: 缺少系统镜头时长时显式失败', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    prismaMock.projectPanel.findUnique.mockResolvedValueOnce(buildPanel({ duration: null }))
+    const job = buildJob({
+      type: TASK_TYPE.VIDEO_PANEL,
+      payload: {
+        videoModel: 'ark::doubao-seedance-2-0-260128',
+        generationOptions: {
+          duration: 8,
+          resolution: '720p',
+        },
+      },
+    })
+
+    await expect(processor!(job)).rejects.toThrow('VIDEO_PANEL_DURATION_REQUIRED:panel-1')
   })
 
   it('LIP_SYNC: 缺少 panel 时显式失败', async () => {

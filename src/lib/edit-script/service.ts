@@ -12,6 +12,7 @@ import { encodeImageUrls, decodeImageUrlsFromDb } from '@/lib/contracts/image-ur
 import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { submitAssetGenerateTask } from '@/lib/assets/services/asset-actions'
 import { executeProjectAgentOperationFromApi } from '@/lib/adapters/api/execute-project-agent-operation'
+import { normalizeVideoGenerationPlanResponse } from '@/lib/video-groups/planner'
 import type { Locale } from '@/i18n/routing'
 import {
   normalizeEditAssetRequirements,
@@ -68,6 +69,14 @@ interface GenerateEditScriptStoryboardInput {
   readonly editScriptId?: string
 }
 
+interface UpdateEditScriptVideoBlockPromptInput {
+  readonly projectId: string
+  readonly episodeId: string
+  readonly editScriptId: string
+  readonly blockIndex: number
+  readonly prompt: string
+}
+
 type PromptStepId =
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE
@@ -100,6 +109,7 @@ interface PersistedEditScript {
   readonly shotCount: number
   readonly status: string
   readonly shotsJson: Prisma.JsonValue
+  readonly videoBlocksJson: Prisma.JsonValue | null
   readonly requirements: readonly PersistedEditScriptRequirement[]
 }
 
@@ -261,6 +271,15 @@ function parseShotsJson(value: Prisma.JsonValue): EditScriptShot[] {
   })
 }
 
+function parseVideoBlocksJson(value: Prisma.JsonValue | null, shots: readonly EditScriptShot[]) {
+  if (!Array.isArray(value) || value.length === 0) return []
+  return normalizeVideoGenerationPlanResponse({
+    response: { items: value },
+    allShotNumbers: shots.map((shot) => shot.shotNumber),
+    shots,
+  }).items
+}
+
 async function resolveCharacterAsset(projectId: string, targetId: string | null): Promise<ExistingAssetRef | null> {
   if (!targetId) return null
   const character = await prisma.projectCharacter.findFirst({
@@ -372,6 +391,7 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
     }
   }))
 
+  const shots = parseShotsJson(script.shotsJson)
   return {
     id: script.id,
     projectId: script.projectId,
@@ -382,7 +402,8 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
     durationSec: script.durationSec,
     shotCount: script.shotCount,
     status: script.status,
-    shots: parseShotsJson(script.shotsJson),
+    shots,
+    videoBlocks: parseVideoBlocksJson(script.videoBlocksJson, shots),
     requirements,
   }
 }
@@ -411,6 +432,42 @@ export async function readProjectEditScript(input: {
 }): Promise<EditScriptPayload | null> {
   const script = await getPersistedEditScript(input.projectId, input.episodeId)
   return script ? mapPersistedEditScript(script) : null
+}
+
+export async function updateProjectEditScriptVideoBlockPrompt(
+  input: UpdateEditScriptVideoBlockPromptInput,
+): Promise<EditScriptPayload> {
+  const script = await getPersistedEditScript(input.projectId, input.episodeId, input.editScriptId)
+  if (!script) throw new ApiError('NOT_FOUND')
+
+  const shots = parseShotsJson(script.shotsJson)
+  const blocks = parseVideoBlocksJson(script.videoBlocksJson, shots)
+  const targetBlock = blocks[input.blockIndex]
+  if (!targetBlock) throw new ApiError('INVALID_PARAMS')
+
+  const prompt = input.prompt.trim()
+  const nextBlocks = blocks.map((block, index) => (
+    index === input.blockIndex
+      ? { ...block, prompt }
+      : block
+  ))
+
+  const updated = await prisma.projectEditScript.update({
+    where: { id: script.id },
+    data: {
+      videoBlocksJson: nextBlocks as unknown as Prisma.InputJsonValue,
+    },
+    include: {
+      requirements: {
+        orderBy: [
+          { kind: 'asc' },
+          { name: 'asc' },
+        ],
+      },
+    },
+  })
+
+  return await mapPersistedEditScript(updated)
 }
 
 export async function generateProjectEditScriptBriefQuestions(
@@ -629,6 +686,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
         shotCount: core.shotCount,
         status: 'ready',
         shotsJson: core.shots as unknown as Prisma.InputJsonValue,
+        videoBlocksJson: core.videoBlocks as unknown as Prisma.InputJsonValue,
       },
       update: {
         userPrompt: input.prompt,
@@ -638,6 +696,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
         shotCount: core.shotCount,
         status: 'ready',
         shotsJson: core.shots as unknown as Prisma.InputJsonValue,
+        videoBlocksJson: core.videoBlocks as unknown as Prisma.InputJsonValue,
       },
     })
     await tx.projectEditAssetRequirement.deleteMany({

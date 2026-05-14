@@ -15,6 +15,7 @@ import { resolveAiVideoTokenPricingContract } from '@/lib/ai-exec/video-token-pr
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/ai-registry/capabilities-catalog'
 import { resolveBuiltinPricing } from '@/lib/ai-registry/pricing-resolution'
 import { resolveProjectModelCapabilityGenerationOptions } from '@/lib/config-service'
+import { DEFAULT_GROUP_VIDEO_MODEL } from '@/lib/ai-exec/video-defaults'
 import type {
   TaskBatchSubmittedPartData,
   TaskSubmittedPartData,
@@ -30,7 +31,8 @@ import {
   taskSubmitOperationOutputSchemaBase,
 } from '@/lib/operations/output-schemas'
 import { chunkVideoGroupShots, totalVideoGroupDuration, validateVideoGroupShotNumbers } from '@/lib/video-groups/core'
-import { VIDEO_GRID_MODES, type VideoGridMode, type VideoGroupShot } from '@/lib/video-groups/types'
+import { normalizeVideoGenerationPlanResponse } from '@/lib/video-groups/planner'
+import { VIDEO_GRID_MODES, type VideoGenerationPlan, type VideoGenerationPlanItem, type VideoGridMode, type VideoGroupShot } from '@/lib/video-groups/types'
 
 type UnknownObject = { [key: string]: unknown }
 
@@ -248,17 +250,27 @@ async function validateVideoTaskPayloadOrThrow(params: {
   params.payload.generationOptions = resolvedOptions
 }
 
+function requirePanelSystemVideoDurationSec(panelId: string, duration: unknown): number {
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || !Number.isInteger(duration) || duration <= 0) {
+    throw new Error(`PROJECT_AGENT_PANEL_VIDEO_DURATION_REQUIRED:${panelId}`)
+  }
+  return duration
+}
+
+function applySystemVideoDuration(payload: UnknownObject, durationSec: number): void {
+  const rawGenerationOptions = isRecord(payload.generationOptions) ? payload.generationOptions : {}
+  payload.generationOptions = {
+    ...rawGenerationOptions,
+    duration: durationSec,
+  }
+}
+
 async function executeGenerateEpisodeVideosOperation(params: {
   ctx: ProjectAgentOperationContext
   input: UnknownObject
   operationId: string
 }) {
   const { payload, localeForTask } = buildVideoTaskPayload({ ctx: params.ctx, input: params.input })
-  await validateVideoTaskPayloadOrThrow({
-    payload,
-    projectId: params.ctx.projectId,
-    userId: params.ctx.userId,
-  })
 
   const episodeId = normalizeString(payload.episodeId) || normalizeString(params.ctx.context.episodeId)
   if (!episodeId) {
@@ -275,7 +287,7 @@ async function executeGenerateEpisodeVideosOperation(params: {
         { videoUrl: '' },
       ],
     },
-    select: { id: true, videoUrl: true, lastVideoGenerationOptions: true },
+    select: { id: true, videoUrl: true, duration: true, lastVideoGenerationOptions: true },
     take: limit,
   })
 
@@ -292,8 +304,20 @@ async function executeGenerateEpisodeVideosOperation(params: {
   }
 
   const tasks = await Promise.all(
-    panels.map(async (panel) =>
-      submitOperationTask({
+    panels.map(async (panel) => {
+      const panelPayload: UnknownObject = {
+        ...payload,
+        meta: isRecord(payload.meta) ? { ...payload.meta } : payload.meta,
+      }
+      applySystemVideoDuration(panelPayload, requirePanelSystemVideoDurationSec(panel.id, panel.duration))
+      await validateVideoTaskPayloadOrThrow({
+        payload: panelPayload,
+        projectId: params.ctx.projectId,
+        userId: params.ctx.userId,
+        lastVideoGenerationOptions: panel.lastVideoGenerationOptions,
+      })
+
+      return submitOperationTask({
         request: params.ctx.request,
         userId: params.ctx.userId,
         locale: localeForTask,
@@ -305,14 +329,14 @@ async function executeGenerateEpisodeVideosOperation(params: {
         operationId: params.operationId,
         source: params.ctx.source,
         confirmed: params.input.confirmed === true,
-        payload: withTaskUiPayload(payload, {
+        payload: withTaskUiPayload(panelPayload, {
           hasOutputAtStart: await hasPanelVideoOutput(panel.id),
         }),
         dedupeKey: `video_panel:${panel.id}`,
-        billingInfo: buildVideoPanelBillingInfoOrThrow(payload),
+        billingInfo: buildVideoPanelBillingInfoOrThrow(panelPayload),
         decoratePayload: false,
-      }),
-    ),
+      })
+    }),
   )
 
   const taskIds = tasks.map((task) => task.taskId)
@@ -408,6 +432,68 @@ function parseEditScriptShots(value: unknown): VideoGroupShot[] {
       sound: normalizeString(item.sound),
     }
   })
+}
+
+async function buildEpisodeVideoGenerationPlan(params: {
+  ctx: ProjectAgentOperationContext
+  episodeId: string
+}): Promise<{
+  readonly editScript: {
+    readonly title: string
+    readonly logline: string | null
+    readonly shotsJson: Prisma.JsonValue
+    readonly videoBlocksJson: Prisma.JsonValue | null
+  }
+  readonly shots: readonly VideoGroupShot[]
+  readonly plan: VideoGenerationPlan
+}> {
+  const editScript = await prisma.projectEditScript.findFirst({
+    where: { projectId: params.ctx.projectId, episodeId: params.episodeId },
+    select: {
+      title: true,
+      logline: true,
+      shotsJson: true,
+      videoBlocksJson: true,
+    },
+  })
+  if (!editScript) throw new Error('PROJECT_AGENT_EDIT_SCRIPT_REQUIRED')
+  if (!Array.isArray(editScript.videoBlocksJson) || editScript.videoBlocksJson.length === 0) {
+    throw new Error('PROJECT_AGENT_VIDEO_BLOCKS_REQUIRED')
+  }
+  const shots = parseEditScriptShots(editScript.shotsJson)
+  if (shots.length === 0) throw new Error('PROJECT_AGENT_EDIT_SCRIPT_SHOTS_EMPTY')
+
+  return {
+    editScript,
+    shots,
+    plan: normalizeVideoGenerationPlanResponse({
+      response: { items: editScript.videoBlocksJson },
+      allShotNumbers: shots.map((shot) => shot.shotNumber),
+      shots,
+    }),
+  }
+}
+
+async function resolvePanelIdForVideoPlanShot(params: {
+  episodeId: string
+  shotNumber: number
+}): Promise<string> {
+  const panel = await prisma.projectPanel.findFirst({
+    where: {
+      storyboard: { episodeId: params.episodeId },
+      panelNumber: params.shotNumber,
+    },
+    select: {
+      id: true,
+      imageUrl: true,
+      imageMediaId: true,
+    },
+  })
+  if (!panel) throw new Error(`PROJECT_AGENT_AUTO_VIDEO_PANEL_NOT_FOUND:${params.shotNumber}`)
+  if (!panel.imageUrl && !panel.imageMediaId) {
+    throw new Error(`PROJECT_AGENT_AUTO_VIDEO_PANEL_IMAGE_MISSING:${params.shotNumber}`)
+  }
+  return panel.id
 }
 
 async function resolveVideoGroupInput(params: {
@@ -544,11 +630,7 @@ async function submitVideoGroupTask(params: {
   })
   const durationSec = totalVideoGroupDuration(resolved.selectedShots)
   const { payload, localeForTask } = buildVideoTaskPayload({ ctx: params.ctx, input: params.input })
-  const rawGenerationOptions = isRecord(payload.generationOptions) ? payload.generationOptions : {}
-  payload.generationOptions = {
-    ...rawGenerationOptions,
-    duration: durationSec,
-  }
+  applySystemVideoDuration(payload, durationSec)
   payload.episodeId = params.episodeId
   payload.gridMode = params.gridMode
   payload.shotNumbers = resolved.shotNumbers
@@ -706,6 +788,100 @@ async function executeGenerateEpisodeVideoGroupsOperation(params: {
   }
 }
 
+async function executeGenerateEpisodeVideosAutoOperation(params: {
+  ctx: ProjectAgentOperationContext
+  input: UnknownObject
+  operationId: string
+}) {
+  const episodeId = normalizeString(params.input.episodeId) || normalizeString(params.ctx.context.episodeId)
+  if (!episodeId) throw new Error('PROJECT_AGENT_EPISODE_REQUIRED')
+
+  const singleVideoModel = normalizeString(params.input.videoModel)
+  if (!singleVideoModel) throw new Error('PROJECT_AGENT_VIDEO_MODEL_REQUIRED')
+  const groupVideoModel = normalizeString(params.input.groupVideoModel) || DEFAULT_GROUP_VIDEO_MODEL
+  const planned = await buildEpisodeVideoGenerationPlan({
+    ctx: params.ctx,
+    episodeId,
+  })
+
+  const submitted: Array<{
+    readonly refId: string
+    readonly taskId: string
+    readonly kind: VideoGenerationPlanItem['kind']
+    readonly shotNumbers: readonly number[]
+    readonly durationSec?: number
+  }> = []
+  const taskIds: string[] = []
+
+  for (const item of planned.plan.items) {
+    if (item.kind === 'single') {
+      const panelId = await resolvePanelIdForVideoPlanShot({
+        episodeId,
+        shotNumber: item.shotNumbers[0],
+      })
+      const singleResult = await executeGeneratePanelVideoOperation({
+        ctx: params.ctx,
+        input: {
+          confirmed: params.input.confirmed,
+          panelId,
+          videoModel: singleVideoModel,
+          generationOptions: params.input.generationOptions,
+        },
+        operationId: params.operationId,
+      })
+      const taskId = normalizeString(singleResult.taskId)
+      taskIds.push(taskId)
+      submitted.push({
+        refId: panelId,
+        taskId,
+        kind: 'single',
+        shotNumbers: item.shotNumbers,
+      })
+      continue
+    }
+
+    if (!item.gridMode) throw new Error('PROJECT_AGENT_AUTO_VIDEO_GROUP_GRID_MODE_REQUIRED')
+    const groupResult = await submitVideoGroupTask({
+      ctx: params.ctx,
+      input: {
+        confirmed: params.input.confirmed,
+        videoModel: groupVideoModel,
+        generationOptions: params.input.generationOptions,
+      },
+      operationId: params.operationId,
+      episodeId,
+      gridMode: item.gridMode,
+      shotNumbers: item.shotNumbers,
+    })
+    taskIds.push(groupResult.result.taskId)
+    submitted.push({
+      refId: groupResult.groupId,
+      taskId: groupResult.result.taskId,
+      kind: 'group',
+      shotNumbers: groupResult.shotNumbers,
+      durationSec: groupResult.durationSec,
+    })
+  }
+
+  writeOperationDataPart<TaskBatchSubmittedPartData>(params.ctx.writer, 'data-task-batch-submitted', {
+    operationId: params.operationId,
+    total: submitted.length,
+    taskIds,
+    results: submitted.map((item) => ({ refId: item.refId, taskId: item.taskId })),
+  })
+
+  return {
+    success: true,
+    async: true,
+    total: submitted.length,
+    taskIds,
+    results: submitted,
+    plan: planned.plan,
+    singleVideoModel,
+    groupVideoModel,
+  }
+}
+
 async function executeGeneratePanelVideoOperation(params: {
   ctx: ProjectAgentOperationContext
   input: UnknownObject
@@ -724,12 +900,13 @@ async function executeGeneratePanelVideoOperation(params: {
     }
     const panel = await prisma.projectPanel.findFirst({
       where: { storyboardId, panelIndex: Number(panelIndex) },
-      select: { id: true, videoUrl: true, lastVideoGenerationOptions: true, storyboard: { select: { episodeId: true } } },
+      select: { id: true, videoUrl: true, duration: true, lastVideoGenerationOptions: true, storyboard: { select: { episodeId: true } } },
     })
     panelId = panel?.id || ''
     previousVideoUrl = panel?.videoUrl ?? null
     previousLastVideoGenerationOptions = panel?.lastVideoGenerationOptions ?? null
     episodeId = panel?.storyboard.episodeId ?? null
+    if (panel) applySystemVideoDuration(payload, requirePanelSystemVideoDurationSec(panel.id, panel.duration))
   }
   if (!panelId) {
     throw new Error('PROJECT_AGENT_PANEL_NOT_FOUND')
@@ -737,7 +914,7 @@ async function executeGeneratePanelVideoOperation(params: {
   if (normalizeString(payload.panelId)) {
     const panel = await prisma.projectPanel.findUnique({
       where: { id: panelId },
-      select: { videoUrl: true, lastVideoGenerationOptions: true, storyboard: { select: { episodeId: true } } },
+      select: { videoUrl: true, duration: true, lastVideoGenerationOptions: true, storyboard: { select: { episodeId: true } } },
     })
     if (!panel) {
       throw new Error('PROJECT_AGENT_PANEL_NOT_FOUND')
@@ -745,6 +922,7 @@ async function executeGeneratePanelVideoOperation(params: {
     previousVideoUrl = panel.videoUrl ?? null
     previousLastVideoGenerationOptions = panel.lastVideoGenerationOptions ?? null
     episodeId = panel.storyboard.episodeId
+    applySystemVideoDuration(payload, requirePanelSystemVideoDurationSec(panelId, panel.duration))
   }
 
   await validateVideoTaskPayloadOrThrow({
@@ -848,6 +1026,14 @@ const generateEpisodeVideoGroupsInputSchema = z.object({
   generationOptions: z.record(z.unknown()).optional(),
 }).passthrough()
 
+const generateEpisodeVideosAutoInputSchema = z.object({
+  confirmed: z.boolean().optional(),
+  episodeId: z.string().min(1).optional(),
+  videoModel: z.string().min(1),
+  groupVideoModel: z.string().min(1).optional(),
+  generationOptions: z.record(z.unknown()).optional(),
+}).passthrough()
+
 export function createVideoGenerationOperations(): ProjectAgentOperationRegistryDraft {
   const generatePanelVideoOutputSchema = refineTaskSubmitOperationOutputSchema(
     taskSubmitOperationOutputSchemaBase.extend({
@@ -884,6 +1070,29 @@ export function createVideoGenerationOperations(): ProjectAgentOperationRegistry
         durationSec: z.number().int().positive(),
       })),
       gridMode: z.enum(VIDEO_GRID_MODES),
+    }).passthrough(),
+  )
+
+  const generateEpisodeVideosAutoOutputSchema = refineTaskBatchSubmitOperationOutputSchema(
+    taskBatchSubmitOperationOutputSchemaBase.extend({
+      results: z.array(z.object({
+        refId: z.string().min(1),
+        taskId: z.string().min(1),
+        kind: z.enum(['single', 'group']),
+        shotNumbers: z.array(z.number().int().positive()),
+        durationSec: z.number().int().positive().optional(),
+      })),
+      singleVideoModel: z.string().min(1),
+      groupVideoModel: z.string().min(1),
+      plan: z.object({
+        items: z.array(z.object({
+          kind: z.enum(['single', 'group']),
+          shotNumbers: z.array(z.number().int().positive()),
+          gridMode: z.enum(VIDEO_GRID_MODES).optional(),
+          reason: z.string().min(1),
+          prompt: z.string().min(1),
+        })),
+      }),
     }).passthrough(),
   )
 
@@ -992,6 +1201,33 @@ export function createVideoGenerationOperations(): ProjectAgentOperationRegistry
         ctx,
         input: input as UnknownObject,
         operationId: 'generate_episode_video_groups',
+      }),
+    }),
+
+    generate_episode_videos_auto: defineOperation({
+      id: 'generate_episode_videos_auto',
+      summary: 'Generate episode videos from edit-first videoBlocks, using single-shot tasks and Seedance 2.0 continuous groups.',
+      intent: 'act',
+      prerequisites: { episodeId: 'required' },
+      effects: {
+        writes: true,
+        billable: true,
+        destructive: false,
+        overwrite: true,
+        bulk: true,
+        externalSideEffects: true,
+        longRunning: true,
+      },
+      confirmation: {
+        required: true,
+        summary: '将按剪辑先行表中的视频生成编排提交单镜头和 Seedance 2.0 连续片段任务（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+      },
+      inputSchema: generateEpisodeVideosAutoInputSchema,
+      outputSchema: generateEpisodeVideosAutoOutputSchema,
+      execute: async (ctx, input) => executeGenerateEpisodeVideosAutoOperation({
+        ctx,
+        input: input as UnknownObject,
+        operationId: 'generate_episode_videos_auto',
       }),
     }),
   }

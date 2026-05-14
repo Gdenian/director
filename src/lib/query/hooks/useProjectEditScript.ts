@@ -44,6 +44,13 @@ interface GenerateEditScriptStoryboardResponse {
   submittedImageTasks: number
 }
 
+interface UpdateEditScriptVideoBlockPromptInput {
+  episodeId: string
+  editScriptId: string
+  blockIndex: number
+  prompt: string
+}
+
 async function readJsonError(response: Response, fallback: string): Promise<Error> {
   const payload = await response.json().catch(() => null)
   return new Error(resolveTaskErrorMessage(payload, fallback))
@@ -164,6 +171,33 @@ export function useGenerateProjectEditScriptStoryboard(projectId: string | null)
         queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, variables.episodeId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.tasks.pending(projectId, variables.episodeId) }),
+      ])
+    },
+  })
+}
+
+export function useUpdateProjectEditScriptVideoBlockPrompt(projectId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateEditScriptVideoBlockPromptInput) => {
+      if (!projectId) throw new Error('Project ID is required')
+      const response = await apiFetch(`/api/projects/${projectId}/edit-script`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) {
+        throw await readJsonError(response, 'Failed to update video arrangement prompt')
+      }
+      const data = await response.json() as EditScriptResponse
+      if (!data.editScript) throw new Error('EDIT_SCRIPT_RESPONSE_EMPTY')
+      return data.editScript
+    },
+    onSuccess: async (editScript) => {
+      if (!projectId) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, editScript.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, editScript.episodeId) }),
       ])
     },
   })
