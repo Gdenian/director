@@ -354,12 +354,14 @@ describe('worker video processor behavior', () => {
     expect(prismaMock.projectPanel.findMany).not.toHaveBeenCalled()
     expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       modelId: 'ark::seedance',
-      imageUrl: 'https://example.com/hero.png',
+      referenceImages: [
+        { url: 'https://example.com/hero.png', role: 'reference', order: 1, source: 'asset' },
+        { url: 'https://example.com/location.png', role: 'reference', order: 2, source: 'asset' },
+      ],
       options: expect.objectContaining({
         prompt: expect.stringContaining('asset reference block prompt'),
         duration: 5,
         aspectRatio: '9:16',
-        referenceImages: ['https://example.com/hero.png', 'https://example.com/location.png'],
       }),
     }))
     expect(prismaMock.projectVideoGroup.update).toHaveBeenCalledWith(expect.objectContaining({

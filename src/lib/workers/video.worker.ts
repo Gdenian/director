@@ -176,7 +176,10 @@ async function generateVideoForPanel(
   const generatedVideo = await resolveVideoSourceFromGeneration(job, {
     userId: job.data.userId,
     modelId: model,
-    imageUrl: sourceImageBase64,
+    referenceImages: [
+      { url: sourceImageBase64, role: lastFrameImageBase64 ? 'first_frame' : 'reference', order: 1, source: 'storyboard' },
+      ...(lastFrameImageBase64 ? [{ url: lastFrameImageBase64, role: 'last_frame' as const, order: 2, source: 'storyboard' as const }] : []),
+    ],
     options: {
       prompt,
       ...(projectVideoRatio ? { aspectRatio: projectVideoRatio } : {}),
@@ -184,7 +187,6 @@ async function generateVideoForPanel(
       duration: durationSec,
       generationMode,
       ...(typeof requestedGenerateAudio === 'boolean' ? { generateAudio: requestedGenerateAudio } : {}),
-      ...(lastFrameImageBase64 ? { lastFrameImageUrl: lastFrameImageBase64 } : {}),
     },
   })
 
@@ -435,7 +437,12 @@ async function handleAssetReferenceVideoGroupTask(params: {
   const generatedVideo = await resolveVideoSourceFromGeneration(job, {
     userId: job.data.userId,
     modelId,
-    imageUrl: primaryReferenceImage,
+    referenceImages: normalizedReferenceImages.map((url, index) => ({
+      url,
+      role: 'reference',
+      order: index + 1,
+      source: 'asset',
+    })),
     options: {
       prompt: buildAssetReferencePrompt({
         prompt,
@@ -445,7 +452,6 @@ async function handleAssetReferenceVideoGroupTask(params: {
       ...generationOptions,
       duration: durationSec,
       generationMode: 'normal',
-      referenceImages: normalizedReferenceImages,
       ...(typeof requestedGenerateAudio === 'boolean' ? { generateAudio: requestedGenerateAudio } : {}),
     },
   })
@@ -611,7 +617,7 @@ async function handleVideoGroupTask(job: Job<TaskJobData>) {
   const generatedVideo = await resolveVideoSourceFromGeneration(job, {
     userId: job.data.userId,
     modelId,
-    imageUrl: sourceImageBase64,
+    referenceImages: [{ url: sourceImageBase64, role: 'reference', order: 1, source: 'generated' }],
     options: {
       prompt,
       ...(project.videoRatio ? { aspectRatio: project.videoRatio } : {}),

@@ -15,6 +15,10 @@ import { isTaskActive, trySetTaskExternalId } from '@/lib/task/service'
 import { type TaskJobData } from '@/lib/task/types'
 import { reportTaskProgress } from './shared'
 import { prisma } from '@/lib/prisma'
+import {
+  resolveProviderVideoReferencePayload,
+  type VideoReferenceImageInput,
+} from '@/lib/video-generation/reference-images'
 
 const DEFAULT_POLL_TIMEOUT_MS = Number.parseInt(process.env.WORKER_EXTERNAL_TIMEOUT_MS || String(20 * 60 * 1000), 10)
 const DEFAULT_POLL_INTERVAL_MS = Number.parseInt(process.env.WORKER_EXTERNAL_POLL_MS || '3000', 10)
@@ -493,7 +497,8 @@ export async function resolveVideoSourceFromGeneration(
   params: {
     userId: string
     modelId: string
-    imageUrl: string
+    imageUrl?: string
+    referenceImages?: readonly VideoReferenceImageInput[]
     options?: {
       prompt?: string
       duration?: number
@@ -569,9 +574,20 @@ export async function resolveVideoSourceFromGeneration(
 
   const providerCapabilityOptions: Record<string, string | number | boolean> = { ...capabilityOptions }
   delete providerCapabilityOptions.generationMode
+  const providerReferencePayload = resolveProviderVideoReferencePayload({
+    referenceImages: params.referenceImages,
+    imageUrl: params.imageUrl,
+    legacyReferenceImages: params.options?.referenceImages,
+    legacyLastFrameImageUrl: params.options?.lastFrameImageUrl,
+  })
   const providerRequestOptions: Record<string, string | number | boolean | string[]> = {}
   for (const [key, value] of Object.entries(params.options || {})) {
-    if (key === 'generationMode' || value === undefined) continue
+    if (
+      key === 'generationMode'
+      || key === 'referenceImages'
+      || key === 'lastFrameImageUrl'
+      || value === undefined
+    ) continue
     if (
       typeof value === 'string'
       || typeof value === 'number'
@@ -584,8 +600,9 @@ export async function resolveVideoSourceFromGeneration(
 
   const result = await withLogContext(
     { projectId: job.data.projectId, taskId: job.data.taskId, userId: params.userId },
-    () => generateVideo(params.userId, params.modelId, params.imageUrl, {
+    () => generateVideo(params.userId, params.modelId, providerReferencePayload.imageUrl, {
       ...providerRequestOptions,
+      ...providerReferencePayload.options,
       ...providerCapabilityOptions,
     }),
   )

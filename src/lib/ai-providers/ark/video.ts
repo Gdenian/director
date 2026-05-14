@@ -4,6 +4,7 @@ import { fetchWithTimeoutAndRetry } from './image'
 import { getProviderConfig } from '@/lib/user-api/runtime-config'
 import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { requireSelectedModelId } from '@/lib/ai-providers/shared/model-selection'
+import { normalizeVideoReferenceImages } from '@/lib/video-generation/reference-images'
 
 const ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
 
@@ -57,8 +58,27 @@ export interface ArkVideoTaskResponse {
   error?: { code: string; message: string }
 }
 
+type ArkVideoContentItem = ArkVideoTaskRequest['content'][number]
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function appendArkReferenceImageContents(
+  content: ArkVideoTaskRequest['content'],
+  imageUrls: readonly string[],
+) {
+  const seen = new Set<string>()
+  for (const imageUrl of imageUrls) {
+    if (seen.has(imageUrl)) continue
+    seen.add(imageUrl)
+    const item: ArkVideoContentItem = {
+      type: 'image_url',
+      image_url: { url: imageUrl },
+      role: 'reference_image',
+    }
+    content.push(item)
+  }
 }
 
 function isInteger(value: unknown): value is number {
@@ -422,30 +442,27 @@ export async function executeArkVideoGeneration(input: AiProviderVideoExecutionC
 
   if (lastFrameImageUrl) {
     const lastImageBase64 = await normalizeToBase64ForGeneration(lastFrameImageUrl)
-    content.push({
-      type: 'image_url',
-      image_url: { url: imageBase64 },
-      role: 'first_frame',
-    })
-    content.push({
-      type: 'image_url',
-      image_url: { url: lastImageBase64 },
-      role: 'last_frame',
-    })
-  } else {
-    content.push({
-      type: 'image_url',
-      image_url: { url: imageBase64 },
-    })
-    for (const referenceImageUrl of referenceImageUrls) {
-      const normalizedReferenceImage = await normalizeToBase64ForGeneration(referenceImageUrl)
-      if (normalizedReferenceImage === imageBase64) continue
+    for (const image of normalizeVideoReferenceImages([
+      { url: imageBase64, role: 'first_frame', order: 1 },
+      { url: lastImageBase64, role: 'last_frame', order: 2 },
+    ])) {
+      const frameRole = image.role === 'last_frame' ? 'last_frame' : 'first_frame'
       content.push({
         type: 'image_url',
-        image_url: { url: normalizedReferenceImage },
-        role: 'reference_image',
+        image_url: { url: image.url },
+        role: frameRole,
       })
     }
+  } else {
+    const normalizedReferenceImages: string[] = []
+    for (const referenceImageUrl of referenceImageUrls) {
+      const normalizedReferenceImage = await normalizeToBase64ForGeneration(referenceImageUrl)
+      normalizedReferenceImages.push(normalizedReferenceImage)
+    }
+    appendArkReferenceImageContents(content, normalizeVideoReferenceImages([
+      { url: imageBase64, role: 'reference', order: 1 },
+      ...normalizedReferenceImages.map((url, index) => ({ url, role: 'reference' as const, order: index + 2 })),
+    ]).map((image) => image.url))
   }
 
   const requestBody: ArkVideoTaskRequest = {

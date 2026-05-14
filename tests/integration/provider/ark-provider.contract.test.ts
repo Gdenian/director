@@ -118,7 +118,7 @@ describe('provider contract - ark seedance', () => {
       model: 'doubao-seedance-2-0-fast-260128',
       content: [
         { type: 'text', text: 'continuous segment prompt' },
-        { type: 'image_url', image_url: { url: 'normalized:https://example.com/first.png' } },
+        { type: 'image_url', image_url: { url: 'normalized:https://example.com/first.png' }, role: 'reference_image' },
         { type: 'image_url', image_url: { url: 'normalized:https://example.com/character.png' }, role: 'reference_image' },
         { type: 'image_url', image_url: { url: 'normalized:https://example.com/location.png' }, role: 'reference_image' },
       ],
