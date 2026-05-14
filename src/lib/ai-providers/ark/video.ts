@@ -409,6 +409,9 @@ export async function executeArkVideoGeneration(input: AiProviderVideoExecutionC
   }
 
   const imageBase64 = await normalizeToBase64ForGeneration(input.imageUrl)
+  const referenceImageUrls = Array.isArray(input.options?.referenceImages)
+    ? input.options.referenceImages.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
   const content: ArkVideoTaskRequest['content'] = []
   const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : ''
   if (trimmedPrompt) {
@@ -432,6 +435,15 @@ export async function executeArkVideoGeneration(input: AiProviderVideoExecutionC
       type: 'image_url',
       image_url: { url: imageBase64 },
     })
+    for (const referenceImageUrl of referenceImageUrls) {
+      const normalizedReferenceImage = await normalizeToBase64ForGeneration(referenceImageUrl)
+      if (normalizedReferenceImage === imageBase64) continue
+      content.push({
+        type: 'image_url',
+        image_url: { url: normalizedReferenceImage },
+        role: 'reference_image',
+      })
+    }
   }
 
   const requestBody: ArkVideoTaskRequest = {

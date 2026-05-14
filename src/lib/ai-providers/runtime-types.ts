@@ -112,6 +112,7 @@ export type AiProviderVideoExecutionContext = {
     aspectRatio?: string
     generateAudio?: boolean
     lastFrameImageUrl?: string
+    referenceImages?: string[]
     [key: string]: unknown
   }
 }

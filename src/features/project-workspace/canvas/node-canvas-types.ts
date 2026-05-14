@@ -97,6 +97,13 @@ export type WorkspaceCanvasNodeAction =
       readonly shotNumbers: readonly number[]
       readonly generationOptions?: Record<string, string | number | boolean>
     }
+  | {
+      readonly type: 'generate_asset_reference_video'
+      readonly videoModel: string
+      readonly blockIndex: number
+      readonly referenceImageUrls: readonly string[]
+      readonly generationOptions?: Record<string, string | number | boolean>
+    }
   | { readonly type: 'render_final_video' }
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
   | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
@@ -222,6 +229,7 @@ export interface WorkspaceCanvasVideoPlanDetails {
   readonly gridMode?: '2x2' | '3x3'
   readonly reason: string
   readonly prompt?: string | null
+  readonly assetReferenceVideoModel?: string | null
   readonly outputUrl?: string | null
   readonly outputAspectRatio?: number | null
   readonly errorMessage?: string | null
@@ -229,6 +237,13 @@ export interface WorkspaceCanvasVideoPlanDetails {
     readonly shotNumber: number
     readonly imageUrl?: string | null
     readonly aspectRatio?: number | null
+  }[]
+  readonly assetReferences?: readonly {
+    readonly id: string
+    readonly name: string
+    readonly kind: 'character' | 'location'
+    readonly imageUrl: string
+    readonly shotNumbers: readonly number[]
   }[]
   readonly validationMessage?: string | null
 }

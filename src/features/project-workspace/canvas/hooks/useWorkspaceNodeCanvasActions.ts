@@ -124,6 +124,17 @@ export function useWorkspaceNodeCanvasActions() {
       return
     }
 
+    if (action.type === 'generate_asset_reference_video') {
+      await runtime.onGenerateAllVideos({
+        videoModel: action.videoModel,
+        generationOptions: action.generationOptions,
+        mode: 'asset-reference',
+        blockIndex: action.blockIndex,
+        referenceImageUrls: action.referenceImageUrls,
+      })
+      return
+    }
+
     if (action.type === 'render_final_video') {
       await runtime.onRenderFinalVideo()
       return

@@ -57,7 +57,8 @@ export type AiVideoExecutionOptions = {
   aspectRatio?: string
   generateAudio?: boolean
   lastFrameImageUrl?: string
-  [key: string]: string | number | boolean | undefined
+  referenceImages?: string[]
+  [key: string]: string | number | boolean | string[] | undefined
 }
 
 export type AiAudioExecutionOptions = {

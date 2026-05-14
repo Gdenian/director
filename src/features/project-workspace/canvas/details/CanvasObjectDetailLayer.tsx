@@ -294,12 +294,13 @@ export default function CanvasObjectDetailLayer({
           onGenerateVideo={async (storyboardId, panelIndex, panelId, model, options: VideoGenerationOptions, firstLastFrame) => {
             await runtime.onGenerateVideo(storyboardId, panelIndex, model, firstLastFrame, options, panelId)
           }}
-          onGenerateAllVideos={async (model, options, mode, gridMode) => {
+          onGenerateAllVideos={async (model, options, mode, gridMode, referenceImageUrls) => {
             await runtime.onGenerateAllVideos({
               videoModel: model,
               generationOptions: options,
               mode,
               gridMode,
+              referenceImageUrls,
             })
           }}
           onDownloadVideos={downloadVideos}

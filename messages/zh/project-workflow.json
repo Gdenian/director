@@ -339,6 +339,8 @@
         "videoPlanReference": "图片",
         "videoPlanOutput": "视频",
         "videoPlanShotAlt": "编排镜头 {shot}",
+        "assetReferenceImages": "全能参考资产图",
+        "generateAssetReferenceVideo": "全能参考生视频",
         "videoModel": "视频模型",
         "linkedToNextPanel": "衔接下镜",
         "baseVideo": "基础视频",
@@ -420,6 +422,8 @@
           "autoVideoMode": "按剪辑编排",
           "singleVideoMode": "单镜头",
           "gridVideoMode": "宫格连续",
+          "assetReferenceVideoMode": "全能参考",
+          "assetReferenceImages": "参考资产图",
           "grid2x2": "2x2 四宫格",
           "grid3x3": "3x3 九宫格",
           "characterAsset": "资产角色",
@@ -464,12 +468,18 @@
           "generateAllVideos": "批量生成视频",
           "generateAutoVideos": "按编排生成视频",
           "generateGridVideos": "生成宫格连续视频",
+          "generateAssetReferenceVideos": "全能参考生视频",
+          "uploadReferenceImage": "上传参考图",
+          "uploadingReference": "上传中",
           "renderFinalVideo": "AI剪辑",
           "openFinalVideo": "打开成片",
           "downloadVideos": "下载视频"
         },
         "defaults": {
           "variantTitle": "镜头变体"
+        },
+        "placeholders": {
+          "assetReferenceImages": "每行一个参考图 URL，也可以点击上传添加"
         },
         "empty": {
           "noImage": "暂无图片",
@@ -499,6 +509,7 @@
           "smartSplit": "智能分集会用当前文本重建项目剧集列表，继续吗？"
         },
         "messages": {
+          "assetReferenceImageCount": "已选择 {count} 张参考图",
           "referenceSelection": "已选择 {count} 张参考图，可包含分镜、角色、场景、道具、URL、上传或粘贴图片。",
           "noNextPanelForFirstLast": "当前镜头后面没有下一个镜头，无法使用首尾帧模式。",
           "finalRenderRequiresVideos": "所有镜头视频生成完成后才可 AI 剪辑成片。"

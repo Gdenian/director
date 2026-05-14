@@ -169,6 +169,8 @@ describe('api contract - project media generation routes (operation adapter)', (
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: true })
 
     const singleRes = await generateVideoPost(
       buildMockRequest({
@@ -233,11 +235,43 @@ describe('api contract - project media generation routes (operation adapter)', (
       { params: Promise.resolve({ projectId: 'project-1' }) },
     )
 
+    const assetReferenceSingleRes = await generateVideoPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/generate-video',
+        method: 'POST',
+        body: {
+          episodeId: 'episode-1',
+          mode: 'asset-reference',
+          blockIndex: 0,
+          videoModel: 'provider/model',
+          referenceImageUrls: ['https://example.com/character.png'],
+        },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
+    const assetReferenceBatchRes = await generateVideoPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/generate-video',
+        method: 'POST',
+        body: {
+          episodeId: 'episode-1',
+          mode: 'asset-reference',
+          all: true,
+          videoModel: 'provider/model',
+          referenceImageUrls: ['https://example.com/character.png'],
+        },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
     expect(singleRes.status).toBe(200)
     expect(batchRes.status).toBe(200)
     expect(gridSingleRes.status).toBe(200)
     expect(gridBatchRes.status).toBe(200)
     expect(autoBatchRes.status).toBe(200)
+    expect(assetReferenceSingleRes.status).toBe(200)
+    expect(assetReferenceBatchRes.status).toBe(200)
     expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenNthCalledWith(1, expect.objectContaining({
       operationId: 'generate_panel_video',
     }))
@@ -262,6 +296,21 @@ describe('api contract - project media generation routes (operation adapter)', (
       input: expect.objectContaining({
         mode: 'auto',
         groupVideoModel: 'ark::doubao-seedance-2-0-260128',
+      }),
+    }))
+    expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenNthCalledWith(6, expect.objectContaining({
+      operationId: 'generate_asset_reference_video',
+      input: expect.objectContaining({
+        mode: 'asset-reference',
+        blockIndex: 0,
+        referenceImageUrls: ['https://example.com/character.png'],
+      }),
+    }))
+    expect(apiAdapterMock.executeProjectAgentOperationFromApi).toHaveBeenNthCalledWith(7, expect.objectContaining({
+      operationId: 'generate_episode_asset_reference_videos',
+      input: expect.objectContaining({
+        mode: 'asset-reference',
+        referenceImageUrls: ['https://example.com/character.png'],
       }),
     }))
   })

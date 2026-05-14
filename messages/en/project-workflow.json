@@ -339,6 +339,8 @@
         "videoPlanReference": "Images",
         "videoPlanOutput": "Video",
         "videoPlanShotAlt": "Arrangement shot {shot}",
+        "assetReferenceImages": "Universal Reference Assets",
+        "generateAssetReferenceVideo": "Generate With References",
         "videoModel": "Video Model",
         "linkedToNextPanel": "Linked To Next",
         "baseVideo": "Base Video",
@@ -420,6 +422,8 @@
           "autoVideoMode": "Edit Arrangement",
           "singleVideoMode": "Single Shot",
           "gridVideoMode": "Grid Continuous",
+          "assetReferenceVideoMode": "Universal Reference",
+          "assetReferenceImages": "Reference Asset Images",
           "grid2x2": "2x2 Four-grid",
           "grid3x3": "3x3 Nine-grid",
           "characterAsset": "Character Asset",
@@ -464,12 +468,18 @@
           "generateAllVideos": "Batch Generate Videos",
           "generateAutoVideos": "Generate From Arrangement",
           "generateGridVideos": "Generate Grid Videos",
+          "generateAssetReferenceVideos": "Generate With References",
+          "uploadReferenceImage": "Upload Reference",
+          "uploadingReference": "Uploading",
           "renderFinalVideo": "AI Edit",
           "openFinalVideo": "Open Final Video",
           "downloadVideos": "Download Videos"
         },
         "defaults": {
           "variantTitle": "Shot Variant"
+        },
+        "placeholders": {
+          "assetReferenceImages": "One reference image URL per line, or upload images to add them"
         },
         "empty": {
           "noImage": "No image",
@@ -499,6 +509,7 @@
           "smartSplit": "Smart split will rebuild this project's episode list from the current text. Continue?"
         },
         "messages": {
+          "assetReferenceImageCount": "{count} reference image(s) selected",
           "referenceSelection": "{count} reference images selected. References can come from panels, characters, locations, props, URLs, uploads, or pasted images.",
           "noNextPanelForFirstLast": "This shot has no next shot, so first/last frame mode cannot be used.",
           "finalRenderRequiresVideos": "Generate every shot video before running the AI final edit."

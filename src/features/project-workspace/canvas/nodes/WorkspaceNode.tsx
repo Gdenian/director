@@ -284,6 +284,27 @@ function videoPlanPromptSaveHandler(data: WorkspaceCanvasFlowNode['data']): ((ne
   }
 }
 
+function videoPlanGenerationOptions(data: WorkspaceCanvasFlowNode['data']): Record<string, string | number | boolean> | undefined {
+  const action = data.action
+  if (!action) return undefined
+  if (action.type === 'generate_video_group' || action.type === 'generate_video') {
+    return action.generationOptions
+  }
+  return undefined
+}
+
+function videoPlanModel(data: WorkspaceCanvasFlowNode['data']): string {
+  const assetReferenceVideoModel = data.videoPlanDetails?.assetReferenceVideoModel
+  if (typeof assetReferenceVideoModel === 'string' && assetReferenceVideoModel.trim()) {
+    return assetReferenceVideoModel.trim()
+  }
+  const action = data.action
+  if (!action) return ''
+  if (action.type === 'generate_video_group') return action.videoModel.trim()
+  if (action.type === 'generate_video') return typeof action.videoModel === 'string' ? action.videoModel.trim() : ''
+  return ''
+}
+
 function LoadingSpinner() {
   return <AppIcon name="loader" className="h-4 w-4 animate-spin" />
 }
@@ -835,6 +856,10 @@ function VideoPlanContent({
     : referenceAspectRatio
   const outputStyle = { aspectRatio: String(outputAspectRatio) }
   const shouldShowVideo = Boolean(displayOutputUrl && previewMode === 'video')
+  const assetReferences = details.assetReferences ?? []
+  const assetReferenceImageUrls = assetReferences.map((asset) => asset.imageUrl)
+  const assetReferenceVideoModel = videoPlanModel(data)
+  const canGenerateAssetReference = assetReferenceImageUrls.length > 0 && assetReferenceVideoModel.length > 0 && !running
   return (
     <div className="nodrag nowheel space-y-3">
       {displayOutputUrl ? (
@@ -900,6 +925,35 @@ function VideoPlanContent({
           {renderValue(labels('gridMode'), details.gridMode)}
         </div>
       ))}
+      {assetReferences.length > 0 ? renderSection(labels('assetReferenceImages'), (
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            {assetReferences.map((asset) => (
+              <div key={asset.id} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={toDisplayImageUrl(asset.imageUrl) ?? asset.imageUrl} alt={asset.name} className="h-14 w-full object-contain" />
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={!canGenerateAssetReference}
+            onClick={() => {
+              if (!canGenerateAssetReference) return
+              void dispatchNodeAction(data, {
+                type: 'generate_asset_reference_video',
+                videoModel: assetReferenceVideoModel,
+                blockIndex: details.blockIndex,
+                referenceImageUrls: assetReferenceImageUrls,
+                generationOptions: videoPlanGenerationOptions(data),
+              })
+            }}
+            className="w-full rounded-md bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {labels('generateAssetReferenceVideo')}
+          </button>
+        </div>
+      )) : null}
       {details.prompt ? (
         <EditablePromptSection
           title={labels('videoPlanPrompt')}
@@ -972,7 +1026,6 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
   const hasSource = data.kind !== 'finalTimeline'
   const action = data.action
   const canToggleDetails = nodeCanToggleDetails(data.kind)
-  const isEditRequiredAsset = data.kind === 'editRequiredAsset'
   const isRunning = nodeIsRunning(data)
   const shouldShowFooter = !isRunning && (canToggleDetails || Boolean(action && data.actionLabel) || nodeShowsMetaFooter(data.kind))
   const runningData = isRunning ? { ...data, __running: true } : data

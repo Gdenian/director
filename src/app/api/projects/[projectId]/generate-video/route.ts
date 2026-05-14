@@ -29,15 +29,24 @@ export const POST = apiHandler(async (
   if (body.all === true) input.all = true
   if (body.mode === 'grid') input.mode = 'grid'
   if (body.mode === 'auto') input.mode = 'auto'
+  if (body.mode === 'asset-reference') input.mode = 'asset-reference'
   if (body.mode === 'auto' && body.all !== true) {
     throw new ApiError('INVALID_PARAMS', {
       code: 'AUTO_VIDEO_REQUIRES_BATCH',
       field: 'mode',
     })
   }
+  if (body.mode === 'asset-reference' && body.all !== true && typeof body.blockIndex !== 'number') {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'ASSET_REFERENCE_VIDEO_BLOCK_REQUIRED',
+      field: 'blockIndex',
+    })
+  }
   if (body.gridMode === '2x2' || body.gridMode === '3x3') input.gridMode = body.gridMode
   if (typeof body.groupVideoModel === 'string') input.groupVideoModel = body.groupVideoModel
   if (Array.isArray(body.shotNumbers)) input.shotNumbers = body.shotNumbers
+  if (Array.isArray(body.referenceImageUrls)) input.referenceImageUrls = body.referenceImageUrls
+  if (typeof body.blockIndex === 'number') input.blockIndex = body.blockIndex
   if (typeof body.episodeId === 'string') input.episodeId = body.episodeId
   if (typeof body.panelId === 'string') input.panelId = body.panelId
   if (typeof body.storyboardId === 'string') input.storyboardId = body.storyboardId
@@ -48,9 +57,11 @@ export const POST = apiHandler(async (
 
   const operationId = body.mode === 'auto'
     ? 'generate_episode_videos_auto'
-    : body.mode === 'grid'
-      ? (body.all === true ? 'generate_episode_video_groups' : 'generate_video_group')
-      : (body.all === true ? 'generate_episode_videos' : 'generate_panel_video')
+    : body.mode === 'asset-reference'
+      ? (body.all === true ? 'generate_episode_asset_reference_videos' : 'generate_asset_reference_video')
+      : body.mode === 'grid'
+        ? (body.all === true ? 'generate_episode_video_groups' : 'generate_video_group')
+        : (body.all === true ? 'generate_episode_videos' : 'generate_panel_video')
 
   const result = await executeProjectAgentOperationFromApi({
     request,

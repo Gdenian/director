@@ -420,9 +420,43 @@ function shotNumbersKey(shotNumbers: readonly number[]): string {
 function findVideoGroupForBlock(
   videoGroups: readonly ProjectVideoGroup[],
   shotNumbers: readonly number[],
+  preferredGridMode?: string | null,
 ): ProjectVideoGroup | null {
   const expectedKey = shotNumbersKey(shotNumbers)
-  return videoGroups.find((group) => shotNumbersKey(normalizeShotNumbers(group.shotNumbers)) === expectedKey) ?? null
+  const matches = videoGroups.filter((group) => shotNumbersKey(normalizeShotNumbers(group.shotNumbers)) === expectedKey)
+  if (matches.length === 0) return null
+  if (preferredGridMode) {
+    return matches.find((group) => group.gridMode === preferredGridMode) ?? matches[0] ?? null
+  }
+  return matches[0] ?? null
+}
+
+function intersectsShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  const rightSet = new Set(right)
+  return left.some((shotNumber) => rightSet.has(shotNumber))
+}
+
+function assetReferencesForVideoBlock(
+  editScript: ProjectEditScript,
+  shotNumbers: readonly number[],
+): Array<{
+  readonly id: string
+  readonly name: string
+  readonly kind: 'character' | 'location'
+  readonly imageUrl: string
+  readonly shotNumbers: readonly number[]
+}> {
+  return editScript.requirements.flatMap((requirement) => {
+    const imageUrl = stringValue(requirement.previewImageUrl)
+    if (!imageUrl || !intersectsShotNumbers(requirement.shotNumbers, shotNumbers)) return []
+    return [{
+      id: requirement.id,
+      name: requirement.name,
+      kind: requirement.kind,
+      imageUrl,
+      shotNumbers: requirement.shotNumbers,
+    }]
+  })
 }
 
 function sortPanels(panels: readonly ProjectPanel[]): ProjectPanel[] {
@@ -782,10 +816,6 @@ export function buildWorkspaceNodeCanvasProjection({
   })
   const hasVideoBlocks = Boolean(editScript?.videoBlocks?.length)
   const canShowVideoPlanLayer = hasVideoBlocks
-    && editScript?.videoBlocks.every((block) => block.shotNumbers.every((shotNumber) => {
-      const panel = panelByShotNumberForVideoPlan.get(shotNumber)
-      return Boolean(panel && primaryPanelImageUrl(panel))
-    })) === true
   const panelGridRows = Math.max(1, Math.ceil(panelsWithStoryboard.length / PANEL_GRID_COLUMNS))
   const shotPreviewByPanelId = new Map<string, { aspectRatio: number | null; height: number; nodeHeight: number }>()
   panelsWithStoryboard.forEach(({ panel }) => {
@@ -875,26 +905,31 @@ export function buildWorkspaceNodeCanvasProjection({
         shotNumbers: block.shotNumbers,
         durationSec,
       })
-      const matchingGroup = block.kind === 'group' ? findVideoGroupForBlock(videoGroups, block.shotNumbers) : null
+      const preferredGroupMode = block.kind === 'group' ? block.gridMode : 'asset_reference'
+      const matchingGroup = findVideoGroupForBlock(videoGroups, block.shotNumbers, preferredGroupMode)
       const singlePanel = block.kind === 'single' ? panelByShotNumberForVideoPlan.get(block.shotNumbers[0]) ?? null : null
-      const outputUrl = block.kind === 'group'
-        ? matchingGroup?.videoMedia?.url ?? matchingGroup?.videoUrl ?? null
-        : singlePanel?.videoMedia?.url ?? singlePanel?.videoUrl ?? null
-      const outputAspectRatio = block.kind === 'group'
-        ? mediaAspectRatio(matchingGroup?.videoMedia) ?? mediaAspectRatio(matchingGroup?.referenceImageMedia) ?? null
+      const groupOutputUrl = matchingGroup?.videoMedia?.url ?? matchingGroup?.videoUrl ?? null
+      const panelOutputUrl = singlePanel?.videoMedia?.url ?? singlePanel?.videoUrl ?? null
+      const outputUrl = groupOutputUrl ?? panelOutputUrl ?? null
+      const outputAspectRatio = matchingGroup
+        ? mediaAspectRatio(matchingGroup.videoMedia) ?? mediaAspectRatio(matchingGroup.referenceImageMedia) ?? null
         : singlePanel ? panelVideoAspectRatio(singlePanel) : null
-      const isRunning = block.kind === 'group'
-        ? matchingGroup?.status === 'queued' || matchingGroup?.status === 'processing'
-        : singlePanel?.videoTaskRunning === true
+      const isGroupRunning = matchingGroup?.status === 'queued' || matchingGroup?.status === 'processing'
+      const isRunning = isGroupRunning || (block.kind === 'single' && singlePanel?.videoTaskRunning === true)
       const sequenceVideoModel = typeof defaultSequenceVideoModel === 'string' ? defaultSequenceVideoModel.trim() : ''
+      const assetReferenceVideoModel = sequenceVideoModel || (typeof defaultVideoModel === 'string' ? defaultVideoModel.trim() : '')
       const sequenceModelMissing = block.kind === 'group' && !sequenceVideoModel
-      const runtimeErrorMessage = block.kind === 'group'
-        ? sequenceModelMissing
-          ? translate('errors.sequenceVideoModelMissing')
-          : matchingGroup?.status === 'failed'
+      const runtimeErrorMessage = sequenceModelMissing
+        ? translate('errors.sequenceVideoModelMissing')
+        : matchingGroup?.status === 'failed'
           ? matchingGroup.errorMessage || translate('status.failed')
-          : null
-        : singlePanel?.videoErrorMessage ?? null
+          : block.kind === 'single'
+            ? singlePanel?.videoErrorMessage ?? null
+            : null
+      const blockHasPanelImages = block.shotNumbers.every((shotNumber) => {
+        const panel = panelByShotNumberForVideoPlan.get(shotNumber)
+        return Boolean(panel && primaryPanelImageUrl(panel))
+      })
       const statusLabel = isRunning
         ? translate('status.processing')
         : validationKey || runtimeErrorMessage
@@ -905,12 +940,12 @@ export function buildWorkspaceNodeCanvasProjection({
       const action: WorkspaceCanvasNodeAction | undefined = validationKey || runtimeErrorMessage || isRunning
         ? undefined
         : block.kind === 'group'
-          ? {
+          ? blockHasPanelImages ? {
               type: 'generate_video_group',
               videoModel: sequenceVideoModel,
               gridMode: block.gridMode === '3x3' ? '3x3' : '2x2',
               shotNumbers: block.shotNumbers,
-            }
+            } : undefined
           : singlePanel
             ? {
                 type: 'generate_video',
@@ -964,6 +999,7 @@ export function buildWorkspaceNodeCanvasProjection({
             gridMode: block.gridMode,
             reason: block.reason,
             prompt: block.prompt,
+            assetReferenceVideoModel,
             outputUrl,
             outputAspectRatio,
             errorMessage: runtimeErrorMessage,
@@ -975,6 +1011,7 @@ export function buildWorkspaceNodeCanvasProjection({
                 aspectRatio: panel ? panelImageAspectRatio(panel) : null,
               }
             }),
+            assetReferences: assetReferencesForVideoBlock(editScript, block.shotNumbers),
             validationMessage: validationKey ? translate(`errors.${validationKey}`) : null,
           },
           actionLabel: action ? translate('actions.generateVideo') : undefined,
@@ -998,10 +1035,9 @@ export function buildWorkspaceNodeCanvasProjection({
     const imageCount = panelsWithStoryboard.filter((item) => hasImage(item.panel)).length
     const generatedVideoCount = canShowVideoPlanLayer && editScript?.videoBlocks
       ? editScript.videoBlocks.filter((block) => {
-          if (block.kind === 'group') {
-            const group = findVideoGroupForBlock(videoGroups, block.shotNumbers)
-            return Boolean(group?.videoMedia?.url ?? group?.videoUrl)
-          }
+          const preferredMode = block.kind === 'group' ? block.gridMode : 'asset_reference'
+          const group = findVideoGroupForBlock(videoGroups, block.shotNumbers, preferredMode)
+          if (group?.videoMedia?.url ?? group?.videoUrl) return true
           const panel = panelByShotNumberForVideoPlan.get(block.shotNumbers[0])
           return panel ? hasGeneratedVideo(panel) : false
         }).length

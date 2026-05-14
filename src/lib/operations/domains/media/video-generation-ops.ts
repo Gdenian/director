@@ -35,9 +35,17 @@ import { normalizeVideoGenerationPlanResponse } from '@/lib/video-groups/planner
 import { VIDEO_GRID_MODES, type VideoGenerationPlan, type VideoGenerationPlanItem, type VideoGridMode, type VideoGroupShot } from '@/lib/video-groups/types'
 
 type UnknownObject = { [key: string]: unknown }
+const ASSET_REFERENCE_GRID_MODE = 'asset_reference'
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0)
 }
 
 function resolveLocaleFromContext(locale?: unknown): string {
@@ -390,7 +398,7 @@ function sameShotNumbers(left: readonly number[], right: readonly number[]): boo
 
 async function findExistingVideoGroup(params: {
   episodeId: string
-  gridMode: VideoGridMode
+  gridMode: string
   shotNumbers: readonly number[]
 }) {
   const candidates = await prisma.projectVideoGroup.findMany({
@@ -555,9 +563,10 @@ async function resolveVideoGroupInput(params: {
 async function upsertVideoGroupForTask(params: {
   projectId: string
   episodeId: string
-  gridMode: VideoGridMode
+  gridMode: string
   shotNumbers: readonly number[]
   durationSec: number
+  clearReferenceImage?: boolean
 }) {
   const existing = await findExistingVideoGroup({
     episodeId: params.episodeId,
@@ -573,6 +582,10 @@ async function upsertVideoGroupForTask(params: {
         taskId: null,
         errorCode: null,
         errorMessage: null,
+        ...(params.clearReferenceImage ? {
+          referenceImageUrl: null,
+          referenceImageMediaId: null,
+        } : {}),
       },
     })
     return { groupId: existing.id, previous: existing }
@@ -589,6 +602,125 @@ async function upsertVideoGroupForTask(params: {
     select: { id: true },
   })
   return { groupId: created.id, previous: null }
+}
+
+function validateAssetReferenceShotNumbers(shotNumbers: readonly number[]): number[] {
+  const normalized = shotNumbers.map((value) => Number(value))
+  if (normalized.some((value) => !Number.isInteger(value) || value <= 0)) {
+    throw new Error('PROJECT_AGENT_ASSET_REFERENCE_SHOT_NUMBERS_INVALID')
+  }
+  if (normalized.length < 1 || normalized.length > 9) {
+    throw new Error(`PROJECT_AGENT_ASSET_REFERENCE_SHOT_COUNT_UNSUPPORTED:${normalized.length}`)
+  }
+  normalized.forEach((shotNumber, index) => {
+    if (index === 0) return
+    if (shotNumber !== normalized[index - 1] + 1) {
+      throw new Error('PROJECT_AGENT_ASSET_REFERENCE_SHOT_NUMBERS_NOT_CONTINUOUS')
+    }
+  })
+  return normalized
+}
+
+function durationForShotNumbers(shots: readonly VideoGroupShot[], shotNumbers: readonly number[]): number {
+  return shotNumbers.reduce((total, shotNumber) => {
+    const shot = shots.find((item) => item.shotNumber === shotNumber)
+    if (!shot) throw new Error(`PROJECT_AGENT_ASSET_REFERENCE_SHOT_NOT_FOUND:${shotNumber}`)
+    return total + shot.durationSec
+  }, 0)
+}
+
+function gridModeForAssetReferenceItem(item: VideoGenerationPlanItem): string {
+  if (item.kind === 'group') return item.gridMode ?? ASSET_REFERENCE_GRID_MODE
+  return ASSET_REFERENCE_GRID_MODE
+}
+
+async function submitAssetReferenceVideoBlockTask(params: {
+  ctx: ProjectAgentOperationContext
+  input: UnknownObject
+  operationId: string
+  episodeId: string
+  item: VideoGenerationPlanItem
+  shots?: readonly VideoGroupShot[]
+}) {
+  const referenceImageUrls = normalizeStringList(params.input.referenceImageUrls)
+  if (referenceImageUrls.length === 0) {
+    throw new Error('PROJECT_AGENT_ASSET_REFERENCE_IMAGES_REQUIRED')
+  }
+  const shotNumbers = validateAssetReferenceShotNumbers(params.item.shotNumbers)
+  const shots = params.shots ?? (await buildEpisodeVideoGenerationPlan({
+    ctx: params.ctx,
+    episodeId: params.episodeId,
+  })).shots
+  const durationSec = durationForShotNumbers(shots, shotNumbers)
+  if (durationSec < 1 || durationSec > 15) {
+    throw new Error(`PROJECT_AGENT_ASSET_REFERENCE_DURATION_UNSUPPORTED:${durationSec}`)
+  }
+
+  const { payload, localeForTask } = buildVideoTaskPayload({ ctx: params.ctx, input: params.input })
+  applySystemVideoDuration(payload, durationSec)
+  payload.episodeId = params.episodeId
+  payload.gridMode = gridModeForAssetReferenceItem(params.item)
+  payload.shotNumbers = shotNumbers
+  payload.durationSec = durationSec
+  payload.sourceMode = 'asset_reference'
+  payload.prompt = params.item.prompt
+  payload.referenceImageUrls = referenceImageUrls
+
+  await validateVideoTaskPayloadOrThrow({
+    payload,
+    projectId: params.ctx.projectId,
+    userId: params.ctx.userId,
+  })
+
+  const { groupId, previous } = await upsertVideoGroupForTask({
+    projectId: params.ctx.projectId,
+    episodeId: params.episodeId,
+    gridMode: String(payload.gridMode),
+    shotNumbers,
+    durationSec,
+    clearReferenceImage: true,
+  })
+
+  try {
+    const result = await submitOperationTask({
+      request: params.ctx.request,
+      userId: params.ctx.userId,
+      locale: localeForTask,
+      projectId: params.ctx.projectId,
+      episodeId: params.episodeId,
+      type: TASK_TYPE.VIDEO_GROUP,
+      targetType: 'ProjectVideoGroup',
+      targetId: groupId,
+      operationId: params.operationId,
+      source: params.ctx.source,
+      confirmed: params.input.confirmed === true,
+      payload: withTaskUiPayload(payload, {
+        hasOutputAtStart: await hasVideoGroupOutput(groupId),
+      }),
+      dedupeKey: `video_group:${groupId}`,
+      billingInfo: buildVideoGroupBillingInfoOrThrow(payload),
+      decoratePayload: false,
+    })
+    await prisma.projectVideoGroup.update({
+      where: { id: groupId },
+      data: {
+        taskId: result.taskId,
+        status: result.status,
+        prompt: params.item.prompt,
+        referenceImageUrl: referenceImageUrls[0] ?? null,
+        referenceImageMediaId: null,
+      },
+    })
+    return {
+      result,
+      groupId,
+      durationSec,
+      shotNumbers,
+    }
+  } catch (error) {
+    await rollbackVideoGroupTaskRecord({ groupId, previous })
+    throw error
+  }
 }
 
 async function rollbackVideoGroupTaskRecord(params: {
@@ -882,6 +1014,96 @@ async function executeGenerateEpisodeVideosAutoOperation(params: {
   }
 }
 
+async function executeGenerateAssetReferenceVideoOperation(params: {
+  ctx: ProjectAgentOperationContext
+  input: UnknownObject
+  operationId: string
+}) {
+  const episodeId = normalizeString(params.input.episodeId) || normalizeString(params.ctx.context.episodeId)
+  if (!episodeId) throw new Error('PROJECT_AGENT_EPISODE_REQUIRED')
+  const blockIndex = typeof params.input.blockIndex === 'number' && Number.isInteger(params.input.blockIndex)
+    ? params.input.blockIndex
+    : -1
+  if (blockIndex < 0) throw new Error('PROJECT_AGENT_ASSET_REFERENCE_BLOCK_REQUIRED')
+  const planned = await buildEpisodeVideoGenerationPlan({
+    ctx: params.ctx,
+    episodeId,
+  })
+  const item = planned.plan.items[blockIndex]
+  if (!item) throw new Error(`PROJECT_AGENT_ASSET_REFERENCE_BLOCK_NOT_FOUND:${blockIndex}`)
+
+  const submitted = await submitAssetReferenceVideoBlockTask({
+    ctx: params.ctx,
+    input: params.input,
+    operationId: params.operationId,
+    episodeId,
+    item,
+    shots: planned.shots,
+  })
+  writeOperationDataPart<TaskSubmittedPartData>(params.ctx.writer, 'data-task-submitted', {
+    operationId: params.operationId,
+    taskId: submitted.result.taskId,
+    status: submitted.result.status,
+    runId: submitted.result.runId || null,
+    deduped: submitted.result.deduped,
+  })
+  return {
+    ...submitted.result,
+    groupId: submitted.groupId,
+    episodeId,
+    sourceMode: 'asset_reference',
+    blockIndex,
+    shotNumbers: submitted.shotNumbers,
+    durationSec: submitted.durationSec,
+  }
+}
+
+async function executeGenerateEpisodeAssetReferenceVideosOperation(params: {
+  ctx: ProjectAgentOperationContext
+  input: UnknownObject
+  operationId: string
+}) {
+  const episodeId = normalizeString(params.input.episodeId) || normalizeString(params.ctx.context.episodeId)
+  if (!episodeId) throw new Error('PROJECT_AGENT_EPISODE_REQUIRED')
+  const planned = await buildEpisodeVideoGenerationPlan({
+    ctx: params.ctx,
+    episodeId,
+  })
+
+  const submitted = []
+  for (const item of planned.plan.items) {
+    submitted.push(await submitAssetReferenceVideoBlockTask({
+      ctx: params.ctx,
+      input: params.input,
+      operationId: params.operationId,
+      episodeId,
+      item,
+      shots: planned.shots,
+    }))
+  }
+  const taskIds = submitted.map((item) => item.result.taskId)
+  writeOperationDataPart<TaskBatchSubmittedPartData>(params.ctx.writer, 'data-task-batch-submitted', {
+    operationId: params.operationId,
+    total: submitted.length,
+    taskIds,
+    results: submitted.map((item) => ({ refId: item.groupId, taskId: item.result.taskId })),
+  })
+
+  return {
+    success: true,
+    async: true,
+    total: submitted.length,
+    taskIds,
+    results: submitted.map((item) => ({
+      refId: item.groupId,
+      taskId: item.result.taskId,
+      shotNumbers: item.shotNumbers,
+      durationSec: item.durationSec,
+    })),
+    sourceMode: 'asset_reference',
+  }
+}
+
 async function executeGeneratePanelVideoOperation(params: {
   ctx: ProjectAgentOperationContext
   input: UnknownObject
@@ -1034,6 +1256,23 @@ const generateEpisodeVideosAutoInputSchema = z.object({
   generationOptions: z.record(z.unknown()).optional(),
 }).passthrough()
 
+const generateAssetReferenceVideoInputSchema = z.object({
+  confirmed: z.boolean().optional(),
+  episodeId: z.string().min(1).optional(),
+  blockIndex: z.number().int().min(0).max(59),
+  videoModel: z.string().min(1),
+  referenceImageUrls: z.array(z.string().trim().min(1)).min(1).max(8),
+  generationOptions: z.record(z.unknown()).optional(),
+}).passthrough()
+
+const generateEpisodeAssetReferenceVideosInputSchema = z.object({
+  confirmed: z.boolean().optional(),
+  episodeId: z.string().min(1).optional(),
+  videoModel: z.string().min(1),
+  referenceImageUrls: z.array(z.string().trim().min(1)).min(1).max(8),
+  generationOptions: z.record(z.unknown()).optional(),
+}).passthrough()
+
 export function createVideoGenerationOperations(): ProjectAgentOperationRegistryDraft {
   const generatePanelVideoOutputSchema = refineTaskSubmitOperationOutputSchema(
     taskSubmitOperationOutputSchemaBase.extend({
@@ -1093,6 +1332,29 @@ export function createVideoGenerationOperations(): ProjectAgentOperationRegistry
           prompt: z.string().min(1),
         })),
       }),
+    }).passthrough(),
+  )
+
+  const generateAssetReferenceVideoOutputSchema = refineTaskSubmitOperationOutputSchema(
+    taskSubmitOperationOutputSchemaBase.extend({
+      groupId: z.string().min(1),
+      episodeId: z.string().min(1),
+      sourceMode: z.literal('asset_reference'),
+      blockIndex: z.number().int().min(0),
+      shotNumbers: z.array(z.number().int().positive()),
+      durationSec: z.number().int().positive(),
+    }).passthrough(),
+  )
+
+  const generateEpisodeAssetReferenceVideosOutputSchema = refineTaskBatchSubmitOperationOutputSchema(
+    taskBatchSubmitOperationOutputSchemaBase.extend({
+      results: z.array(z.object({
+        refId: z.string().min(1),
+        taskId: z.string().min(1),
+        shotNumbers: z.array(z.number().int().positive()),
+        durationSec: z.number().int().positive(),
+      })),
+      sourceMode: z.literal('asset_reference'),
     }).passthrough(),
   )
 
@@ -1228,6 +1490,60 @@ export function createVideoGenerationOperations(): ProjectAgentOperationRegistry
         ctx,
         input: input as UnknownObject,
         operationId: 'generate_episode_videos_auto',
+      }),
+    }),
+
+    generate_asset_reference_video: defineOperation({
+      id: 'generate_asset_reference_video',
+      summary: 'Generate one edit-first video block directly from reference assets and text prompt.',
+      intent: 'act',
+      prerequisites: { episodeId: 'required' },
+      effects: {
+        writes: true,
+        billable: true,
+        destructive: false,
+        overwrite: true,
+        bulk: false,
+        externalSideEffects: true,
+        longRunning: true,
+      },
+      confirmation: {
+        required: true,
+        summary: '将使用参考资产图和剪辑先行提示词直接生成一个视频片段（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+      },
+      inputSchema: generateAssetReferenceVideoInputSchema,
+      outputSchema: generateAssetReferenceVideoOutputSchema,
+      execute: async (ctx, input) => executeGenerateAssetReferenceVideoOperation({
+        ctx,
+        input: input as UnknownObject,
+        operationId: 'generate_asset_reference_video',
+      }),
+    }),
+
+    generate_episode_asset_reference_videos: defineOperation({
+      id: 'generate_episode_asset_reference_videos',
+      summary: 'Batch generate edit-first video blocks directly from reference assets and text prompts.',
+      intent: 'act',
+      prerequisites: { episodeId: 'required' },
+      effects: {
+        writes: true,
+        billable: true,
+        destructive: false,
+        overwrite: true,
+        bulk: true,
+        externalSideEffects: true,
+        longRunning: true,
+      },
+      confirmation: {
+        required: true,
+        summary: '将使用参考资产图和剪辑先行提示词批量直接生成视频片段（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+      },
+      inputSchema: generateEpisodeAssetReferenceVideosInputSchema,
+      outputSchema: generateEpisodeAssetReferenceVideosOutputSchema,
+      execute: async (ctx, input) => executeGenerateEpisodeAssetReferenceVideosOperation({
+        ctx,
+        input: input as UnknownObject,
+        operationId: 'generate_episode_asset_reference_videos',
       }),
     }),
   }

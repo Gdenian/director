@@ -641,6 +641,8 @@ describe('workspace node canvas projection', () => {
       'edit-script:edit-1',
       'edit-asset:req-character',
       'edit-asset:req-location',
+      'video-plan:edit-1:1',
+      'final:episode-1',
     ])
     const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-1')
     expect(editNode?.data.kind).toBe('editScript')
@@ -649,7 +651,23 @@ describe('workspace node canvas projection', () => {
     expect(editNode?.data.width).toBeGreaterThan(1000)
     expect(editNode?.data.height).toBeGreaterThan(400)
 
-    expect(projection.nodes.some((node) => node.data.kind === 'videoPlan')).toBe(false)
+    const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-1:1')
+    expect(videoPlanNode?.data.kind).toBe('videoPlan')
+    expect(videoPlanNode?.data.action).toBeUndefined()
+    expect(videoPlanNode?.data.videoPlanDetails?.prompt).toBe('Edit-first continuous corridor prompt.')
+    expect(videoPlanNode?.data.videoPlanDetails?.sourceImages).toEqual([
+      { shotNumber: 1, imageUrl: null, aspectRatio: null },
+      { shotNumber: 2, imageUrl: null, aspectRatio: null },
+    ])
+    expect(videoPlanNode?.data.videoPlanDetails?.assetReferences).toEqual([
+      {
+        id: 'req-location',
+        name: 'Docking Bay',
+        kind: 'location',
+        imageUrl: 'https://example.com/location.png',
+        shotNumbers: [1],
+      },
+    ])
 
     const pendingAssetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-character')
     expect(pendingAssetNode?.data.action).toEqual({

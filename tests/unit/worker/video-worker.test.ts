@@ -154,7 +154,7 @@ vi.mock('@/lib/media/service', () => ({
 }))
 vi.mock('@/lib/ai-registry/selection', () => ({
   composeModelKey: vi.fn((provider: string, modelId: string) => `${provider}::${modelId}`),
-  parseModelKeyStrict: vi.fn(() => ({ provider: 'fal' })),
+  parseModelKeyStrict: vi.fn((modelKey: string) => ({ provider: modelKey.split('::')[0] || 'fal' })),
 }))
 vi.mock('@/lib/user-api/runtime-config', () => ({
   getProviderConfig: vi.fn(async () => ({ apiKey: 'api-key' })),
@@ -318,6 +318,56 @@ describe('worker video processor behavior', () => {
         status: 'completed',
         videoUrl: '/m/video-public-1',
         videoMediaId: 'video-media-1',
+      }),
+    }))
+  })
+
+  it('VIDEO_GROUP asset_reference: uses reference assets and skips storyboard grid composition', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    utilsMock.uploadVideoSourceToCos.mockResolvedValueOnce('asset-reference-video/group-asset.mp4')
+
+    const result = await processor!(buildJob({
+      type: TASK_TYPE.VIDEO_GROUP,
+      targetType: 'ProjectVideoGroup',
+      targetId: 'group-asset-1',
+      payload: {
+        sourceMode: 'asset_reference',
+        videoModel: 'ark::seedance',
+        shotNumbers: [1, 2],
+        prompt: 'asset reference block prompt',
+        referenceImageUrls: ['https://example.com/hero.png', 'https://example.com/location.png'],
+        generationOptions: { resolution: '720p' },
+      },
+    }))
+
+    expect(result).toEqual(expect.objectContaining({
+      groupId: 'group-asset-1',
+      videoUrl: '/m/video-public-1',
+      videoMediaId: 'video-media-1',
+      durationSec: 5,
+      shotNumbers: [1, 2],
+      sourceMode: 'asset_reference',
+    }))
+    expect(videoGroupMocks.composeAndStoreGridReferenceImage).not.toHaveBeenCalled()
+    expect(prismaMock.projectPanel.findMany).not.toHaveBeenCalled()
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      modelId: 'ark::seedance',
+      imageUrl: 'https://example.com/hero.png',
+      options: expect.objectContaining({
+        prompt: expect.stringContaining('asset reference block prompt'),
+        duration: 5,
+        aspectRatio: '9:16',
+        referenceImages: ['https://example.com/hero.png', 'https://example.com/location.png'],
+      }),
+    }))
+    expect(prismaMock.projectVideoGroup.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'group-asset-1' },
+      data: expect.objectContaining({
+        status: 'processing',
+        referenceImageUrl: 'https://example.com/hero.png',
+        referenceImageMediaId: null,
       }),
     }))
   })

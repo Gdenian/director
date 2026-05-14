@@ -1,11 +1,12 @@
 'use client'
 
 import React from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import InlineVideoGenerationControls from '../../components/video/InlineVideoGenerationControls'
 import { usePanelVideoModel } from '../../components/video/panel-card/runtime/hooks/usePanelVideoModel'
 import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
+import { useUploadProjectTempMedia } from '@/lib/query/hooks'
 import type { VideoGenerationOptions, VideoModelOption } from '../../components/video/types'
 import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
 import {
@@ -40,10 +41,38 @@ interface VideoDetailProps {
   readonly onGenerateAllVideos: (
     model: string,
     generationOptions: VideoGenerationOptions,
-    mode?: 'single' | 'grid' | 'auto',
+    mode?: 'single' | 'grid' | 'auto' | 'asset-reference',
     gridMode?: '2x2' | '3x3',
+    referenceImageUrls?: readonly string[],
   ) => Promise<void>
   readonly onDownloadVideos: () => Promise<void>
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+      reject(new Error('FILE_READ_FAILED'))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('FILE_READ_FAILED'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function splitReferenceImageUrls(value: string): string[] {
+  const seen = new Set<string>()
+  const output: string[] = []
+  value.split(/\r?\n|,/).forEach((item) => {
+    const normalized = item.trim()
+    if (!normalized || seen.has(normalized)) return
+    seen.add(normalized)
+    output.push(normalized)
+  })
+  return output
 }
 
 export default function VideoDetail(props: VideoDetailProps) {
@@ -53,9 +82,13 @@ export default function VideoDetail(props: VideoDetailProps) {
   const [videoPrompt, setVideoPrompt] = useState(panel.videoPrompt ?? '')
   const [firstLastPrompt, setFirstLastPrompt] = useState(panel.firstLastFramePrompt ?? '')
   const [flModel, setFlModel] = useState(panel.videoModel ?? runtime.singleShotVideoModel ?? runtime.videoModel ?? '')
-  const [batchMode, setBatchMode] = useState<'single' | 'grid' | 'auto'>('auto')
+  const [batchMode, setBatchMode] = useState<'single' | 'grid' | 'auto' | 'asset-reference'>('auto')
   const [gridMode, setGridMode] = useState<'2x2' | '3x3'>('2x2')
+  const [referenceImageText, setReferenceImageText] = useState('')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadTempMedia = useUploadProjectTempMedia()
   const nextContext = useMemo(() => findNextPanelContext(props.storyboards, props.context), [props.context, props.storyboards])
+  const referenceImageUrls = useMemo(() => splitReferenceImageUrls(referenceImageText), [referenceImageText])
   const videoModel = usePanelVideoModel({
     defaultVideoModel: panel.videoModel ?? runtime.singleShotVideoModel ?? runtime.videoModel ?? '',
     capabilityOverrides: runtime.capabilityOverrides,
@@ -204,6 +237,13 @@ export default function VideoDetail(props: VideoDetailProps) {
             >
               {t('fields.gridVideoMode')}
             </button>
+            <button
+              type="button"
+              onClick={() => setBatchMode('asset-reference')}
+              className={`rounded-md border px-3 py-2 text-sm ${batchMode === 'asset-reference' ? 'border-black bg-black text-white' : 'border-black/10 bg-white text-[var(--glass-text-secondary)]'}`}
+            >
+              {t('fields.assetReferenceVideoMode')}
+            </button>
             {batchMode === 'grid' ? (
               <select
                 value={gridMode}
@@ -215,6 +255,49 @@ export default function VideoDetail(props: VideoDetailProps) {
               </select>
             ) : null}
           </div>
+          {batchMode === 'asset-reference' ? (
+            <div className="space-y-2">
+              <Field label={t('fields.assetReferenceImages')}>
+                <TextArea
+                  value={referenceImageText}
+                  onChange={setReferenceImageText}
+                  rows={3}
+                  placeholder={t('placeholders.assetReferenceImages')}
+                />
+              </Field>
+              <div className="flex flex-wrap items-center gap-2">
+                <ActionButton onClick={() => fileInputRef.current?.click()} disabled={uploadTempMedia.isPending}>
+                  {uploadTempMedia.isPending ? t('actions.uploadingReference') : t('actions.uploadReferenceImage')}
+                </ActionButton>
+                <span className="text-xs text-[var(--glass-text-tertiary)]">
+                  {t('messages.assetReferenceImageCount', { count: referenceImageUrls.length })}
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? [])
+                    event.target.value = ''
+                    void Promise.all(files.map(async (file) => {
+                      const imageBase64 = await fileToBase64(file)
+                      const uploaded = await uploadTempMedia.mutateAsync({
+                        imageBase64,
+                        extension: file.name.split('.').pop() || 'png',
+                        type: file.type,
+                      })
+                      if (!uploaded.url) throw new Error('REFERENCE_IMAGE_UPLOAD_FAILED')
+                      return uploaded.url
+                    })).then((urls) => {
+                      setReferenceImageText((current) => [...splitReferenceImageUrls(current), ...urls].join('\n'))
+                    })
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
           <ActionButton
             onClick={() => props.onGenerateAllVideos(
@@ -222,15 +305,18 @@ export default function VideoDetail(props: VideoDetailProps) {
               videoModel.generationOptions,
               batchMode,
               batchMode === 'grid' ? gridMode : undefined,
+              batchMode === 'asset-reference' ? referenceImageUrls : undefined,
             )}
-            disabled={!videoModel.selectedModel || missingCapabilities.length > 0}
+            disabled={!videoModel.selectedModel || missingCapabilities.length > 0 || (batchMode === 'asset-reference' && referenceImageUrls.length === 0)}
             variant="primary"
           >
             {batchMode === 'auto'
               ? t('actions.generateAutoVideos')
-              : batchMode === 'grid'
-                ? t('actions.generateGridVideos')
-                : t('actions.generateAllVideos')}
+              : batchMode === 'asset-reference'
+                ? t('actions.generateAssetReferenceVideos')
+                : batchMode === 'grid'
+                  ? t('actions.generateGridVideos')
+                  : t('actions.generateAllVideos')}
           </ActionButton>
           <ActionButton onClick={props.onDownloadVideos}>{t('actions.downloadVideos')}</ActionButton>
           </div>

@@ -264,6 +264,30 @@ function parseShotNumbers(value: unknown): number[] {
   return numbers
 }
 
+function parseReferenceImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new Error('ASSET_REFERENCE_VIDEO_IMAGES_REQUIRED')
+  const urls = value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0)
+  if (urls.length === 0) throw new Error('ASSET_REFERENCE_VIDEO_IMAGES_REQUIRED')
+  if (urls.length > 8) throw new Error(`ASSET_REFERENCE_VIDEO_IMAGE_COUNT_UNSUPPORTED:${urls.length}`)
+  return urls
+}
+
+function validateAssetReferenceShotNumbers(value: unknown): number[] {
+  const shotNumbers = parseShotNumbers(value)
+  if (shotNumbers.length < 1 || shotNumbers.length > 9) {
+    throw new Error(`ASSET_REFERENCE_VIDEO_SHOT_COUNT_UNSUPPORTED:${shotNumbers.length}`)
+  }
+  shotNumbers.forEach((shotNumber, index) => {
+    if (index === 0) return
+    if (shotNumber !== shotNumbers[index - 1] + 1) {
+      throw new Error('ASSET_REFERENCE_VIDEO_SHOT_NUMBERS_NOT_CONTINUOUS')
+    }
+  })
+  return shotNumbers
+}
+
 function parseEditScriptShots(value: unknown): VideoGroupShot[] {
   if (!Array.isArray(value)) throw new Error('VIDEO_GROUP_EDIT_SCRIPT_SHOTS_INVALID')
   return value.map((item) => {
@@ -316,18 +340,184 @@ function resolveStoredVideoGroupPrompt(input: {
   return prompt
 }
 
+function buildAssetReferencePrompt(params: {
+  readonly prompt: string
+  readonly referenceImageCount: number
+}): string {
+  return [
+    'Use the provided reference asset image(s) as fixed visual references for character identity, location design, props, wardrobe, color, and style. Generate one full-screen continuous video, not a collage, not a grid, and not a split-screen.',
+    `Reference asset image count: ${params.referenceImageCount}.`,
+    params.prompt,
+  ].join('\n\n')
+}
+
+async function handleAssetReferenceVideoGroupTask(params: {
+  readonly job: Job<TaskJobData>
+  readonly payload: AnyObj
+  readonly groupId: string
+  readonly modelId: string
+  readonly generationOptions: VideoOptionMap
+}) {
+  const { job, payload, groupId, modelId, generationOptions } = params
+  const shotNumbers = validateAssetReferenceShotNumbers(payload.shotNumbers)
+  const referenceImageUrls = parseReferenceImageUrls(payload.referenceImageUrls)
+  const parsedModel = parseModelKeyStrict(modelId)
+  if (referenceImageUrls.length > 1 && parsedModel?.provider !== 'ark') {
+    throw new Error(`ASSET_REFERENCE_VIDEO_MULTI_REFERENCE_UNSUPPORTED:${modelId}`)
+  }
+
+  await prisma.projectVideoGroup.update({
+    where: { id: groupId },
+    data: {
+      status: 'processing',
+      taskId: job.data.taskId,
+      errorCode: null,
+      errorMessage: null,
+      referenceImageUrl: referenceImageUrls[0] ?? null,
+      referenceImageMediaId: null,
+    },
+  })
+
+  await reportTaskProgress(job, 12, { stage: 'asset_reference_video_prepare', groupId })
+  const [project, editScript] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: job.data.projectId },
+      select: {
+        videoRatio: true,
+      },
+    }),
+    prisma.projectEditScript.findFirst({
+      where: { projectId: job.data.projectId, episodeId: job.data.episodeId || normalizeString(payload.episodeId) },
+      select: {
+        shotsJson: true,
+        videoBlocksJson: true,
+      },
+    }),
+  ])
+  if (!project) throw new Error('ASSET_REFERENCE_VIDEO_PROJECT_NOT_FOUND')
+  if (!editScript) throw new Error('ASSET_REFERENCE_VIDEO_EDIT_SCRIPT_REQUIRED')
+
+  const allShots = parseEditScriptShots(editScript.shotsJson)
+  const shots = shotNumbers.map((shotNumber) => {
+    const shot = allShots.find((item) => item.shotNumber === shotNumber)
+    if (!shot) throw new Error(`ASSET_REFERENCE_VIDEO_SHOT_NOT_FOUND:${shotNumber}`)
+    return shot
+  })
+  const durationSec = totalVideoGroupDuration(shots)
+  if (durationSec < 1 || durationSec > 15) {
+    throw new Error(`ASSET_REFERENCE_VIDEO_DURATION_UNSUPPORTED:${durationSec}`)
+  }
+  const payloadPrompt = normalizeString(payload.prompt)
+  const prompt = payloadPrompt || resolveStoredVideoGroupPrompt({
+    videoBlocksJson: editScript.videoBlocksJson,
+    shotNumbers,
+  })
+
+  await prisma.projectVideoGroup.update({
+    where: { id: groupId },
+    data: {
+      prompt,
+      durationSec,
+    },
+  })
+
+  await reportTaskProgress(job, 30, { stage: 'asset_reference_video_normalize', groupId })
+  const normalizedReferenceImages = await Promise.all(
+    referenceImageUrls.map((referenceImageUrl) => normalizeToBase64ForGeneration(referenceImageUrl)),
+  )
+  const primaryReferenceImage = normalizedReferenceImages[0]
+  if (!primaryReferenceImage) throw new Error('ASSET_REFERENCE_VIDEO_PRIMARY_IMAGE_REQUIRED')
+
+  await reportTaskProgress(job, 42, { stage: 'asset_reference_video_generate', groupId })
+  const requestedGenerateAudio = typeof generationOptions.generateAudio === 'boolean'
+    ? generationOptions.generateAudio
+    : undefined
+  const generatedVideo = await resolveVideoSourceFromGeneration(job, {
+    userId: job.data.userId,
+    modelId,
+    imageUrl: primaryReferenceImage,
+    options: {
+      prompt: buildAssetReferencePrompt({
+        prompt,
+        referenceImageCount: normalizedReferenceImages.length,
+      }),
+      ...(project.videoRatio ? { aspectRatio: project.videoRatio } : {}),
+      ...generationOptions,
+      duration: durationSec,
+      generationMode: 'normal',
+      referenceImages: normalizedReferenceImages,
+      ...(typeof requestedGenerateAudio === 'boolean' ? { generateAudio: requestedGenerateAudio } : {}),
+    },
+  })
+
+  let downloadHeaders: Record<string, string> | undefined
+  const videoSource = generatedVideo.url
+  if (generatedVideo.downloadHeaders) {
+    downloadHeaders = generatedVideo.downloadHeaders
+  } else if (typeof videoSource === 'string') {
+    const isGoogleDownloadUrl = videoSource.includes('generativelanguage.googleapis.com/')
+      && videoSource.includes('/files/')
+      && videoSource.includes(':download')
+    if (parsedModel?.provider === 'google' && isGoogleDownloadUrl) {
+      const { apiKey } = await getProviderConfig(job.data.userId, 'google')
+      downloadHeaders = { 'x-goog-api-key': apiKey }
+    }
+  }
+
+  await reportTaskProgress(job, 92, { stage: 'asset_reference_video_persist', groupId })
+  const cosKey = await uploadVideoSourceToCos(videoSource, 'asset-reference-video', groupId, downloadHeaders)
+  const videoMedia = await ensureMediaObjectFromStorageKey(cosKey, {
+    mimeType: 'video/mp4',
+    durationMs: durationSec * 1000,
+  })
+  await assertTaskActive(job, 'persist_asset_reference_video')
+  await prisma.projectVideoGroup.update({
+    where: { id: groupId },
+    data: {
+      status: 'completed',
+      taskId: null,
+      videoUrl: videoMedia.url,
+      videoMediaId: videoMedia.id,
+      errorCode: null,
+      errorMessage: null,
+    },
+  })
+
+  return {
+    groupId,
+    videoUrl: videoMedia.url,
+    videoMediaId: videoMedia.id,
+    referenceImageUrl: referenceImageUrls[0] ?? null,
+    durationSec,
+    shotNumbers,
+    sourceMode: 'asset_reference',
+    ...(typeof generatedVideo.actualVideoTokens === 'number'
+      ? { actualVideoTokens: generatedVideo.actualVideoTokens }
+      : {}),
+  }
+}
+
 async function handleVideoGroupTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as AnyObj
   if (job.data.targetType !== 'ProjectVideoGroup') throw new Error('VIDEO_GROUP_TARGET_REQUIRED')
   const groupId = job.data.targetId
   const modelId = normalizeString(payload.videoModel)
   if (!modelId) throw new Error('VIDEO_MODEL_REQUIRED: payload.videoModel is required')
+  const generationOptions = extractGenerationOptions(payload)
+  if (normalizeString(payload.sourceMode) === 'asset_reference') {
+    return await handleAssetReferenceVideoGroupTask({
+      job,
+      payload,
+      groupId,
+      modelId,
+      generationOptions,
+    })
+  }
   const gridMode: VideoGridMode = payload.gridMode === '3x3' ? '3x3' : '2x2'
   const shotNumbers = validateVideoGroupShotNumbers({
     gridMode,
     shotNumbers: parseShotNumbers(payload.shotNumbers),
   })
-  const generationOptions = extractGenerationOptions(payload)
 
   await prisma.projectVideoGroup.update({
     where: { id: groupId },
