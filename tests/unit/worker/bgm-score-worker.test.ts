@@ -1,5 +1,6 @@
 import type { Job } from 'bullmq'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { GenerateResult } from '@/lib/ai-providers/runtime-types'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 
 const execFileMock = vi.hoisted(() => vi.fn())
@@ -194,6 +195,24 @@ function buildValidPlanText(): string {
   })
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+async function waitForCondition(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  throw new Error('condition was not met')
+}
+
 describe('bgm score worker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -297,6 +316,51 @@ describe('bgm score worker', () => {
       return projectData.bgmScore?.status === 'completed'
     })
     expect(completedCall).toBeTruthy()
+  })
+
+  it('submits all stem generation requests in parallel before waiting for any stem result', async () => {
+    mockReadyProject()
+    mockCompleteTimeline()
+    executeAiTextStepMock.mockResolvedValue({ text: buildValidPlanText() })
+    const atmosphere = createDeferred<GenerateResult>()
+    const pulse = createDeferred<GenerateResult>()
+    generateMusicMock
+      .mockImplementationOnce(() => atmosphere.promise)
+      .mockImplementationOnce(() => pulse.promise)
+
+    const { handleBgmScoreGenerateTask } = await import('@/lib/bgm-score/generate')
+    const resultPromise = handleBgmScoreGenerateTask(buildJob({
+      episodeId: 'episode-1',
+      musicModel: 'google::lyria-3-pro-preview',
+    }))
+
+    await waitForCondition(() => generateMusicMock.mock.calls.length === 2)
+
+    expect(generateMusicMock).toHaveBeenCalledTimes(2)
+    const initialStemProgressCall = reportTaskProgressMock.mock.calls.find((call) => {
+      const payload = call[2] as { stage?: string; stemCount?: number; completedStemCount?: number; generationMode?: string }
+      return payload.stage === 'bgm_score_generate_stem'
+        && payload.stemCount === 2
+        && payload.completedStemCount === 0
+        && payload.generationMode === 'parallel'
+    })
+    expect(initialStemProgressCall).toBeTruthy()
+
+    atmosphere.resolve({
+      success: true,
+      audioBase64: Buffer.from('atmosphere').toString('base64'),
+      audioMimeType: 'audio/mpeg',
+    })
+    pulse.resolve({
+      success: true,
+      audioBase64: Buffer.from('pulse').toString('base64'),
+      audioMimeType: 'audio/mpeg',
+    })
+
+    await expect(resultPromise).resolves.toMatchObject({
+      episodeId: 'episode-1',
+      stemCount: 2,
+    })
   })
 
   it('fails the task and does not upload a mix when any stem generation fails', async () => {

@@ -49,6 +49,19 @@ type GeneratedStemBuffer = {
   readonly inputPath: string
 }
 
+type StemGenerationSuccess = {
+  readonly status: 'fulfilled'
+  readonly stem: GeneratedStemBuffer
+}
+
+type StemGenerationFailure = {
+  readonly status: 'rejected'
+  readonly role: BgmScorePlan['stems'][number]['role']
+  readonly message: string
+}
+
+type StemGenerationOutcome = StemGenerationSuccess | StemGenerationFailure
+
 const execFileAsync = promisify(execFile)
 
 function readString(value: unknown): string {
@@ -268,6 +281,64 @@ function buildStemPrompt(plan: BgmScorePlan, stem: BgmScorePlan['stems'][number]
   ].filter(Boolean).join('\n')
 }
 
+async function generateStemBuffer(input: {
+  readonly userId: string
+  readonly musicModel: string
+  readonly outputFormat: 'mp3' | 'wav'
+  readonly plan: BgmScorePlan
+  readonly stem: BgmScorePlan['stems'][number]
+  readonly stemIndex: number
+  readonly workspaceDir: string
+}): Promise<GeneratedStemBuffer> {
+  const generated = await generateMusic(input.userId, input.musicModel, buildStemPrompt(input.plan, input.stem), {
+    durationSeconds: selectFinalRenderMusicDurationSeconds(input.musicModel, input.stem.durationSec),
+    vocalMode: 'instrumental',
+    outputFormat: input.outputFormat,
+  })
+  if (!generated.success) {
+    throw new Error(generated.error || `BGM_SCORE_STEM_PROVIDER_FAILED:${input.stem.role}`)
+  }
+  const audio = await loadAudioBuffer({
+    audioBase64: generated.audioBase64,
+    audioUrl: generated.audioUrl,
+    mimeType: generated.audioMimeType,
+  })
+  const inputPath = path.join(input.workspaceDir, `stem-${input.stemIndex}.${extensionFromMimeType(audio.mimeType)}`)
+  await writeFile(inputPath, audio.buffer)
+  return {
+    stem: input.stem,
+    buffer: audio.buffer,
+    mimeType: audio.mimeType,
+    inputPath,
+  }
+}
+
+async function settleStemGeneration(input: {
+  readonly userId: string
+  readonly musicModel: string
+  readonly outputFormat: 'mp3' | 'wav'
+  readonly plan: BgmScorePlan
+  readonly stem: BgmScorePlan['stems'][number]
+  readonly stemIndex: number
+  readonly workspaceDir: string
+  readonly onCompleted: (stem: BgmScorePlan['stems'][number]) => Promise<void>
+}): Promise<StemGenerationOutcome> {
+  try {
+    const stem = await generateStemBuffer(input)
+    await input.onCompleted(input.stem)
+    return {
+      status: 'fulfilled',
+      stem,
+    }
+  } catch (error) {
+    return {
+      status: 'rejected',
+      role: input.stem.role,
+      message: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
 export async function handleBgmScoreGenerateTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as BgmScoreGeneratePayload
   const episodeId = readString(payload.episodeId) || readString(job.data.episodeId)
@@ -382,33 +453,46 @@ export async function handleBgmScoreGenerateTask(job: Job<TaskJobData>) {
     const plan = parseBgmScorePlan(completion.text, durationSeconds)
 
     const outputFormat = readOutputFormat(payload.outputFormat)
-    const generatedStems: GeneratedStemBuffer[] = []
-    for (let index = 0; index < plan.stems.length; index += 1) {
-      const stem = plan.stems[index]
-      const progress = 25 + Math.round((index / plan.stems.length) * 45)
-      await reportTaskProgress(job, progress, { stage: 'bgm_score_generate_stem', stemRole: stem.role })
-      const generated = await generateMusic(job.data.userId, musicModel, buildStemPrompt(plan, stem), {
-        durationSeconds: selectFinalRenderMusicDurationSeconds(musicModel, stem.durationSec),
-        vocalMode: 'instrumental',
+    let completedStemCount = 0
+    await reportTaskProgress(job, 25, {
+      stage: 'bgm_score_generate_stem',
+      stemCount: plan.stems.length,
+      completedStemCount,
+      generationMode: 'parallel',
+    })
+    const stemOutcomes = await Promise.all(plan.stems.map((stem, index) =>
+      settleStemGeneration({
+        userId: job.data.userId,
+        musicModel,
         outputFormat,
-      })
-      if (!generated.success) {
-        throw new Error(generated.error || `BGM_SCORE_STEM_PROVIDER_FAILED:${stem.role}`)
-      }
-      const audio = await loadAudioBuffer({
-        audioBase64: generated.audioBase64,
-        audioUrl: generated.audioUrl,
-        mimeType: generated.audioMimeType,
-      })
-      const inputPath = path.join(workspaceDir, `stem-${index}.${extensionFromMimeType(audio.mimeType)}`)
-      await writeFile(inputPath, audio.buffer)
-      generatedStems.push({
+        plan,
         stem,
-        buffer: audio.buffer,
-        mimeType: audio.mimeType,
-        inputPath,
+        stemIndex: index,
+        workspaceDir,
+        onCompleted: async (completedStem) => {
+          completedStemCount += 1
+          const progress = 25 + Math.round((completedStemCount / plan.stems.length) * 45)
+          await reportTaskProgress(job, progress, {
+            stage: 'bgm_score_generate_stem',
+            stemRole: completedStem.role,
+            stemCount: plan.stems.length,
+            completedStemCount,
+            generationMode: 'parallel',
+          })
+        },
       })
+    ))
+    const failedStem = stemOutcomes.find((outcome): outcome is StemGenerationFailure =>
+      outcome.status === 'rejected')
+    if (failedStem) {
+      throw new Error(failedStem.message || `BGM_SCORE_STEM_PROVIDER_FAILED:${failedStem.role}`)
     }
+    const generatedStems = stemOutcomes.map((outcome) => {
+      if (outcome.status !== 'fulfilled') {
+        throw new Error(`BGM_SCORE_STEM_PROVIDER_FAILED:${outcome.role}`)
+      }
+      return outcome.stem
+    })
 
     await reportTaskProgress(job, 76, { stage: 'bgm_score_mix' })
     const mixPath = path.join(workspaceDir, 'bgm-score.m4a')
