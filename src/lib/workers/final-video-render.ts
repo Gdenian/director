@@ -38,13 +38,14 @@ type CommandResult = {
 }
 
 const execFileAsync = promisify(execFile)
+const DEFAULT_FINAL_RENDER_BGM_VOLUME = 1
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
 function readBgmVolume(value: unknown): number {
-  if (value === undefined || value === null) return 0.42
+  if (value === undefined || value === null) return DEFAULT_FINAL_RENDER_BGM_VOLUME
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
     throw new Error('FINAL_VIDEO_RENDER_BGM_VOLUME_INVALID')
   }

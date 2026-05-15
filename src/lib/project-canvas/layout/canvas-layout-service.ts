@@ -107,10 +107,7 @@ export async function upsertProjectCanvasLayout(params: {
   const row = await prisma.$transaction(async (tx) => {
     const layout = await tx.projectCanvasLayout.upsert({
       where: {
-        projectId_episodeId: {
-          projectId: params.projectId,
-          episodeId: params.input.episodeId,
-        },
+        episodeId: params.input.episodeId,
       },
       create: {
         projectId: params.projectId,
