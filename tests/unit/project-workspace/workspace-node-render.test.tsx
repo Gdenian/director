@@ -84,8 +84,10 @@ describe('workspace node rendering', () => {
       statusLabel: 'Ready',
       width: 360,
       height: 380,
+      onAction: vi.fn(),
       previewImageUrl: 'images/character-1.jpg',
       editAssetDetails: {
+        editScriptId: 'edit-1',
         kind: 'character',
         description: 'asset description',
         shotNumbers: [1],
@@ -97,6 +99,7 @@ describe('workspace node rendering', () => {
     expect(html).toContain('/api/storage/sign?key=images%2Fcharacter-1.jpg')
     expect(html).toContain('object-contain')
     expect(html).toContain('style="height:240px"')
+    expect(html).toContain('aria-label="editPrompt"')
     expect(html).not.toContain('Asset ID')
     expect(html).not.toContain('asset-target-id')
     expect(html).not.toContain('shots 1')
@@ -359,8 +362,43 @@ describe('workspace node rendering', () => {
     expect(videoPlanHtml).not.toContain('gridMode')
     expect(videoPlanHtml).toContain('videoPlanModelMissing')
     expect(videoPlanHtml).toContain('videoPlanPendingVideo')
-    expect(videoPlanHtml).toContain('grid grid-cols-2')
+    expect(videoPlanHtml).toContain('linkedShots')
+    expect(videoPlanHtml).toContain('>1</span>')
+    expect(videoPlanHtml).toContain('>2</span>')
+    expect(videoPlanHtml).not.toContain('grid grid-cols-2')
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
+  })
+
+  it('renders required asset prompt below an image placeholder and keeps it editable', () => {
+    const html = renderNode({
+      kind: 'editRequiredAsset',
+      layoutNodeType: 'editRequiredAsset',
+      targetType: 'editAssetRequirement',
+      targetId: 'req-1',
+      title: 'Required asset',
+      eyebrow: 'Asset',
+      body: 'asset prompt should not be in preview',
+      meta: 'shots 1, 2',
+      statusLabel: 'Pending',
+      width: 420,
+      height: 520,
+      onAction: vi.fn(),
+      editAssetDetails: {
+        editScriptId: 'edit-1',
+        kind: 'character',
+        description: 'asset prompt should be editable below',
+        shotNumbers: [1, 2],
+        targetId: null,
+        errorMessage: null,
+      },
+    })
+
+    expect(html).toContain('data-icon="imageAlt"')
+    expect(html).toContain('imagePrompt')
+    expect(html).toContain('asset prompt should be editable below')
+    expect(html).toContain('aria-label="editPrompt"')
+    expect(html).toContain('linkedShots')
+    expect(html).not.toContain('asset prompt should not be in preview')
   })
 
   it('does not render empty expanded detail sections as blank cards', () => {

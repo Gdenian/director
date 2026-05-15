@@ -5,11 +5,13 @@ import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import {
   generateProjectEditScript,
   readProjectEditScript,
+  updateProjectEditScriptAssetRequirementDescription,
   updateProjectEditScriptVideoBlockPrompt,
 } from '@/lib/edit-script/service'
 import {
   createEditScriptRequestSchema,
   getEditScriptRequestSchema,
+  updateEditScriptAssetRequirementDescriptionRequestSchema,
   updateEditScriptVideoBlockPromptRequestSchema,
 } from '@/lib/edit-script/types'
 
@@ -73,9 +75,23 @@ export const PATCH = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
 
   const body = await request.json().catch(() => ({})) as unknown
-  const parsed = updateEditScriptVideoBlockPromptRequestSchema.safeParse(body)
+  const parsed = updateEditScriptVideoBlockPromptRequestSchema
+    .or(updateEditScriptAssetRequirementDescriptionRequestSchema)
+    .safeParse(body)
   if (!parsed.success) {
     throw new ApiError('INVALID_PARAMS')
+  }
+
+  if ('requirementId' in parsed.data) {
+    const editScript = await updateProjectEditScriptAssetRequirementDescription({
+      projectId,
+      episodeId: parsed.data.episodeId,
+      editScriptId: parsed.data.editScriptId,
+      requirementId: parsed.data.requirementId,
+      description: parsed.data.description,
+    })
+
+    return NextResponse.json({ editScript })
   }
 
   const editScript = await updateProjectEditScriptVideoBlockPrompt({

@@ -227,6 +227,7 @@ export {
     useCreateProjectEditScript,
     useGenerateProjectEditScriptAssets,
     useGenerateProjectEditScriptStoryboard,
+    useUpdateProjectEditScriptAssetRequirementDescription,
     useUpdateProjectEditScriptVideoBlockPrompt,
 } from './useProjectEditScript'
 

@@ -83,6 +83,12 @@ export type WorkspaceCanvasNodeAction =
       readonly blockIndex: number
       readonly prompt: string
     }
+  | {
+      readonly type: 'update_edit_asset_requirement_description'
+      readonly editScriptId: string
+      readonly requirementId: string
+      readonly description: string
+    }
   | { readonly type: 'update_panel_video_model'; readonly storyboardId: string; readonly panelIndex: number; readonly model: string }
   | { readonly type: 'toggle_panel_link'; readonly storyboardId: string; readonly panelIndex: number; readonly linked: boolean }
   | {
@@ -249,6 +255,7 @@ export interface WorkspaceCanvasVideoPlanDetails {
 }
 
 export interface WorkspaceCanvasEditAssetDetails {
+  readonly editScriptId: string
   readonly kind: 'character' | 'location'
   readonly description: string
   readonly shotNumbers: readonly number[]

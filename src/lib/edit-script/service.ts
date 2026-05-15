@@ -78,6 +78,14 @@ interface UpdateEditScriptVideoBlockPromptInput {
   readonly prompt: string
 }
 
+interface UpdateEditScriptAssetRequirementDescriptionInput {
+  readonly projectId: string
+  readonly episodeId: string
+  readonly editScriptId: string
+  readonly requirementId: string
+  readonly description: string
+}
+
 type PromptStepId =
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE
@@ -535,6 +543,28 @@ export async function updateProjectEditScriptVideoBlockPrompt(
     },
   })
 
+  return await mapPersistedEditScript(updated)
+}
+
+export async function updateProjectEditScriptAssetRequirementDescription(
+  input: UpdateEditScriptAssetRequirementDescriptionInput,
+): Promise<EditScriptPayload> {
+  const script = await getPersistedEditScript(input.projectId, input.episodeId, input.editScriptId)
+  if (!script) throw new ApiError('NOT_FOUND')
+
+  const targetRequirement = script.requirements.find((requirement) => requirement.id === input.requirementId)
+  if (!targetRequirement) throw new ApiError('NOT_FOUND')
+
+  await prisma.projectEditAssetRequirement.update({
+    where: { id: targetRequirement.id },
+    data: {
+      description: input.description.trim(),
+      errorMessage: null,
+    },
+  })
+
+  const updated = await getPersistedEditScript(input.projectId, input.episodeId, input.editScriptId)
+  if (!updated) throw new ApiError('NOT_FOUND')
   return await mapPersistedEditScript(updated)
 }
 

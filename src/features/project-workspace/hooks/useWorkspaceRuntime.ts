@@ -60,6 +60,7 @@ interface UseWorkspaceRuntimeParams {
     field?: 'imagePrompt' | 'videoPrompt' | 'firstLastFramePrompt',
   ) => Promise<void>
   handleUpdateVideoPlanPrompt: (editScriptId: string, blockIndex: number, prompt: string) => Promise<void>
+  handleUpdateEditAssetRequirementDescription: (editScriptId: string, requirementId: string, description: string) => Promise<void>
   handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
 }
 
@@ -93,6 +94,7 @@ export function useWorkspaceRuntime({
   handleGenerateEditStoryboard,
   handleUpdateVideoPrompt,
   handleUpdateVideoPlanPrompt,
+  handleUpdateEditAssetRequirementDescription,
   handleUpdatePanelVideoModel,
 }: UseWorkspaceRuntimeParams) {
   const resolvedUserVideoModels = useMemo(
@@ -139,6 +141,7 @@ export function useWorkspaceRuntime({
     onGenerateEditStoryboard: handleGenerateEditStoryboard,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
     onUpdateVideoPlanPrompt: handleUpdateVideoPlanPrompt,
+    onUpdateEditAssetRequirementDescription: handleUpdateEditAssetRequirementDescription,
     onUpdatePanelVideoModel: handleUpdatePanelVideoModel,
     onOpenAssetLibraryForCharacter: (characterId, refreshAssets) => openAssetLibrary(characterId, refreshAssets),
   }), [
@@ -158,6 +161,7 @@ export function useWorkspaceRuntime({
     handleUpdateConfig,
     handleUpdateEpisode,
     handleUpdatePanelVideoModel,
+    handleUpdateEditAssetRequirementDescription,
     handleUpdateVideoPlanPrompt,
     handleUpdateVideoPrompt,
     isConfirmingAssets,

@@ -741,6 +741,7 @@ export function buildWorkspaceNodeCanvasProjection({
           indexLabel: asset.kind === 'character' ? 'C' : 'L',
           previewImageUrl: asset.previewImageUrl,
           editAssetDetails: {
+            editScriptId: editScript.id,
             kind: asset.kind,
             description: asset.description,
             shotNumbers: asset.shotNumbers,

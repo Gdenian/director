@@ -21,6 +21,7 @@ import { useRouter } from '@/i18n/navigation'
 import {
   useGenerateProjectEditScriptAssets,
   useGenerateProjectEditScriptStoryboard,
+  useUpdateProjectEditScriptAssetRequirementDescription,
   useUpdateProjectEditScriptVideoBlockPrompt,
 } from '@/lib/query/hooks'
 
@@ -114,6 +115,7 @@ export function useProjectWorkspaceController({
   const generateEditAssets = useGenerateProjectEditScriptAssets(projectId)
   const generateEditStoryboard = useGenerateProjectEditScriptStoryboard(projectId)
   const updateVideoPlanPrompt = useUpdateProjectEditScriptVideoBlockPrompt(projectId)
+  const updateEditAssetRequirementDescription = useUpdateProjectEditScriptAssetRequirementDescription(projectId)
   const handleGenerateEditAssets = async (editScriptId: string, requirementId?: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await generateEditAssets.mutateAsync({ episodeId, editScriptId, requirementId })
@@ -127,6 +129,11 @@ export function useProjectWorkspaceController({
   const handleUpdateVideoPlanPrompt = async (editScriptId: string, blockIndex: number, prompt: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await updateVideoPlanPrompt.mutateAsync({ episodeId, editScriptId, blockIndex, prompt })
+    await onRefresh({ mode: 'full' })
+  }
+  const handleUpdateEditAssetRequirementDescription = async (editScriptId: string, requirementId: string, description: string) => {
+    if (!episodeId) throw new Error('Episode ID is required')
+    await updateEditAssetRequirementDescription.mutateAsync({ episodeId, editScriptId, requirementId, description })
     await onRefresh({ mode: 'full' })
   }
 
@@ -160,6 +167,7 @@ export function useProjectWorkspaceController({
     handleGenerateEditStoryboard,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
     handleUpdateVideoPlanPrompt,
+    handleUpdateEditAssetRequirementDescription,
     handleUpdatePanelVideoModel: videoActions.handleUpdatePanelVideoModel,
   })
 

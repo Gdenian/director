@@ -284,6 +284,20 @@ function videoPlanPromptSaveHandler(data: WorkspaceCanvasFlowNode['data']): ((ne
   }
 }
 
+function editAssetDescriptionSaveHandler(data: WorkspaceCanvasFlowNode['data']): ((nextValue: string) => Promise<void>) | undefined {
+  if (!data.onAction) return undefined
+  const details = data.editAssetDetails
+  if (!details || data.targetType !== 'editAssetRequirement') return undefined
+  return async (nextValue) => {
+    await dispatchNodeAction(data, {
+      type: 'update_edit_asset_requirement_description',
+      editScriptId: details.editScriptId,
+      requirementId: data.targetId,
+      description: nextValue,
+    })
+  }
+}
+
 function videoPlanGenerationOptions(data: WorkspaceCanvasFlowNode['data']): Record<string, string | number | boolean> | undefined {
   const action = data.action
   if (!action) return undefined
@@ -592,6 +606,10 @@ function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data']
           style={mediaStyle}
           className={isEditAsset ? 'h-full w-full object-contain' : mediaClassName}
         />
+      ) : isEditAsset ? (
+        <div className="flex h-full w-full items-center justify-center text-slate-300">
+          <AppIcon name="imageAlt" className="h-8 w-8" />
+        </div>
       ) : (
         <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc_0%,#e2e8f0_48%,#cbd5e1_100%)]">
           <span className={`${SELECTABLE_TEXT_CLASS} rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-semibold text-[var(--glass-text-secondary)] shadow-sm`}>
@@ -821,8 +839,14 @@ function EditAssetContent({
   return (
     <div className="nodrag nowheel space-y-2">
       <MediaPreview data={data} />
+      <EditablePromptSection
+        title={labels('imagePrompt')}
+        value={details.description}
+        expanded={expanded}
+        labels={labels}
+        onSave={editAssetDescriptionSaveHandler(data)}
+      />
       {renderChips(labels('linkedShots'), details.shotNumbers.map((shotNumber) => String(shotNumber)))}
-      {expanded ? renderSection(labels('description'), renderTextBlock(details.description)) : null}
       {expanded && details.errorMessage ? renderSection(labels('error'), renderTextBlock(details.errorMessage)) : null}
     </div>
   )
@@ -844,9 +868,8 @@ function VideoPlanContent({
     setPreviewMode(displayOutputUrl ? 'video' : 'reference')
   }, [displayOutputUrl])
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
-  const referenceCells = details.sourceImages
   const running = data.__running === true
-  const referenceAspectRatio = referenceCells.find((cell) => (
+  const referenceAspectRatio = details.sourceImages.find((cell) => (
     typeof cell?.aspectRatio === 'number' && Number.isFinite(cell.aspectRatio) && cell.aspectRatio > 0
   ))?.aspectRatio ?? 16 / 9
   const outputAspectRatio = typeof details.outputAspectRatio === 'number' && Number.isFinite(details.outputAspectRatio) && details.outputAspectRatio > 0
@@ -896,28 +919,19 @@ function VideoPlanContent({
               <span className="text-[10px] font-semibold">{labels('videoPlanPendingVideo')}</span>
             </div>
           </div>
-          {referenceCells.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
-              {referenceCells.map((cell) => {
-                const imageUrl = cell.imageUrl ? toDisplayImageUrl(cell.imageUrl) ?? cell.imageUrl : null
-                return (
-                  <div
-                    key={cell.shotNumber}
-                    className="relative overflow-hidden rounded-[10px] bg-slate-50 ring-1 ring-slate-200"
-                    style={{ aspectRatio: '16 / 9' }}
+          {details.shotNumbers.length > 0 ? (
+            <div className="rounded-[14px] bg-slate-50 p-2 ring-1 ring-slate-200">
+              <p className={`${SELECTABLE_TEXT_CLASS} mb-2 text-[10px] font-semibold text-[var(--glass-text-tertiary)]`}>{labels('linkedShots')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {details.shotNumbers.map((shotNumber) => (
+                  <span
+                    key={shotNumber}
+                    className={`${SELECTABLE_TEXT_CLASS} inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200`}
                   >
-                    {imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imageUrl} alt={labels('videoPlanShotAlt', { shot: cell.shotNumber })} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full bg-slate-50" />
-                    )}
-                    <span className="absolute left-1.5 top-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
-                      {cell.shotNumber}
-                    </span>
-                  </div>
-                )
-              })}
+                    {shotNumber}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>

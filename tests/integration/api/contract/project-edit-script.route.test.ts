@@ -117,6 +117,31 @@ const serviceMock = vi.hoisted(() => ({
     ],
     requirements: [],
   })),
+  updateProjectEditScriptAssetRequirementDescription: vi.fn(async () => ({
+    id: 'edit-1',
+    projectId: 'project-1',
+    episodeId: 'episode-1',
+    userPrompt: 'one minute sci-fi',
+    title: 'Orbital Silence',
+    logline: 'A pilot meets a machine intelligence.',
+    durationSec: 60,
+    shotCount: 8,
+    status: 'ready',
+    shots: [],
+    videoBlocks: [],
+    requirements: [
+      {
+        id: 'req-1',
+        kind: 'character',
+        name: 'Pilot',
+        description: 'updated asset prompt',
+        shotNumbers: [1, 2],
+        status: 'pending',
+        targetId: null,
+        errorMessage: null,
+      },
+    ],
+  })),
 }))
 
 vi.mock('@/lib/api-auth', () => {
@@ -322,6 +347,32 @@ describe('project edit script route', () => {
       editScriptId: 'edit-1',
       blockIndex: 0,
       prompt: 'updated combined prompt',
+    })
+  })
+
+  it('PATCH /api/projects/[projectId]/edit-script -> updates one required asset prompt', async () => {
+    const request = buildMockRequest({
+      path: '/api/projects/project-1/edit-script',
+      method: 'PATCH',
+      body: {
+        episodeId: 'episode-1',
+        editScriptId: 'edit-1',
+        requirementId: 'req-1',
+        description: 'updated asset prompt',
+      },
+    })
+
+    const response = await editScriptPatch(request, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.editScript.requirements[0].description).toBe('updated asset prompt')
+    expect(serviceMock.updateProjectEditScriptAssetRequirementDescription).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      requirementId: 'req-1',
+      description: 'updated asset prompt',
     })
   })
 })

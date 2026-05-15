@@ -96,6 +96,11 @@ export function useWorkspaceNodeCanvasActions() {
       return
     }
 
+    if (action.type === 'update_edit_asset_requirement_description') {
+      await runtime.onUpdateEditAssetRequirementDescription(action.editScriptId, action.requirementId, action.description)
+      return
+    }
+
     if (action.type === 'update_panel_video_model') {
       await runtime.onUpdatePanelVideoModel(action.storyboardId, action.panelIndex, action.model)
       return

@@ -53,6 +53,13 @@ interface UpdateEditScriptVideoBlockPromptInput {
   prompt: string
 }
 
+interface UpdateEditAssetRequirementDescriptionInput {
+  episodeId: string
+  editScriptId: string
+  requirementId: string
+  description: string
+}
+
 async function readJsonError(response: Response, fallback: string): Promise<Error> {
   const payload = await response.json().catch(() => null)
   return new Error(resolveTaskErrorMessage(payload, fallback))
@@ -200,6 +207,34 @@ export function useUpdateProjectEditScriptVideoBlockPrompt(projectId: string | n
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, editScript.episodeId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, editScript.episodeId) }),
+      ])
+    },
+  })
+}
+
+export function useUpdateProjectEditScriptAssetRequirementDescription(projectId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateEditAssetRequirementDescriptionInput) => {
+      if (!projectId) throw new Error('Project ID is required')
+      const response = await apiFetch(`/api/projects/${projectId}/edit-script`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) {
+        throw await readJsonError(response, 'Failed to update required asset prompt')
+      }
+      const data = await response.json() as EditScriptResponse
+      if (!data.editScript) throw new Error('EDIT_SCRIPT_RESPONSE_EMPTY')
+      return data.editScript
+    },
+    onSuccess: async (editScript) => {
+      if (!projectId) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, editScript.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, editScript.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) }),
       ])
     },
   })

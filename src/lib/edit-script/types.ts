@@ -146,6 +146,13 @@ export const updateEditScriptVideoBlockPromptRequestSchema = z.object({
   prompt: z.string().trim().min(1),
 })
 
+export const updateEditScriptAssetRequirementDescriptionRequestSchema = z.object({
+  episodeId: z.string().trim().min(1),
+  editScriptId: z.string().trim().min(1),
+  requirementId: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+})
+
 export const generateEditAssetsRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
   editScriptId: z.string().trim().min(1).optional(),
