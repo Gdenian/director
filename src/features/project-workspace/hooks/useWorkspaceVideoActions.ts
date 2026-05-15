@@ -1,7 +1,7 @@
 'use client'
 
 import { logInfo as _ulogInfo, logError as _ulogError } from '@/lib/logging/core'
-import { useGenerateVideo, useBatchGenerateVideos, useRenderFinalVideo } from '@/lib/query/hooks/useStoryboards'
+import { useGenerateVideo, useBatchGenerateVideos, useGenerateBgmScore, useRenderFinalVideo } from '@/lib/query/hooks/useStoryboards'
 import { useUpdateProjectPanelVideoPrompt, useUpdateProjectClip, useUpdateProjectConfig } from '@/lib/query/hooks'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 
@@ -38,6 +38,7 @@ export function useWorkspaceVideoActions({
 }: UseWorkspaceVideoActionsParams) {
   const generateVideoMutation = useGenerateVideo(projectId, episodeId || null)
   const batchGenerateVideosMutation = useBatchGenerateVideos(projectId, episodeId || null)
+  const generateBgmScoreMutation = useGenerateBgmScore(projectId, episodeId || null)
   const renderFinalVideoMutation = useRenderFinalVideo(projectId, episodeId || null)
   const updateProjectPanelVideoPromptMutation = useUpdateProjectPanelVideoPrompt(projectId, episodeId || null)
   const updateProjectClipMutation = useUpdateProjectClip(projectId)
@@ -132,6 +133,23 @@ export function useWorkspaceVideoActions({
     }
   }
 
+  const handleGenerateBgmScore = async () => {
+    if (!episodeId) {
+      alert(t('execution.selectEpisode'))
+      return
+    }
+    try {
+      await generateBgmScoreMutation.mutateAsync()
+    } catch (err: unknown) {
+      if (isAbortError(err)) {
+        _ulogInfo(t('execution.requestAborted'))
+        return
+      }
+      alert(`${t('execution.bgmScoreFailed')}: ${getErrorMessage(err)}`)
+      throw err
+    }
+  }
+
   const handleUpdateVideoPrompt = async (
     storyboardId: string,
     panelIndex: number,
@@ -171,6 +189,7 @@ export function useWorkspaceVideoActions({
   return {
     handleGenerateVideo,
     handleGenerateAllVideos,
+    handleGenerateBgmScore,
     handleRenderFinalVideo,
     handleUpdateVideoPrompt,
     handleUpdatePanelVideoModel,

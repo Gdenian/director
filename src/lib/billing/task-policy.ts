@@ -21,6 +21,7 @@ const BILLABLE_TASK_TYPES = new Set<TaskType>([
   TASK_TYPE.IMAGE_CHARACTER,
   TASK_TYPE.IMAGE_LOCATION,
   TASK_TYPE.MUSIC_GENERATE,
+  TASK_TYPE.BGM_SCORE_GENERATE,
   TASK_TYPE.VIDEO_PANEL,
   TASK_TYPE.VIDEO_GROUP,
   TASK_TYPE.LIP_SYNC,
@@ -290,6 +291,7 @@ export function buildDefaultTaskBillingInfo(taskType: TaskType, payload: AnyPayl
     case TASK_TYPE.VIDEO_GROUP:
       return buildVideoTaskInfo(taskType, payload)
     case TASK_TYPE.MUSIC_GENERATE:
+    case TASK_TYPE.BGM_SCORE_GENERATE:
       return buildMusicTaskInfo(taskType, payload)
     case TASK_TYPE.LIP_SYNC: {
       const lipSyncModel = pickFirstString([payload?.lipSyncModel]) || DEFAULT_LIPSYNC_MODEL_KEY

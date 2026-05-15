@@ -11,8 +11,11 @@ export const projectCanvasNodeTypeSchema = z.enum([
   'imageAsset',
   'videoClip',
   'finalTimeline',
+  'editScreenplay',
+  'editPipelineStep',
   'editScript',
   'videoPlan',
+  'bgmScore',
   'editRequiredAsset',
 ])
 
@@ -25,8 +28,12 @@ export const projectCanvasTargetTypeSchema = z.enum([
   'storyboard',
   'panel',
   'videoGroup',
+  'editScreenplay',
+  'editPipelineStep',
   'editScript',
   'editAssetRequirement',
+  'projectCharacter',
+  'projectLocation',
 ])
 
 const finiteNumberSchema = z.number().finite()

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AI_PROMPT_IDS, buildAiPrompt, type AiPromptLocale } from '@/lib/ai-prompts'
 import { editScriptShotSchema } from '@/lib/edit-script/types'
+import { normalizeVideoBlockPlanResponse } from '@/lib/video-groups/planner'
 
 export type FinalRenderAspectRatio = '9:16' | '16:9' | '21:9'
 
@@ -50,10 +51,12 @@ export interface FinalRenderVideoGroupInput {
 
 export interface FinalRenderEditScriptInput {
   readonly id: string
+  readonly userPrompt: string
   readonly title: string
   readonly logline?: string | null
   readonly durationSec: number
   readonly shots: readonly FinalRenderEditShot[]
+  readonly videoBlocks: readonly FinalRenderEditVideoBlock[]
 }
 
 export interface FinalRenderEditShot {
@@ -66,6 +69,14 @@ export interface FinalRenderEditShot {
   readonly sound: string
 }
 
+export interface FinalRenderEditVideoBlock {
+  readonly kind: 'single' | 'group'
+  readonly shotNumbers: readonly number[]
+  readonly gridMode?: '2x2' | '3x3'
+  readonly reason: string
+  readonly prompt: string
+}
+
 export interface FinalRenderClipPlan {
   readonly panelId: string
   readonly groupId?: string | null
@@ -74,12 +85,25 @@ export interface FinalRenderClipPlan {
   readonly durationSeconds: number
   readonly order: number
   readonly shotNumber: number | null
+  readonly shotNumbers: readonly number[]
   readonly description: string | null
   readonly sound: string | null
 }
 
+export interface FinalRenderProjectContextInput {
+  readonly videoRatio?: string | null
+  readonly artStyle?: string | null
+  readonly artStylePrompt?: string | null
+  readonly visualStylePresetSource?: string | null
+  readonly visualStylePresetId?: string | null
+  readonly directorStylePresetSource?: string | null
+  readonly directorStylePresetId?: string | null
+  readonly directorStyleDoc?: string | null
+}
+
 export interface FinalRenderMusicPromptInput {
   readonly editScript: FinalRenderEditScriptInput | null
+  readonly projectContext?: FinalRenderProjectContextInput | null
   readonly clips: readonly FinalRenderClipPlan[]
   readonly totalDurationSeconds: number
   readonly locale?: AiPromptLocale
@@ -181,6 +205,11 @@ function findShotByPanel(panel: FinalRenderPanelInput, editScript: FinalRenderEd
   return null
 }
 
+function shotNumberForPanelClip(shot: FinalRenderEditShot | null, panel: FinalRenderPanelInput): number | null {
+  const value = shot?.shotNumber ?? panel.panelNumber ?? null
+  return typeof value === 'number' && Number.isInteger(value) ? value : null
+}
+
 function sortPanelsForFinalRender(
   panels: readonly FinalRenderPanelInput[],
   editScript: FinalRenderEditScriptInput | null,
@@ -231,6 +260,18 @@ export function parseFinalRenderEditScriptShots(value: unknown): readonly FinalR
   return parsed.data
 }
 
+export function parseFinalRenderEditScriptVideoBlocks(input: {
+  readonly value: unknown
+  readonly shots: readonly FinalRenderEditShot[]
+}): readonly FinalRenderEditVideoBlock[] {
+  if (!Array.isArray(input.value) || input.value.length === 0) return []
+  return normalizeVideoBlockPlanResponse({
+    response: { items: input.value },
+    allShotNumbers: input.shots.map((shot) => shot.shotNumber),
+    shots: input.shots,
+  }).items
+}
+
 export function buildFinalRenderClips(input: {
   readonly panels: readonly FinalRenderPanelInput[]
   readonly videoGroups?: readonly FinalRenderVideoGroupInput[]
@@ -256,6 +297,7 @@ export function buildFinalRenderClips(input: {
       durationSeconds: clampPositiveDuration(item.group.durationSec, item.shotNumbers.length * 3),
       order: 0,
       shotNumber: item.shotNumbers[0] ?? null,
+      shotNumbers: item.shotNumbers,
       description: shotDescriptionForGroup(item.shotNumbers, input.editScript, item.group.prompt),
       sound: shotSoundForGroup(item.shotNumbers, input.editScript),
     }
@@ -269,6 +311,7 @@ export function buildFinalRenderClips(input: {
     })
   const panelClips = sortedPanels.map((panel) => {
     const shot = findShotByPanel(panel, input.editScript)
+    const shotNumber = shotNumberForPanelClip(shot, panel)
     const durationSeconds = clampPositiveDuration(panel.duration, shot?.durationSec ?? 3)
     const source = resolvePanelVideoSource(panel)
     if (!source) {
@@ -279,7 +322,8 @@ export function buildFinalRenderClips(input: {
         source: '',
         durationSeconds,
         order: 0,
-        shotNumber: shot?.shotNumber ?? panel.panelNumber ?? null,
+        shotNumber,
+        shotNumbers: shotNumber === null ? [] : [shotNumber],
         description: normalizeString(panel.description) || null,
         sound: normalizeString(shot?.sound) || null,
       }
@@ -291,7 +335,8 @@ export function buildFinalRenderClips(input: {
       source,
       durationSeconds,
       order: 0,
-      shotNumber: shot?.shotNumber ?? panel.panelNumber ?? null,
+      shotNumber,
+      shotNumbers: shotNumber === null ? [] : [shotNumber],
       description: normalizeString(panel.description) || null,
       sound: normalizeString(shot?.sound) || null,
     }
@@ -307,6 +352,67 @@ export function buildFinalRenderClips(input: {
       ...clip,
       order: index + 1,
     }))
+}
+
+function safeJsonStringify(value: unknown): string {
+  return JSON.stringify(value, null, 2) ?? 'null'
+}
+
+function buildProjectContextJson(projectContext: FinalRenderProjectContextInput | null | undefined): string {
+  if (!projectContext) return safeJsonStringify({})
+  return safeJsonStringify({
+    videoRatio: normalizeString(projectContext.videoRatio) || null,
+    artStyle: normalizeString(projectContext.artStyle) || null,
+    artStylePrompt: normalizeString(projectContext.artStylePrompt) || null,
+    visualStylePresetSource: normalizeString(projectContext.visualStylePresetSource) || null,
+    visualStylePresetId: normalizeString(projectContext.visualStylePresetId) || null,
+    directorStylePresetSource: normalizeString(projectContext.directorStylePresetSource) || null,
+    directorStylePresetId: normalizeString(projectContext.directorStylePresetId) || null,
+    directorStyleDoc: normalizeString(projectContext.directorStyleDoc) || null,
+  })
+}
+
+function buildEditScriptJson(editScript: FinalRenderEditScriptInput | null): string {
+  if (!editScript) return safeJsonStringify(null)
+  return safeJsonStringify({
+    id: editScript.id,
+    userPrompt: editScript.userPrompt,
+    title: editScript.title,
+    logline: editScript.logline ?? null,
+    durationSec: editScript.durationSec,
+    shotCount: editScript.shots.length,
+    videoBlocks: editScript.videoBlocks.map((block, index) => ({
+      blockNumber: index + 1,
+      kind: block.kind,
+      shotNumbers: block.shotNumbers,
+      gridMode: block.gridMode ?? null,
+      reason: block.reason,
+      prompt: block.prompt,
+    })),
+    shots: editScript.shots.map((shot) => ({
+      shotNumber: shot.shotNumber,
+      durationSec: shot.durationSec,
+      visualAction: shot.visualAction,
+      charactersAndScene: shot.charactersAndScene ?? '',
+      camera: shot.camera,
+      videoPrompt: shot.videoPrompt,
+      sound: shot.sound,
+    })),
+  })
+}
+
+function buildRenderedTimelineJson(clips: readonly FinalRenderClipPlan[]): string {
+  return safeJsonStringify(clips.map((clip) => ({
+    order: clip.order,
+    sourceKind: clip.sourceKind,
+    panelId: clip.panelId,
+    groupId: clip.groupId ?? null,
+    shotNumber: clip.shotNumber,
+    shotNumbers: clip.shotNumbers,
+    durationSeconds: clip.durationSeconds,
+    visualSummary: clip.description,
+    soundDirection: clip.sound,
+  })))
 }
 
 export function buildFinalRenderMusicPrompt(input: FinalRenderMusicPromptInput): string {
@@ -335,6 +441,9 @@ export function buildFinalRenderMusicPrompt(input: FinalRenderMusicPromptInput):
       title,
       story_context: storyContext,
       duration_seconds: String(Math.round(input.totalDurationSeconds)),
+      project_context_json: buildProjectContextJson(input.projectContext),
+      edit_script_json: buildEditScriptJson(input.editScript),
+      rendered_timeline_json: buildRenderedTimelineJson(input.clips),
       timeline_map: timelineMap,
     },
   })

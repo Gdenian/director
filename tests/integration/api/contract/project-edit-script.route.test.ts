@@ -6,29 +6,6 @@ const authState = vi.hoisted(() => ({
 }))
 
 const serviceMock = vi.hoisted(() => ({
-  generateProjectEditScriptBriefQuestions: vi.fn(async () => ({
-    questions: [
-      {
-        id: 'visual_style',
-        label: '这条视频需要哪种画风？',
-        options: [
-          { id: 'A', label: '漫画风' },
-          { id: 'B', label: '精致国漫' },
-          { id: 'C', label: '日系动漫风' },
-          { id: 'D', label: '真人风格' },
-        ],
-      },
-      {
-        id: 'duration',
-        label: '这条视频需要多长？',
-        options: [
-          { id: 'A', label: '15秒' },
-          { id: 'B', label: '30秒' },
-          { id: 'C', label: '60秒' },
-        ],
-      },
-    ],
-  })),
   readProjectEditScript: vi.fn(async () => ({
     id: 'edit-1',
     projectId: 'project-1',
@@ -176,9 +153,6 @@ import {
   POST as editScriptAssetsGeneratePost,
 } from '@/app/api/projects/[projectId]/edit-script/assets/generate/route'
 import {
-  POST as editScriptBriefQuestionsPost,
-} from '@/app/api/projects/[projectId]/edit-script/brief-questions/route'
-import {
   POST as editScriptStoryboardGeneratePost,
 } from '@/app/api/projects/[projectId]/edit-script/storyboard/generate/route'
 
@@ -213,41 +187,6 @@ describe('project edit script route', () => {
       locale: 'zh',
       prompt: '给我一个一分钟科幻短片',
       videoRatio: '16:9',
-    }))
-  })
-
-  it('POST /api/projects/[projectId]/edit-script/brief-questions -> asks AI for clickable questions', async () => {
-    const request = buildMockRequest({
-      path: '/api/projects/project-1/edit-script/brief-questions',
-      method: 'POST',
-      headers: { 'accept-language': 'zh' },
-      body: {
-        episodeId: 'episode-1',
-        prompt: '我需要一个太空漫游库布里克风格的短片',
-      },
-    })
-
-    const response = await editScriptBriefQuestionsPost(request, { params: Promise.resolve({ projectId: 'project-1' }) })
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.briefQuestions.questions).toHaveLength(2)
-    expect(payload.briefQuestions.questions[0]).toEqual({
-      id: 'visual_style',
-      label: '这条视频需要哪种画风？',
-      options: [
-        { id: 'A', label: '漫画风' },
-        { id: 'B', label: '精致国漫' },
-        { id: 'C', label: '日系动漫风' },
-        { id: 'D', label: '真人风格' },
-      ],
-    })
-    expect(serviceMock.generateProjectEditScriptBriefQuestions).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'project-1',
-      episodeId: 'episode-1',
-      userId: 'user-1',
-      locale: 'zh',
-      prompt: '我需要一个太空漫游库布里克风格的短片',
     }))
   })
 

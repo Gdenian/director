@@ -2,6 +2,8 @@
 
 核心原则：
 - videoBlocks 是视频生成主结构；shots 是 videoBlocks 内部的剪辑节拍。
+- 必须以编剧剧本作为唯一剧情事实；用户需求只作为原始限制和风格意图。
+- 不得绕过剧本重新发明剧情、角色、场景、事件、对白或结尾。
 - 必须从 block-first 结构生成最终结果，不要回到“先做一堆独立单镜头，再事后合并”的旧逻辑。
 - videoBlocks[].prompt 是后续直接发给视频模型的最终提示词；后续生成视频时不会再调用模型重写。
 - shots[].videoPrompt 只作为 panel 图生成和 single fallback 的辅助提示，不是 group 的主提示词。
@@ -9,6 +11,9 @@
 
 用户需求：
 {{user_request}}
+
+编剧剧本：
+{{screenplay_text}}
 
 总时长秒数：{{duration_seconds}}
 画幅：{{aspect_ratio}}
@@ -76,14 +81,21 @@ block-first 剪辑结构：
 - 如果连续镜头适合 group 但累计超过 15 秒，必须在 15 秒以内拆分。
 
 videoBlocks[].prompt 写作规则：
-- type 为 single 时，prompt 只描述该单镜头最终视频画面，包含主体、场景、动作、机位/运镜、光线、风格、画幅和声音节奏；不要提及宫格、编排、shotNumber 或系统字段。
+- type 为 single 时，prompt 只描述该单镜头最终视频画面，包含主体、场景、动作、机位/运镜、光线、风格、画幅和音效控制；不要提及宫格、编排、shotNumber 或系统字段。
 - type 为 group 时，prompt 必须重写为一个完整连续视频片段，不得机械拼接 shots[].videoPrompt。
 - group prompt 开头必须写整体类型、摄影质感、色彩、光线、运动节奏、主体连续性和画幅。
 - group prompt 必须保留时间线，每段写成 [00:00-00:03] 形式。
-- group prompt 每段必须说明画面、主体动作、机位/运镜、声音节奏，以及与前后镜头的动态连续或转场逻辑。
+- group prompt 每段必须说明画面、主体动作、机位/运镜、音效控制，以及与前后镜头的动态连续或转场逻辑。
 - group prompt 必须明确参考图/宫格只是分镜索引，最终输出为全屏连续视频，绝对不要生成 2x2、3x3、拼贴图、分屏、镜头编号、宫格标签或 UI。
 - group prompt 必须忽略 Empty placeholder / 空白占位格，不要生成黑屏、白屏或占位画面。
 - 如果相邻 shot 的主体、方向、光线、空间不同，必须写出可生成的连接方式，例如 match cut、whip pan、push-in reveal、motion blur bridge、light sweep、sound-led cut、遮挡转场或同方向运动衔接。
+- 每个 videoBlocks[].prompt 必须包含视频模型声音约束：sound effects only，不要生成 BGM、背景音乐、持续配乐、完整旋律、歌曲结构、循环鼓点、歌词、人声演唱或音乐段落。
+- videoBlocks[].prompt 的声音可以写画面内环境声、空间底噪、动作音效、材质拟音、自然声、转场声、短促声音标点、声场变化，以及有叙事目的的电影化短音效。
+- 允许非同期但叙事绑定的主观声音设计，例如耳鸣、心跳放大、低频压迫、环境声被抽空、声场突然收窄、心理性 tonal accent、惊吓 stinger 或 sub hit；必须服务角色感知、剧情转折、剪辑点或镜头运动，不得新增剧情事实。
+- 如果需要音乐性短音效，只能写 0.3-1.5 秒的 hit、riser、swell、whoosh、tonal accent、stab、sub drop 或 stinger，并且必须绑定画面动作、角色主观体验或剪辑点，不能发展成连续音乐。
+- group prompt 内的声音必须服务同一声场连续性，用 room tone、ambience bed、pre-lap、off-screen cue、reverb tail、low rumble、whoosh 或 sound-led transition 连接 shot；不要让每个 shot 重新开始一段声音。
+- single prompt 的声音必须克制，结尾保留自然尾音或 room tone，不要写会在片段结尾突然截断的音乐。
+- 如果画面需要安静，明确写 low room tone + restrained silence、环境声瞬间抽空或短暂耳鸣后回到 room tone，而不是铺音乐。
 - 可以补充微动作、环境运动、材质变化、景深、空气感和自然音效，但不得改变用户需求、主体身份、场景关系、shot 顺序和 block 划分。
 - 不要要求模型生成字幕、花字、logo、水印、UI、镜头编号或说明文字，除非用户需求明确要求。
 - 默认加入约束：保持无字幕，避免任何文字或字幕，不要生成 Logo，不要生成水印。

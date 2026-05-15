@@ -59,6 +59,7 @@ export const POST = apiHandler(async (
     userId: authResult.session.user.id,
     locale: resolveRequiredTaskLocale(request, body),
     prompt: parsed.data.prompt,
+    screenplayId: parsed.data.screenplayId,
     videoRatio: parsed.data.videoRatio,
     artStyle: parsed.data.artStyle,
   })

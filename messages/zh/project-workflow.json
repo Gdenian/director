@@ -156,6 +156,7 @@
     "batchVideoFailed": "批量生成视频失败",
     "videoModelRequired": "请先选择视频模型",
     "finalRenderFailed": "AI 剪辑失败",
+    "bgmScoreFailed": "BGM 生成失败",
     "updateFailed": "更新失败",
     "saveFailed": "保存失败",
     "storyToScriptRunning": "Story→Script V2 运行中",
@@ -247,10 +248,12 @@
         "regenerateImage": "重新生成",
         "generateVideo": "生成视频",
         "generateAllVideos": "批量生成",
+        "generateBgmScore": "生成 BGM",
+        "generatingBgm": "BGM 生成中",
         "renderFinalVideo": "AI剪辑",
         "aiEditing": "AI剪辑中",
         "generateEditAssets": "全部生成",
-        "generateEditAsset": "生成资产"
+        "generateEditAsset": "生成图片"
       },
       "status": {
         "empty": "待输入",
@@ -258,6 +261,7 @@
         "ready": "已就绪",
         "finalReady": "已成片",
         "aiEditing": "AI剪辑中",
+        "generatingBgm": "BGM 生成中",
         "processing": "处理中",
         "failed": "失败"
       },
@@ -275,6 +279,7 @@
         "image": "暂无图片提示词",
         "video": "暂无视频提示词",
         "location": "未指定场景",
+        "screenplay": "暂无剧本",
         "editScript": "暂无剪辑表",
         "editAsset": "暂无资产描述"
       },
@@ -294,7 +299,9 @@
         "promptSaving": "保存中",
         "promptSaved": "已保存",
         "promptSaveFailed": "保存失败",
+        "moreItems": "还有 {count} 项",
         "screenplay": "剧本",
+        "originalRequest": "原始需求",
         "originalClip": "原始片段",
         "scene": "场景 {index}",
         "characters": "出场角色",
@@ -335,6 +342,12 @@
         "reason": "判断理由",
         "videoPlanMeta": "片段信息",
         "videoPlanPrompt": "最终视频提示词",
+        "editStepTimeline": "时间安排",
+        "editStepVisualAction": "可见动作",
+        "editStepCamera": "镜头设计",
+        "editStepAudio": "声音设计",
+        "editStepPrimaryTable": "片段编排",
+        "editStepAssetExtract": "资产提取",
         "videoPlanGroup": "连续片段",
         "videoPlanSingle": "单镜头片段",
         "videoPlanReference": "图片",
@@ -342,6 +355,7 @@
         "videoPlanPendingVideo": "待生成视频",
         "videoPlanShotAlt": "片段参考图 {shot}",
         "assetReferenceImages": "全能参考资产图",
+        "assetReferenceImagesMissing": "请先生成资产图片",
         "generateAssetReferenceVideo": "全能参考生视频",
         "videoPlanModelMissing": "请先在项目设置中选择视频片段生成模型。",
         "videoModel": "视频模型",
@@ -351,16 +365,23 @@
         "lastOptions": "上次生成参数",
         "lipSyncError": "口型错误",
         "finalStats": "成片统计",
+        "bgmScoreStats": "BGM 统计",
         "totalShots": "总镜头",
         "totalImages": "图片",
         "totalVideos": "视频",
         "totalDuration": "总时长",
+        "stemCount": "音轨数",
+        "musicModel": "音乐模型",
+        "status": "状态",
+        "gainDb": "增益",
         "videoOrder": "视频顺序",
         "editScriptMeta": "剪辑表信息",
         "shotIndexHeader": "镜头",
         "shotIndex": "镜头 {index}",
         "charactersAndScene": "人物/场景",
         "sound": "声音",
+        "videoBlock": "视频片段",
+        "assetKind": "资产类型",
         "linkedShots": "关联镜头",
         "targetAsset": "资产 ID",
         "characterAsset": "需求人物",
@@ -384,6 +405,9 @@
           "imageGeneration": "图片生成 / 编辑",
           "videoPreview": "视频预览",
           "videoControls": "视频控制",
+          "bgmScoreOutput": "BGM 输出",
+          "bgmScoreStats": "BGM 统计",
+          "bgmScoreStems": "BGM 音轨",
           "finalOutput": "成片输出",
           "finalStats": "成片统计",
           "timelineOrder": "时间线顺序",
@@ -470,6 +494,8 @@
           "generateAssetReferenceVideos": "全能参考生视频",
           "uploadReferenceImage": "上传参考图",
           "uploadingReference": "上传中",
+          "generateBgmScore": "生成 BGM",
+          "generatingBgm": "BGM 生成中",
           "renderFinalVideo": "AI剪辑",
           "openFinalVideo": "打开成片",
           "downloadVideos": "下载视频"
@@ -511,7 +537,8 @@
           "assetReferenceImageCount": "已选择 {count} 张参考图",
           "referenceSelection": "已选择 {count} 张参考图，可包含分镜、角色、场景、道具、URL、上传或粘贴图片。",
           "noNextPanelForFirstLast": "当前镜头后面没有下一个镜头，无法使用首尾帧模式。",
-          "finalRenderRequiresVideos": "所有镜头视频生成完成后才可 AI 剪辑成片。"
+          "finalRenderRequiresVideos": "所有镜头视频生成完成后才可 AI 剪辑成片。",
+          "finalRenderRequiresBgm": "需要先生成连续 BGM，完成后才可 AI 剪辑成片。"
         },
         "status": {
           "videoReady": "已生成",
@@ -527,6 +554,8 @@
           "totalVideos": "{count} 个视频",
           "missingVideos": "{count} 个缺失",
           "totalDuration": "{count} 秒",
+          "bgmStatus": "BGM 状态：{status}",
+          "bgmStemCount": "{count} 条音轨",
           "characters": "{count} 个角色引用",
           "locations": "{count} 个场景引用",
           "props": "{count} 个道具引用"
@@ -579,12 +608,31 @@
           "body": "剪辑先行表中的视频生成片段",
           "meta": "{mode} · 镜头 {shots} · {duration} 秒"
         },
+        "bgmScore": {
+          "title": "BGM 音乐工程",
+          "eyebrow": "连续配乐",
+          "body": "{videos} 个视频片段将作为 BGM 编曲依据。",
+          "meta": "等待生成连续 BGM",
+          "ready": "BGM 已完成 · {count} 条音轨",
+          "failed": "BGM 生成失败"
+        },
         "final": {
           "title": "成片时间线",
           "eyebrow": "最终输出",
           "body": "{videos} 个视频片段已进入成片链路。",
           "meta": "顺序来自业务数据",
           "outputReady": "成片已生成，可在详情中预览"
+        },
+        "editScreenplay": {
+          "title": "剧本",
+          "eyebrow": "编剧模块",
+          "meta": "作为剪辑先行表的剧情输入"
+        },
+        "editPipelineStep": {
+          "eyebrow": "剪辑生成步骤",
+          "body": "从剪辑先行表拆出的阶段字段",
+          "pendingBody": "等待上一步完成后实时写入",
+          "meta": "{count} 项新增字段"
         },
         "editScript": {
           "eyebrow": "核心剪辑表",

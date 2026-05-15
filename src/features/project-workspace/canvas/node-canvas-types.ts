@@ -9,11 +9,14 @@ export type WorkspaceCanvasNodeKind =
   | 'imageAsset'
   | 'videoClip'
   | 'finalTimeline'
+  | 'editScreenplay'
+  | 'editPipelineStep'
   | 'editScript'
   | 'videoPlan'
+  | 'bgmScore'
   | 'editRequiredAsset'
 
-export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'panel' | 'videoGroup' | 'editScript' | 'editAssetRequirement'
+export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'panel' | 'videoGroup' | 'editScreenplay' | 'editPipelineStep' | 'editScript' | 'editAssetRequirement' | 'projectCharacter' | 'projectLocation'
 
 export type WorkspaceCanvasNodeAction =
   | { readonly type: 'update_story'; readonly value: string }
@@ -111,6 +114,7 @@ export type WorkspaceCanvasNodeAction =
       readonly generationOptions?: Record<string, string | number | boolean>
     }
   | { readonly type: 'render_final_video' }
+  | { readonly type: 'generate_bgm_score' }
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
   | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
   | { readonly type: 'generate_edit_storyboard'; readonly editScriptId: string }
@@ -212,7 +216,25 @@ export interface WorkspaceCanvasFinalDetails {
   readonly renderStatus?: string | null
 }
 
+export interface WorkspaceCanvasBgmScoreDetails {
+  readonly status?: string | null
+  readonly durationSeconds?: number | null
+  readonly musicModel?: string | null
+  readonly stemCount: number
+  readonly mixUrl?: string | null
+  readonly errorMessage?: string | null
+  readonly stems: readonly {
+    readonly role: string
+    readonly reason: string
+    readonly startSec: number
+    readonly durationSec: number
+    readonly gainDb: number
+    readonly prompt: string
+  }[]
+}
+
 export interface WorkspaceCanvasEditScriptDetails {
+  readonly screenplayText?: string | null
   readonly durationSec: number
   readonly shotCount: number
   readonly shots: readonly {
@@ -224,6 +246,25 @@ export interface WorkspaceCanvasEditScriptDetails {
     readonly videoPrompt: string
     readonly sound: string
   }[]
+}
+
+export interface WorkspaceCanvasEditPipelineStepItem {
+  readonly title: string
+  readonly fields: readonly {
+    readonly label: string
+    readonly value: string
+  }[]
+  readonly body?: string | null
+  readonly chips?: readonly string[]
+}
+
+export interface WorkspaceCanvasEditPipelineStepDetails {
+  readonly items: readonly WorkspaceCanvasEditPipelineStepItem[]
+}
+
+export interface WorkspaceCanvasEditScreenplayDetails {
+  readonly screenplayText: string
+  readonly userPrompt: string
 }
 
 export interface WorkspaceCanvasVideoPlanDetails {
@@ -256,6 +297,7 @@ export interface WorkspaceCanvasVideoPlanDetails {
 
 export interface WorkspaceCanvasEditAssetDetails {
   readonly editScriptId: string
+  readonly requirementId: string
   readonly kind: 'character' | 'location'
   readonly description: string
   readonly shotNumbers: readonly number[]
@@ -296,6 +338,9 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly imageDetails?: WorkspaceCanvasImageDetails
   readonly videoDetails?: WorkspaceCanvasVideoDetails
   readonly finalDetails?: WorkspaceCanvasFinalDetails
+  readonly bgmScoreDetails?: WorkspaceCanvasBgmScoreDetails
+  readonly editScreenplayDetails?: WorkspaceCanvasEditScreenplayDetails
+  readonly editPipelineStepDetails?: WorkspaceCanvasEditPipelineStepDetails
   readonly editScriptDetails?: WorkspaceCanvasEditScriptDetails
   readonly videoPlanDetails?: WorkspaceCanvasVideoPlanDetails
   readonly editAssetDetails?: WorkspaceCanvasEditAssetDetails

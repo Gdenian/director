@@ -181,32 +181,41 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
   },
   [AI_PROMPT_IDS.MUSIC_FINAL_RENDER_BGM]: {
     pathStem: 'music/final-render-bgm',
-    variableKeys: ['title', 'story_context', 'duration_seconds', 'timeline_map'],
+    variableKeys: [
+      'title',
+      'story_context',
+      'duration_seconds',
+      'project_context_json',
+      'edit_script_json',
+      'rendered_timeline_json',
+      'timeline_map',
+    ],
   },
-  [AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS]: {
-    pathStem: 'edit-script/brief-questions',
-    variableKeys: ['user_request', 'duration_seconds', 'available_visual_styles', 'style_context'],
+  [AI_PROMPT_IDS.EDIT_SCRIPT_SCREENPLAY]: {
+    pathStem: 'edit-script/screenplay',
+    variableKeys: ['user_request', 'duration_seconds', 'aspect_ratio', 'style_context'],
   },
   [AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE]: {
     pathStem: 'edit-script/timeline',
-    variableKeys: ['user_request', 'duration_seconds'],
+    variableKeys: ['user_request', 'screenplay_text', 'duration_seconds'],
   },
   [AI_PROMPT_IDS.EDIT_SCRIPT_VISUAL_ACTION]: {
     pathStem: 'edit-script/visual-action',
-    variableKeys: ['user_request', 'timeline_json'],
+    variableKeys: ['user_request', 'screenplay_text', 'timeline_json'],
   },
   [AI_PROMPT_IDS.EDIT_SCRIPT_CAMERA]: {
     pathStem: 'edit-script/camera',
-    variableKeys: ['user_request', 'visual_action_json', 'aspect_ratio', 'style_context'],
+    variableKeys: ['user_request', 'screenplay_text', 'visual_action_json', 'aspect_ratio', 'style_context'],
   },
   [AI_PROMPT_IDS.EDIT_SCRIPT_AUDIO]: {
     pathStem: 'edit-script/audio',
-    variableKeys: ['user_request', 'camera_json'],
+    variableKeys: ['user_request', 'screenplay_text', 'camera_json'],
   },
   [AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY]: {
     pathStem: 'edit-script/primary',
     variableKeys: [
       'user_request',
+      'screenplay_text',
       'duration_seconds',
       'timeline_json',
       'visual_action_json',

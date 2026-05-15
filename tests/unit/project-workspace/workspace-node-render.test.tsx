@@ -88,6 +88,7 @@ describe('workspace node rendering', () => {
       previewImageUrl: 'images/character-1.jpg',
       editAssetDetails: {
         editScriptId: 'edit-1',
+        requirementId: 'req-1',
         kind: 'character',
         description: 'asset description',
         shotNumbers: [1],
@@ -104,6 +105,46 @@ describe('workspace node rendering', () => {
     expect(html).not.toContain('asset-target-id')
     expect(html).not.toContain('shots 1')
     expect(html).not.toContain('src="images/character-1.jpg"')
+  })
+
+  it('renders edit pipeline step cards with only that step fields', () => {
+    const html = renderNode({
+      kind: 'editPipelineStep',
+      layoutNodeType: 'editPipelineStep',
+      targetType: 'editPipelineStep',
+      targetId: 'edit-1:visualAction',
+      title: 'Visible Action',
+      eyebrow: 'Edit Step',
+      body: 'step body',
+      meta: '2 items',
+      statusLabel: 'Ready',
+      width: 420,
+      height: 360,
+      indexLabel: 'P2',
+      editPipelineStepDetails: {
+        items: [
+          {
+            title: 'Shot 1',
+            fields: [{ label: 'Characters / Scene', value: 'Pilot / Docking Bay' }],
+            body: 'Pilot crosses the docking bay.',
+          },
+          {
+            title: 'Shot 2',
+            fields: [{ label: 'Characters / Scene', value: 'AI Chamber' }],
+            body: 'A red machine eye opens.',
+            chips: ['2'],
+          },
+        ],
+      },
+    })
+
+    expect(html).toContain('data-icon="chart"')
+    expect(html).toContain('Visible Action')
+    expect(html).toContain('Pilot / Docking Bay')
+    expect(html).toContain('Pilot crosses the docking bay.')
+    expect(html).toContain('AI Chamber')
+    expect(html).not.toContain('videoPrompt')
+    expect(html).not.toContain('Sound')
   })
 
   it('renders script clip summary by default without internal scroll', () => {
@@ -369,6 +410,42 @@ describe('workspace node rendering', () => {
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
   })
 
+  it('renders a disabled video reference action with an asset-image prerequisite hint', () => {
+    const html = renderNode({
+      kind: 'videoPlan',
+      layoutNodeType: 'videoPlan',
+      targetType: 'editScript',
+      targetId: 'edit-1:video-block:1',
+      title: 'Video plan',
+      eyebrow: 'Plan',
+      body: 'reason',
+      meta: 'shots',
+      statusLabel: 'Pending',
+      width: 420,
+      height: 560,
+      videoPlanDetails: {
+        editScriptId: 'edit-1',
+        blockIndex: 0,
+        kind: 'group',
+        shotNumbers: [1, 2],
+        durationSec: 8,
+        gridMode: '2x2',
+        reason: 'motion continuity',
+        prompt: 'editable arrangement prompt',
+        sourceImages: [
+          { shotNumber: 1, imageUrl: null, aspectRatio: null },
+          { shotNumber: 2, imageUrl: null, aspectRatio: null },
+        ],
+        assetReferences: [],
+      },
+    })
+
+    expect(html).toContain('assetReferenceImages')
+    expect(html).toContain('assetReferenceImagesMissing')
+    expect(html).toContain('generateAssetReferenceVideo')
+    expect(html).toContain('disabled=""')
+  })
+
   it('renders required asset prompt below an image placeholder and keeps it editable', () => {
     const html = renderNode({
       kind: 'editRequiredAsset',
@@ -385,6 +462,7 @@ describe('workspace node rendering', () => {
       onAction: vi.fn(),
       editAssetDetails: {
         editScriptId: 'edit-1',
+        requirementId: 'req-1',
         kind: 'character',
         description: 'asset prompt should be editable below',
         shotNumbers: [1, 2],

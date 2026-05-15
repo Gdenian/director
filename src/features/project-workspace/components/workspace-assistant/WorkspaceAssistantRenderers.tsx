@@ -11,6 +11,7 @@ import type { ComponentProps } from 'react'
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
+import { useTaskTargetStateMap } from '@/lib/query/hooks/useTaskTargetStateMap'
 import type {
   AgentPlanPartData,
   ConfirmationRequestPartData,
@@ -200,8 +201,29 @@ function InlineConfirmationRequestDataCard(props: DataMessagePartProps<Confirmat
 
 function TaskSubmittedDataCard({ data }: DataMessagePartProps<TaskSubmittedPartData>) {
   const t = useTranslations('assistantAgent')
+  const progressT = useTranslations('progress')
   const revertMutationBatch = useRevertMutationBatch()
   const [undoResult, setUndoResult] = useState<{ ok: boolean; message?: string } | null>(null)
+  const taskTargets = useMemo(() => (
+    data.targetType && data.targetId
+      ? [{
+          targetType: data.targetType,
+          targetId: data.targetId,
+          ...(data.taskType ? { types: [data.taskType] } : {}),
+        }]
+      : []
+  ), [data.targetId, data.targetType, data.taskType])
+  const taskState = useTaskTargetStateMap(data.projectId ?? null, taskTargets, {
+    enabled: Boolean(data.projectId && taskTargets.length > 0),
+  }).byKey.get(data.targetType && data.targetId ? `${data.targetType}:${data.targetId}` : '')
+  const liveProgress = typeof taskState?.progress === 'number' ? Math.max(0, Math.min(100, taskState.progress)) : null
+  const liveStatus = taskState && taskState.phase !== 'idle' ? taskState.phase : data.status
+  const liveStageLabel = useMemo(() => {
+    const raw = taskState?.stageLabel || taskState?.stage || null
+    if (!raw) return null
+    if (raw.startsWith('progress.')) return progressT(raw.slice('progress.'.length))
+    return raw
+  }, [progressT, taskState?.stage, taskState?.stageLabel])
 
   const handleUndo = async () => {
     if (!data.mutationBatchId) return
@@ -223,11 +245,22 @@ function TaskSubmittedDataCard({ data }: DataMessagePartProps<TaskSubmittedPartD
     <details className="group text-[12px] leading-5 text-[var(--glass-text-tertiary)]">
       <summary className="flex cursor-pointer list-none items-center gap-2">
         <AppIcon name="play" className="h-3.5 w-3.5 shrink-0" />
-        <span className="min-w-0 truncate">{t('cards.taskSubmitted')} · {data.operationId} · {data.status}</span>
+        <span className="min-w-0 truncate">{t('cards.taskSubmitted')} · {data.operationId} · {liveStatus}</span>
         <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
       <div className="ml-5 mt-1 space-y-0.5 text-[11px]">
         <div>{t('cards.taskIdLabel')}: {data.taskId}</div>
+        {liveStageLabel ? <div>{t('cards.stageLabel')}: {liveStageLabel}</div> : null}
+        {liveProgress !== null ? (
+          <div className="pt-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+              <div
+                className="h-full rounded-full bg-slate-500 transition-[width] duration-300"
+                style={{ width: `${liveProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         {data.runId ? <div>{t('cards.runIdLabel')}: {data.runId}</div> : null}
         {typeof data.deduped === 'boolean' ? <div>{t('cards.dedupedLabel')}: {String(data.deduped)}</div> : null}
         {data.mutationBatchId ? <div>{t('cards.undoBatchIdLabel')}: {data.mutationBatchId}</div> : null}

@@ -145,6 +145,11 @@ export function useWorkspaceNodeCanvasActions() {
       return
     }
 
+    if (action.type === 'generate_bgm_score') {
+      await runtime.onGenerateBgmScore()
+      return
+    }
+
     if (action.type === 'generate_edit_assets') {
       await runtime.onGenerateEditAssets(action.editScriptId)
       return

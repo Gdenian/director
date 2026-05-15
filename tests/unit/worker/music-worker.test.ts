@@ -3,12 +3,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 
 const generateMusicMock = vi.hoisted(() => vi.fn())
+const handleBgmScoreGenerateTaskMock = vi.hoisted(() => vi.fn())
 const uploadObjectMock = vi.hoisted(() => vi.fn())
 const ensureMediaObjectFromStorageKeyMock = vi.hoisted(() => vi.fn())
 const reportTaskProgressMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/ai-exec/engine', () => ({
+  executeAiTextStep: vi.fn(),
   generateMusic: generateMusicMock,
+}))
+
+vi.mock('@/lib/bgm-score/generate', () => ({
+  handleBgmScoreGenerateTask: handleBgmScoreGenerateTaskMock,
 }))
 
 vi.mock('@/lib/storage', () => ({

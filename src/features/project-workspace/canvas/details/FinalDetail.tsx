@@ -23,6 +23,7 @@ export default function FinalDetail(props: FinalDetailProps) {
   const finalOutputUrl = props.finalVideo?.renderStatus === 'completed'
     ? toDisplayImageUrl(props.finalVideo.outputUrl) ?? props.finalVideo.outputUrl
     : null
+  const bgmReady = props.finalVideo?.bgmScore?.status === 'completed' && Boolean(props.finalVideo.bgmScore.mix?.url)
   return (
     <div className="space-y-4">
       {finalOutputUrl ? (
@@ -64,11 +65,16 @@ export default function FinalDetail(props: FinalDetailProps) {
       </DetailSection>
       <div className="flex flex-wrap justify-end gap-2">
         <ActionButton onClick={props.onGenerateAllVideos} variant="primary">{t('actions.generateAllVideos')}</ActionButton>
-        <ActionButton onClick={props.onRenderFinalVideo} disabled={videos.length === 0 || missing.length > 0} variant="primary">{t('actions.renderFinalVideo')}</ActionButton>
+        <ActionButton onClick={props.onRenderFinalVideo} disabled={videos.length === 0 || missing.length > 0 || !bgmReady} variant="primary">{t('actions.renderFinalVideo')}</ActionButton>
         <ActionButton onClick={props.onDownloadVideos} disabled={videos.length === 0}>{t('actions.downloadVideos')}</ActionButton>
         {missing.length > 0 ? (
           <span className="rounded-md border border-dashed border-[var(--glass-stroke-base)] px-3 py-2 text-xs text-[var(--glass-text-tertiary)]">
             {t('messages.finalRenderRequiresVideos')}
+          </span>
+        ) : null}
+        {!bgmReady ? (
+          <span className="rounded-md border border-dashed border-[var(--glass-stroke-base)] px-3 py-2 text-xs text-[var(--glass-text-tertiary)]">
+            {t('messages.finalRenderRequiresBgm')}
           </span>
         ) : null}
       </div>

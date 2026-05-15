@@ -19,6 +19,9 @@ function invalidateEpisodeScoped(params: {
   params.queryClient.invalidateQueries({ queryKey: queryKeys.storyboards.all(params.episodeId) })
   params.queryClient.invalidateQueries({ queryKey: queryKeys.voiceLines.all(params.episodeId) })
   params.queryClient.invalidateQueries({ queryKey: queryKeys.voiceLines.matched(params.projectId, params.episodeId) })
+  params.queryClient.invalidateQueries({ queryKey: queryKeys.project.editScreenplay(params.projectId, params.episodeId) })
+  params.queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(params.projectId, params.episodeId) })
+  params.queryClient.invalidateQueries({ queryKey: queryKeys.project.context(params.projectId, params.episodeId) })
 }
 
 function invalidateGlobalAssetLists(params: {
@@ -120,6 +123,11 @@ export function invalidateByTarget(params: InvalidateByTargetParams) {
   }
   if (params.targetType === 'ProjectEpisode') {
     invalidateEpisodeScoped(params)
+    invalidateProjectAssetLists({
+      queryClient: params.queryClient,
+      projectId: params.projectId,
+      episodeId: params.episodeId,
+    })
     params.queryClient.invalidateQueries({ queryKey: queryKeys.projectData(params.projectId) })
     return
   }

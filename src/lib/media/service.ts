@@ -161,7 +161,8 @@ export async function resolveStorageKeyFromMediaValue(value: unknown): Promise<s
   }
 
   if (value && typeof value === 'object') {
-    const maybeValue = (value as { url?: unknown; imageUrl?: unknown; key?: unknown }).url
+    const maybeValue = (value as { storageKey?: unknown }).storageKey
+      ?? (value as { url?: unknown; imageUrl?: unknown; key?: unknown }).url
       ?? (value as { imageUrl?: unknown }).imageUrl
       ?? (value as { key?: unknown }).key
     return resolveStorageKeyFromMediaValue(maybeValue)

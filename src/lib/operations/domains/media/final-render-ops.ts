@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { TASK_TYPE } from '@/lib/task/types'
-import { parseModelKeyStrict } from '@/lib/ai-registry/selection'
+import { readCompletedBgmScoreMix } from '@/lib/bgm-score/project-data'
 import type { TaskSubmittedPartData } from '@/lib/project-agent/types'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { writeOperationDataPart } from '@/lib/operations/types'
@@ -15,8 +15,6 @@ import {
 const finalRenderInputSchema = z.object({
   confirmed: z.boolean().optional(),
   episodeId: z.string().min(1).optional(),
-  musicModel: z.string().min(1).optional(),
-  outputFormat: z.enum(['mp3', 'wav']).optional(),
   bgmVolume: z.number().min(0).max(1).optional(),
 }).passthrough()
 
@@ -24,31 +22,6 @@ type FinalRenderInput = z.infer<typeof finalRenderInputSchema>
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function requireModelKey(value: string): string {
-  const parsed = parseModelKeyStrict(value)
-  if (!parsed) throw new Error('PROJECT_AGENT_FINAL_RENDER_MUSIC_MODEL_INVALID')
-  return parsed.modelKey
-}
-
-async function resolveMusicModel(input: FinalRenderInput, projectId: string, userId: string): Promise<string> {
-  const requested = normalizeString(input.musicModel)
-  if (requested) return requireModelKey(requested)
-
-  const [project, pref] = await Promise.all([
-    prisma.project.findUnique({
-      where: { id: projectId },
-      select: { musicModel: true },
-    }),
-    prisma.userPreference.findUnique({
-      where: { userId },
-      select: { musicModel: true },
-    }),
-  ])
-  const configured = normalizeString(project?.musicModel) || normalizeString(pref?.musicModel)
-  if (!configured) throw new Error('PROJECT_AGENT_FINAL_RENDER_MUSIC_MODEL_REQUIRED')
-  return requireModelKey(configured)
 }
 
 async function resolveEpisodeId(input: FinalRenderInput, contextEpisodeId: unknown, projectId: string): Promise<string> {
@@ -62,18 +35,26 @@ async function resolveEpisodeId(input: FinalRenderInput, contextEpisodeId: unkno
   return episode.id
 }
 
+async function assertCompletedBgmScore(episodeId: string): Promise<void> {
+  const editorProject = await prisma.videoEditorProject.findUnique({
+    where: { episodeId },
+    select: { projectData: true },
+  })
+  const mix = readCompletedBgmScoreMix(editorProject?.projectData ?? null)
+  if (!mix) throw new Error('PROJECT_AGENT_FINAL_RENDER_BGM_REQUIRED')
+}
+
 export function createFinalRenderOperations(): ProjectAgentOperationRegistryDraft {
   const taskSubmitOutput = refineTaskSubmitOperationOutputSchema(
     taskSubmitOperationOutputSchemaBase.extend({
       episodeId: z.string().min(1),
-      musicModel: z.string().min(1),
     }).passthrough(),
   )
 
   return {
     render_final_video: defineOperation({
       id: 'render_final_video',
-      summary: 'Generate BGM from the edit-first timing/emotion map and render the final linear edited video with FFmpeg.',
+      summary: 'Render the final linear edited video with FFmpeg using the already generated episode BGM score.',
       intent: 'act',
       prerequisites: { episodeId: 'required' },
       effects: {
@@ -87,17 +68,15 @@ export function createFinalRenderOperations(): ProjectAgentOperationRegistryDraf
       },
       confirmation: {
         required: true,
-        summary: '将根据 edit-first 剪辑表生成背景音乐并用 FFmpeg 导出最终成片（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+        summary: '将使用已生成的连续 BGM 与视频原声导出最终成片（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
       },
       inputSchema: finalRenderInputSchema,
       outputSchema: taskSubmitOutput,
       execute: async (ctx, input) => {
         const episodeId = await resolveEpisodeId(input, ctx.context.episodeId, ctx.projectId)
-        const musicModel = await resolveMusicModel(input, ctx.projectId, ctx.userId)
+        await assertCompletedBgmScore(episodeId)
         const payload: Record<string, unknown> = {
           episodeId,
-          musicModel,
-          ...(input.outputFormat ? { outputFormat: input.outputFormat } : {}),
           ...(typeof input.bgmVolume === 'number' ? { bgmVolume: input.bgmVolume } : {}),
         }
 
@@ -128,7 +107,6 @@ export function createFinalRenderOperations(): ProjectAgentOperationRegistryDraf
         return {
           ...result,
           episodeId,
-          musicModel,
         }
       },
     }),

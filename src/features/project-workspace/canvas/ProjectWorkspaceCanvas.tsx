@@ -18,9 +18,10 @@ import {
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import { logWarn as _ulogWarn } from '@/lib/logging/core'
+import { TASK_TYPE } from '@/lib/task/types'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
 import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
-import { useProjectEditScript } from '@/lib/query/hooks'
+import { useProjectEditScreenplay, useProjectEditScript } from '@/lib/query/hooks'
 import { useTaskTargetStateMap } from '@/lib/query/hooks/useTaskTargetStateMap'
 import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageData'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
@@ -130,6 +131,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceRuntime()
   const { episodeName, novelText, clips, storyboards, shots, finalVideo, videoGroups } = useWorkspaceEpisodeStageData()
+  const { data: editScreenplay } = useProjectEditScreenplay(projectId, episodeId ?? null)
   const { data: editScript } = useProjectEditScript(projectId, episodeId ?? null)
   const reactFlow = useReactFlow<WorkspaceCanvasFlowNode>()
   const runNodeAction = useWorkspaceNodeCanvasActions()
@@ -158,15 +160,45 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const savedNodeLayouts = layout?.nodeLayouts ?? EMPTY_SAVED_NODE_LAYOUTS
   const finalRenderTargets = useMemo(
     () => episodeId
-      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: ['final_video_render'] }]
+      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.FINAL_VIDEO_RENDER] }]
+      : [],
+    [episodeId],
+  )
+  const bgmScoreTargets = useMemo(
+    () => episodeId
+      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.BGM_SCORE_GENERATE] }]
+      : [],
+    [episodeId],
+  )
+  const editScriptGenerationTargets = useMemo(
+    () => episodeId
+      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.EDIT_SCRIPT_GENERATE] }]
       : [],
     [episodeId],
   )
   const finalRenderTaskState = useTaskTargetStateMap(projectId, finalRenderTargets, {
     enabled: Boolean(projectId && episodeId),
   }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
+  const bgmScoreTaskState = useTaskTargetStateMap(projectId, bgmScoreTargets, {
+    enabled: Boolean(projectId && episodeId),
+  }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
+  const editScriptGenerationTaskState = useTaskTargetStateMap(projectId, editScriptGenerationTargets, {
+    enabled: Boolean(projectId && episodeId),
+  }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
+  const editScriptGenerationActive =
+    editScriptGenerationTaskState?.phase === 'queued' || editScriptGenerationTaskState?.phase === 'processing'
+  const projectedEditScript = useMemo(() => (
+    editScriptGenerationActive && editScript
+      ? { ...editScript, status: 'generating' }
+      : editScript
+  ), [editScript, editScriptGenerationActive])
+  const effectiveEditScriptPending = editScriptPending || (editScriptGenerationActive && !editScript)
   const nodeRunningStatusLabel = useCallback((node: WorkspaceCanvasFlowNode): string => (
-    node.data.kind === 'finalTimeline' ? t('status.aiEditing') : t('status.processing')
+    node.data.kind === 'finalTimeline'
+      ? t('status.aiEditing')
+      : node.data.kind === 'bgmScore'
+        ? t('status.generatingBgm')
+        : t('status.processing')
   ), [t])
   const clearOptimisticRunningNode = useCallback((nodeId: string) => {
     const timer = optimisticRunningClearTimersRef.current.get(nodeId)
@@ -266,14 +298,17 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     clips,
     storyboards,
     shots,
-    editScript,
-    editScriptPending,
+    editScreenplay,
+    editScript: projectedEditScript,
+    editScriptPending: effectiveEditScriptPending,
     finalVideo,
     videoGroups,
     defaultVideoModel: runtime.singleShotVideoModel ?? runtime.videoModel ?? null,
     defaultSequenceVideoModel: runtime.sequenceVideoModel ?? null,
     finalRenderPhase: finalRenderTaskState?.phase,
     finalRenderErrorMessage: finalRenderTaskState?.lastError?.message ?? null,
+    bgmScorePhase: bgmScoreTaskState?.phase,
+    bgmScoreErrorMessage: bgmScoreTaskState?.lastError?.message ?? null,
     savedLayouts: savedNodeLayouts,
     translate: t,
     onAction: onNodeAction,
@@ -415,14 +450,17 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       clips,
       storyboards,
       shots,
-      editScript,
-      editScriptPending,
+      editScreenplay,
+      editScript: projectedEditScript,
+      editScriptPending: effectiveEditScriptPending,
       finalVideo,
       videoGroups,
       defaultVideoModel: runtime.singleShotVideoModel ?? runtime.videoModel ?? null,
       defaultSequenceVideoModel: runtime.sequenceVideoModel ?? null,
       finalRenderPhase: finalRenderTaskState?.phase,
       finalRenderErrorMessage: finalRenderTaskState?.lastError?.message ?? null,
+      bgmScorePhase: bgmScoreTaskState?.phase,
+      bgmScoreErrorMessage: bgmScoreTaskState?.lastError?.message ?? null,
       savedLayouts: EMPTY_SAVED_NODE_LAYOUTS,
       translate: t,
       onAction: onNodeAction,
@@ -431,7 +469,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     void resetSavedLayout().catch((error: unknown) => {
       _ulogWarn('[ProjectWorkspaceCanvas] canvas layout reset failed', error)
     })
-  }, [attachNodeUiState, clips, editScript, editScriptPending, episodeId, episodeName, finalRenderTaskState?.lastError?.message, finalRenderTaskState?.phase, finalVideo, novelText, onNodeAction, projectId, resetSavedLayout, runtime.sequenceVideoModel, runtime.singleShotVideoModel, runtime.videoModel, shots, storyboards, t, videoGroups])
+  }, [attachNodeUiState, bgmScoreTaskState?.lastError?.message, bgmScoreTaskState?.phase, clips, editScreenplay, effectiveEditScriptPending, episodeId, episodeName, finalRenderTaskState?.lastError?.message, finalRenderTaskState?.phase, finalVideo, novelText, onNodeAction, projectId, projectedEditScript, resetSavedLayout, runtime.sequenceVideoModel, runtime.singleShotVideoModel, runtime.videoModel, shots, storyboards, t, videoGroups])
 
   const fitView = useCallback(() => {
     void reactFlow.fitView({ padding: 0.14, duration: 180 })

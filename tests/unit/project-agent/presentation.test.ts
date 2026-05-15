@@ -78,6 +78,26 @@ describe('project agent presentation', () => {
           panelCount: 3,
           voiceLineCount: 1,
         },
+        editScreenplay: {
+          id: 'screenplay-1',
+          status: 'ready',
+          userPrompt: 'make a short film',
+          textPreview: 'INT. DOCK - NIGHT',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+        editScript: {
+          id: 'edit-1',
+          status: 'ready',
+          title: 'Dock',
+          logline: 'A pilot waits.',
+          durationSec: 30,
+          shotCount: 6,
+          singleBlockCount: 2,
+          groupBlockCount: 1,
+          requirementCount: 3,
+          pendingRequirementCount: 1,
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
         clips: [
           {
             clipId: 'clip-1',
@@ -109,6 +129,8 @@ describe('project agent presentation', () => {
     } satisfies ProjectContextSnapshot)
 
     expect('workflow' in snapshot).toBe(false)
+    expect(snapshot.editScreenplay?.id).toBe('screenplay-1')
+    expect(snapshot.editScript?.groupBlockCount).toBe(1)
     expect(snapshot.recentOperationResults[0]?.media?.url).toBe('https://audio.example/music.mp3')
   })
 

@@ -33,6 +33,7 @@ import { handleAnalyzeGlobalTask } from './handlers/analyze-global'
 import { handleAssetHubAIModifyTask } from './handlers/asset-hub-ai-modify'
 import { handleReferenceToCharacterTask } from './handlers/reference-to-character'
 import { handleShotAITask } from './handlers/shot-ai-tasks'
+import { handleEditScriptGenerateTask } from './handlers/edit-script-generate'
 import { resolveProjectDirectorStyleDoc } from '@/lib/style-preset'
 import { canonicalizeStoryboardPanels } from '@/lib/storyboard-character-bindings'
 
@@ -671,6 +672,8 @@ async function processTextTask(job: Job<TaskJobData>) {
       return await handleEpisodeSplitTask(job)
     case TASK_TYPE.ANALYZE_GLOBAL:
       return await handleAnalyzeGlobalTask(job)
+    case TASK_TYPE.EDIT_SCRIPT_GENERATE:
+      return await handleEditScriptGenerateTask(job)
     case TASK_TYPE.AI_CREATE_CHARACTER:
     case TASK_TYPE.AI_CREATE_LOCATION:
     case TASK_TYPE.ASSET_HUB_AI_DESIGN_CHARACTER:

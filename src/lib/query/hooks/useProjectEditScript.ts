@@ -3,30 +3,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api-fetch'
 import { resolveTaskErrorMessage } from '@/lib/task/error-message'
-import type { EditScriptBriefQuestionsPayload } from '@/lib/edit-script/types'
 import type { EditScriptVideoRatio } from '@/lib/edit-script/types'
 import type { ArtStyleValue } from '@/lib/constants'
-import type { ProjectEditScript } from '@/types/project'
+import type { ProjectEditScreenplay, ProjectEditScript } from '@/types/project'
 import { queryKeys } from '../keys'
 
 interface EditScriptResponse {
   editScript: ProjectEditScript | null
 }
 
+interface EditScreenplayResponse {
+  screenplay: ProjectEditScreenplay | null
+}
+
 interface CreateEditScriptInput {
   episodeId: string
   prompt: string
+  screenplayId?: string
   videoRatio?: EditScriptVideoRatio
   artStyle?: ArtStyleValue
 }
 
-interface CreateEditScriptBriefQuestionsInput {
+interface CreateEditScreenplayInput {
   episodeId: string
   prompt: string
-}
-
-interface EditScriptBriefQuestionsResponse {
-  briefQuestions: EditScriptBriefQuestionsPayload
+  videoRatio?: EditScriptVideoRatio
+  artStyle?: ArtStyleValue
 }
 
 interface GenerateEditScriptAssetsInput {
@@ -83,6 +85,24 @@ export function useProjectEditScript(projectId: string | null, episodeId: string
   })
 }
 
+export function useProjectEditScreenplay(projectId: string | null, episodeId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.project.editScreenplay(projectId || '', episodeId || ''),
+    queryFn: async () => {
+      if (!projectId || !episodeId) throw new Error('Project ID and episode ID are required')
+      const search = new URLSearchParams({ episodeId })
+      const response = await apiFetch(`/api/projects/${projectId}/edit-script/screenplay?${search.toString()}`)
+      if (!response.ok) {
+        throw await readJsonError(response, 'Failed to load edit screenplay')
+      }
+      const data = await response.json() as EditScreenplayResponse
+      return data.screenplay
+    },
+    enabled: Boolean(projectId && episodeId),
+    staleTime: 5000,
+  })
+}
+
 export function useCreateProjectEditScript(projectId: string | null) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -110,20 +130,30 @@ export function useCreateProjectEditScript(projectId: string | null) {
   })
 }
 
-export function useCreateProjectEditScriptBriefQuestions(projectId: string | null) {
+export function useCreateProjectEditScreenplay(projectId: string | null) {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreateEditScriptBriefQuestionsInput) => {
+    mutationFn: async (input: CreateEditScreenplayInput) => {
       if (!projectId) throw new Error('Project ID is required')
-      const response = await apiFetch(`/api/projects/${projectId}/edit-script/brief-questions`, {
+      const response = await apiFetch(`/api/projects/${projectId}/edit-script/screenplay`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(input),
       })
       if (!response.ok) {
-        throw await readJsonError(response, 'Failed to generate edit brief questions')
+        throw await readJsonError(response, 'Failed to generate edit screenplay')
       }
-      const data = await response.json() as EditScriptBriefQuestionsResponse
-      return data.briefQuestions
+      const data = await response.json() as EditScreenplayResponse
+      if (!data.screenplay) throw new Error('EDIT_SCREENPLAY_RESPONSE_EMPTY')
+      return data.screenplay
+    },
+    onSuccess: async (screenplay) => {
+      if (!projectId) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.project.editScreenplay(projectId, screenplay.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, screenplay.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, screenplay.episodeId) }),
+      ])
     },
   })
 }

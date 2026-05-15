@@ -104,6 +104,12 @@ function inferTaskContractFromOperation(params: {
         targetType: 'Project',
         targetId: params.projectId,
       }
+    case 'generate_episode_bgm_score':
+      return {
+        type: TASK_TYPE.BGM_SCORE_GENERATE,
+        targetType: 'ProjectEpisode',
+        targetId: typeof input.episodeId === 'string' ? input.episodeId : 'episode-1',
+      }
     case 'lip_sync':
       return {
         type: TASK_TYPE.LIP_SYNC,
@@ -318,6 +324,24 @@ export const prismaMock = {
     findFirst: vi.fn(async () => ({
       id: 'episode-1',
       speakerVoices: '{}',
+      editScript: { durationSec: 30 },
+    })),
+  },
+  videoEditorProject: {
+    findUnique: vi.fn(async () => ({
+      projectData: JSON.stringify({
+        schemaVersion: 1,
+        bgmScore: {
+          status: 'completed',
+          mix: {
+            mediaId: 'media-bgm',
+            url: '/m/bgm.m4a',
+            storageKey: 'music/bgm.m4a',
+            mimeType: 'audio/mp4',
+            durationMs: 30000,
+          },
+        },
+      }),
     })),
   },
   projectVoiceLine: {
@@ -544,6 +568,24 @@ export const DIRECT_MEDIA_CASES: ReadonlyArray<DirectRouteCase> = [
       prompt: 'tense city chase score',
       durationSeconds: 30,
       vocalMode: 'instrumental',
+      outputFormat: 'mp3',
+    },
+  },
+  {
+    routeFile: 'src/app/api/projects/[projectId]/generate-bgm/route.ts',
+    body: {
+      confirmed: true,
+      episodeId: 'episode-1',
+      musicModel: 'google::lyria-3-clip-preview',
+      outputFormat: 'mp3',
+    },
+    params: { projectId: 'project-1' },
+    expectedTaskType: TASK_TYPE.BGM_SCORE_GENERATE,
+    expectedTargetType: 'ProjectEpisode',
+    expectedProjectId: 'project-1',
+    expectedPayloadSubset: {
+      episodeId: 'episode-1',
+      musicModel: 'google::lyria-3-clip-preview',
       outputFormat: 'mp3',
     },
   },

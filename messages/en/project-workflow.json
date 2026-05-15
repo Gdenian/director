@@ -156,6 +156,7 @@
     "batchVideoFailed": "Batch video generation failed",
     "videoModelRequired": "Please choose a video model first",
     "finalRenderFailed": "AI final edit failed",
+    "bgmScoreFailed": "BGM generation failed",
     "updateFailed": "Update failed",
     "saveFailed": "Save failed",
     "storyToScriptRunning": "Story→Script V2 running",
@@ -247,10 +248,12 @@
         "regenerateImage": "Regenerate",
         "generateVideo": "Generate Video",
         "generateAllVideos": "Batch Generate",
+        "generateBgmScore": "Generate BGM",
+        "generatingBgm": "Generating BGM",
         "renderFinalVideo": "AI Edit",
         "aiEditing": "AI Editing",
         "generateEditAssets": "Generate All",
-        "generateEditAsset": "Generate Asset"
+        "generateEditAsset": "Generate Image"
       },
       "status": {
         "empty": "Empty",
@@ -258,6 +261,7 @@
         "ready": "Ready",
         "finalReady": "Final Ready",
         "aiEditing": "AI Editing",
+        "generatingBgm": "Generating BGM",
         "processing": "Processing",
         "failed": "Failed"
       },
@@ -275,6 +279,7 @@
         "image": "No image prompt",
         "video": "No video prompt",
         "location": "No location",
+        "screenplay": "No screenplay",
         "editScript": "No edit table",
         "editAsset": "No asset description"
       },
@@ -294,7 +299,9 @@
         "promptSaving": "Saving",
         "promptSaved": "Saved",
         "promptSaveFailed": "Save failed",
+        "moreItems": "{count} more",
         "screenplay": "Screenplay",
+        "originalRequest": "Original Request",
         "originalClip": "Original Clip",
         "scene": "Scene {index}",
         "characters": "Characters",
@@ -335,6 +342,12 @@
         "reason": "Reason",
         "videoPlanMeta": "Segment Info",
         "videoPlanPrompt": "Final Video Prompt",
+        "editStepTimeline": "Timing Plan",
+        "editStepVisualAction": "Visible Action",
+        "editStepCamera": "Camera Design",
+        "editStepAudio": "Sound Design",
+        "editStepPrimaryTable": "Segment Plan",
+        "editStepAssetExtract": "Asset Extraction",
         "videoPlanGroup": "Continuous Segment",
         "videoPlanSingle": "Single-Shot Segment",
         "videoPlanReference": "Images",
@@ -342,6 +355,7 @@
         "videoPlanPendingVideo": "Video pending",
         "videoPlanShotAlt": "Segment reference image {shot}",
         "assetReferenceImages": "Universal Reference Assets",
+        "assetReferenceImagesMissing": "Generate asset images first",
         "generateAssetReferenceVideo": "Generate With References",
         "videoPlanModelMissing": "Choose a video segment generation model in project settings first.",
         "videoModel": "Video Model",
@@ -351,16 +365,23 @@
         "lastOptions": "Last Generation Options",
         "lipSyncError": "Lip-sync Error",
         "finalStats": "Final Stats",
+        "bgmScoreStats": "BGM Stats",
         "totalShots": "Total Shots",
         "totalImages": "Images",
         "totalVideos": "Videos",
         "totalDuration": "Total Duration",
+        "stemCount": "Stems",
+        "musicModel": "Music Model",
+        "status": "Status",
+        "gainDb": "Gain",
         "videoOrder": "Video Order",
         "editScriptMeta": "Edit Table Info",
         "shotIndexHeader": "Shot",
         "shotIndex": "Shot {index}",
         "charactersAndScene": "Characters / Scene",
         "sound": "Sound",
+        "videoBlock": "Video Segment",
+        "assetKind": "Asset Type",
         "linkedShots": "Linked Shots",
         "targetAsset": "Asset ID",
         "characterAsset": "Required Character",
@@ -384,6 +405,9 @@
           "imageGeneration": "Image Generation / Edit",
           "videoPreview": "Video Preview",
           "videoControls": "Video Controls",
+          "bgmScoreOutput": "BGM Output",
+          "bgmScoreStats": "BGM Stats",
+          "bgmScoreStems": "BGM Stems",
           "finalOutput": "Final Output",
           "finalStats": "Final Stats",
           "timelineOrder": "Timeline Order",
@@ -470,6 +494,8 @@
           "generateAssetReferenceVideos": "Generate With References",
           "uploadReferenceImage": "Upload Reference",
           "uploadingReference": "Uploading",
+          "generateBgmScore": "Generate BGM",
+          "generatingBgm": "Generating BGM",
           "renderFinalVideo": "AI Edit",
           "openFinalVideo": "Open Final Video",
           "downloadVideos": "Download Videos"
@@ -511,7 +537,8 @@
           "assetReferenceImageCount": "{count} reference image(s) selected",
           "referenceSelection": "{count} reference images selected. References can come from panels, characters, locations, props, URLs, uploads, or pasted images.",
           "noNextPanelForFirstLast": "This shot has no next shot, so first/last frame mode cannot be used.",
-          "finalRenderRequiresVideos": "Generate every shot video before running the AI final edit."
+          "finalRenderRequiresVideos": "Generate every shot video before running the AI final edit.",
+          "finalRenderRequiresBgm": "Generate the continuous BGM before running the AI final edit."
         },
         "status": {
           "videoReady": "Ready",
@@ -527,6 +554,8 @@
           "totalVideos": "{count} videos",
           "missingVideos": "{count} missing",
           "totalDuration": "{count}s",
+          "bgmStatus": "BGM status: {status}",
+          "bgmStemCount": "{count} stems",
           "characters": "{count} character references",
           "locations": "{count} location references",
           "props": "{count} prop references"
@@ -579,12 +608,31 @@
           "body": "Video generation segment from the edit-first table",
           "meta": "{mode} · shots {shots} · {duration}s"
         },
+        "bgmScore": {
+          "title": "BGM Music Project",
+          "eyebrow": "Continuous Score",
+          "body": "{videos} video segments will guide the BGM arrangement.",
+          "meta": "Waiting to generate continuous BGM",
+          "ready": "BGM ready · {count} stems",
+          "failed": "BGM generation failed"
+        },
         "final": {
           "title": "Final Timeline",
           "eyebrow": "Final Output",
           "body": "{videos} video clips have entered the final chain.",
           "meta": "Order comes from domain data",
           "outputReady": "Final video generated. Preview it in details."
+        },
+        "editScreenplay": {
+          "title": "Screenplay",
+          "eyebrow": "Screenwriting Module",
+          "meta": "Story input for the edit-first table"
+        },
+        "editPipelineStep": {
+          "eyebrow": "Edit Generation Step",
+          "body": "Step fields projected from the edit-first table",
+          "pendingBody": "Waiting for the previous step to persist",
+          "meta": "{count} new field(s)"
         },
         "editScript": {
           "eyebrow": "Core Edit Table",

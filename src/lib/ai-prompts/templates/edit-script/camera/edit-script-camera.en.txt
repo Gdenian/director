@@ -10,12 +10,19 @@ Core principles:
 User request:
 {{user_request}}
 
+Screenplay:
+{{screenplay_text}}
+
 Aspect ratio: {{aspect_ratio}}
 Style context:
 {{style_context}}
 
 Block-first visual action JSON:
 {{visual_action_json}}
+
+Plot source:
+- Camera choices must only serve the plot established by the screenplay and visual action JSON. Do not add plot.
+- The user request is only an original constraint source. Do not bypass the screenplay to rewrite events or character relationships.
 
 Output format:
 {

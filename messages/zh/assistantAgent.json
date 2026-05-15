@@ -4,11 +4,13 @@
     "title": "工作台对话",
     "pending": "执行中",
     "ready": "就绪",
-    "composerPlaceholder": "输入短片需求，AI 会先给出可点击问题，然后生成唯一剪辑图。",
+    "composerPlaceholder": "输入你的需求，AI 会读取项目状态并选择合适的工具。",
     "sending": "发送中...",
     "send": "发送",
     "streaming": "流式响应中",
     "loading": "加载中",
+    "thinking": "AI 思考中",
+    "responding": "AI 正在响应",
     "statusReady": "就绪",
     "errorTitle": "发生错误",
     "errorHint": "请下载日志并附上 requestId 以便排查；你也可以直接重试一次相同指令。",
@@ -26,35 +28,7 @@
     "downloadLog": "下载日志",
     "workspaceStatus": "节点画布",
     "pendingActionsTitle": "待处理动作",
-    "editFirstHint": "当前唯一模式：AI 先生成可点击问题，回答后生成剪辑表和需求资产。",
-    "editFirstGenerating": "生成中...",
-    "editFirstStatusBriefQuestions": "AI 正在生成基础问题",
-    "editFirstStatusAnswering": "请选择基础问题",
-    "editFirstStatusEditScript": "AI 正在生成剪辑表",
-    "editFirstProgress": {
-      "currentStep": "当前：{step}",
-      "briefQuestions": {
-        "description": "AI 正在理解短片需求，并生成可以直接点击的基础选择。",
-        "understandRequest": "理解短片需求",
-        "designQuestions": "设计基础问题",
-        "prepareOptions": "准备可点击选项"
-      },
-      "editScript": {
-        "description": "AI 正在按剪辑先行流程生成唯一剪辑表，并提取人物和场景需求资产。",
-        "rhythm": "生成镜头节奏",
-        "visualAction": "生成画面和动作",
-        "camera": "生成景别和运镜",
-        "videoPrompt": "生成视频提示词",
-        "sound": "生成声音设计",
-        "assets": "提取人物和场景需求资产",
-        "persist": "写入剪辑表和画布节点"
-      }
-    },
-    "editFirstComplete": "剪辑表已生成：{shots} 个镜头，约 {duration} 秒，{assets} 个需求资产。",
-    "episodeRequired": "请先进入一个具体剧集，再生成剪辑图。",
-    "briefQuestionBadge": "基础问题",
-    "briefQuestionMissing": "基础问题配置缺失，无法继续生成剪辑图。",
-    "briefAnswerPromptTitle": "用户已点击选择的基础需求：",
+    "assistantHint": "通用助手会先读取项目状态，再按需要调用剧本、剪辑表、资产、视频或成片工具。",
     "pendingApprovalChip": "审批：{label}",
     "pendingConfirmationChip": "确认：{label}",
     "latest": "最新",
@@ -90,6 +64,12 @@
     "arguments": "参数",
     "result": "结果",
     "waiting": "等待工具返回结果..."
+  },
+  "autoFollowUp": {
+    "taskCompleted": "后台任务 {operation} 已完成（taskId: {taskId}）。请先读取最新项目状态和任务结果，再判断制作流程下一步；不要假设结果，如果下一步需要写入或计费，按当前确认规则请求用户确认。",
+    "taskFailed": "后台任务 {operation} 执行失败（taskId: {taskId}）。请读取最新项目状态和任务错误，向用户说明失败原因和可执行的下一步。",
+    "batchCompleted": "后台批量任务 {operation} 已全部完成（共 {total} 个）。请先读取最新项目状态和任务结果，再判断制作流程下一步；不要假设结果，如果下一步需要写入或计费，按当前确认规则请求用户确认。",
+    "batchFailed": "后台批量任务 {operation} 已结束，其中 {failed}/{total} 个失败。请读取最新项目状态和任务错误，向用户说明失败范围和可执行的下一步。"
   },
   "thread": {
     "user": "用户",
@@ -164,6 +144,7 @@
     "operationLabel": "操作",
     "taskIdLabel": "任务 ID",
     "statusLabel": "状态",
+    "stageLabel": "阶段",
     "runIdLabel": "运行 ID",
     "dedupedLabel": "是否去重",
     "undoBatchIdLabel": "撤回批次 ID",

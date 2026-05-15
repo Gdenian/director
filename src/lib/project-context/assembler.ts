@@ -10,6 +10,45 @@ type ApprovalSummaryRow = {
   createdAt: Date
 }
 
+function compactPreview(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function countEditScriptVideoBlocks(value: unknown): {
+  singleBlockCount: number
+  groupBlockCount: number
+} {
+  if (!Array.isArray(value)) {
+    return {
+      singleBlockCount: 0,
+      groupBlockCount: 0,
+    }
+  }
+
+  let singleBlockCount = 0
+  let groupBlockCount = 0
+  for (const item of value) {
+    if (!isRecord(item)) continue
+    const kind = typeof item.kind === 'string'
+      ? item.kind
+      : typeof item.type === 'string'
+        ? item.type
+        : ''
+    if (kind === 'single') singleBlockCount += 1
+    if (kind === 'group') groupBlockCount += 1
+  }
+  return {
+    singleBlockCount,
+    groupBlockCount,
+  }
+}
+
 async function listLatestArtifactsForContext(params: {
   userId: string
   projectId: string
@@ -82,7 +121,7 @@ export async function assembleProjectContext(params: {
   selectedClipId?: string | null
   selectedAssetId?: string | null
 }): Promise<ProjectContextSnapshot> {
-  const [project, episode, runs, latestArtifacts, approvals, activeOperationTasks, recentOperationResults] = await Promise.all([
+  const [project, episode, editScreenplay, editScript, runs, latestArtifacts, approvals, activeOperationTasks, recentOperationResults] = await Promise.all([
     prisma.project.findUnique({
       where: { id: params.projectId },
     }),
@@ -119,6 +158,44 @@ export async function assembleProjectContext(params: {
               orderBy: { lineIndex: 'asc' },
               select: {
                 id: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve(null),
+    params.episodeId
+      ? prisma.projectEditScreenplay.findFirst({
+          where: {
+            projectId: params.projectId,
+            episodeId: params.episodeId,
+          },
+          select: {
+            id: true,
+            status: true,
+            userPrompt: true,
+            screenplayText: true,
+            updatedAt: true,
+          },
+        })
+      : Promise.resolve(null),
+    params.episodeId
+      ? prisma.projectEditScript.findFirst({
+          where: {
+            projectId: params.projectId,
+            episodeId: params.episodeId,
+          },
+          select: {
+            id: true,
+            status: true,
+            title: true,
+            logline: true,
+            durationSec: true,
+            shotCount: true,
+            videoBlocksJson: true,
+            updatedAt: true,
+            requirements: {
+              select: {
+                status: true,
               },
             },
           },
@@ -209,6 +286,7 @@ export async function assembleProjectContext(params: {
   const storyboardCount = (episode?.clips || []).filter((clip) => !!clip.storyboard).length
   const panelCount = panelSnapshots.length
   const screenplayClipCount = (episode?.clips || []).filter((clip) => !!clip.screenplay).length
+  const videoBlockCounts = countEditScriptVideoBlocks(editScript?.videoBlocksJson ?? null)
 
   return {
     projectId: project.id,
@@ -240,6 +318,30 @@ export async function assembleProjectContext(params: {
             storyboardCount,
             panelCount,
             voiceLineCount: episode.voiceLines.length,
+          }
+        : null,
+      editScreenplay: editScreenplay
+        ? {
+            id: editScreenplay.id,
+            status: editScreenplay.status,
+            userPrompt: editScreenplay.userPrompt,
+            textPreview: compactPreview(editScreenplay.screenplayText, 600),
+            updatedAt: editScreenplay.updatedAt.toISOString(),
+          }
+        : null,
+      editScript: editScript
+        ? {
+            id: editScript.id,
+            status: editScript.status,
+            title: editScript.title,
+            logline: editScript.logline,
+            durationSec: editScript.durationSec,
+            shotCount: editScript.shotCount,
+            singleBlockCount: videoBlockCounts.singleBlockCount,
+            groupBlockCount: videoBlockCounts.groupBlockCount,
+            requirementCount: editScript.requirements.length,
+            pendingRequirementCount: editScript.requirements.filter((requirement) => requirement.status !== 'completed').length,
+            updatedAt: editScript.updatedAt.toISOString(),
           }
         : null,
       clips: clipSnapshots,

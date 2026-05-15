@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ProjectClip, ProjectEditScript, ProjectPanel, ProjectShot, ProjectStoryboard } from '@/types/project'
+import type { ProjectClip, ProjectEditScreenplay, ProjectEditScript, ProjectPanel, ProjectShot, ProjectStoryboard } from '@/types/project'
 import {
   buildWorkspaceNodeCanvasProjection,
 } from '@/features/project-workspace/canvas/hooks/useWorkspaceNodeCanvasProjection'
@@ -106,6 +106,17 @@ function createStoryboard(input: {
     lastError: null,
     photographyPlan: null,
     panels: input.panels,
+  }
+}
+
+function createEditScreenplay(input?: Partial<ProjectEditScreenplay>): ProjectEditScreenplay {
+  return {
+    id: input?.id ?? 'screenplay-1',
+    projectId: input?.projectId ?? 'project-1',
+    episodeId: input?.episodeId ?? 'episode-1',
+    userPrompt: input?.userPrompt ?? 'make a one minute sci-fi film',
+    screenplayText: input?.screenplayText ?? '标题：《光影回溯》\n\n故事梗概：飞船追赶远古光线。',
+    status: input?.status ?? 'ready',
   }
 }
 
@@ -221,6 +232,65 @@ describe('workspace node canvas projection', () => {
     expect(projection.nodes.some((node) => node.data.kind === 'finalTimeline')).toBe(false)
   })
 
+  it('projects an edit screenplay card before the edit-first table', () => {
+    const editScreenplay = createEditScreenplay()
+    const editScript = createSingleVideoEditScript({ videoBlocks: [] })
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [],
+      editScreenplay,
+      editScript,
+      savedLayouts: [],
+      translate: t,
+    })
+
+    expect(projection.nodes.map((node) => node.id)).toEqual([
+      'edit-screenplay:screenplay-1',
+      'edit-pipeline:edit-video:timeline',
+      'edit-pipeline:edit-video:visualAction',
+      'edit-pipeline:edit-video:camera',
+      'edit-pipeline:edit-video:audio',
+      'edit-pipeline:edit-video:primaryTable',
+      'edit-pipeline:edit-video:assetExtract',
+      'edit-script:edit-video',
+    ])
+    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toEqual([
+      'edit-screenplay:screenplay-1->edit-pipeline:edit-video:timeline',
+      'edit-pipeline:edit-video:timeline->edit-pipeline:edit-video:visualAction',
+      'edit-pipeline:edit-video:visualAction->edit-pipeline:edit-video:camera',
+      'edit-pipeline:edit-video:camera->edit-pipeline:edit-video:audio',
+      'edit-pipeline:edit-video:audio->edit-pipeline:edit-video:primaryTable',
+      'edit-pipeline:edit-video:primaryTable->edit-pipeline:edit-video:assetExtract',
+      'edit-pipeline:edit-video:assetExtract->edit-script:edit-video',
+    ])
+
+    const screenplayNode = projection.nodes.find((node) => node.id === 'edit-screenplay:screenplay-1')
+    expect(screenplayNode?.data.kind).toBe('editScreenplay')
+    expect(screenplayNode?.data.layoutNodeType).toBe('editScreenplay')
+    expect(screenplayNode?.data.targetType).toBe('editScreenplay')
+    expect(screenplayNode?.data.title).toBe('光影回溯')
+    expect(screenplayNode?.data.body).toContain('飞船追赶远古光线')
+    expect(screenplayNode?.data.editScreenplayDetails).toEqual({
+      screenplayText: editScreenplay.screenplayText,
+      userPrompt: editScreenplay.userPrompt,
+    })
+
+    const editScriptNode = projection.nodes.find((node) => node.id === 'edit-script:edit-video')
+    expect(editScriptNode?.position.y).toBeGreaterThan(screenplayNode?.position.y ?? 0)
+    const timelineNode = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-video:timeline')
+    expect(timelineNode?.data.kind).toBe('editPipelineStep')
+    expect(timelineNode?.data.layoutNodeType).toBe('editPipelineStep')
+    expect(timelineNode?.data.targetType).toBe('editPipelineStep')
+    expect(timelineNode?.data.editPipelineStepDetails?.items).toEqual([
+      {
+        title: 'nodeFields.shotIndex:{"index":1}',
+        fields: [{ label: 'nodeFields.duration', value: '2s' }],
+      },
+    ])
+  })
+
   it('marks final timeline as AI editing while final render task is running', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
@@ -305,6 +375,18 @@ describe('workspace node canvas projection', () => {
 
     const node = projection.nodes.find((item) => item.id === 'edit-script:edit-generating')
 
+    expect(projection.nodes.map((item) => item.id)).toEqual([
+      'edit-pipeline:edit-generating:timeline',
+      'edit-pipeline:edit-generating:visualAction',
+      'edit-pipeline:edit-generating:camera',
+      'edit-pipeline:edit-generating:audio',
+      'edit-pipeline:edit-generating:primaryTable',
+      'edit-pipeline:edit-generating:assetExtract',
+      'edit-script:edit-generating',
+    ])
+    const timelineStep = projection.nodes.find((item) => item.id === 'edit-pipeline:edit-generating:timeline')
+    expect(timelineStep?.data.statusLabel).toBe('status.processing')
+    expect(timelineStep?.data.isRunning).toBe(true)
     expect(node?.data.kind).toBe('editScript')
     expect(node?.data.title).toBe('nodes.editScript.pendingTitle')
     expect(node?.data.body).toBe('nodes.editScript.pendingBody')
@@ -312,6 +394,55 @@ describe('workspace node canvas projection', () => {
     expect(node?.data.isRunning).toBe(true)
     expect(node?.data.actionLabel).toBeUndefined()
     expect(node?.data.editScriptDetails).toBeUndefined()
+  })
+
+  it('projects completed generation steps while the edit table is still generating', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [],
+      savedLayouts: [],
+      translate: t,
+      editScript: {
+        id: 'edit-partial',
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        userPrompt: '做一个科幻短片',
+        screenplayText: '标题：《科幻短片》',
+        title: 'Sci-Fi Short',
+        logline: 'A quiet signal wakes a station.',
+        durationSec: 3,
+        shotCount: 1,
+        status: 'generating',
+        shots: [
+          {
+            shotNumber: 1,
+            durationSec: 3,
+            visualAction: 'A station corridor flickers awake.',
+            charactersAndScene: 'Station corridor',
+            camera: '',
+            videoPrompt: '',
+            sound: '',
+          },
+        ],
+        videoBlocks: [],
+        requirements: [],
+      },
+    })
+
+    const timelineStep = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-partial:timeline')
+    const visualStep = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-partial:visualAction')
+    const cameraStep = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-partial:camera')
+    const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-partial')
+
+    expect(timelineStep?.data.statusLabel).toBe('status.ready')
+    expect(visualStep?.data.statusLabel).toBe('status.ready')
+    expect(cameraStep?.data.statusLabel).toBe('status.processing')
+    expect(cameraStep?.data.isRunning).toBe(true)
+    expect(editNode?.data.title).toBe('Sci-Fi Short')
+    expect(editNode?.data.editScriptDetails?.shots).toHaveLength(1)
+    expect(editNode?.data.editScriptDetails?.shots[0]?.visualAction).toBe('A station corridor flickers awake.')
   })
 
   it('shows final render failures on the final timeline node', () => {
@@ -344,7 +475,39 @@ describe('workspace node canvas projection', () => {
     expect(finalNode?.data.statusLabel).toBe('status.failed')
     expect(finalNode?.data.meta).toBe('Google music network failed')
     expect(finalNode?.data.actionLabel).toBe('actions.renderFinalVideo')
-    expect(finalNode?.data.actionDisabled).toBe(false)
+    expect(finalNode?.data.actionDisabled).toBe(true)
+  })
+
+  it('adds a BGM score node and keeps final render disabled until BGM is completed', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: 'A real story',
+      clips: [createClip('clip-1', 'clip content')],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels: [
+            createPanel({
+              id: 'panel-1',
+              panelIndex: 0,
+              imageUrl: 'https://example.com/panel-1.png',
+              videoUrl: 'https://example.com/panel-1.mp4',
+            }),
+          ],
+        }),
+      ],
+      editScript: createSingleVideoEditScript(),
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const bgmNode = projection.nodes.find((node) => node.id === 'bgm-score:episode-1')
+    const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
+    expect(bgmNode?.data.kind).toBe('bgmScore')
+    expect(bgmNode?.data.action).toEqual({ type: 'generate_bgm_score' })
+    expect(finalNode?.data.actionDisabled).toBe(true)
+    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('bgm-score:episode-1->final:episode-1')
   })
 
   it('shows completed final render output on the final timeline node', () => {
@@ -673,10 +836,17 @@ describe('workspace node canvas projection', () => {
     })
 
     expect(projection.nodes.map((node) => node.id)).toEqual([
+      'edit-pipeline:edit-1:timeline',
+      'edit-pipeline:edit-1:visualAction',
+      'edit-pipeline:edit-1:camera',
+      'edit-pipeline:edit-1:audio',
+      'edit-pipeline:edit-1:primaryTable',
+      'edit-pipeline:edit-1:assetExtract',
       'edit-script:edit-1',
       'edit-asset:req-character',
       'edit-asset:req-location',
       'video-plan:edit-1:1',
+      'bgm-score:episode-1',
       'final:episode-1',
     ])
     const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-1')
@@ -685,6 +855,15 @@ describe('workspace node canvas projection', () => {
     expect(editNode?.data.editScriptDetails?.shots).toHaveLength(2)
     expect(editNode?.data.width).toBeGreaterThan(1000)
     expect(editNode?.data.height).toBeGreaterThan(400)
+
+    const visualStepNode = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-1:visualAction')
+    expect(visualStepNode?.data.editPipelineStepDetails?.items[0]).toMatchObject({
+      title: 'nodeFields.shotIndex:{"index":1}',
+      fields: [{ label: 'nodeFields.charactersAndScene', value: 'Pilot / Docking Bay' }],
+      body: 'Pilot crosses the docking bay.',
+    })
+    const assetStepNode = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-1:assetExtract')
+    expect(assetStepNode?.data.editPipelineStepDetails?.items).toHaveLength(2)
 
     const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-1:1')
     expect(videoPlanNode?.data.kind).toBe('videoPlan')
@@ -703,6 +882,9 @@ describe('workspace node canvas projection', () => {
         shotNumbers: [1],
       },
     ])
+    expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain(
+      'edit-script:edit-1->video-plan:edit-1:1',
+    )
 
     const pendingAssetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-character')
     expect(pendingAssetNode?.data.action).toEqual({

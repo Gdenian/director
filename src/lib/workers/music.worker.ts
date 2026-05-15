@@ -5,6 +5,7 @@ import { ensureMediaObjectFromStorageKey } from '@/lib/media/service'
 import { generateUniqueKey, toFetchableUrl, uploadObject } from '@/lib/storage'
 import { QUEUE_NAME } from '@/lib/task/queues'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
+import { handleBgmScoreGenerateTask } from '@/lib/bgm-score/generate'
 import { reportTaskProgress, withTaskLifecycle } from './shared'
 
 type MusicPayload = {
@@ -151,6 +152,8 @@ async function processMusicTask(job: Job<TaskJobData>) {
   switch (job.data.type) {
     case TASK_TYPE.MUSIC_GENERATE:
       return await handleMusicGenerateTask(job)
+    case TASK_TYPE.BGM_SCORE_GENERATE:
+      return await handleBgmScoreGenerateTask(job)
     default:
       throw new Error(`Unsupported music task type: ${job.data.type}`)
   }

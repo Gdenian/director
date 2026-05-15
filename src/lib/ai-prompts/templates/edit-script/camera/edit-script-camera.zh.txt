@@ -10,12 +10,19 @@
 用户需求：
 {{user_request}}
 
+编剧剧本：
+{{screenplay_text}}
+
 画幅：{{aspect_ratio}}
 风格上下文：
 {{style_context}}
 
 block-first 画面动作 JSON：
 {{visual_action_json}}
+
+剧情依据：
+- 镜头方式只能服务编剧剧本和画面动作 JSON 已确定的剧情，不得新增剧情。
+- 用户需求只作为原始限制，不得绕过剧本重写事件或角色关系。
 
 输出格式：
 {

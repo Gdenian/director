@@ -30,10 +30,16 @@ function nodeIconName(kind: WorkspaceCanvasFlowNode['data']['kind']): AppIconNam
       return 'video'
     case 'finalTimeline':
       return 'film'
+    case 'editScreenplay':
+      return 'bookOpen'
+    case 'editPipelineStep':
+      return 'chart'
     case 'editScript':
       return 'clipboardCheck'
     case 'videoPlan':
       return 'clapperboard'
+    case 'bgmScore':
+      return 'audioWave'
     case 'editRequiredAsset':
       return 'package'
   }
@@ -287,12 +293,12 @@ function videoPlanPromptSaveHandler(data: WorkspaceCanvasFlowNode['data']): ((ne
 function editAssetDescriptionSaveHandler(data: WorkspaceCanvasFlowNode['data']): ((nextValue: string) => Promise<void>) | undefined {
   if (!data.onAction) return undefined
   const details = data.editAssetDetails
-  if (!details || data.targetType !== 'editAssetRequirement') return undefined
+  if (!details) return undefined
   return async (nextValue) => {
     await dispatchNodeAction(data, {
       type: 'update_edit_asset_requirement_description',
       editScriptId: details.editScriptId,
-      requirementId: data.targetId,
+      requirementId: details.requirementId,
       description: nextValue,
     })
   }
@@ -728,11 +734,12 @@ function FinalContent({
 }) {
   const details = data.finalDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+  const running = data.__running === true
   const displayOutputUrl = details.renderStatus === 'completed'
     ? toDisplayImageUrl(details.outputUrl) ?? details.outputUrl
     : null
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 rounded-[18px] ${running ? 'workspace-node-loading-surface' : ''}`}>
       {displayOutputUrl ? (
         <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-slate-100">
           <video
@@ -756,11 +763,117 @@ function FinalContent({
   )
 }
 
+function BgmScoreContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
+  const details = data.bgmScoreDetails
+  if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+  const displayMixUrl = toDisplayImageUrl(details.mixUrl) ?? details.mixUrl ?? null
+  return (
+    <div className={`space-y-2 rounded-[18px] ${data.__running === true ? 'workspace-node-loading-surface' : ''}`}>
+      {displayMixUrl ? (
+        <div className="rounded-[14px] border border-slate-200 bg-white p-2">
+          <audio src={displayMixUrl} controls className="w-full" />
+        </div>
+      ) : null}
+      {renderSection(labels('bgmScoreStats'), (
+        <div className="space-y-1">
+          {renderValue(labels('status'), details.status)}
+          {renderValue(labels('totalDuration'), details.durationSeconds)}
+          {renderValue(labels('stemCount'), details.stemCount)}
+          {renderValue(labels('musicModel'), details.musicModel)}
+        </div>
+      ))}
+      {expanded && details.stems.length > 0 ? (
+        <div className="space-y-2">
+          {details.stems.map((stem) => (
+            <section key={stem.role} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between gap-2">
+                <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{stem.role}</p>
+                <span className={`${SELECTABLE_TEXT_CLASS} text-[10px] text-[var(--glass-text-tertiary)]`}>
+                  {stem.startSec}s - {Math.round((stem.startSec + stem.durationSec) * 10) / 10}s
+                </span>
+              </div>
+              {renderSummaryText(stem.reason, 2)}
+              {renderValue(labels('gainDb'), stem.gainDb)}
+              {renderSummaryText(stem.prompt, 3)}
+            </section>
+          ))}
+        </div>
+      ) : null}
+      {renderTextSection(labels('error'), details.errorMessage)}
+    </div>
+  )
+}
+
 function renderEditScriptCell(label: string, children: ReactNode, className = '') {
   return (
     <td aria-label={label} className={`border-l border-slate-100 px-3 py-3 align-top text-xs leading-5 text-[var(--glass-text-secondary)] first:border-l-0 ${className}`}>
       <div className={`${SELECTABLE_TEXT_CLASS} whitespace-pre-wrap break-words`}>{children}</div>
     </td>
+  )
+}
+
+function EditPipelineStepContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
+  const details = data.editPipelineStepDetails
+  if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+  if (details.items.length === 0) {
+    return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+  }
+  const visibleItems = expanded ? details.items : details.items.slice(0, 3)
+  return (
+    <div className="space-y-2">
+      {visibleItems.map((item, index) => (
+        <section key={`${item.title}-${index}`} className="space-y-2 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+          <div className="flex items-center justify-between gap-2">
+            <p className={`${SELECTABLE_TEXT_CLASS} truncate text-xs font-semibold text-[var(--glass-text-primary)]`}>{item.title}</p>
+            {item.chips && item.chips.length > 0 ? (
+              <span className={`${SELECTABLE_TEXT_CLASS} shrink-0 text-[10px] font-semibold text-[var(--glass-text-tertiary)]`}>
+                {labels('linkedShots')}
+              </span>
+            ) : null}
+          </div>
+          {item.fields.length > 0 ? (
+            <div className="space-y-1">
+              {item.fields.map((field) => (
+                <React.Fragment key={`${field.label}:${field.value}`}>
+                  {renderValue(field.label, field.value)}
+                </React.Fragment>
+              ))}
+            </div>
+          ) : null}
+          {renderSummaryText(item.body, expanded ? 4 : 2)}
+          {item.chips && item.chips.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {item.chips.map((chip) => (
+                <span key={chip} className={`${SELECTABLE_TEXT_CLASS} inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200`}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ))}
+      {!expanded && details.items.length > visibleItems.length ? (
+        <p className={`${SELECTABLE_TEXT_CLASS} text-xs text-[var(--glass-text-tertiary)]`}>
+          {labels('moreItems', { count: details.items.length - visibleItems.length })}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -792,6 +905,9 @@ function EditScriptContent({
         ))}
         {renderSection(labels('description'), renderTextBlock(data.body))}
       </div>
+      {details.screenplayText
+        ? renderSection(labels('screenplay'), renderSummaryText(details.screenplayText, 8))
+        : null}
       <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white">
         <table className="w-full border-collapse text-left">
           <thead className="bg-slate-50">
@@ -820,6 +936,28 @@ function EditScriptContent({
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function EditScreenplayContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
+  const details = data.editScreenplayDetails
+  if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+
+  return (
+    <div className="space-y-2">
+      {renderSection(labels('screenplay'), expanded
+        ? renderTextBlock(details.screenplayText)
+        : renderSummaryText(details.screenplayText, 8))}
+      {expanded ? renderSection(labels('originalRequest'), renderTextBlock(details.userPrompt)) : null}
     </div>
   )
 }
@@ -942,16 +1080,23 @@ function VideoPlanContent({
           {renderValue(labels('duration'), `${details.durationSec}s`)}
         </div>
       ))}
-      {assetReferences.length > 0 ? renderSection(labels('assetReferenceImages'), (
+      {renderSection(labels('assetReferenceImages'), (
         <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            {assetReferences.map((asset) => (
-              <div key={asset.id} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={toDisplayImageUrl(asset.imageUrl) ?? asset.imageUrl} alt={asset.name} className="h-14 w-full object-contain" />
-              </div>
-            ))}
-          </div>
+          {assetReferences.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              {assetReferences.map((asset) => (
+                <div key={asset.id} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={toDisplayImageUrl(asset.imageUrl) ?? asset.imageUrl} alt={asset.name} className="h-14 w-full object-contain" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-[12px] bg-slate-50 px-3 py-2 text-xs leading-5 text-[var(--glass-text-tertiary)] ring-1 ring-slate-200">
+              <AppIcon name="image" className="h-4 w-4 shrink-0" />
+              <span className={SELECTABLE_TEXT_CLASS}>{labels('assetReferenceImagesMissing')}</span>
+            </div>
+          )}
           <button
             type="button"
             disabled={!canGenerateAssetReference}
@@ -973,7 +1118,7 @@ function VideoPlanContent({
             <p className="text-xs leading-5 text-[var(--glass-tone-danger-fg)]">{labels('videoPlanModelMissing')}</p>
           ) : null}
         </div>
-      )) : null}
+      ))}
       {details.prompt ? (
         <EditablePromptSection
           title={labels('videoPlanPrompt')}
@@ -1029,6 +1174,12 @@ function NodeContent({
       return <VideoContent data={data} labels={labels} expanded={expanded} />
     case 'finalTimeline':
       return <FinalContent data={data} labels={labels} expanded={expanded} />
+    case 'bgmScore':
+      return <BgmScoreContent data={data} labels={labels} expanded={expanded} />
+    case 'editScreenplay':
+      return <EditScreenplayContent data={data} labels={labels} expanded={expanded} />
+    case 'editPipelineStep':
+      return <EditPipelineStepContent data={data} labels={labels} expanded={expanded} />
     case 'editScript':
       return <EditScriptContent data={data} labels={labels} />
     case 'videoPlan':

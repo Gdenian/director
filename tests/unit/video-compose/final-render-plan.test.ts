@@ -3,6 +3,7 @@ import {
   buildFinalRenderClips,
   buildFinalRenderMusicPrompt,
   parseFinalRenderEditScriptShots,
+  parseFinalRenderEditScriptVideoBlocks,
   resolveFinalRenderDimensions,
   selectFinalRenderMusicDurationSeconds,
   type FinalRenderEditScriptInput,
@@ -11,9 +12,19 @@ import {
 
 const editScript: FinalRenderEditScriptInput = {
   id: 'edit-script-1',
+  userPrompt: 'Make a tense neon rooftop chase.',
   title: 'Rooftop Chase',
   logline: 'A runner escapes through a neon city.',
   durationSec: 8,
+  videoBlocks: [
+    {
+      kind: 'group',
+      shotNumbers: [1, 2],
+      gridMode: '2x2',
+      reason: 'continuous rooftop movement and escalating danger',
+      prompt: 'Full-screen continuous rooftop chase with neon reflections and fast physical motion.',
+    },
+  ],
   shots: [
     {
       shotNumber: 1,
@@ -129,10 +140,27 @@ describe('final render plan', () => {
     })
     const prompt = buildFinalRenderMusicPrompt({
       editScript,
+      projectContext: {
+        videoRatio: '9:16',
+        artStyle: 'neo-noir',
+        artStylePrompt: 'high contrast neon city with rain reflections',
+        visualStylePresetSource: 'system',
+        visualStylePresetId: 'neo-noir',
+        directorStylePresetSource: 'system',
+        directorStylePresetId: 'kinetic-thriller',
+        directorStyleDoc: '{"camera":"urgent handheld energy","pacing":"fast escalation"}',
+      },
       clips,
       totalDurationSeconds: 9,
     })
 
+    expect(prompt).toContain('Complete edit-first core table JSON')
+    expect(prompt).toContain('Project configuration JSON')
+    expect(prompt).toContain('Actual rendered media timeline JSON')
+    expect(prompt).toContain('"kind": "group"')
+    expect(prompt).toContain('Full-screen continuous rooftop chase')
+    expect(prompt).toContain('high contrast neon city with rain reflections')
+    expect(prompt).toContain('urgent handheld energy')
     expect(prompt).toContain('Instrumentation')
     expect(prompt).toContain('Tempo and rhythm')
     expect(prompt).toContain('quiet suspense, sparse piano, low synth pulse')
@@ -146,5 +174,30 @@ describe('final render plan', () => {
     expect(shots).toHaveLength(2)
     expect(shots[0]?.shotNumber).toBe(1)
     expect(parseFinalRenderEditScriptShots([{ shotNumber: 1 }])).toEqual([])
+  })
+
+  it('parses persisted edit script videoBlocks through the shared video block planner', () => {
+    const blocks = parseFinalRenderEditScriptVideoBlocks({
+      value: [
+        {
+          type: 'group',
+          shotNumbers: [1, 2],
+          gridMode: '2x2',
+          reason: 'continuous rooftop movement',
+          prompt: 'combined group prompt',
+        },
+      ],
+      shots: editScript.shots,
+    })
+
+    expect(blocks).toEqual([
+      {
+        kind: 'group',
+        shotNumbers: [1, 2],
+        gridMode: '2x2',
+        reason: 'continuous rooftop movement',
+        prompt: 'combined group prompt',
+      },
+    ])
   })
 })

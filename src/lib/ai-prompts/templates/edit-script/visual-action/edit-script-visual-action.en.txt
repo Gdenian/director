@@ -10,8 +10,16 @@ Core principles:
 User request:
 {{user_request}}
 
+Screenplay:
+{{screenplay_text}}
+
 Block-first edit structure JSON:
 {{timeline_json}}
+
+Plot source:
+- Use the screenplay as the only plot truth, and only translate screenplay content into visible action.
+- Do not add characters, locations, events, or plot turns outside the screenplay.
+- The user request is only for original constraints and must not replace the screenplay.
 
 Output format:
 {

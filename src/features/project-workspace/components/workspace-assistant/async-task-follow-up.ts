@@ -1,0 +1,224 @@
+import type { UIMessage } from 'ai'
+import type {
+  TaskBatchSubmittedPartData,
+  TaskSubmittedPartData,
+} from '@/lib/project-agent/types'
+import { TASK_EVENT_TYPE, TASK_SSE_EVENT_TYPE, TASK_TYPE, type SSEEvent } from '@/lib/task/types'
+
+type UnknownRecord = Record<string, unknown>
+
+export type AssistantAsyncTaskSubmission =
+  | {
+    kind: 'single'
+    operationId: string
+    taskId: string
+    data: TaskSubmittedPartData
+  }
+  | {
+    kind: 'batch'
+    operationId: string
+    taskId: string
+    batchKey: string
+    data: TaskBatchSubmittedPartData
+  }
+
+export type AssistantAsyncTaskTerminalEvent = {
+  taskId: string
+  lifecycleType: typeof TASK_EVENT_TYPE.COMPLETED | typeof TASK_EVENT_TYPE.FAILED
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function readOptionalString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return readNonEmptyString(value) ?? undefined
+}
+
+function readTaskSubmittedPartData(value: unknown): TaskSubmittedPartData | null {
+  if (!isRecord(value)) return null
+  const operationId = readNonEmptyString(value.operationId)
+  const taskId = readNonEmptyString(value.taskId)
+  const status = readNonEmptyString(value.status)
+  if (!operationId || !taskId || !status) return null
+  const runId = readOptionalString(value.runId)
+  const mutationBatchId = readOptionalString(value.mutationBatchId)
+  const projectId = readNonEmptyString(value.projectId)
+  const episodeId = readOptionalString(value.episodeId)
+  const taskType = readNonEmptyString(value.taskType)
+  const targetType = readNonEmptyString(value.targetType)
+  const targetId = readNonEmptyString(value.targetId)
+  return {
+    operationId,
+    taskId,
+    status,
+    ...(runId !== undefined ? { runId } : {}),
+    ...(typeof value.deduped === 'boolean' ? { deduped: value.deduped } : {}),
+    ...(mutationBatchId !== undefined ? { mutationBatchId } : {}),
+    ...(projectId ? { projectId } : {}),
+    ...(episodeId !== undefined ? { episodeId } : {}),
+    ...(taskType ? { taskType } : {}),
+    ...(targetType ? { targetType } : {}),
+    ...(targetId ? { targetId } : {}),
+  }
+}
+
+function readTaskBatchSubmittedPartData(value: unknown): TaskBatchSubmittedPartData | null {
+  if (!isRecord(value)) return null
+  const operationId = readNonEmptyString(value.operationId)
+  if (!operationId) return null
+  const taskIds = Array.isArray(value.taskIds)
+    ? value.taskIds.map(readNonEmptyString).filter((item): item is string => Boolean(item))
+    : []
+  if (taskIds.length === 0) return null
+  const total = typeof value.total === 'number' && Number.isFinite(value.total)
+    ? value.total
+    : taskIds.length
+  const mutationBatchId = readOptionalString(value.mutationBatchId)
+  const results = Array.isArray(value.results)
+    ? value.results.flatMap((item) => {
+      if (!isRecord(item)) return []
+      const refId = readNonEmptyString(item.refId)
+      const taskId = readNonEmptyString(item.taskId)
+      return refId && taskId ? [{ refId, taskId }] : []
+    })
+    : undefined
+  return {
+    operationId,
+    total,
+    taskIds,
+    ...(results ? { results } : {}),
+    ...(mutationBatchId !== undefined ? { mutationBatchId } : {}),
+  }
+}
+
+export function collectAssistantAsyncTaskSubmissions(messages: readonly UIMessage[]): Map<string, AssistantAsyncTaskSubmission> {
+  const submissions = new Map<string, AssistantAsyncTaskSubmission>()
+  for (const message of messages) {
+    const parts: readonly unknown[] = message.parts
+    for (const part of parts) {
+      if (!isRecord(part)) continue
+      if (part.type === 'data-task-submitted') {
+        const data = readTaskSubmittedPartData(part.data)
+        if (!data) continue
+        submissions.set(data.taskId, {
+          kind: 'single',
+          operationId: data.operationId,
+          taskId: data.taskId,
+          data,
+        })
+      }
+      if (part.type === 'data-task-batch-submitted') {
+        const data = readTaskBatchSubmittedPartData(part.data)
+        if (!data) continue
+        const batchKey = `${data.operationId}:${data.taskIds.join(',')}`
+        for (const taskId of data.taskIds) {
+          submissions.set(taskId, {
+            kind: 'batch',
+            operationId: data.operationId,
+            taskId,
+            batchKey,
+            data,
+          })
+        }
+      }
+    }
+  }
+  return submissions
+}
+
+function readOperationResult(payload: unknown): UnknownRecord | null {
+  if (!isRecord(payload)) return null
+  return isRecord(payload.result) ? payload.result : null
+}
+
+export function createTaskSubmittedDataFromOperationPayload(params: {
+  payload: unknown
+  operationId: string
+  projectId: string
+  episodeId?: string | null
+}): TaskSubmittedPartData | null {
+  const result = readOperationResult(params.payload)
+  if (!result) return null
+  const success = result.success === true
+  const isAsync = result.async === true
+  const taskId = readNonEmptyString(result.taskId)
+  const status = readNonEmptyString(result.status)
+  if (!success || !isAsync || !taskId || !status) return null
+  const resultEpisodeId = readOptionalString(result.episodeId)
+  const episodeId = resultEpisodeId !== undefined ? resultEpisodeId : params.episodeId ?? null
+  const mutationBatchId = readOptionalString(result.mutationBatchId)
+  const projectId = readNonEmptyString(result.projectId) ?? params.projectId
+  const taskType = readNonEmptyString(result.taskType)
+  const targetType = readNonEmptyString(result.targetType)
+  const targetId = readNonEmptyString(result.targetId)
+  const inferredEditScriptTarget = params.operationId === 'generate_edit_script' && episodeId
+    ? {
+        taskType: TASK_TYPE.EDIT_SCRIPT_GENERATE,
+        targetType: 'ProjectEpisode',
+        targetId: episodeId,
+      }
+    : null
+  return {
+    operationId: params.operationId,
+    taskId,
+    status,
+    runId: readOptionalString(result.runId) ?? null,
+    ...(typeof result.deduped === 'boolean' ? { deduped: result.deduped } : {}),
+    ...(mutationBatchId !== undefined ? { mutationBatchId } : {}),
+    projectId,
+    episodeId,
+    taskType: taskType ?? inferredEditScriptTarget?.taskType,
+    targetType: targetType ?? inferredEditScriptTarget?.targetType,
+    targetId: targetId ?? inferredEditScriptTarget?.targetId,
+  }
+}
+
+export function createTaskBatchSubmittedDataFromOperationPayload(params: {
+  payload: unknown
+  operationId: string
+}): TaskBatchSubmittedPartData | null {
+  const result = readOperationResult(params.payload)
+  if (!result) return null
+  if (result.success !== true || result.async !== true) return null
+  const taskIds = Array.isArray(result.taskIds)
+    ? result.taskIds.map(readNonEmptyString).filter((item): item is string => Boolean(item))
+    : []
+  if (taskIds.length === 0) return null
+  const total = typeof result.total === 'number' && Number.isFinite(result.total)
+    ? result.total
+    : taskIds.length
+  const mutationBatchId = readOptionalString(result.mutationBatchId)
+  const results = Array.isArray(result.results)
+    ? result.results.flatMap((item) => {
+      if (!isRecord(item)) return []
+      const refId = readNonEmptyString(item.refId)
+      const taskId = readNonEmptyString(item.taskId)
+      return refId && taskId ? [{ refId, taskId }] : []
+    })
+    : undefined
+  return {
+    operationId: params.operationId,
+    total,
+    taskIds,
+    ...(results ? { results } : {}),
+    ...(mutationBatchId !== undefined ? { mutationBatchId } : {}),
+  }
+}
+
+export function resolveAssistantAsyncTaskTerminalEvent(event: SSEEvent): AssistantAsyncTaskTerminalEvent | null {
+  if (event.type !== TASK_SSE_EVENT_TYPE.LIFECYCLE) return null
+  const lifecycleType = event.payload?.lifecycleType
+  if (lifecycleType !== TASK_EVENT_TYPE.COMPLETED && lifecycleType !== TASK_EVENT_TYPE.FAILED) return null
+  return {
+    taskId: event.taskId,
+    lifecycleType,
+  }
+}

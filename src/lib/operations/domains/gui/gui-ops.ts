@@ -83,6 +83,14 @@ function normalizeNullableString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null
 }
 
+function normalizeBgmScoreSummary(projectData: unknown) {
+  const record = toObject(projectData)
+  const bgmScore = toObject(record.bgmScore)
+  const status = normalizeString(bgmScore.status)
+  if (!status) return null
+  return bgmScore
+}
+
 function normalizeFinalVideoSummary(value: unknown) {
   const record = toObject(value)
   const id = normalizeString(record.id)
@@ -95,6 +103,7 @@ function normalizeFinalVideoSummary(value: unknown) {
     renderStatus: normalizeNullableString(record.renderStatus),
     renderTaskId: normalizeNullableString(record.renderTaskId),
     outputUrl: normalizeNullableString(record.outputUrl),
+    bgmScore: normalizeBgmScoreSummary(record.projectData),
     updatedAt: record.updatedAt instanceof Date
       ? record.updatedAt.toISOString()
       : normalizeNullableString(record.updatedAt),
@@ -1951,6 +1960,7 @@ export function createGuiOperations(): ProjectAgentOperationRegistryDraft {
               select: {
                 id: true,
                 episodeId: true,
+                projectData: true,
                 renderStatus: true,
                 renderTaskId: true,
                 outputUrl: true,

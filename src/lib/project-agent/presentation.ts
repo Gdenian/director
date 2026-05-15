@@ -20,6 +20,8 @@ export function buildAssistantProjectContextSnapshot(
     activeOperationTasks: context.activeOperationTasks,
     recentOperationResults: context.recentOperationResults,
     latestArtifacts: context.latestArtifacts,
+    editScreenplay: context.episodeDetail?.editScreenplay ?? null,
+    editScript: context.episodeDetail?.editScript ?? null,
     config: {
       analysisModel: context.policy.analysisModel || null,
       artStyle: context.policy.artStyle,

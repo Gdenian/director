@@ -45,6 +45,28 @@ export interface ProjectContextEpisodeSnapshot {
   voiceLineCount: number
 }
 
+export interface ProjectContextEditScreenplaySnapshot {
+  id: string
+  status: string
+  userPrompt: string
+  textPreview: string
+  updatedAt: string
+}
+
+export interface ProjectContextEditScriptSnapshot {
+  id: string
+  status: string
+  title: string
+  logline: string | null
+  durationSec: number
+  shotCount: number
+  singleBlockCount: number
+  groupBlockCount: number
+  requirementCount: number
+  pendingRequirementCount: number
+  updatedAt: string
+}
+
 export interface ProjectContextClipSnapshot {
   clipId: string
   summary: string
@@ -71,6 +93,8 @@ export interface ProjectContextPanelSnapshot {
 
 export interface ProjectContextEpisodeDetailSnapshot {
   episode: ProjectContextEpisodeSnapshot | null
+  editScreenplay: ProjectContextEditScreenplaySnapshot | null
+  editScript: ProjectContextEditScriptSnapshot | null
   clips: ProjectContextClipSnapshot[]
   panels: ProjectContextPanelSnapshot[]
   approvals: ProjectContextApprovalSummary[]

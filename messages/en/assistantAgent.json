@@ -4,11 +4,13 @@
     "title": "Workspace Chat",
     "pending": "Running",
     "ready": "Ready",
-    "composerPlaceholder": "Enter a short-film request. AI will ask clickable basics, then create the edit graph.",
+    "composerPlaceholder": "Enter your request. AI will read project state and choose the right tools.",
     "sending": "Sending...",
     "send": "Send",
     "streaming": "Streaming",
     "loading": "Loading",
+    "thinking": "AI is thinking",
+    "responding": "AI is responding",
     "statusReady": "Ready",
     "errorTitle": "Error",
     "errorHint": "Download the log and include the requestId for debugging, or retry the same instruction.",
@@ -26,35 +28,7 @@
     "downloadLog": "Download Log",
     "workspaceStatus": "Node Canvas",
     "pendingActionsTitle": "Pending actions",
-    "editFirstHint": "Only mode: AI creates clickable questions first, then creates the edit table and required assets.",
-    "editFirstGenerating": "Generating...",
-    "editFirstStatusBriefQuestions": "AI is creating brief questions",
-    "editFirstStatusAnswering": "Choose the brief answer",
-    "editFirstStatusEditScript": "AI is creating the edit table",
-    "editFirstProgress": {
-      "currentStep": "Current: {step}",
-      "briefQuestions": {
-        "description": "AI is reading the short-film request and creating clickable basics.",
-        "understandRequest": "Understanding the short-film request",
-        "designQuestions": "Designing basic questions",
-        "prepareOptions": "Preparing clickable options"
-      },
-      "editScript": {
-        "description": "AI is following the edit-first flow to create one edit table and extract required character and scene assets.",
-        "rhythm": "Generating shot rhythm",
-        "visualAction": "Generating visuals and action",
-        "camera": "Generating framing and camera movement",
-        "videoPrompt": "Generating video prompts",
-        "sound": "Generating sound design",
-        "assets": "Extracting required character and scene assets",
-        "persist": "Writing the edit table and canvas nodes"
-      }
-    },
-    "editFirstComplete": "Edit table generated: {shots} shots, about {duration}s, {assets} required assets.",
-    "episodeRequired": "Open a specific episode before creating an edit graph.",
-    "briefQuestionBadge": "Brief",
-    "briefQuestionMissing": "Brief question configuration is missing, so the edit graph cannot continue.",
-    "briefAnswerPromptTitle": "User-selected brief answers:",
+    "assistantHint": "The general assistant reads project state first, then calls screenplay, edit table, asset, video, or render tools as needed.",
     "pendingApprovalChip": "Approval: {label}",
     "pendingConfirmationChip": "Confirm: {label}",
     "latest": "Latest",
@@ -90,6 +64,12 @@
     "arguments": "Arguments",
     "result": "Result",
     "waiting": "Waiting for tool result..."
+  },
+  "autoFollowUp": {
+    "taskCompleted": "Background task {operation} completed (taskId: {taskId}). Read the latest project state and task result first, then decide the next production step. Do not assume the result. If the next step writes data or may bill usage, request confirmation under the current rules.",
+    "taskFailed": "Background task {operation} failed (taskId: {taskId}). Read the latest project state and task error, then explain the failure and the actionable next step to the user.",
+    "batchCompleted": "Background batch task {operation} completed ({total} tasks). Read the latest project state and task results first, then decide the next production step. Do not assume the result. If the next step writes data or may bill usage, request confirmation under the current rules.",
+    "batchFailed": "Background batch task {operation} finished with {failed}/{total} failures. Read the latest project state and task errors, then explain the failure scope and actionable next step to the user."
   },
   "thread": {
     "user": "User",
@@ -164,6 +144,7 @@
     "operationLabel": "Operation",
     "taskIdLabel": "Task ID",
     "statusLabel": "Status",
+    "stageLabel": "Stage",
     "runIdLabel": "Run ID",
     "dedupedLabel": "Deduped",
     "undoBatchIdLabel": "Undo Batch ID",

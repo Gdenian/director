@@ -6,25 +6,16 @@ export type EditAssetKind = (typeof EDIT_ASSET_KINDS)[number]
 export const EDIT_ASSET_STATUSES = ['pending', 'generating', 'completed', 'failed'] as const
 export type EditAssetStatus = (typeof EDIT_ASSET_STATUSES)[number]
 
-export const EDIT_BRIEF_OPTION_IDS = ['A', 'B', 'C', 'D', 'E', 'F'] as const
-export type EditBriefOptionId = (typeof EDIT_BRIEF_OPTION_IDS)[number]
-
 export const EDIT_SCRIPT_VIDEO_RATIOS = ['9:16', '16:9', '21:9'] as const
 export type EditScriptVideoRatio = (typeof EDIT_SCRIPT_VIDEO_RATIOS)[number]
 
-export interface EditScriptBriefQuestionOption {
-  readonly id: EditBriefOptionId
-  readonly label: string
-}
-
-export interface EditScriptBriefQuestion {
+export interface EditScreenplayPayload {
   readonly id: string
-  readonly label: string
-  readonly options: readonly EditScriptBriefQuestionOption[]
-}
-
-export interface EditScriptBriefQuestionsPayload {
-  readonly questions: readonly EditScriptBriefQuestion[]
+  readonly projectId: string
+  readonly episodeId: string
+  readonly userPrompt: string
+  readonly screenplayText: string
+  readonly status: string
 }
 
 export interface EditScriptShot {
@@ -62,6 +53,7 @@ export interface EditScriptPayload {
   readonly projectId?: string
   readonly episodeId?: string
   readonly userPrompt?: string
+  readonly screenplayText?: string | null
   readonly title: string
   readonly logline?: string | null
   readonly durationSec: number
@@ -108,31 +100,23 @@ export const editAssetExtractionSchema = z.object({
   assets: z.array(editAssetRequirementSchema).min(1).max(40),
 })
 
-export const editScriptBriefQuestionOptionSchema = z.object({
-  id: z.enum(EDIT_BRIEF_OPTION_IDS),
-  label: z.string().trim().min(1),
-})
-
-export const editScriptBriefQuestionSchema = z.object({
-  id: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  options: z.array(editScriptBriefQuestionOptionSchema).min(1).max(6),
-})
-
-export const editScriptBriefQuestionsSchema = z.object({
-  questions: z.array(editScriptBriefQuestionSchema).min(0).max(3),
-})
-
 export const createEditScriptRequestSchema = z.object({
+  episodeId: z.string().trim().min(1),
+  prompt: z.string().trim().min(1),
+  screenplayId: z.string().trim().min(1).optional(),
+  videoRatio: z.enum(EDIT_SCRIPT_VIDEO_RATIOS).optional(),
+  artStyle: z.string().trim().min(1).optional(),
+})
+
+export const createEditScreenplayRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
   prompt: z.string().trim().min(1),
   videoRatio: z.enum(EDIT_SCRIPT_VIDEO_RATIOS).optional(),
   artStyle: z.string().trim().min(1).optional(),
 })
 
-export const createEditScriptBriefQuestionsRequestSchema = z.object({
+export const getEditScreenplayRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
-  prompt: z.string().trim().min(1),
 })
 
 export const getEditScriptRequestSchema = z.object({

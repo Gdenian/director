@@ -58,6 +58,22 @@ describe('invalidateByTarget', () => {
         && key[1] === 'project-1'
         && key[2] === 'episode-1'
     })).toBe(true)
+    expect(hasInvalidation(testClient, (arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.project.editScript('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'edit-script'
+        && key[3] === 'episode-1'
+    })).toBe(true)
+    expect(hasInvalidation(testClient, (arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.project.editScreenplay('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'edit-screenplay'
+        && key[3] === 'episode-1'
+    })).toBe(true)
   })
 
   it('ProjectVideoGroup invalidates episode scoped GUI queries', () => {

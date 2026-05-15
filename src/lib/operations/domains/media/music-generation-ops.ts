@@ -30,6 +30,15 @@ const musicGenerationInputSchema = z.object({
 
 type MusicGenerationInput = z.infer<typeof musicGenerationInputSchema>
 
+const bgmScoreGenerationInputSchema = z.object({
+  confirmed: z.boolean().optional(),
+  episodeId: z.string().min(1),
+  musicModel: z.string().min(1).optional(),
+  outputFormat: outputFormatSchema.optional(),
+}).passthrough()
+
+type BgmScoreGenerationInput = z.infer<typeof bgmScoreGenerationInputSchema>
+
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -61,6 +70,43 @@ async function resolveMusicModel(input: MusicGenerationInput, projectId: string,
   const configured = normalizeString(project?.musicModel) || normalizeString(pref?.musicModel)
   if (!configured) throw new Error('PROJECT_AGENT_MUSIC_MODEL_REQUIRED')
   return requireModelKey(configured)
+}
+
+async function resolveBgmScoreMusicModel(input: BgmScoreGenerationInput, projectId: string, userId: string): Promise<string> {
+  const requested = normalizeString(input.musicModel)
+  if (requested) return requireModelKey(requested)
+
+  const [project, pref] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { musicModel: true },
+    }),
+    prisma.userPreference.findUnique({
+      where: { userId },
+      select: { musicModel: true },
+    }),
+  ])
+  const configured = normalizeString(project?.musicModel) || normalizeString(pref?.musicModel)
+  if (!configured) throw new Error('PROJECT_AGENT_BGM_SCORE_MUSIC_MODEL_REQUIRED')
+  return requireModelKey(configured)
+}
+
+async function resolveBgmScoreEpisodeDurationSeconds(episodeId: string, projectId: string): Promise<number> {
+  const episode = await prisma.projectEpisode.findFirst({
+    where: { id: episodeId, projectId },
+    select: {
+      id: true,
+      editScript: {
+        select: { durationSec: true },
+      },
+    },
+  })
+  if (!episode) throw new Error('PROJECT_AGENT_EPISODE_NOT_FOUND')
+  const duration = episode.editScript?.durationSec
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+    throw new Error('PROJECT_AGENT_BGM_SCORE_EDIT_SCRIPT_REQUIRED')
+  }
+  return Math.max(1, Math.ceil(duration))
 }
 
 export function createMusicGenerationOperations(): ProjectAgentOperationRegistryDraft {
@@ -119,6 +165,66 @@ export function createMusicGenerationOperations(): ProjectAgentOperationRegistry
 
         writeOperationDataPart<TaskSubmittedPartData>(ctx.writer, 'data-task-submitted', {
           operationId: 'generate_project_music',
+          taskId: result.taskId,
+          status: result.status,
+          runId: result.runId || null,
+          deduped: result.deduped,
+        })
+
+        return {
+          ...result,
+          episodeId: input.episodeId,
+          musicModel,
+        }
+      },
+    }),
+    generate_episode_bgm_score: defineOperation({
+      id: 'generate_episode_bgm_score',
+      summary: 'Generate a continuous multi-stem BGM score for an episode after video planning is complete.',
+      intent: 'act',
+      prerequisites: { episodeId: 'required' },
+      effects: {
+        writes: true,
+        billable: true,
+        destructive: false,
+        overwrite: true,
+        bulk: true,
+        externalSideEffects: true,
+        longRunning: true,
+      },
+      confirmation: {
+        required: true,
+        summary: '将根据已完成的视频编排生成连续 BGM 多音轨工程并混成最终 BGM（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+      },
+      inputSchema: bgmScoreGenerationInputSchema,
+      outputSchema: taskSubmitOutput,
+      execute: async (ctx, input) => {
+        const musicModel = await resolveBgmScoreMusicModel(input, ctx.projectId, ctx.userId)
+        const durationSeconds = await resolveBgmScoreEpisodeDurationSeconds(input.episodeId, ctx.projectId)
+        const payload: Record<string, unknown> = {
+          episodeId: input.episodeId,
+          durationSeconds,
+          musicModel,
+          ...(input.outputFormat ? { outputFormat: input.outputFormat } : {}),
+        }
+
+        const result = await submitOperationTask({
+          request: ctx.request,
+          userId: ctx.userId,
+          projectId: ctx.projectId,
+          episodeId: input.episodeId,
+          type: TASK_TYPE.BGM_SCORE_GENERATE,
+          targetType: 'ProjectEpisode',
+          targetId: input.episodeId,
+          operationId: 'generate_episode_bgm_score',
+          source: ctx.source,
+          confirmed: input.confirmed === true,
+          payload,
+          dedupeKey: `bgm_score_generate:${ctx.projectId}:${input.episodeId}:${hashPayload(payload)}`,
+        })
+
+        writeOperationDataPart<TaskSubmittedPartData>(ctx.writer, 'data-task-submitted', {
+          operationId: 'generate_episode_bgm_score',
           taskId: result.taskId,
           status: result.status,
           runId: result.runId || null,

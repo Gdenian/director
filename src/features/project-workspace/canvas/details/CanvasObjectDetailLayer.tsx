@@ -27,6 +27,7 @@ import { useWorkspaceProvider } from '../../WorkspaceProvider'
 import { useWorkspaceRuntime } from '../../WorkspaceRuntimeContext'
 import type { ProjectClip, ProjectFinalVideo, ProjectStoryboard } from '@/types/project'
 import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
+import BgmScoreDetail from './BgmScoreDetail'
 import FinalDetail from './FinalDetail'
 import ImageDetail from './ImageDetail'
 import ScriptClipDetail from './ScriptClipDetail'
@@ -316,6 +317,15 @@ export default function CanvasObjectDetailLayer({
           onGenerateAllVideos={async () => runtime.onGenerateAllVideos()}
           onRenderFinalVideo={async () => runtime.onRenderFinalVideo()}
           onDownloadVideos={downloadVideos}
+        />
+      )
+    }
+
+    if (selectedNode.data.kind === 'bgmScore') {
+      return (
+        <BgmScoreDetail
+          node={selectedNode}
+          onGenerateBgmScore={async () => runtime.onGenerateBgmScore()}
         />
       )
     }

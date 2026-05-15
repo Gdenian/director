@@ -1,5 +1,9 @@
 import type { UIMessage } from 'ai'
-import type { ProjectContextSnapshot } from '@/lib/project-context/types'
+import type {
+  ProjectContextEditScreenplaySnapshot,
+  ProjectContextEditScriptSnapshot,
+  ProjectContextSnapshot,
+} from '@/lib/project-context/types'
 import type { ProjectPhase, ProjectPhaseSnapshot } from './project-phase'
 import type { PlanValidationIssue } from '@/lib/agent-skills/types'
 
@@ -103,6 +107,11 @@ export interface TaskSubmittedPartData {
   runId?: string | null
   deduped?: boolean
   mutationBatchId?: string | null
+  projectId?: string
+  episodeId?: string | null
+  taskType?: string
+  targetType?: string
+  targetId?: string
 }
 
 export interface TaskBatchSubmittedPartData {
@@ -130,6 +139,8 @@ export interface ProjectAssistantContextSnapshot {
   activeOperationTasks: ProjectContextSnapshot['activeOperationTasks']
   recentOperationResults: ProjectContextSnapshot['recentOperationResults']
   latestArtifacts: ProjectContextSnapshot['latestArtifacts']
+  editScreenplay?: ProjectContextEditScreenplaySnapshot | null
+  editScript?: ProjectContextEditScriptSnapshot | null
   config: {
     analysisModel?: string | null
     artStyle: string

@@ -385,6 +385,57 @@ export function useRenderFinalVideo(projectId: string | null, episodeId: string 
 }
 
 /**
+ * 生成连续 BGM 多音轨工程
+ */
+export function useGenerateBgmScore(projectId: string | null, episodeId: string | null) {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async () => {
+            if (!projectId) throw new Error('Project ID is required')
+            if (!episodeId) throw new Error('Episode ID is required')
+
+            const res = await apiFetch(`/api/projects/${projectId}/generate-bgm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    confirmed: true,
+                    episodeId,
+                }),
+            })
+            await checkApiResponse(res)
+            return res.json()
+        },
+        onMutate: async () => {
+            if (!projectId || !episodeId) return
+            upsertTaskTargetOverlay(queryClient, {
+                projectId,
+                targetType: 'ProjectEpisode',
+                targetId: episodeId,
+                runningTaskType: 'bgm_score_generate',
+                intent: 'generate',
+                stage: 'bgm_score_prepare',
+            })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all(projectId), exact: false })
+        },
+        onError: () => {
+            if (!projectId || !episodeId) return
+            clearTaskTargetOverlay(queryClient, {
+                projectId,
+                targetType: 'ProjectEpisode',
+                targetId: episodeId,
+            })
+        },
+        onSettled: () => {
+            if (episodeId && projectId) {
+                queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, episodeId) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all(projectId), exact: false })
+            }
+        },
+    })
+}
+
+/**
  * 选择分镜候选图
  */
 export function useSelectPanelCandidate(projectId: string | null, episodeId: string | null) {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useQueryClient } from '@tanstack/react-query'
+import type { UIMessage } from 'ai'
 import {
   AssistantRuntimeProvider,
   ThreadPrimitive,
@@ -15,22 +17,14 @@ import {
   collectPendingConfirmationActions,
   removeConfirmationRequestFromMessages,
 } from './workspace-assistant/approval-state'
-import { createAssistantMessage, createUserMessage } from './workspace-assistant/assistant-messages'
-import {
-  buildEditFirstPromptWithAnswers,
-  type EditFirstAnswer,
-  type EditFirstQuestion,
-} from './workspace-assistant/edit-first-questions'
+import { createAssistantMessage } from './workspace-assistant/assistant-messages'
 import { useWorkspaceAssistantRuntime } from './workspace-assistant/useWorkspaceAssistantRuntime'
 import { apiFetch } from '@/lib/api-fetch'
-import { useCreateProjectEditScript, useCreateProjectEditScriptBriefQuestions } from '@/lib/query/hooks'
-import type { EditBriefOptionId, EditScriptVideoRatio } from '@/lib/edit-script/types'
-import { ART_STYLES, type ArtStyleValue } from '@/lib/constants'
-import { EditFirstComposer } from './workspace-assistant/EditFirstComposer'
-import { EditFirstInlineReply, type EditFirstProgressKind } from './workspace-assistant/EditFirstInlineReply'
+import { WorkspaceAssistantComposer } from './workspace-assistant/WorkspaceAssistantComposer'
 import { WorkspaceAssistantPanelHeader } from './workspace-assistant/WorkspaceAssistantPanelHeader'
 import { WorkspaceAssistantPanelRail } from './workspace-assistant/WorkspaceAssistantPanelRail'
 import { WorkspaceAssistantRawContextDialog } from './workspace-assistant/WorkspaceAssistantRawContextDialog'
+import { WorkspaceAssistantThinkingIndicator } from './workspace-assistant/WorkspaceAssistantThinkingIndicator'
 import {
   buildWorkspaceAssistantPanelLayout,
   clampWorkspaceAssistantPanelWidth,
@@ -41,6 +35,16 @@ import {
   isWorkspaceAssistantSendMessageEvent,
   WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT,
 } from './workspace-assistant/assistant-send-event'
+import {
+  collectAssistantAsyncTaskSubmissions,
+  createTaskBatchSubmittedDataFromOperationPayload,
+  createTaskSubmittedDataFromOperationPayload,
+  resolveAssistantAsyncTaskTerminalEvent,
+  type AssistantAsyncTaskSubmission,
+} from './workspace-assistant/async-task-follow-up'
+import { queryKeys } from '@/lib/query/keys'
+import { TASK_EVENT_TYPE } from '@/lib/task/types'
+import { useWorkspaceProvider } from '../WorkspaceProvider'
 import type { WorkspaceAssistantSelectionContext } from '../canvas/ProjectWorkspaceCanvas'
 
 interface WorkspaceAssistantPanelProps {
@@ -56,16 +60,6 @@ interface WorkspaceAssistantPanelProps {
 }
 
 const WORKSPACE_ASSISTANT_WIDTH_STORAGE_KEY = 'workspace-assistant-panel-width'
-
-type EditFirstPhase = 'idle' | 'briefQuestions' | 'answeringQuestions' | 'editScript'
-const EDIT_FIRST_VIDEO_RATIOS: readonly EditScriptVideoRatio[] = ['9:16', '16:9', '21:9'] as const
-
-interface EditFirstBriefFlow {
-  readonly originalPrompt: string
-  readonly questionIndex: number
-  readonly questions: readonly EditFirstQuestion[]
-  readonly answers: readonly EditFirstAnswer[]
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -88,23 +82,6 @@ function readOperationResultSummary(payload: unknown): string {
   const runId = typeof result.runId === 'string' ? result.runId.trim() : ''
   const status = typeof result.status === 'string' ? result.status.trim() : ''
   return [status, taskId || runId].filter(Boolean).join(' · ')
-}
-
-function resolveEditFirstVideoRatio(answers: readonly EditFirstAnswer[]): EditScriptVideoRatio | undefined {
-  const ratioAnswer = answers.find((answer) => answer.questionId === 'aspect_ratio')
-  if (!ratioAnswer) return undefined
-  const answerText = `${ratioAnswer.optionLabel} ${ratioAnswer.questionLabel}`
-  return EDIT_FIRST_VIDEO_RATIOS.find((ratio) => answerText.includes(ratio))
-}
-
-function resolveEditFirstArtStyle(answers: readonly EditFirstAnswer[]): ArtStyleValue | undefined {
-  const styleAnswer = answers.find((answer) => answer.questionId === 'visual_style')
-  if (!styleAnswer) return undefined
-  const answerText = `${styleAnswer.optionLabel} ${styleAnswer.questionLabel}`.toLocaleLowerCase()
-  return ART_STYLES.find((style) => (
-    answerText.includes(style.value.toLocaleLowerCase())
-    || answerText.includes(style.label.toLocaleLowerCase())
-  ))?.value
 }
 
 function readStoredAssistantPanelWidth(): number {
@@ -130,6 +107,8 @@ export default function WorkspaceAssistantPanel({
 }: WorkspaceAssistantPanelProps) {
   const t = useTranslations('assistantAgent')
   const locale = useLocale()
+  const queryClient = useQueryClient()
+  const { subscribeTaskEvents } = useWorkspaceProvider()
   const [assistantPanelWidth, setAssistantPanelWidth] = useState(readStoredAssistantPanelWidth)
   const [isResizing, setIsResizing] = useState(false)
   const resizeStateRef = useRef<{
@@ -140,11 +119,6 @@ export default function WorkspaceAssistantPanel({
   const layout = buildWorkspaceAssistantPanelLayout(isCollapsed, assistantPanelWidth)
   const [rawContextOpen, setRawContextOpen] = useState(false)
   const [composerText, setComposerText] = useState('')
-  const [composerError, setComposerError] = useState<string | null>(null)
-  const [editFirstPhase, setEditFirstPhase] = useState<EditFirstPhase>('idle')
-  const [briefFlow, setBriefFlow] = useState<EditFirstBriefFlow | null>(null)
-  const createBriefQuestions = useCreateProjectEditScriptBriefQuestions(projectId)
-  const createEditScript = useCreateProjectEditScript(projectId)
   const assistantRuntime = useWorkspaceAssistantRuntime({
     projectId,
     episodeId,
@@ -155,184 +129,131 @@ export default function WorkspaceAssistantPanel({
     selectedAssetId: selection?.selectedAssetId ?? null,
     interactionMode: 'fast',
   })
-  const consumedMessageKeysRef = useRef<Set<string>>(new Set())
-  const buildAnswerSummaries = useCallback((answers: readonly EditFirstAnswer[]) => answers.map((answer) => (
-    `${answer.questionLabel}: ${answer.optionId}: ${answer.optionLabel}`
-  )), [])
-  const generateEditGraphFromBrief = useCallback(async (
-    originalPrompt: string,
-    answers: readonly EditFirstAnswer[],
-    options?: { clearComposer?: boolean },
-  ) => {
-    if (!episodeId) {
-      const errorMessage = t('panel.episodeRequired')
-      setComposerError(errorMessage)
-      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: errorMessage }])])
+  const assistantRuntimeRef = useRef(assistantRuntime)
+  const asyncTaskSubmissionsRef = useRef<Map<string, AssistantAsyncTaskSubmission>>(new Map())
+  const followedTaskIdsRef = useRef<Set<string>>(new Set())
+  const followedBatchKeysRef = useRef<Set<string>>(new Set())
+  const batchTerminalStateRef = useRef<Map<string, {
+    operationId: string
+    allTaskIds: Set<string>
+    terminalTaskIds: Set<string>
+    failedTaskIds: Set<string>
+  }>>(new Map())
+  const queuedAutoFollowUpRef = useRef<string[]>([])
+  useEffect(() => {
+    assistantRuntimeRef.current = assistantRuntime
+  }, [assistantRuntime])
+  useEffect(() => {
+    asyncTaskSubmissionsRef.current = collectAssistantAsyncTaskSubmissions(assistantRuntime.messages)
+  }, [assistantRuntime.messages])
+  const sendAutoFollowUpMessage = useCallback((message: string) => {
+    const runtime = assistantRuntimeRef.current
+    if (runtime.pending || runtime.storageLoading) {
+      queuedAutoFollowUpRef.current = [...queuedAutoFollowUpRef.current, message]
       return
     }
+    void runtime.sendMessage(message)
+  }, [])
+  useEffect(() => {
+    if (assistantRuntime.pending || assistantRuntime.storageLoading) return
+    const [queuedMessage, ...remainingMessages] = queuedAutoFollowUpRef.current
+    if (!queuedMessage) return
+    queuedAutoFollowUpRef.current = remainingMessages
+    void assistantRuntime.sendMessage(queuedMessage)
+  }, [assistantRuntime, assistantRuntime.pending, assistantRuntime.storageLoading])
+  useEffect(() => {
+    return subscribeTaskEvents((event) => {
+      const terminalEvent = resolveAssistantAsyncTaskTerminalEvent(event)
+      if (!terminalEvent) return
+      const submission = asyncTaskSubmissionsRef.current.get(terminalEvent.taskId)
+      if (!submission) return
 
-    const prompt = buildEditFirstPromptWithAnswers({
-      originalPrompt,
-      answerSectionTitle: t('panel.briefAnswerPromptTitle'),
-      answers: buildAnswerSummaries(answers),
-    })
-    const videoRatio = resolveEditFirstVideoRatio(answers)
-    const artStyle = resolveEditFirstArtStyle(answers)
-
-    setComposerError(null)
-    setEditFirstPhase('editScript')
-    try {
-      const editScript = await createEditScript.mutateAsync({
-        episodeId,
-        prompt,
-        ...(videoRatio ? { videoRatio } : {}),
-        ...(artStyle ? { artStyle } : {}),
-      })
-      assistantRuntime.appendMessages([
-        createAssistantMessage([
-          {
-            type: 'text',
-            text: t('panel.editFirstComplete', {
-              shots: editScript.shotCount,
-              duration: editScript.durationSec,
-              assets: editScript.requirements.length,
-            }),
-          },
-        ]),
-      ])
-      setBriefFlow(null)
-      setEditFirstPhase('idle')
-      if (options?.clearComposer) setComposerText('')
-    } catch (caught) {
-      const messageText = caught instanceof Error ? caught.message : String(caught)
-      setComposerError(messageText)
-      setBriefFlow(null)
-      setEditFirstPhase('idle')
-      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: messageText }])])
-    }
-  }, [assistantRuntime, buildAnswerSummaries, createEditScript, episodeId, t])
-  const startEditGraphBrief = useCallback(async (message: string, options?: { clearComposer?: boolean }) => {
-    const normalizedMessage = message.trim()
-    if (!normalizedMessage) return
-    if (!episodeId) {
-      const errorMessage = t('panel.episodeRequired')
-      setComposerError(errorMessage)
-      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: errorMessage }])])
-      return
-    }
-
-    setComposerError(null)
-    assistantRuntime.appendMessages([createUserMessage(normalizedMessage)])
-    if (options?.clearComposer) setComposerText('')
-    setEditFirstPhase('briefQuestions')
-    try {
-      const briefQuestions = await createBriefQuestions.mutateAsync({
-        episodeId,
-        prompt: normalizedMessage,
-      })
-      if (briefQuestions.questions.length === 0) {
-        setBriefFlow(null)
-        setEditFirstPhase('editScript')
-        await generateEditGraphFromBrief(normalizedMessage, [], { clearComposer: options?.clearComposer })
+      if (submission.kind === 'single') {
+        if (followedTaskIdsRef.current.has(submission.taskId)) return
+        followedTaskIdsRef.current.add(submission.taskId)
+        sendAutoFollowUpMessage(
+          terminalEvent.lifecycleType === TASK_EVENT_TYPE.COMPLETED
+            ? t('autoFollowUp.taskCompleted', {
+                operation: submission.operationId,
+                taskId: submission.taskId,
+              })
+            : t('autoFollowUp.taskFailed', {
+                operation: submission.operationId,
+                taskId: submission.taskId,
+              }),
+        )
         return
       }
-      setBriefFlow({
-        originalPrompt: normalizedMessage,
-        questionIndex: 0,
-        questions: briefQuestions.questions,
-        answers: [],
-      })
-      setEditFirstPhase('answeringQuestions')
-    } catch (caught) {
-      const messageText = caught instanceof Error ? caught.message : String(caught)
-      setComposerError(messageText)
-      setBriefFlow(null)
-      setEditFirstPhase('idle')
-      assistantRuntime.appendMessages([createAssistantMessage([{ type: 'text', text: messageText }])])
-    }
-  }, [assistantRuntime, createBriefQuestions, episodeId, generateEditGraphFromBrief, t])
-  const createEditGraphOnce = useCallback(async (key: string, message: string) => {
+
+      const existingState = batchTerminalStateRef.current.get(submission.batchKey)
+      const state = existingState ?? {
+        operationId: submission.operationId,
+        allTaskIds: new Set(submission.data.taskIds),
+        terminalTaskIds: new Set<string>(),
+        failedTaskIds: new Set<string>(),
+      }
+      state.terminalTaskIds.add(submission.taskId)
+      if (terminalEvent.lifecycleType === TASK_EVENT_TYPE.FAILED) {
+        state.failedTaskIds.add(submission.taskId)
+      }
+      batchTerminalStateRef.current.set(submission.batchKey, state)
+      if (state.terminalTaskIds.size < state.allTaskIds.size) return
+      if (followedBatchKeysRef.current.has(submission.batchKey)) return
+      followedBatchKeysRef.current.add(submission.batchKey)
+      sendAutoFollowUpMessage(
+        state.failedTaskIds.size > 0
+          ? t('autoFollowUp.batchFailed', {
+              operation: state.operationId,
+              failed: state.failedTaskIds.size,
+              total: state.allTaskIds.size,
+            })
+          : t('autoFollowUp.batchCompleted', {
+              operation: state.operationId,
+              total: state.allTaskIds.size,
+            }),
+      )
+    })
+  }, [sendAutoFollowUpMessage, subscribeTaskEvents, t])
+  const consumedMessageKeysRef = useRef<Set<string>>(new Set())
+  const sendAssistantMessageOnce = useCallback(async (key: string, message: string) => {
     const normalizedKey = key.trim()
     const normalizedMessage = message.trim()
     if (!normalizedKey || !normalizedMessage) return
     if (consumedMessageKeysRef.current.has(normalizedKey)) return
     consumedMessageKeysRef.current.add(normalizedKey)
-    await startEditGraphBrief(normalizedMessage)
-  }, [startEditGraphBrief])
+    await assistantRuntime.sendMessage(normalizedMessage)
+  }, [assistantRuntime])
   const handleComposerSubmit = useCallback(async () => {
-    await startEditGraphBrief(composerText, { clearComposer: true })
-  }, [composerText, startEditGraphBrief])
-  const handleBriefOptionSelect = useCallback((optionId: EditBriefOptionId) => {
-    if (!briefFlow || createBriefQuestions.isPending || createEditScript.isPending) return
-    const currentQuestion = briefFlow.questions[briefFlow.questionIndex]
-    if (!currentQuestion) {
-      setComposerError(t('panel.briefQuestionMissing'))
-      return
-    }
-    const selectedOption = currentQuestion.options.find((option) => option.id === optionId)
-    if (!selectedOption) {
-      setComposerError(t('panel.briefQuestionMissing'))
-      return
-    }
-    const nextAnswers: readonly EditFirstAnswer[] = [
-      ...briefFlow.answers,
-      {
-        questionId: currentQuestion.id,
-        questionLabel: currentQuestion.label,
-        optionId,
-        optionLabel: selectedOption.label,
-      },
-    ]
-    const nextQuestionIndex = briefFlow.questionIndex + 1
-    if (nextQuestionIndex >= briefFlow.questions.length) {
-      setBriefFlow(null)
-      setEditFirstPhase('editScript')
-      void generateEditGraphFromBrief(briefFlow.originalPrompt, nextAnswers, { clearComposer: true })
-      return
-    }
-
-    setBriefFlow({
-      originalPrompt: briefFlow.originalPrompt,
-      questionIndex: nextQuestionIndex,
-      questions: briefFlow.questions,
-      answers: nextAnswers,
-    })
-  }, [briefFlow, createBriefQuestions.isPending, createEditScript.isPending, generateEditGraphFromBrief, t])
-  const activeBriefQuestion = briefFlow
-    ? briefFlow.questions[briefFlow.questionIndex] ?? null
-    : null
-  const editFirstProgressKind: EditFirstProgressKind | null =
-    editFirstPhase === 'briefQuestions' || createBriefQuestions.isPending
-      ? 'briefQuestions'
-      : editFirstPhase === 'editScript' || createEditScript.isPending
-        ? 'editScript'
-        : null
+    const normalizedText = composerText.trim()
+    if (!normalizedText) return
+    setComposerText('')
+    await assistantRuntime.sendMessage(normalizedText)
+  }, [assistantRuntime, composerText])
   useEffect(() => {
-    onEditScriptPendingChange?.(editFirstProgressKind === 'editScript')
+    onEditScriptPendingChange?.(false)
     return () => onEditScriptPendingChange?.(false)
-  }, [editFirstProgressKind, onEditScriptPendingChange])
+  }, [onEditScriptPendingChange])
   useEffect(() => {
     if (!autoStartMessage || !autoStartKey) return
-    if (assistantRuntime.storageLoading || createBriefQuestions.isPending || createEditScript.isPending) return
+    if (assistantRuntime.storageLoading || assistantRuntime.pending) return
     onAutoStartConsumed?.()
-    void createEditGraphOnce(autoStartKey, autoStartMessage)
+    void sendAssistantMessageOnce(autoStartKey, autoStartMessage)
   }, [
+    assistantRuntime.pending,
     assistantRuntime.storageLoading,
     autoStartKey,
     autoStartMessage,
-    createEditGraphOnce,
-    createBriefQuestions.isPending,
-    createEditScript.isPending,
     onAutoStartConsumed,
+    sendAssistantMessageOnce,
   ])
   useEffect(() => {
     const handleSendMessage = (event: Event) => {
       if (!isWorkspaceAssistantSendMessageEvent(event)) return
-      void createEditGraphOnce(event.detail.key, event.detail.message)
+      void sendAssistantMessageOnce(event.detail.key, event.detail.message)
     }
     window.addEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
     return () => window.removeEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
-  }, [createEditGraphOnce])
+  }, [sendAssistantMessageOnce])
   const pendingConfirmationActions = useMemo(
     () => collectPendingConfirmationActions(assistantRuntime.messages),
     [assistantRuntime.messages],
@@ -377,17 +298,54 @@ export default function WorkspaceAssistantPanel({
       if (!response.ok) {
         throw new Error(readResponseErrorMessage(payload, t('cards.operationExecutionFailedFallback')))
       }
+      const operationEpisodeId = typeof argsHint?.episodeId === 'string' && argsHint.episodeId.trim()
+        ? argsHint.episodeId.trim()
+        : episodeId
+      if (operationEpisodeId) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.project.editScreenplay(projectId, operationEpisodeId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, operationEpisodeId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, operationEpisodeId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.project.context(projectId, operationEpisodeId) }),
+        ])
+      }
 
       const nextMessages = removeConfirmationRequestFromMessages(assistantRuntime.messages, operationId)
       const resultSummary = readOperationResultSummary(payload)
+      const taskSubmittedData = createTaskSubmittedDataFromOperationPayload({
+        payload,
+        operationId,
+        projectId,
+        episodeId: operationEpisodeId ?? null,
+      })
+      const taskBatchSubmittedData = taskSubmittedData
+        ? null
+        : createTaskBatchSubmittedDataFromOperationPayload({
+            payload,
+            operationId,
+          })
+      const confirmationMessageParts: UIMessage['parts'] = [{
+        type: 'text',
+        text: resultSummary
+          ? t('cards.confirmedOperationWithResult', { operation: operationId, result: resultSummary })
+          : t('cards.confirmedOperation', { operation: operationId }),
+      }]
+      if (taskSubmittedData) {
+        confirmationMessageParts.push({
+          type: 'data-task-submitted',
+          data: taskSubmittedData,
+        } as unknown as UIMessage['parts'][number])
+      }
+      if (taskBatchSubmittedData) {
+        confirmationMessageParts.push({
+          type: 'data-task-batch-submitted',
+          data: taskBatchSubmittedData,
+        } as unknown as UIMessage['parts'][number])
+      }
       assistantRuntime.replaceMessages([
         ...nextMessages,
-        createAssistantMessage([{
-          type: 'text',
-          text: resultSummary
-            ? t('cards.confirmedOperationWithResult', { operation: operationId, result: resultSummary })
-            : t('cards.confirmedOperation', { operation: operationId }),
-        }]),
+        createAssistantMessage(confirmationMessageParts),
       ])
     } catch (error) {
       const nextMessages = removeConfirmationRequestFromMessages(assistantRuntime.messages, operationId)
@@ -587,22 +545,15 @@ export default function WorkspaceAssistantPanel({
                     <WorkspaceAssistantThreadMessage messagePartComponents={partComponents} />
                   )}
                 </ThreadPrimitive.Messages>
-                <EditFirstInlineReply
-                  pending={createBriefQuestions.isPending || createEditScript.isPending}
-                  progressKind={editFirstProgressKind}
-                  activeQuestion={activeBriefQuestion}
-                  onSelectOption={handleBriefOptionSelect}
-                />
-
+                <WorkspaceAssistantThinkingIndicator status={assistantRuntime.status} />
               </div>
             </ThreadPrimitive.Viewport>
 
             <div className="mx-4 mb-3 shrink-0 rounded-[22px] border border-[var(--glass-stroke-base)] bg-white/92 p-2.5 backdrop-blur-xl">
-              <EditFirstComposer
-                episodeId={episodeId}
+              <WorkspaceAssistantComposer
                 value={composerText}
-                error={composerError || (assistantRuntime.error ? assistantRuntime.error.message || 'UNKNOWN_ERROR' : null)}
-                pending={createBriefQuestions.isPending || createEditScript.isPending}
+                error={assistantRuntime.error ? assistantRuntime.error.message || 'UNKNOWN_ERROR' : null}
+                pending={assistantRuntime.pending || assistantRuntime.storageLoading}
                 onChange={setComposerText}
                 onSubmit={handleComposerSubmit}
               />

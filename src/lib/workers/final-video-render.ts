@@ -6,32 +6,30 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { executeAiTextStep, generateMusic } from '@/lib/ai-exec/engine'
-import { parseModelKeyStrict } from '@/lib/ai-registry/selection'
+import { parseEditorProjectData, readCompletedBgmScoreMix } from '@/lib/bgm-score/project-data'
 import { ensureMediaObjectFromStorageKey, resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { generateUniqueKey, getObjectBuffer, toFetchableUrl, uploadObject } from '@/lib/storage'
 import type { TaskJobData } from '@/lib/task/types'
 import { reportTaskProgress } from './shared'
 import {
   buildFinalRenderClips,
-  buildFinalRenderMusicPrompt,
   parseFinalRenderEditScriptShots,
+  parseFinalRenderEditScriptVideoBlocks,
   resolveFinalRenderDimensions,
-  selectFinalRenderMusicDurationSeconds,
   type FinalRenderClipPlan,
   type FinalRenderEditScriptInput,
 } from '@/lib/video-compose/final-render-plan'
+import {
+  BGM_AUDIO_TARGET,
+  MAIN_AUDIO_TARGET,
+  concatFinalRenderAudioClips,
+  muxFinalRenderAudio,
+  renderFinalRenderClipAudio,
+} from '@/lib/video-compose/final-render-audio'
 
 type FinalVideoRenderPayload = {
   readonly episodeId?: unknown
-  readonly musicModel?: unknown
-  readonly outputFormat?: unknown
   readonly bgmVolume?: unknown
-}
-
-type GeneratedMusicBuffer = {
-  readonly buffer: Buffer
-  readonly mimeType: string
 }
 
 type CommandResult = {
@@ -53,60 +51,11 @@ function readBgmVolume(value: unknown): number {
   return value
 }
 
-function readOutputFormat(value: unknown): 'mp3' | 'wav' {
-  if (value === undefined || value === null || value === '') return 'mp3'
-  if (value === 'mp3' || value === 'wav') return value
-  throw new Error('FINAL_VIDEO_RENDER_OUTPUT_FORMAT_INVALID')
-}
-
-function normalizeGeneratedMusicPrompt(value: string): string {
-  const trimmed = value.trim()
-  const fenced = /^```(?:text|markdown)?\s*([\s\S]*?)\s*```$/i.exec(trimmed)
-  return (fenced?.[1] ?? trimmed).trim()
-}
-
 function extensionFromMimeType(mimeType: string): string {
   if (mimeType.includes('wav')) return 'wav'
   if (mimeType.includes('ogg')) return 'ogg'
   if (mimeType.includes('mp4') || mimeType.includes('m4a')) return 'm4a'
   return 'mp3'
-}
-
-function decodeAudioDataUrl(dataUrl: string): GeneratedMusicBuffer | null {
-  const match = /^data:(audio\/[^;]+);base64,(.+)$/i.exec(dataUrl.trim())
-  if (!match) return null
-  return {
-    mimeType: match[1],
-    buffer: Buffer.from(match[2], 'base64'),
-  }
-}
-
-async function loadAudioBuffer(input: {
-  readonly audioBase64?: string
-  readonly audioUrl?: string
-  readonly mimeType?: string
-}): Promise<GeneratedMusicBuffer> {
-  const explicitMimeType = readString(input.mimeType) || 'audio/mpeg'
-  if (input.audioBase64) {
-    return {
-      buffer: Buffer.from(input.audioBase64, 'base64'),
-      mimeType: explicitMimeType,
-    }
-  }
-
-  const audioUrl = readString(input.audioUrl)
-  if (!audioUrl) throw new Error('FINAL_VIDEO_RENDER_EMPTY_AUDIO_RESULT')
-  const decoded = decodeAudioDataUrl(audioUrl)
-  if (decoded) return decoded
-
-  const response = await fetch(toFetchableUrl(audioUrl))
-  if (!response.ok) {
-    throw new Error(`FINAL_VIDEO_RENDER_AUDIO_DOWNLOAD_FAILED:${response.status}`)
-  }
-  return {
-    buffer: Buffer.from(await response.arrayBuffer()),
-    mimeType: response.headers.get('content-type') || explicitMimeType,
-  }
 }
 
 async function runCommand(command: string, args: readonly string[]): Promise<CommandResult> {
@@ -158,55 +107,34 @@ async function writeVideoSourceToFile(source: FinalRenderClipPlan['source'], out
   await writeFile(outputPath, Buffer.from(await response.arrayBuffer()))
 }
 
-async function resolveMusicModel(input: {
-  readonly payloadMusicModel: unknown
-  readonly projectId: string
-  readonly userId: string
-}): Promise<string> {
-  const requested = readString(input.payloadMusicModel)
-  if (requested) {
-    const parsed = parseModelKeyStrict(requested)
-    if (!parsed) throw new Error('FINAL_VIDEO_RENDER_MUSIC_MODEL_INVALID')
-    return parsed.modelKey
-  }
-
-  const [project, pref] = await Promise.all([
-    prisma.project.findUnique({
-      where: { id: input.projectId },
-      select: { musicModel: true },
-    }),
-    prisma.userPreference.findUnique({
-      where: { userId: input.userId },
-      select: { musicModel: true },
-    }),
-  ])
-  const configured = readString(project?.musicModel) || readString(pref?.musicModel)
-  if (!configured) throw new Error('FINAL_VIDEO_RENDER_MUSIC_MODEL_REQUIRED')
-  const parsed = parseModelKeyStrict(configured)
-  if (!parsed) throw new Error('FINAL_VIDEO_RENDER_MUSIC_MODEL_INVALID')
-  return parsed.modelKey
-}
-
 async function buildEditScript(episodeId: string): Promise<FinalRenderEditScriptInput | null> {
   const script = await prisma.projectEditScript.findUnique({
     where: { episodeId },
     select: {
       id: true,
+      userPrompt: true,
       title: true,
       logline: true,
       durationSec: true,
       shotsJson: true,
+      videoBlocksJson: true,
     },
   })
   if (!script) return null
   const shots = parseFinalRenderEditScriptShots(script.shotsJson)
   if (shots.length === 0) return null
+  const videoBlocks = parseFinalRenderEditScriptVideoBlocks({
+    value: script.videoBlocksJson,
+    shots,
+  })
   return {
     id: script.id,
+    userPrompt: script.userPrompt,
     title: script.title,
     logline: script.logline,
     durationSec: script.durationSec,
     shots,
+    videoBlocks,
   }
 }
 
@@ -257,42 +185,6 @@ async function concatClips(input: {
   ])
 }
 
-async function muxBgm(input: {
-  readonly stitchedPath: string
-  readonly musicPath: string
-  readonly outputPath: string
-  readonly durationSeconds: number
-  readonly volume: number
-}): Promise<void> {
-  const fadeDuration = Math.min(2, Math.max(0.4, input.durationSeconds / 8))
-  const fadeOutStart = Math.max(0, input.durationSeconds - fadeDuration)
-  await runCommand('ffmpeg', [
-    '-y',
-    '-i',
-    input.stitchedPath,
-    '-stream_loop',
-    '-1',
-    '-i',
-    input.musicPath,
-    '-filter_complex',
-    `[1:a]volume=${input.volume.toFixed(3)},atrim=0:${input.durationSeconds.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeDuration.toFixed(3)},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeDuration.toFixed(3)}[bgm]`,
-    '-map',
-    '0:v:0',
-    '-map',
-    '[bgm]',
-    '-c:v',
-    'copy',
-    '-c:a',
-    'aac',
-    '-b:a',
-    '192k',
-    '-movflags',
-    '+faststart',
-    '-shortest',
-    input.outputPath,
-  ])
-}
-
 async function upsertEditorProject(input: {
   readonly episodeId: string
   readonly renderStatus: string
@@ -336,10 +228,19 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
   const workspaceDir = await mkdtemp(path.join(tmpdir(), `waoowaoo-final-render-${randomUUID()}-`))
   try {
     await reportTaskProgress(job, 10, { stage: 'final_render_prepare' })
-    const [project, episode, editScript, panels, videoGroups] = await Promise.all([
+    const [project, episode, editScript, panels, videoGroups, editorProject] = await Promise.all([
       prisma.project.findUnique({
         where: { id: job.data.projectId },
-        select: { videoRatio: true, analysisModel: true },
+        select: {
+          videoRatio: true,
+          artStyle: true,
+          artStylePrompt: true,
+          visualStylePresetSource: true,
+          visualStylePresetId: true,
+          directorStylePresetSource: true,
+          directorStylePresetId: true,
+          directorStyleDoc: true,
+        },
       }),
       prisma.projectEpisode.findFirst({
         where: { id: episodeId, projectId: job.data.projectId },
@@ -367,9 +268,16 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
         where: { episodeId, projectId: job.data.projectId },
         include: { videoMedia: true },
       }),
+      prisma.videoEditorProject.findUnique({
+        where: { episodeId },
+        select: { projectData: true },
+      }),
     ])
     if (!project) throw new Error('FINAL_VIDEO_RENDER_PROJECT_NOT_FOUND')
     if (!episode) throw new Error('FINAL_VIDEO_RENDER_EPISODE_NOT_FOUND')
+    const bgmMix = readCompletedBgmScoreMix(editorProject?.projectData ?? null)
+    if (!bgmMix) throw new Error('FINAL_VIDEO_RENDER_BGM_REQUIRED')
+    const existingProjectData = parseEditorProjectData(editorProject?.projectData ?? null)
 
     const clips = buildFinalRenderClips({ panels, videoGroups, editScript })
     if (clips.length === 0) throw new Error('FINAL_VIDEO_RENDER_NO_VIDEO_CLIPS')
@@ -383,9 +291,12 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
 
     const dimensions = resolveFinalRenderDimensions(project.videoRatio)
     const normalizedPaths: string[] = []
+    const clipAudioPaths: string[] = []
+    let hasSourceAudio = false
     for (const clip of clips) {
       const sourcePath = path.join(workspaceDir, `source-${clip.order}.mp4`)
       const normalizedPath = path.join(workspaceDir, `clip-${clip.order}.mp4`)
+      const clipAudioPath = path.join(workspaceDir, `clip-audio-${clip.order}.m4a`)
       await writeVideoSourceToFile(clip.source, sourcePath)
       await normalizeClip({
         sourcePath,
@@ -394,7 +305,15 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
         width: dimensions.width,
         height: dimensions.height,
       })
+      const clipHasAudio = await renderFinalRenderClipAudio({
+        runCommand,
+        sourcePath,
+        outputPath: clipAudioPath,
+        durationSeconds: clip.durationSeconds,
+      })
+      hasSourceAudio = hasSourceAudio || clipHasAudio
       normalizedPaths.push(normalizedPath)
+      clipAudioPaths.push(clipAudioPath)
     }
 
     const stitchedPath = path.join(workspaceDir, 'stitched.mp4')
@@ -404,58 +323,24 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
       outputPath: stitchedPath,
     })
     const stitchedDurationSeconds = await probeDurationSeconds(stitchedPath)
+    const mainAudioPath = path.join(workspaceDir, 'main-audio.m4a')
+    await concatFinalRenderAudioClips({
+      runCommand,
+      clipAudioPaths,
+      outputPath: mainAudioPath,
+    })
 
     await reportTaskProgress(job, 55, { stage: 'final_render_music' })
-    const musicModel = await resolveMusicModel({
-      payloadMusicModel: payload.musicModel,
-      projectId: job.data.projectId,
-      userId: job.data.userId,
-    })
-    const promptWriterInstruction = buildFinalRenderMusicPrompt({
-      editScript,
-      clips,
-      totalDurationSeconds: stitchedDurationSeconds,
-      locale: job.data.locale,
-    })
-    const analysisModel = readString(project.analysisModel)
-    if (!analysisModel) throw new Error('FINAL_VIDEO_RENDER_ANALYSIS_MODEL_REQUIRED')
-    const promptCompletion = await executeAiTextStep({
-      userId: job.data.userId,
-      model: analysisModel,
-      messages: [{ role: 'user', content: promptWriterInstruction }],
-      temperature: 0.4,
-      projectId: job.data.projectId,
-      action: 'final_render_bgm_prompt',
-      meta: {
-        stepId: 'final_render_bgm_prompt',
-        stepTitle: 'AI剪辑 BGM 提示词',
-        stepIndex: 1,
-        stepTotal: 1,
-      },
-    })
-    const musicPrompt = normalizeGeneratedMusicPrompt(promptCompletion.text)
-    if (!musicPrompt) throw new Error('FINAL_VIDEO_RENDER_MUSIC_PROMPT_EMPTY')
-    const musicDurationSeconds = selectFinalRenderMusicDurationSeconds(musicModel, stitchedDurationSeconds)
-    const generated = await generateMusic(job.data.userId, musicModel, musicPrompt, {
-      durationSeconds: musicDurationSeconds,
-      vocalMode: 'instrumental',
-      outputFormat: readOutputFormat(payload.outputFormat),
-    })
-    if (!generated.success) {
-      throw new Error(generated.error || 'FINAL_VIDEO_RENDER_MUSIC_PROVIDER_FAILED')
-    }
-    const audio = await loadAudioBuffer({
-      audioBase64: generated.audioBase64,
-      audioUrl: generated.audioUrl,
-      mimeType: generated.audioMimeType,
-    })
-    const musicPath = path.join(workspaceDir, `bgm.${extensionFromMimeType(audio.mimeType)}`)
-    await writeFile(musicPath, audio.buffer)
+    const musicPath = path.join(workspaceDir, `bgm.${extensionFromMimeType(bgmMix.mimeType)}`)
+    await writeFile(musicPath, await getObjectBuffer(bgmMix.storageKey))
 
     await reportTaskProgress(job, 78, { stage: 'final_render_compose' })
     const finalPath = path.join(workspaceDir, 'final.mp4')
-    await muxBgm({
+    const audioMix = await muxFinalRenderAudio({
+      runCommand,
       stitchedPath,
+      mainAudioPath,
+      hasSourceAudio,
       musicPath,
       outputPath: finalPath,
       durationSeconds: stitchedDurationSeconds,
@@ -484,11 +369,18 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
       taskId: job.data.taskId,
       dimensions,
       durationSeconds: stitchedDurationSeconds,
-      music: {
-        model: musicModel,
-        requestedDurationSeconds: musicDurationSeconds,
-        prompt: musicPrompt,
-        providerMetadata: generated.metadata || {},
+      bgmScore: existingProjectData.bgmScore ?? null,
+      audioMix: {
+        hasSourceAudio: audioMix.hasSourceAudio,
+        targets: {
+          mainIntegratedLufs: MAIN_AUDIO_TARGET.integratedLufs,
+          bgmIntegratedLufs: BGM_AUDIO_TARGET.integratedLufs,
+          truePeakDb: MAIN_AUDIO_TARGET.truePeakDb,
+        },
+        measured: {
+          main: audioMix.mainAudio ?? null,
+          bgm: audioMix.bgm,
+        },
       },
       timeline: clips.map((clip) => ({
         order: clip.order,
@@ -516,7 +408,6 @@ export async function handleFinalVideoRenderTask(job: Job<TaskJobData>) {
       durationSeconds: stitchedDurationSeconds,
       width: dimensions.width,
       height: dimensions.height,
-      musicModel,
     }
   } catch (error) {
     await upsertEditorProject({

@@ -27,8 +27,6 @@ export const POST = apiHandler(async (
     confirmed: body.confirmed === true,
   }
   if (typeof body.episodeId === 'string') input.episodeId = body.episodeId
-  if (typeof body.musicModel === 'string') input.musicModel = body.musicModel
-  if (body.outputFormat === 'mp3' || body.outputFormat === 'wav') input.outputFormat = body.outputFormat
   if (typeof body.bgmVolume === 'number') input.bgmVolume = body.bgmVolume
 
   const result = await executeProjectAgentOperationFromApi({

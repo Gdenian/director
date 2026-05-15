@@ -139,6 +139,7 @@ model ProjectEpisode {
   voiceLines              ProjectVoiceLine[]
   editorProject           VideoEditorProject?
   canvasLayout            ProjectCanvasLayout?
+  editScreenplay          ProjectEditScreenplay?
   editScript              ProjectEditScript?
   editAssetRequirements   ProjectEditAssetRequirement[]
   videoGroups             ProjectVideoGroup[]
@@ -149,11 +150,29 @@ model ProjectEpisode {
   @@map("project_episodes")
 }
 
+model ProjectEditScreenplay {
+  id             String         @id @default(uuid())
+  projectId      String
+  episodeId      String         @unique
+  userPrompt     String         @db.LongText
+  screenplayText String         @db.LongText
+  status         String         @default("ready")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @default(now()) @updatedAt
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  episode        ProjectEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([episodeId])
+  @@map("project_edit_screenplays")
+}
+
 model ProjectEditScript {
   id             String                         @id @default(uuid())
   projectId      String
   episodeId      String                         @unique
   userPrompt     String                         @db.LongText
+  screenplayText String?                        @db.LongText
   title          String
   logline        String?                        @db.LongText
   durationSec    Int
@@ -643,6 +662,7 @@ model Project {
   mutationBatches    MutationBatch[]
   savedSkills        SavedSkill[]
   episodes           ProjectEpisode[]
+  editScreenplays    ProjectEditScreenplay[]
   editScripts        ProjectEditScript[]
   editAssetRequirements ProjectEditAssetRequirement[]
   planRuns           PlanRun[]

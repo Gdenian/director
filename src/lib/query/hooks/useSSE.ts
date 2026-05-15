@@ -4,7 +4,7 @@ import { logError as _ulogError, logWarn as _ulogWarn } from '@/lib/logging/core
 import { useEffect, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../keys'
-import { TASK_EVENT_TYPE, TASK_SSE_EVENT_TYPE, WORKSPACE_SSE_EVENT_TYPE, type SSEEvent } from '@/lib/task/types'
+import { TASK_EVENT_TYPE, TASK_SSE_EVENT_TYPE, TASK_TYPE, WORKSPACE_SSE_EVENT_TYPE, type SSEEvent } from '@/lib/task/types'
 import { applyTaskLifecycleToOverlay } from '../task-target-overlay'
 import { isTaskIntent, resolveTaskIntent } from '@/lib/task/intent'
 import { invalidateByTarget } from '../invalidation/invalidate-by-target'
@@ -143,6 +143,14 @@ export function useSSE({ projectId, episodeId, enabled = true, onEvent }: UseSSE
           stageLabel: typeof eventPayload?.stageLabel === 'string' ? eventPayload.stageLabel : null,
           eventTs: typeof payload.ts === 'string' ? payload.ts : null,
         })
+
+        if (
+          normalizedLifecycleType === TASK_EVENT_TYPE.PROCESSING &&
+          payload.taskType === TASK_TYPE.EDIT_SCRIPT_GENERATE &&
+          resolvedEpisodeId
+        ) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, resolvedEpisodeId) })
+        }
 
         if (
           normalizedLifecycleType === TASK_EVENT_TYPE.CREATED ||

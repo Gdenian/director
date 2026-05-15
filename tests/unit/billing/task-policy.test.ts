@@ -23,7 +23,7 @@ describe('billing/task-policy', () => {
   it('builds TaskBillingInfo for every billable task type', () => {
     for (const taskType of Object.values(TASK_TYPE)) {
       if (!isBillableTaskType(taskType)) continue
-      if (taskType === TASK_TYPE.MUSIC_GENERATE) continue
+      if (taskType === TASK_TYPE.MUSIC_GENERATE || taskType === TASK_TYPE.BGM_SCORE_GENERATE) continue
       const info = expectBillableInfo(buildDefaultTaskBillingInfo(taskType, billingPayload))
       expect(info.taskType).toBe(taskType)
       expect(info.maxFrozenCost).toBeGreaterThanOrEqual(0)
@@ -50,6 +50,7 @@ describe('billing/task-policy', () => {
     expect(buildDefaultTaskBillingInfo(TASK_TYPE.IMAGE_PANEL, {})).toBeNull()
     expect(buildDefaultTaskBillingInfo(TASK_TYPE.VIDEO_PANEL, {})).toBeNull()
     expect(buildDefaultTaskBillingInfo(TASK_TYPE.MUSIC_GENERATE, {})).toBeNull()
+    expect(buildDefaultTaskBillingInfo(TASK_TYPE.BGM_SCORE_GENERATE, {})).toBeNull()
   })
 
   it('fails music billing explicitly when model pricing is not configured', () => {

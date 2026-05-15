@@ -11,6 +11,7 @@ export type ProjectAgentIntent = 'query' | 'plan' | 'act'
 export type ProjectAgentDomain =
   | 'project'
   | 'skill'
+  | 'edit-script'
   | 'run'
   | 'task'
   | 'storyboard'
@@ -39,6 +40,7 @@ const routerSchema = z.object({
   domains: z.array(z.enum([
     'project',
     'skill',
+    'edit-script',
     'run',
     'task',
     'storyboard',
@@ -179,7 +181,8 @@ function buildRouterPrompt(params: {
         'Your task is to classify the user turn before the main assistant acts.',
         'If the request is ambiguous, set needsClarification=true and provide one short clarifyingQuestion.',
         'If any tool group might be needed, include it. Prefer recall over aggressive exclusion.',
-        'For creative, production, selection, writing, storyboard, media, or multi-step goals, request only the ["skill"] group plus project read context.',
+        'For creative, production, writing, storyboard, or media goals, request the direct operation groups that may be needed; do not route through Skill unless the user explicitly asks for skills or reusable planning documents.',
+        'For edit-first production requests such as AI edit, short-film generation, screenplay-to-edit-table, assets, storyboard, video blocks, or final render, prefer these direct groups as needed: ["edit-script"], ["media","video"], ["media","music"], ["project","data"], ["storyboard","edit"].',
         'Do not request fixed-chain groups; legacy fixed-chain routing is forbidden.',
         'Do not rely on previous rule routing. Output only from the provided schema.',
         'requestedGroups is a list of groupPath arrays, e.g. ["skill"].',
@@ -208,7 +211,8 @@ function buildRouterPrompt(params: {
       '你的任务是在主 assistant 执行前，对当前用户请求做结构化分类。',
       '如果请求有歧义，必须设置 needsClarification=true，并提供一个简短的 clarifyingQuestion。',
       '如果某个工具 group 可能需要用到，就把它包含进去。宁可高召回，不要激进排除。',
-      '对于创作、制作、选择、写作、分镜、媒体生成或多步骤目标，只请求 ["skill"] group 加项目读取上下文。',
+      '对于创作、制作、写作、分镜或媒体生成目标，请请求可能需要的直接 operation group；除非用户明确要求技能或可复用规划文档，否则不要通过 Skill 转发。',
+      '对于剪辑先行制作请求，例如 AI 剪辑、生成短片、剧本到剪辑表、资产、分镜、视频片段或最终成片，按需要优先请求这些直接 group：["edit-script"]、["media","video"]、["media","music"]、["project","data"]、["storyboard","edit"]。',
       '不要请求固定链路 group；旧固定链路路由已禁止。',
       '禁止依赖旧的规则路由，必须只按 schema 输出。',
       'requestedGroups 是 groupPath 数组列表，例如 ["skill"]。',

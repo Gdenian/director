@@ -12,6 +12,7 @@ import { createVideoOperations } from './domains/media/video-ops'
 import { createVideoGenerationOperations } from './domains/media/video-generation-ops'
 import { createMusicGenerationOperations } from './domains/media/music-generation-ops'
 import { createFinalRenderOperations } from './domains/media/final-render-ops'
+import { createEditScriptOperations } from './domains/media/edit-script-ops'
 import { createLipSyncOperations } from './domains/media/lipsync-ops'
 import { createDownloadOperations } from './domains/media/download-ops'
 import { createConfigOperations } from './domains/config/config-ops'
@@ -208,6 +209,12 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
     }),
     ...withOperationPack(createFinalRenderOperations(), {
       groupPath: ['media', 'video'],
+      channels: CHANNELS_TOOL_API,
+      prerequisites: PREREQ_EPISODE_OPTIONAL,
+      confirmation: CONFIRM_NONE,
+    }),
+    ...withOperationPack(createEditScriptOperations(), {
+      groupPath: ['edit-script'],
       channels: CHANNELS_TOOL_API,
       prerequisites: PREREQ_EPISODE_OPTIONAL,
       confirmation: CONFIRM_NONE,

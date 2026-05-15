@@ -134,6 +134,7 @@ model ProjectEpisode {
   storyboards             ProjectStoryboard[]
   voiceLines              ProjectVoiceLine[]
   editorProject           VideoEditorProject?
+  editScreenplay          ProjectEditScreenplay?
   editScript              ProjectEditScript?
   editAssetRequirements   ProjectEditAssetRequirement[]
   videoGroups             ProjectVideoGroup[]
@@ -144,11 +145,29 @@ model ProjectEpisode {
   @@map("project_episodes")
 }
 
+model ProjectEditScreenplay {
+  id             String         @id @default(uuid())
+  projectId      String
+  episodeId      String         @unique
+  userPrompt     String
+  screenplayText String
+  status         String         @default("ready")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @default(now()) @updatedAt
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  episode        ProjectEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([episodeId])
+  @@map("project_edit_screenplays")
+}
+
 model ProjectEditScript {
   id             String                         @id @default(uuid())
   projectId      String
   episodeId      String                         @unique
   userPrompt     String
+  screenplayText String?
   title          String
   logline        String?
   durationSec    Int
@@ -433,6 +452,7 @@ model Project {
   episodes           ProjectEpisode[]
   characters         ProjectCharacter[]
   locations          ProjectLocation[]
+  editScreenplays    ProjectEditScreenplay[]
   editScripts        ProjectEditScript[]
   editAssetRequirements ProjectEditAssetRequirement[]
   videoGroups        ProjectVideoGroup[]

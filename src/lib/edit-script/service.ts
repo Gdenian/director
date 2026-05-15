@@ -9,15 +9,13 @@ import { getProjectModelConfig } from '@/lib/config-service'
 import { resolveModelSelection } from '@/lib/user-api/runtime-config'
 import { safeParseJsonObject } from '@/lib/json-repair'
 import { encodeImageUrls, decodeImageUrlsFromDb } from '@/lib/contracts/image-urls-contract'
-import { ART_STYLES, PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
 import { submitAssetGenerateTask } from '@/lib/assets/services/asset-actions'
 import { executeProjectAgentOperationFromApi } from '@/lib/adapters/api/execute-project-agent-operation'
 import { normalizeVideoBlockPlanResponse } from '@/lib/video-groups/planner'
 import type { Locale } from '@/i18n/routing'
 import {
   normalizeEditAssetRequirements,
-  finalizeEditScriptBriefQuestions,
-  normalizeEditScriptBriefQuestions,
   normalizeEditScriptCore,
   resolveEditScriptDefaults,
 } from './normalize'
@@ -25,7 +23,7 @@ import type {
   EditAssetKind,
   EditAssetRequirement,
   EditAssetStatus,
-  EditScriptBriefQuestionsPayload,
+  EditScreenplayPayload,
   EditScriptPayload,
   EditScriptShot,
 } from './types'
@@ -38,17 +36,21 @@ interface GenerateEditScriptInput {
   readonly userId: string
   readonly locale: Locale
   readonly prompt: string
+  readonly screenplayId?: string
   readonly videoRatio?: '9:16' | '16:9' | '21:9'
   readonly artStyle?: string
+  readonly onGenerationStepPersisted?: (step: EditScriptGenerationStep) => Promise<void>
 }
 
-interface GenerateEditScriptBriefQuestionsInput {
+interface GenerateEditScreenplayInput {
   readonly request: NextRequest
   readonly projectId: string
   readonly episodeId: string
   readonly userId: string
   readonly locale: Locale
   readonly prompt: string
+  readonly videoRatio?: '9:16' | '16:9' | '21:9'
+  readonly artStyle?: string
 }
 
 interface GenerateEditScriptAssetsInput {
@@ -87,13 +89,35 @@ interface UpdateEditScriptAssetRequirementDescriptionInput {
 }
 
 type PromptStepId =
-  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS
+  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_SCREENPLAY
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VISUAL_ACTION
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_CAMERA
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_AUDIO
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT
+
+type EditScriptGenerationStage =
+  | 'edit_script_prepare'
+  | 'edit_script_timeline'
+  | 'edit_script_visual_action'
+  | 'edit_script_camera'
+  | 'edit_script_audio'
+  | 'edit_script_primary'
+  | 'edit_script_asset_extract'
+
+interface EditScriptGenerationStep {
+  readonly stage: EditScriptGenerationStage
+  readonly stageLabel: string
+  readonly progress: number
+}
+
+interface PartialVideoBlock {
+  readonly kind: 'single' | 'group'
+  readonly shotNumbers: readonly number[]
+  readonly gridMode?: '2x2' | '3x3'
+  readonly reason: string
+}
 
 interface PersistedEditScriptRequirement {
   readonly id: string
@@ -111,6 +135,7 @@ interface PersistedEditScript {
   readonly projectId: string
   readonly episodeId: string
   readonly userPrompt: string
+  readonly screenplayText: string | null
   readonly title: string
   readonly logline: string | null
   readonly durationSec: number
@@ -119,6 +144,15 @@ interface PersistedEditScript {
   readonly shotsJson: Prisma.JsonValue
   readonly videoBlocksJson: Prisma.JsonValue | null
   readonly requirements: readonly PersistedEditScriptRequirement[]
+}
+
+interface PersistedEditScreenplay {
+  readonly id: string
+  readonly projectId: string
+  readonly episodeId: string
+  readonly userPrompt: string
+  readonly screenplayText: string
+  readonly status: string
 }
 
 interface ExistingAssetRef {
@@ -193,17 +227,6 @@ function buildStyleContext(input: {
   ].filter((line): line is string => Boolean(line)).join('\n') || 'No additional style context.'
 }
 
-function buildAvailableVisualStyles(locale: Locale): string {
-  return ART_STYLES.map((style, index) => {
-    const optionId = ['A', 'B', 'C', 'D', 'E', 'F'][index]
-    if (!optionId) {
-      throw new Error(`EDIT_SCRIPT_STYLE_OPTION_ID_MISSING:${style.value}`)
-    }
-    const prompt = locale === 'en' ? style.promptEn : style.promptZh
-    return `${optionId}. ${style.label} (${style.value}) - ${prompt}`
-  }).join('\n')
-}
-
 async function runPromptStep(input: {
   readonly userId: string
   readonly projectId: string
@@ -252,6 +275,55 @@ async function runPromptStep(input: {
   return safeParseJsonObject(completion.text)
 }
 
+async function runPromptTextStep(input: {
+  readonly userId: string
+  readonly projectId: string
+  readonly model: string
+  readonly locale: Locale
+  readonly promptId: PromptStepId
+  readonly variables: Record<string, string>
+  readonly stepTitle: string
+  readonly stepIndex: number
+  readonly stepTotal: number
+}): Promise<string> {
+  const finalPrompt = buildAiPrompt({
+    promptId: input.promptId,
+    locale: input.locale,
+    variables: input.variables,
+  })
+  const maxInputTokens = Math.max(1200, Math.ceil(finalPrompt.length * 1.2))
+  const maxOutputTokens = 2400
+  const action = input.promptId
+  const runCompletion = async () => executeAiTextStep({
+    userId: input.userId,
+    model: input.model,
+    messages: [{ role: 'user', content: finalPrompt }],
+    temperature: 0.5,
+    projectId: input.projectId,
+    action,
+    meta: {
+      stepId: action,
+      stepTitle: input.stepTitle,
+      stepIndex: input.stepIndex,
+      stepTotal: input.stepTotal,
+    },
+  })
+
+  const completion = await withTextBilling(
+    input.userId,
+    input.model,
+    maxInputTokens,
+    maxOutputTokens,
+    { projectId: input.projectId, action, metadata: { promptId: input.promptId } },
+    runCompletion,
+  )
+  const text = completion.text.trim()
+  if (!text) {
+    throw new Error(`EDIT_SCRIPT_PROMPT_EMPTY:${input.promptId}`)
+  }
+  return text
+}
+
 function readShotNumbers(value: Prisma.JsonValue): number[] {
   if (!Array.isArray(value)) return []
   return value
@@ -272,6 +344,116 @@ function normalizeStoredStatus(value: string): EditAssetStatus {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0 ? number : null
+}
+
+function readRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is Record<string, unknown> => isRecord(item))
+}
+
+function readTimelineBlocks(raw: unknown): Record<string, unknown>[] {
+  if (!isRecord(raw)) throw new Error('EDIT_SCRIPT_TIMELINE_RESPONSE_INVALID')
+  const blocks = readRecordArray(raw.videoBlocks)
+  if (blocks.length === 0) throw new Error('EDIT_SCRIPT_TIMELINE_BLOCKS_REQUIRED')
+  return blocks
+}
+
+function createEmptyEditScriptShot(shotNumber: number, durationSec: number): EditScriptShot {
+  return {
+    shotNumber,
+    durationSec,
+    visualAction: '',
+    charactersAndScene: '',
+    camera: '',
+    videoPrompt: '',
+    sound: '',
+  }
+}
+
+function assertContinuousShots(shots: readonly EditScriptShot[]) {
+  shots.forEach((shot, index) => {
+    const expected = index + 1
+    if (shot.shotNumber !== expected) {
+      throw new Error(`EDIT_SCRIPT_PARTIAL_SHOT_NUMBER_NOT_CONTINUOUS:${shot.shotNumber}:${expected}`)
+    }
+  })
+}
+
+function partialShotsFromTimeline(raw: unknown): EditScriptShot[] {
+  const blocks = readTimelineBlocks(raw)
+  const shots = blocks.flatMap((block): EditScriptShot[] => {
+    const shotRecords = readRecordArray(block.shots)
+    if (shotRecords.length === 0) throw new Error('EDIT_SCRIPT_TIMELINE_SHOTS_REQUIRED')
+    return shotRecords.map((shot) => {
+      const shotNumber = readPositiveInteger(shot.shotNumber)
+      const durationSec = readPositiveInteger(shot.durationSec)
+      if (!shotNumber || !durationSec) throw new Error('EDIT_SCRIPT_TIMELINE_SHOT_INVALID')
+      return createEmptyEditScriptShot(shotNumber, durationSec)
+    })
+  }).sort((left, right) => left.shotNumber - right.shotNumber)
+  assertContinuousShots(shots)
+  return shots
+}
+
+function indexedStepShots(raw: unknown): Map<number, Record<string, unknown>> {
+  if (!isRecord(raw)) throw new Error('EDIT_SCRIPT_STEP_RESPONSE_INVALID')
+  const blocks = readRecordArray(raw.videoBlocks)
+  const map = new Map<number, Record<string, unknown>>()
+  blocks.forEach((block) => {
+    readRecordArray(block.shots).forEach((shot) => {
+      const shotNumber = readPositiveInteger(shot.shotNumber)
+      if (shotNumber) map.set(shotNumber, shot)
+    })
+  })
+  if (map.size === 0) throw new Error('EDIT_SCRIPT_STEP_SHOTS_REQUIRED')
+  return map
+}
+
+function mergeVisualActionShots(baseShots: readonly EditScriptShot[], raw: unknown): EditScriptShot[] {
+  const byShotNumber = indexedStepShots(raw)
+  return baseShots.map((shot) => {
+    const update = byShotNumber.get(shot.shotNumber)
+    if (!update) throw new Error(`EDIT_SCRIPT_VISUAL_ACTION_SHOT_MISSING:${shot.shotNumber}`)
+    const visualAction = readNonEmptyString(update.visualAction)
+    const charactersAndScene = readNonEmptyString(update.charactersAndScene)
+    if (!visualAction || !charactersAndScene) throw new Error(`EDIT_SCRIPT_VISUAL_ACTION_SHOT_INVALID:${shot.shotNumber}`)
+    return {
+      ...shot,
+      visualAction,
+      charactersAndScene,
+    }
+  })
+}
+
+function mergeCameraShots(baseShots: readonly EditScriptShot[], raw: unknown): EditScriptShot[] {
+  const byShotNumber = indexedStepShots(raw)
+  return baseShots.map((shot) => {
+    const update = byShotNumber.get(shot.shotNumber)
+    if (!update) throw new Error(`EDIT_SCRIPT_CAMERA_SHOT_MISSING:${shot.shotNumber}`)
+    const camera = readNonEmptyString(update.camera)
+    if (!camera) throw new Error(`EDIT_SCRIPT_CAMERA_SHOT_INVALID:${shot.shotNumber}`)
+    return { ...shot, camera }
+  })
+}
+
+function mergeAudioShots(baseShots: readonly EditScriptShot[], raw: unknown): EditScriptShot[] {
+  const byShotNumber = indexedStepShots(raw)
+  return baseShots.map((shot) => {
+    const update = byShotNumber.get(shot.shotNumber)
+    if (!update) throw new Error(`EDIT_SCRIPT_AUDIO_SHOT_MISSING:${shot.shotNumber}`)
+    const sound = readNonEmptyString(update.sound)
+    if (!sound) throw new Error(`EDIT_SCRIPT_AUDIO_SHOT_INVALID:${shot.shotNumber}`)
+    return { ...shot, sound }
+  })
 }
 
 function parseShotsJson(value: Prisma.JsonValue): EditScriptShot[] {
@@ -416,6 +598,7 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
     projectId: script.projectId,
     episodeId: script.episodeId,
     userPrompt: script.userPrompt,
+    screenplayText: script.screenplayText,
     title: script.title,
     logline: script.logline,
     durationSec: script.durationSec,
@@ -424,6 +607,17 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
     shots,
     videoBlocks: parseVideoBlocksJson(script.videoBlocksJson, shots),
     requirements,
+  }
+}
+
+function mapPersistedEditScreenplay(screenplay: PersistedEditScreenplay): EditScreenplayPayload {
+  return {
+    id: screenplay.id,
+    projectId: screenplay.projectId,
+    episodeId: screenplay.episodeId,
+    userPrompt: screenplay.userPrompt,
+    screenplayText: screenplay.screenplayText,
+    status: screenplay.status,
   }
 }
 
@@ -445,10 +639,34 @@ async function getPersistedEditScript(projectId: string, episodeId: string, edit
   })
 }
 
+async function getPersistedEditScreenplay(projectId: string, episodeId: string, screenplayId?: string): Promise<PersistedEditScreenplay | null> {
+  return await prisma.projectEditScreenplay.findFirst({
+    where: {
+      projectId,
+      episodeId,
+      ...(screenplayId ? { id: screenplayId } : {}),
+    },
+  })
+}
+
+async function resolveReadyEditScreenplay(input: {
+  readonly projectId: string
+  readonly episodeId: string
+  readonly screenplayId?: string
+}): Promise<PersistedEditScreenplay> {
+  const screenplay = await getPersistedEditScreenplay(input.projectId, input.episodeId, input.screenplayId)
+  if (!screenplay) throw new Error('EDIT_SCREENPLAY_REQUIRED')
+  if (screenplay.status !== 'ready' || !screenplay.screenplayText.trim()) {
+    throw new Error(`EDIT_SCREENPLAY_NOT_READY:${screenplay.id}`)
+  }
+  return screenplay
+}
+
 async function markEditScriptGenerating(input: {
   readonly projectId: string
   readonly episodeId: string
   readonly userPrompt: string
+  readonly screenplayText: string
   readonly durationSeconds: number
 }): Promise<void> {
   await prisma.projectEditScript.upsert({
@@ -457,6 +675,7 @@ async function markEditScriptGenerating(input: {
       projectId: input.projectId,
       episodeId: input.episodeId,
       userPrompt: input.userPrompt,
+      screenplayText: input.screenplayText,
       title: 'Generating edit table',
       logline: null,
       durationSec: input.durationSeconds,
@@ -467,9 +686,64 @@ async function markEditScriptGenerating(input: {
     },
     update: {
       userPrompt: input.userPrompt,
+      screenplayText: input.screenplayText,
+      title: 'Generating edit table',
+      logline: null,
+      durationSec: input.durationSeconds,
+      shotCount: 0,
       status: 'generating',
+      shotsJson: [] as unknown as Prisma.InputJsonValue,
+      videoBlocksJson: [] as unknown as Prisma.InputJsonValue,
     },
   })
+}
+
+async function persistEditScriptGenerationStep(input: {
+  readonly projectId: string
+  readonly episodeId: string
+  readonly userPrompt: string
+  readonly screenplayText: string
+  readonly title: string
+  readonly logline: string | null
+  readonly durationSec: number
+  readonly shots: readonly EditScriptShot[]
+  readonly videoBlocks?: readonly PartialVideoBlock[]
+}) {
+  await prisma.projectEditScript.upsert({
+    where: { episodeId: input.episodeId },
+    create: {
+      projectId: input.projectId,
+      episodeId: input.episodeId,
+      userPrompt: input.userPrompt,
+      screenplayText: input.screenplayText,
+      title: input.title,
+      logline: input.logline,
+      durationSec: input.durationSec,
+      shotCount: input.shots.length,
+      status: 'generating',
+      shotsJson: input.shots as unknown as Prisma.InputJsonValue,
+      videoBlocksJson: (input.videoBlocks ?? []) as unknown as Prisma.InputJsonValue,
+    },
+    update: {
+      userPrompt: input.userPrompt,
+      screenplayText: input.screenplayText,
+      title: input.title,
+      logline: input.logline,
+      durationSec: input.durationSec,
+      shotCount: input.shots.length,
+      status: 'generating',
+      shotsJson: input.shots as unknown as Prisma.InputJsonValue,
+      videoBlocksJson: (input.videoBlocks ?? []) as unknown as Prisma.InputJsonValue,
+    },
+  })
+}
+
+async function notifyGenerationStep(
+  callback: GenerateEditScriptInput['onGenerationStepPersisted'],
+  step: EditScriptGenerationStep,
+) {
+  if (!callback) return
+  await callback(step)
 }
 
 async function markEditScriptFailed(input: {
@@ -485,6 +759,7 @@ async function markEditScriptFailed(input: {
       projectId: input.projectId,
       episodeId: input.episodeId,
       userPrompt: input.userPrompt,
+      screenplayText: null,
       title: 'Edit table generation failed',
       logline: input.message,
       durationSec: input.durationSeconds,
@@ -508,6 +783,14 @@ export async function readProjectEditScript(input: {
 }): Promise<EditScriptPayload | null> {
   const script = await getPersistedEditScript(input.projectId, input.episodeId)
   return script ? mapPersistedEditScript(script) : null
+}
+
+export async function readProjectEditScreenplay(input: {
+  readonly projectId: string
+  readonly episodeId: string
+}): Promise<EditScreenplayPayload | null> {
+  const screenplay = await getPersistedEditScreenplay(input.projectId, input.episodeId)
+  return screenplay ? mapPersistedEditScreenplay(screenplay) : null
 }
 
 export async function updateProjectEditScriptVideoBlockPrompt(
@@ -568,9 +851,7 @@ export async function updateProjectEditScriptAssetRequirementDescription(
   return await mapPersistedEditScript(updated)
 }
 
-export async function generateProjectEditScriptBriefQuestions(
-  input: GenerateEditScriptBriefQuestionsInput,
-): Promise<EditScriptBriefQuestionsPayload> {
+export async function generateProjectEditScreenplay(input: GenerateEditScreenplayInput): Promise<EditScreenplayPayload> {
   const locale = assertLocale(input.locale)
   const [episode, project, config] = await Promise.all([
     prisma.projectEpisode.findFirst({
@@ -589,35 +870,64 @@ export async function generateProjectEditScriptBriefQuestions(
     getProjectModelConfig(input.projectId, input.userId),
   ])
   if (!episode || !project) throw new ApiError('NOT_FOUND')
+  const effectiveVideoRatio = input.videoRatio ?? project.videoRatio
+  const effectiveArtStyle = input.artStyle ?? project.artStyle
+  if (input.artStyle && !isArtStyleValue(input.artStyle)) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_ART_STYLE',
+      message: 'artStyle must be a supported value',
+    })
+  }
+  if ((input.videoRatio && input.videoRatio !== project.videoRatio)
+    || (input.artStyle && input.artStyle !== project.artStyle)) {
+    await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        ...(input.videoRatio ? { videoRatio: input.videoRatio } : {}),
+        ...(input.artStyle ? { artStyle: input.artStyle } : {}),
+      },
+    })
+  }
 
   const model = resolveTextModel(config)
   const defaults = resolveEditScriptDefaults(input.prompt)
-  const rawQuestions = await runPromptStep({
+  const styleContext = buildStyleContext({
+    artStyle: effectiveArtStyle,
+    directorStyleDoc: project.directorStyleDoc,
+    videoRatio: effectiveVideoRatio,
+  })
+  const screenplayText = await runPromptTextStep({
     userId: input.userId,
     projectId: input.projectId,
     model,
     locale,
-    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_BRIEF_QUESTIONS,
+    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_SCREENPLAY,
     variables: {
       user_request: input.prompt,
       duration_seconds: String(defaults.durationSeconds),
-      available_visual_styles: buildAvailableVisualStyles(locale),
-      style_context: buildStyleContext({
-        artStyle: project.artStyle,
-        directorStyleDoc: project.directorStyleDoc,
-        videoRatio: project.videoRatio,
-      }),
+      aspect_ratio: effectiveVideoRatio,
+      style_context: styleContext,
     },
-    stepTitle: 'Edit brief questions',
+    stepTitle: 'Edit screenplay',
     stepIndex: 1,
     stepTotal: 1,
   })
-
-  return finalizeEditScriptBriefQuestions(
-    normalizeEditScriptBriefQuestions(rawQuestions),
-    locale,
-    input.prompt,
-  )
+  const saved = await prisma.projectEditScreenplay.upsert({
+    where: { episodeId: input.episodeId },
+    create: {
+      projectId: input.projectId,
+      episodeId: input.episodeId,
+      userPrompt: input.prompt,
+      screenplayText,
+      status: 'ready',
+    },
+    update: {
+      userPrompt: input.prompt,
+      screenplayText,
+      status: 'ready',
+    },
+  })
+  return mapPersistedEditScreenplay(saved)
 }
 
 export async function generateProjectEditScript(input: GenerateEditScriptInput): Promise<EditScriptPayload> {
@@ -659,11 +969,23 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
   }
   const model = resolveTextModel(config)
   const defaults = resolveEditScriptDefaults(input.prompt)
+  const screenplay = await resolveReadyEditScreenplay({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    screenplayId: input.screenplayId,
+  })
+  const screenplayText = screenplay.screenplayText
   await markEditScriptGenerating({
     projectId: input.projectId,
     episodeId: input.episodeId,
     userPrompt: input.prompt,
+    screenplayText,
     durationSeconds: defaults.durationSeconds,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_prepare',
+    stageLabel: 'progress.stage.editScriptPrepare',
+    progress: 18,
   })
 
   try {
@@ -677,16 +999,40 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     duration_seconds: String(defaults.durationSeconds),
   }
 
+  const screenplayVariables = {
+    ...commonVariables,
+    screenplay_text: screenplayText,
+  }
+
   const timeline = await runPromptStep({
     userId: input.userId,
     projectId: input.projectId,
     model,
     locale,
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_TIMELINE,
-    variables: commonVariables,
+    variables: screenplayVariables,
     stepTitle: 'Edit timeline',
     stepIndex: 1,
     stepTotal: 6,
+  })
+  const timelineShots = partialShotsFromTimeline(timeline)
+  const timelineDurationSec = timelineShots.reduce((total, shot) => total + shot.durationSec, 0)
+  const timelineTitle = isRecord(timeline) ? readNonEmptyString(timeline.title) : null
+  const timelineLogline = isRecord(timeline) ? readNonEmptyString(timeline.logline) : null
+  await persistEditScriptGenerationStep({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    userPrompt: input.prompt,
+    screenplayText,
+    title: timelineTitle ?? 'Generating edit table',
+    logline: timelineLogline,
+    durationSec: timelineDurationSec,
+    shots: timelineShots,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_timeline',
+    stageLabel: 'progress.stage.editScriptTimeline',
+    progress: 30,
   })
   const visualAction = await runPromptStep({
     userId: input.userId,
@@ -696,11 +1042,28 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VISUAL_ACTION,
     variables: {
       user_request: input.prompt,
+      screenplay_text: screenplayText,
       timeline_json: stringifyForPrompt(timeline),
     },
     stepTitle: 'Edit visual action',
     stepIndex: 2,
     stepTotal: 6,
+  })
+  const visualActionShots = mergeVisualActionShots(timelineShots, visualAction)
+  await persistEditScriptGenerationStep({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    userPrompt: input.prompt,
+    screenplayText,
+    title: timelineTitle ?? 'Generating edit table',
+    logline: timelineLogline,
+    durationSec: timelineDurationSec,
+    shots: visualActionShots,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_visual_action',
+    stageLabel: 'progress.stage.editScriptVisualAction',
+    progress: 44,
   })
   const camera = await runPromptStep({
     userId: input.userId,
@@ -710,6 +1073,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_CAMERA,
     variables: {
       user_request: input.prompt,
+      screenplay_text: screenplayText,
       visual_action_json: stringifyForPrompt(visualAction),
       aspect_ratio: effectiveVideoRatio,
       style_context: styleContext,
@@ -717,6 +1081,22 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     stepTitle: 'Edit camera',
     stepIndex: 3,
     stepTotal: 6,
+  })
+  const cameraShots = mergeCameraShots(visualActionShots, camera)
+  await persistEditScriptGenerationStep({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    userPrompt: input.prompt,
+    screenplayText,
+    title: timelineTitle ?? 'Generating edit table',
+    logline: timelineLogline,
+    durationSec: timelineDurationSec,
+    shots: cameraShots,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_camera',
+    stageLabel: 'progress.stage.editScriptCamera',
+    progress: 58,
   })
   const audio = await runPromptStep({
     userId: input.userId,
@@ -726,11 +1106,28 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_AUDIO,
     variables: {
       user_request: input.prompt,
+      screenplay_text: screenplayText,
       camera_json: stringifyForPrompt(camera),
     },
     stepTitle: 'Edit audio',
     stepIndex: 4,
     stepTotal: 6,
+  })
+  const audioShots = mergeAudioShots(cameraShots, audio)
+  await persistEditScriptGenerationStep({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    userPrompt: input.prompt,
+    screenplayText,
+    title: timelineTitle ?? 'Generating edit table',
+    logline: timelineLogline,
+    durationSec: timelineDurationSec,
+    shots: audioShots,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_audio',
+    stageLabel: 'progress.stage.editScriptAudio',
+    progress: 70,
   })
   const primary = await runPromptStep({
     userId: input.userId,
@@ -739,7 +1136,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     locale,
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
     variables: {
-      ...commonVariables,
+      ...screenplayVariables,
       timeline_json: stringifyForPrompt(timeline),
       visual_action_json: stringifyForPrompt(visualAction),
       camera_json: stringifyForPrompt(camera),
@@ -752,6 +1149,22 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     stepTotal: 6,
   })
   const core = normalizeEditScriptCore(primary)
+  await persistEditScriptGenerationStep({
+    projectId: input.projectId,
+    episodeId: input.episodeId,
+    userPrompt: input.prompt,
+    screenplayText,
+    title: core.title,
+    logline: core.logline ?? null,
+    durationSec: core.durationSec,
+    shots: core.shots,
+    videoBlocks: core.videoBlocks,
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_primary',
+    stageLabel: 'progress.stage.editScriptPrimary',
+    progress: 82,
+  })
   const assetRaw = await runPromptStep({
     userId: input.userId,
     projectId: input.projectId,
@@ -775,6 +1188,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     requirements: normalizeEditAssetRequirements(assetRaw, core.shots),
   })
 
+  const assetByRequirementKey = new Map<string, ExistingAssetRef>()
   const saved = await prisma.$transaction(async (tx) => {
     const script = await tx.projectEditScript.upsert({
       where: { episodeId: input.episodeId },
@@ -782,6 +1196,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
         projectId: input.projectId,
         episodeId: input.episodeId,
         userPrompt: input.prompt,
+        screenplayText,
         title: core.title,
         logline: core.logline,
         durationSec: core.durationSec,
@@ -792,6 +1207,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       },
       update: {
         userPrompt: input.prompt,
+        screenplayText,
         title: core.title,
         logline: core.logline,
         durationSec: core.durationSec,
@@ -804,20 +1220,40 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
     await tx.projectEditAssetRequirement.deleteMany({
       where: { editScriptId: script.id },
     })
-    await tx.projectEditAssetRequirement.createMany({
-      data: requirements.map((requirement) => ({
-        editScriptId: script.id,
-        projectId: input.projectId,
-        episodeId: input.episodeId,
-        kind: requirement.kind,
-        name: requirement.name,
-        description: requirement.description,
-        shotIndexes: requirement.shotNumbers as unknown as Prisma.InputJsonValue,
-        status: 'pending',
-        targetId: null,
-        errorMessage: null,
-      })),
-    })
+    for (const requirement of requirements) {
+      const requirementKey = `${requirement.kind}:${requirement.name.trim().toLocaleLowerCase()}`
+      let asset = assetByRequirementKey.get(requirementKey) ?? null
+      if (!asset) {
+        asset = await findExistingAsset({
+          projectId: input.projectId,
+          kind: requirement.kind,
+          name: requirement.name,
+        })
+      }
+      if (!asset) {
+        asset = await createRequiredAssetInTransaction(tx, {
+          projectId: input.projectId,
+          kind: requirement.kind,
+          name: requirement.name,
+          description: requirement.description,
+        })
+      }
+      assetByRequirementKey.set(requirementKey, asset)
+      await tx.projectEditAssetRequirement.create({
+        data: {
+          editScriptId: script.id,
+          projectId: input.projectId,
+          episodeId: input.episodeId,
+          kind: requirement.kind,
+          name: requirement.name,
+          description: requirement.description,
+          shotIndexes: requirement.shotNumbers as unknown as Prisma.InputJsonValue,
+          status: asset.hasOutput ? 'completed' : 'pending',
+          targetId: asset.id,
+          errorMessage: null,
+        },
+      })
+    }
     const nextScript = await tx.projectEditScript.findUniqueOrThrow({
       where: { id: script.id },
       include: {
@@ -830,6 +1266,11 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       },
     })
     return nextScript
+  })
+  await notifyGenerationStep(input.onGenerationStepPersisted, {
+    stage: 'edit_script_asset_extract',
+    stageLabel: 'progress.stage.editScriptAssetExtract',
+    progress: 92,
   })
 
   return await mapPersistedEditScript(saved)
@@ -953,6 +1394,74 @@ async function createRequiredAsset(input: {
   }
 
   const location = await prisma.projectLocation.create({
+    data: {
+      projectId: input.projectId,
+      name: input.name,
+      summary: input.description,
+      assetKind: 'location',
+      images: {
+        create: {
+          imageIndex: 0,
+          description: input.description,
+        },
+      },
+    },
+    select: { id: true },
+  })
+  return {
+    id: location.id,
+    previewImageUrl: null,
+    hasOutput: false,
+    taskTargetType: 'LocationImage',
+    taskTargetId: location.id,
+  }
+}
+
+async function createRequiredAssetInTransaction(
+  tx: Prisma.TransactionClient,
+  input: {
+    readonly projectId: string
+    readonly kind: EditAssetKind
+    readonly name: string
+    readonly description: string
+  },
+): Promise<ExistingAssetRef> {
+  if (input.kind === 'character') {
+    const character = await tx.projectCharacter.create({
+      data: {
+        projectId: input.projectId,
+        name: input.name,
+        aliases: null,
+        appearances: {
+          create: {
+            appearanceIndex: PRIMARY_APPEARANCE_INDEX,
+            changeReason: 'primary',
+            description: input.description,
+            descriptions: JSON.stringify([input.description]),
+            imageUrls: encodeImageUrls([]),
+            previousImageUrls: encodeImageUrls([]),
+          },
+        },
+      },
+      select: {
+        id: true,
+        appearances: {
+          orderBy: { appearanceIndex: 'asc' },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    })
+    return {
+      id: character.id,
+      previewImageUrl: null,
+      hasOutput: false,
+      taskTargetType: 'CharacterAppearance',
+      taskTargetId: character.appearances[0]?.id ?? character.id,
+    }
+  }
+
+  const location = await tx.projectLocation.create({
     data: {
       projectId: input.projectId,
       name: input.name,

@@ -266,11 +266,21 @@ export interface ProjectEditAssetRequirement {
   previewImageUrl?: string | null
 }
 
+export interface ProjectEditScreenplay {
+  id: string
+  projectId: string
+  episodeId: string
+  userPrompt: string
+  screenplayText: string
+  status: string
+}
+
 export interface ProjectEditScript {
   id: string
   projectId: string
   episodeId: string
   userPrompt: string
+  screenplayText?: string | null
   title: string
   logline: string | null
   durationSec: number
@@ -289,6 +299,40 @@ export interface ProjectEditScriptVideoBlock {
   prompt: string
 }
 
+export type ProjectBgmScoreStatus = 'pending' | 'generating' | 'completed' | 'failed'
+
+export interface ProjectBgmScoreStem {
+  role: string
+  reason: string
+  startSec: number
+  durationSec: number
+  gainDb: number
+  fadeInSec: number
+  fadeOutSec: number
+  prompt: string
+  negativePrompt?: string | null
+  url?: string | null
+}
+
+export interface ProjectBgmScore {
+  schemaVersion: number
+  status: ProjectBgmScoreStatus
+  taskId: string
+  editScriptId: string
+  timelineSignature: string
+  durationSeconds: number
+  musicModel: string
+  stems?: ProjectBgmScoreStem[]
+  mix?: {
+    mediaId: string
+    url: string
+    storageKey: string
+    mimeType: string
+    durationMs: number
+  } | null
+  errorMessage?: string | null
+}
+
 export interface ProjectFinalVideo {
   id: string
   episodeId: string
@@ -296,6 +340,7 @@ export interface ProjectFinalVideo {
   renderTaskId: string | null
   outputUrl: string | null
   updatedAt: string | null
+  bgmScore?: ProjectBgmScore | null
 }
 
 export interface ProjectVideoGroup {

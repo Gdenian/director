@@ -222,8 +222,9 @@ export {
 } from './useProjectData'
 
 export {
+    useProjectEditScreenplay,
     useProjectEditScript,
-    useCreateProjectEditScriptBriefQuestions,
+    useCreateProjectEditScreenplay,
     useCreateProjectEditScript,
     useGenerateProjectEditScriptAssets,
     useGenerateProjectEditScriptStoryboard,

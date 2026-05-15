@@ -87,7 +87,7 @@ const ROUTE_FILES = [
   'src/app/api/projects/[projectId]/editor/route.ts',
   'src/app/api/projects/[projectId]/edit-script/route.ts',
   'src/app/api/projects/[projectId]/edit-script/assets/generate/route.ts',
-  'src/app/api/projects/[projectId]/edit-script/brief-questions/route.ts',
+  'src/app/api/projects/[projectId]/edit-script/screenplay/route.ts',
   'src/app/api/projects/[projectId]/edit-script/storyboard/generate/route.ts',
   'src/app/api/projects/[projectId]/episodes/[episodeId]/route.ts',
   'src/app/api/projects/[projectId]/episodes/batch/route.ts',
@@ -95,6 +95,7 @@ const ROUTE_FILES = [
   'src/app/api/projects/[projectId]/episodes/split-by-markers/route.ts',
   'src/app/api/projects/[projectId]/episodes/split/route.ts',
   'src/app/api/projects/[projectId]/final-video-render/route.ts',
+  'src/app/api/projects/[projectId]/generate-bgm/route.ts',
   'src/app/api/projects/[projectId]/generate-character-image/route.ts',
   'src/app/api/projects/[projectId]/generate-image/route.ts',
   'src/app/api/projects/[projectId]/generate-music/route.ts',
@@ -207,6 +208,7 @@ function resolveContractGroup(routeFile: string): RouteContractGroup {
   }
   if (
     routeFile.endsWith('/generate-image/route.ts')
+    || routeFile.endsWith('/generate-bgm/route.ts')
     || routeFile.endsWith('/generate-music/route.ts')
     || routeFile.endsWith('/generate-video/route.ts')
     || routeFile.endsWith('/final-video-render/route.ts')

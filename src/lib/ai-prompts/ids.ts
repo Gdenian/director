@@ -33,7 +33,7 @@ export const AI_PROMPT_IDS = {
   VOICE_GENERATE_LINES: 'voice-generate-lines',
   MUSIC_LYRIA_PROMPT_EXPAND: 'music-lyria-prompt-expand',
   MUSIC_FINAL_RENDER_BGM: 'music-final-render-bgm',
-  EDIT_SCRIPT_BRIEF_QUESTIONS: 'edit-script-brief-questions',
+  EDIT_SCRIPT_SCREENPLAY: 'edit-script-screenplay',
   EDIT_SCRIPT_TIMELINE: 'edit-script-timeline',
   EDIT_SCRIPT_VISUAL_ACTION: 'edit-script-visual-action',
   EDIT_SCRIPT_CAMERA: 'edit-script-camera',

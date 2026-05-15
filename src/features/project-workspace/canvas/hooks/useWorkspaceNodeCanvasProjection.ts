@@ -6,6 +6,7 @@ import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout
 import type {
   ProjectClip,
   ProjectEditAssetRequirement,
+  ProjectEditScreenplay,
   ProjectEditScript,
   ProjectFinalVideo,
   ProjectPanel,
@@ -17,6 +18,7 @@ import type {
   WorkspaceCanvasAssetRef,
   WorkspaceCanvasFlowEdge,
   WorkspaceCanvasFlowNode,
+  WorkspaceCanvasEditPipelineStepItem,
   WorkspaceCanvasImageDetails,
   WorkspaceCanvasNodeAction,
   WorkspaceCanvasNodeActionHandler,
@@ -32,8 +34,19 @@ const DEFAULT_NODE_WIDTH = 320
 const VIDEO_PLAN_NODE_WIDTH = 420
 const VIDEO_PLAN_NODE_HEIGHT = 560
 const VIDEO_PLAN_GRID_ROW_GAP = 640
+const BGM_SCORE_NODE_WIDTH = 420
+const BGM_SCORE_NODE_HEIGHT = 320
 const FINAL_NODE_WIDTH = 340
 const DEFAULT_NODE_HEIGHT = 214
+const EDIT_SCREENPLAY_NODE_WIDTH = 420
+const EDIT_SCREENPLAY_NODE_HEIGHT = 380
+const EDIT_PIPELINE_STEP_NODE_WIDTH = 420
+const EDIT_PIPELINE_STEP_NODE_HEIGHT = 360
+const EDIT_PIPELINE_STEP_GRID_COLUMNS = 3
+const EDIT_PIPELINE_STEP_GRID_GAP_X = 44
+const EDIT_PIPELINE_STEP_GRID_GAP_Y = 96
+const EDIT_PIPELINE_STEP_LAYER_GAP_Y = 150
+const EDIT_PIPELINE_TO_SCRIPT_GAP_Y = 180
 const EDIT_SCRIPT_NODE_MIN_HEIGHT = 420
 const EDIT_ASSET_NODE_HEIGHT = 520
 const STORY_COLUMN_X = 260
@@ -60,6 +73,8 @@ interface TranslateValues {
 }
 
 type Translate = (key: string, values?: TranslateValues) => string
+type EditPipelineStepKey = 'timeline' | 'visualAction' | 'camera' | 'audio' | 'primaryTable' | 'assetExtract'
+type EditPipelineStepState = 'pending' | 'processing' | 'ready' | 'failed'
 
 export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly projectId?: string
@@ -69,6 +84,7 @@ export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly clips: readonly ProjectClip[]
   readonly storyboards: readonly ProjectStoryboard[]
   readonly shots?: readonly ProjectShot[]
+  readonly editScreenplay?: ProjectEditScreenplay | null
   readonly editScript?: ProjectEditScript | null
   readonly editScriptPending?: boolean
   readonly finalVideo?: ProjectFinalVideo | null
@@ -77,6 +93,8 @@ export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly defaultSequenceVideoModel?: string | null
   readonly finalRenderPhase?: 'idle' | 'queued' | 'processing' | 'completed' | 'failed'
   readonly finalRenderErrorMessage?: string | null
+  readonly bgmScorePhase?: 'idle' | 'queued' | 'processing' | 'completed' | 'failed'
+  readonly bgmScoreErrorMessage?: string | null
   readonly savedLayouts: readonly CanvasNodeLayout[]
   readonly translate: Translate
   readonly onAction?: WorkspaceCanvasNodeActionHandler
@@ -374,7 +392,23 @@ function estimateEditScriptNodeHeight(editScript: ProjectEditScript): number {
     return total + Math.max(86, 36 + maxLineCount * 22)
   }, 0)
   const summaryHeight = estimateWrappedLineCount(editScript.logline || editScript.userPrompt, 90) * 22
-  return Math.max(EDIT_SCRIPT_NODE_MIN_HEIGHT, EDIT_SCRIPT_NODE_BASE_HEIGHT + summaryHeight + rowHeightTotal)
+  const screenplayHeight = editScript.screenplayText
+    ? Math.min(8, estimateWrappedLineCount(editScript.screenplayText, 120)) * 22 + 48
+    : 0
+  return Math.max(EDIT_SCRIPT_NODE_MIN_HEIGHT, EDIT_SCRIPT_NODE_BASE_HEIGHT + summaryHeight + screenplayHeight + rowHeightTotal)
+}
+
+function extractEditScreenplayTitle(screenplayText: string): string {
+  const firstLine = screenplayText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0)
+  if (!firstLine) return ''
+  return firstLine
+    .replace(/^#+\s*/, '')
+    .replace(/^标题[:：]\s*/, '')
+    .replace(/^《(.+)》$/, '$1')
+    .trim()
 }
 
 function estimateEditAssetNodeHeight(asset: ProjectEditAssetRequirement): number {
@@ -588,12 +622,119 @@ function assetKindLabel(kind: ProjectEditAssetRequirement['kind'], translate: Tr
   return kind === 'character' ? translate('nodeFields.characterAsset') : translate('nodeFields.locationAsset')
 }
 
+function numberedTitle(label: string, index: number): string {
+  return `${label} ${index}`
+}
+
+function durationLabel(durationSec: number): string {
+  return `${durationSec}s`
+}
+
+function createEditPipelineStepItems(
+  editScript: ProjectEditScript,
+  stepKey: EditPipelineStepKey,
+  translate: Translate,
+): WorkspaceCanvasEditPipelineStepItem[] {
+  if (stepKey === 'timeline') {
+    if (editScript.shots.length === 0) return []
+    return editScript.shots.map((shot) => ({
+      title: translate('nodeFields.shotIndex', { index: shot.shotNumber }),
+      fields: [
+        { label: translate('nodeFields.duration'), value: durationLabel(shot.durationSec) },
+      ],
+    }))
+  }
+
+  if (stepKey === 'visualAction') {
+    if (!editScript.shots.every((shot) => stringValue(shot.visualAction) && stringValue(shot.charactersAndScene))) return []
+    return editScript.shots.map((shot) => ({
+      title: translate('nodeFields.shotIndex', { index: shot.shotNumber }),
+      fields: [
+        { label: translate('nodeFields.charactersAndScene'), value: shot.charactersAndScene },
+      ],
+      body: shot.visualAction,
+    }))
+  }
+
+  if (stepKey === 'camera') {
+    if (!editScript.shots.every((shot) => stringValue(shot.camera))) return []
+    return editScript.shots.map((shot) => ({
+      title: translate('nodeFields.shotIndex', { index: shot.shotNumber }),
+      fields: [
+        { label: translate('nodeFields.cameraMove'), value: shot.camera },
+      ],
+    }))
+  }
+
+  if (stepKey === 'audio') {
+    if (!editScript.shots.every((shot) => stringValue(shot.sound))) return []
+    return editScript.shots.map((shot) => ({
+      title: translate('nodeFields.shotIndex', { index: shot.shotNumber }),
+      fields: [
+        { label: translate('nodeFields.sound'), value: shot.sound },
+      ],
+    }))
+  }
+
+  if (stepKey === 'primaryTable') {
+    const videoBlockItems = editScript.videoBlocks.map((block, index) => ({
+      title: numberedTitle(translate('nodeFields.videoBlock'), index + 1),
+      fields: [
+        {
+          label: translate('nodeFields.generationMode'),
+          value: block.kind === 'group' ? translate('nodeFields.videoPlanGroup') : translate('nodeFields.videoPlanSingle'),
+        },
+      ],
+      body: block.reason,
+      chips: block.shotNumbers.map((shotNumber) => String(shotNumber)),
+    }))
+    if (videoBlockItems.length > 0) return videoBlockItems
+    if (!editScript.shots.every((shot) => stringValue(shot.videoPrompt))) return []
+    return editScript.shots.map((shot) => ({
+      title: translate('nodeFields.shotIndex', { index: shot.shotNumber }),
+      fields: [
+        { label: translate('nodeFields.videoPrompt'), value: shot.videoPrompt },
+      ],
+    }))
+  }
+
+  return editScript.requirements.map((asset) => ({
+    title: asset.name,
+    fields: [
+      { label: translate('nodeFields.assetKind'), value: assetKindLabel(asset.kind, translate) },
+    ],
+    body: asset.description,
+    chips: asset.shotNumbers.map((shotNumber) => String(shotNumber)),
+  }))
+}
+
+function editPipelineStepReady(editScript: ProjectEditScript, stepKey: EditPipelineStepKey): boolean {
+  if (stepKey === 'timeline') return editScript.shots.length > 0 && editScript.shots.every((shot) => shot.durationSec > 0)
+  if (stepKey === 'visualAction') return editScript.shots.length > 0 && editScript.shots.every((shot) => stringValue(shot.visualAction) && stringValue(shot.charactersAndScene))
+  if (stepKey === 'camera') return editScript.shots.length > 0 && editScript.shots.every((shot) => stringValue(shot.camera))
+  if (stepKey === 'audio') return editScript.shots.length > 0 && editScript.shots.every((shot) => stringValue(shot.sound))
+  if (stepKey === 'primaryTable') return editScript.videoBlocks.length > 0 && editScript.shots.length > 0 && editScript.shots.every((shot) => stringValue(shot.videoPrompt))
+  return editScript.requirements.length > 0
+}
+
+function editPipelineStepState(
+  editScript: ProjectEditScript,
+  stepKey: EditPipelineStepKey,
+  firstIncompleteStep: EditPipelineStepKey | null,
+): EditPipelineStepState {
+  if (editPipelineStepReady(editScript, stepKey)) return 'ready'
+  if (editScript.status === 'failed') return firstIncompleteStep === stepKey ? 'failed' : 'pending'
+  if (editScript.status === 'generating') return firstIncompleteStep === stepKey ? 'processing' : 'pending'
+  return 'pending'
+}
+
 export function buildWorkspaceNodeCanvasProjection({
   episodeId,
   storyText,
   clips,
   storyboards,
   shots = [],
+  editScreenplay,
   editScript,
   editScriptPending = false,
   finalVideo,
@@ -601,6 +742,8 @@ export function buildWorkspaceNodeCanvasProjection({
   defaultSequenceVideoModel,
   finalRenderPhase,
   finalRenderErrorMessage,
+  bgmScorePhase,
+  bgmScoreErrorMessage,
   savedLayouts,
   translate,
   onAction,
@@ -641,13 +784,63 @@ export function buildWorkspaceNodeCanvasProjection({
     }))
   }
 
+  const editScreenplayNodeId = editScreenplay ? `edit-screenplay:${editScreenplay.id}` : null
+  const editScreenplayFallbackY = hasStory ? 430 : 180
+  if (editScreenplay) {
+    const screenplayTitle = extractEditScreenplayTitle(editScreenplay.screenplayText)
+    nodes.push(createNode({
+      id: `edit-screenplay:${editScreenplay.id}`,
+      fallbackX: STORY_COLUMN_X,
+      fallbackY: editScreenplayFallbackY,
+      zIndex: zIndex++,
+      savedLayoutByKey,
+      ignoreSavedLayout: true,
+      data: {
+        kind: 'editScreenplay',
+        layoutNodeType: 'editScreenplay',
+        targetType: 'editScreenplay',
+        targetId: editScreenplay.id,
+        title: screenplayTitle || translate('nodes.editScreenplay.title'),
+        eyebrow: translate('nodes.editScreenplay.eyebrow'),
+        body: compactText(editScreenplay.screenplayText, translate('empty.screenplay')),
+        meta: translate('nodes.editScreenplay.meta'),
+        statusLabel: editScreenplay.status === 'ready' ? translate('status.ready') : translate('status.processing'),
+        isRunning: editScreenplay.status !== 'ready',
+        width: EDIT_SCREENPLAY_NODE_WIDTH,
+        height: EDIT_SCREENPLAY_NODE_HEIGHT,
+        indexLabel: 'S',
+        editScreenplayDetails: {
+          screenplayText: editScreenplay.screenplayText,
+          userPrompt: editScreenplay.userPrompt,
+        },
+        onAction,
+      },
+    }))
+    if (hasStory) {
+      edges.push(createEdge(`edge:analysis-edit-screenplay:${editScreenplay.id}`, analysisNodeId, `edit-screenplay:${editScreenplay.id}`))
+    }
+  }
+
   if (editScript) {
     const editScriptNodeId = `edit-script:${editScript.id}`
-    const editScriptFallbackY = hasStory ? 430 : 180
     const editScriptIsGenerating = editScript.status === 'generating'
     const editScriptIsFailed = editScript.status === 'failed'
     const editScriptIsReady = !editScriptIsGenerating && !editScriptIsFailed
-    const editScriptHeight = editScriptIsGenerating && editScript.shotCount === 0
+    const shouldShowPipelineSteps = editScriptIsReady || editScriptIsGenerating || editScriptIsFailed
+    const pipelineStepRows = shouldShowPipelineSteps ? 2 : 0
+    const pipelineStepLayerHeight = pipelineStepRows > 0
+      ? pipelineStepRows * EDIT_PIPELINE_STEP_NODE_HEIGHT + (pipelineStepRows - 1) * EDIT_PIPELINE_STEP_GRID_GAP_Y
+      : 0
+    const editPipelineBaseY = editScreenplay
+      ? editScreenplayFallbackY + EDIT_SCREENPLAY_NODE_HEIGHT + EDIT_PIPELINE_STEP_LAYER_GAP_Y
+      : hasStory ? 430 : 180
+    const editScriptFallbackY = shouldShowPipelineSteps
+      ? editPipelineBaseY + pipelineStepLayerHeight + EDIT_PIPELINE_TO_SCRIPT_GAP_Y
+      : editScreenplay
+        ? editScreenplayFallbackY + EDIT_SCREENPLAY_NODE_HEIGHT + 170
+        : hasStory ? 430 : 180
+    const editScriptHasRows = editScript.shots.length > 0
+    const editScriptHeight = editScriptIsGenerating && !editScriptHasRows
       ? 520
       : estimateEditScriptNodeHeight(editScript)
     const assetsToGenerate = editScript.requirements.some((asset) => asset.status !== 'completed')
@@ -660,6 +853,63 @@ export function buildWorkspaceNodeCanvasProjection({
       : hasStoryboardPanels
         ? null
         : { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
+    const pipelineStepDefinitions = [
+      { key: 'timeline', title: translate('nodeFields.editStepTimeline') },
+      { key: 'visualAction', title: translate('nodeFields.editStepVisualAction') },
+      { key: 'camera', title: translate('nodeFields.editStepCamera') },
+      { key: 'audio', title: translate('nodeFields.editStepAudio') },
+      { key: 'primaryTable', title: translate('nodeFields.editStepPrimaryTable') },
+      { key: 'assetExtract', title: translate('nodeFields.editStepAssetExtract') },
+    ] as const
+    const pipelineNodeIds: string[] = []
+    const firstIncompleteStep = pipelineStepDefinitions.find((step) => !editPipelineStepReady(editScript, step.key))?.key ?? null
+
+    if (shouldShowPipelineSteps) {
+      pipelineStepDefinitions.forEach((step, index) => {
+        const nodeId = `edit-pipeline:${editScript.id}:${step.key}`
+        const column = index % EDIT_PIPELINE_STEP_GRID_COLUMNS
+        const row = Math.floor(index / EDIT_PIPELINE_STEP_GRID_COLUMNS)
+        const items = createEditPipelineStepItems(editScript, step.key, translate)
+        const stepState = editPipelineStepState(editScript, step.key, firstIncompleteStep)
+        pipelineNodeIds.push(nodeId)
+        nodes.push(createNode({
+          id: nodeId,
+          fallbackX: STORY_COLUMN_X + column * (EDIT_PIPELINE_STEP_NODE_WIDTH + EDIT_PIPELINE_STEP_GRID_GAP_X),
+          fallbackY: editPipelineBaseY + row * (EDIT_PIPELINE_STEP_NODE_HEIGHT + EDIT_PIPELINE_STEP_GRID_GAP_Y),
+          zIndex: zIndex++,
+          savedLayoutByKey,
+          ignoreSavedLayout: true,
+          data: {
+            kind: 'editPipelineStep',
+            layoutNodeType: 'editPipelineStep',
+            targetType: 'editPipelineStep',
+            targetId: `${editScript.id}:${step.key}`,
+            title: step.title,
+            eyebrow: translate('nodes.editPipelineStep.eyebrow'),
+            body: stepState === 'pending'
+              ? translate('nodes.editPipelineStep.pendingBody')
+              : translate('nodes.editPipelineStep.body'),
+            meta: translate('nodes.editPipelineStep.meta', { count: items.length }),
+            statusLabel: stepState === 'ready'
+              ? translate('status.ready')
+              : stepState === 'processing'
+                ? translate('status.processing')
+                : stepState === 'failed'
+                  ? translate('status.failed')
+                  : translate('status.pending'),
+            isRunning: stepState === 'processing',
+            width: EDIT_PIPELINE_STEP_NODE_WIDTH,
+            height: EDIT_PIPELINE_STEP_NODE_HEIGHT,
+            indexLabel: `P${index + 1}`,
+            editPipelineStepDetails: {
+              items,
+            },
+            onAction,
+          },
+        }))
+      })
+    }
+
     nodes.push(createNode({
       id: editScriptNodeId,
       fallbackX: STORY_COLUMN_X,
@@ -672,12 +922,12 @@ export function buildWorkspaceNodeCanvasProjection({
         layoutNodeType: 'editScript',
         targetType: 'editScript',
         targetId: editScript.id,
-        title: editScriptIsGenerating ? translate('nodes.editScript.pendingTitle') : editScript.title,
+        title: editScriptIsGenerating && !editScriptHasRows ? translate('nodes.editScript.pendingTitle') : editScript.title,
         eyebrow: translate('nodes.editScript.eyebrow'),
-        body: editScriptIsGenerating
+        body: editScriptIsGenerating && !editScript.logline
           ? translate('nodes.editScript.pendingBody')
           : compactText(editScript.logline || editScript.userPrompt, translate('empty.editScript')),
-        meta: editScriptIsGenerating
+        meta: editScriptIsGenerating && !editScriptHasRows
           ? translate('nodes.editScript.pendingMeta')
           : translate('nodes.editScript.meta', {
               shots: editScript.shotCount,
@@ -694,7 +944,8 @@ export function buildWorkspaceNodeCanvasProjection({
         width: EDIT_SCRIPT_TABLE_NODE_WIDTH,
         height: editScriptHeight,
         indexLabel: 'E',
-        editScriptDetails: editScriptIsReady ? {
+        editScriptDetails: editScriptHasRows ? {
+          screenplayText: editScript.screenplayText,
           durationSec: editScript.durationSec,
           shotCount: editScript.shotCount,
           shots: editScript.shots,
@@ -704,6 +955,23 @@ export function buildWorkspaceNodeCanvasProjection({
         onAction,
       },
     }))
+    if (pipelineNodeIds.length > 0) {
+      const firstPipelineNodeId = pipelineNodeIds[0]
+      if (editScreenplayNodeId) {
+        edges.push(createEdge(`edge:edit-screenplay-edit-pipeline:${editScript.id}`, editScreenplayNodeId, firstPipelineNodeId))
+      } else if (hasStory) {
+        edges.push(createEdge(`edge:analysis-edit-pipeline:${editScript.id}`, analysisNodeId, firstPipelineNodeId))
+      }
+      pipelineNodeIds.forEach((nodeId, index) => {
+        const nextNodeId = pipelineNodeIds[index + 1]
+        if (nextNodeId) edges.push(createEdge(`edge:edit-pipeline:${editScript.id}:${index + 1}`, nodeId, nextNodeId))
+      })
+      edges.push(createEdge(`edge:edit-pipeline-edit-script:${editScript.id}`, pipelineNodeIds[pipelineNodeIds.length - 1], editScriptNodeId))
+    } else if (editScreenplayNodeId) {
+      edges.push(createEdge(`edge:edit-screenplay-edit-script:${editScript.id}`, editScreenplayNodeId, editScriptNodeId))
+    } else if (hasStory) {
+      edges.push(createEdge(`edge:analysis-edit-script:${editScript.id}`, analysisNodeId, editScriptNodeId))
+    }
 
     const assetBaseY = editScriptFallbackY + editScriptHeight + EDIT_SCRIPT_ASSET_LAYER_GAP_Y
     let assetRowY = assetBaseY
@@ -728,8 +996,8 @@ export function buildWorkspaceNodeCanvasProjection({
         data: {
           kind: 'editRequiredAsset',
           layoutNodeType: 'editRequiredAsset',
-          targetType: 'editAssetRequirement',
-          targetId: asset.id,
+          targetType: asset.kind === 'character' ? 'projectCharacter' : 'projectLocation',
+          targetId: asset.targetId || asset.id,
           title: asset.name,
           eyebrow: assetKindLabel(asset.kind, translate),
           body: compactText(asset.description, translate('empty.editAsset')),
@@ -742,6 +1010,7 @@ export function buildWorkspaceNodeCanvasProjection({
           previewImageUrl: asset.previewImageUrl,
           editAssetDetails: {
             editScriptId: editScript.id,
+            requirementId: asset.id,
             kind: asset.kind,
             description: asset.description,
             shotNumbers: asset.shotNumbers,
@@ -850,7 +1119,8 @@ export function buildWorkspaceNodeCanvasProjection({
   const videoPlanRows = Math.max(1, Math.ceil((canShowVideoPlanLayer ? editScript?.videoBlocks?.length ?? 0 : 0) / PANEL_GRID_COLUMNS))
   const shotGridBaseY = 24
   const videoPlanBaseY = shotGridBaseY + panelGridRows * shotGridRowGap + 150
-  const finalGridBaseY = videoPlanBaseY + (canShowVideoPlanLayer ? videoPlanRows * VIDEO_PLAN_GRID_ROW_GAP + 130 : 0)
+  const bgmScoreBaseY = videoPlanBaseY + (canShowVideoPlanLayer ? videoPlanRows * VIDEO_PLAN_GRID_ROW_GAP + 130 : 0)
+  const finalGridBaseY = bgmScoreBaseY + BGM_SCORE_NODE_HEIGHT + 130
 
   const shotNodeIds = new Map<string, string>()
   panelsWithStoryboard.forEach(({ storyboard, panel }, index) => {
@@ -913,6 +1183,7 @@ export function buildWorkspaceNodeCanvasProjection({
 
   if (editScript?.videoBlocks?.length && canShowVideoPlanLayer) {
     const durations = editScriptShotDurationByNumber(editScript)
+    const editScriptVideoSourceNodeId = `edit-script:${editScript.id}`
 
     editScript.videoBlocks.forEach((block, index) => {
       const durationSec = videoBlockDuration(block.shotNumbers, durations)
@@ -1036,6 +1307,7 @@ export function buildWorkspaceNodeCanvasProjection({
         },
       }))
 
+      edges.push(createEdge(`edge:edit-script-video-plan:${nodeId}`, editScriptVideoSourceNodeId, nodeId))
       const firstShotPanel = panelByShotNumberForVideoPlan.get(block.shotNumbers[0])
       const firstShotNodeId = firstShotPanel ? shotNodeIds.get(firstShotPanel.id) : null
       if (firstShotNodeId) edges.push(createEdge(`edge:shot-video-plan:${nodeId}`, firstShotNodeId, nodeId))
@@ -1047,6 +1319,7 @@ export function buildWorkspaceNodeCanvasProjection({
     .map((node) => node.id)
   if (videoOutputNodeIds.length > 0) {
     const finalNodeId = `final:${episodeId}`
+    const bgmScoreNodeId = `bgm-score:${episodeId}`
     const totalDuration = panelsWithStoryboard.reduce((total, item) => total + (item.panel.duration ?? 0), 0)
     const imageCount = panelsWithStoryboard.filter((item) => hasImage(item.panel)).length
     const generatedVideoCount = canShowVideoPlanLayer && editScript?.videoBlocks
@@ -1060,7 +1333,63 @@ export function buildWorkspaceNodeCanvasProjection({
       : 0
     const isFinalRenderRunning = finalRenderPhase === 'queued' || finalRenderPhase === 'processing'
     const isFinalRenderFailed = finalRenderPhase === 'failed'
+    const bgmScore = finalVideo?.bgmScore ?? null
+    const isBgmScoreRunning = bgmScorePhase === 'queued' || bgmScorePhase === 'processing' || bgmScore?.status === 'generating'
+    const isBgmScoreFailed = bgmScorePhase === 'failed' || bgmScore?.status === 'failed'
+    const hasBgmScore = bgmScore?.status === 'completed' && Boolean(bgmScore.mix?.url)
     const hasFinalOutput = Boolean(finalVideo?.outputUrl && finalVideo.renderStatus === 'completed')
+    nodes.push(createNode({
+      id: bgmScoreNodeId,
+      fallbackX: PANEL_GRID_BASE_X,
+      fallbackY: bgmScoreBaseY + 180,
+      zIndex: zIndex++,
+      savedLayoutByKey,
+      data: {
+        kind: 'bgmScore',
+        layoutNodeType: 'bgmScore',
+        targetType: 'episode',
+        targetId: episodeId,
+        title: translate('nodes.bgmScore.title'),
+        eyebrow: translate('nodes.bgmScore.eyebrow'),
+        body: translate('nodes.bgmScore.body', { videos: videoOutputNodeIds.length }),
+        meta: isBgmScoreFailed
+          ? bgmScoreErrorMessage ?? bgmScore?.errorMessage ?? translate('nodes.bgmScore.failed')
+          : hasBgmScore
+            ? translate('nodes.bgmScore.ready', { count: bgmScore?.stems?.length ?? 0 })
+            : translate('nodes.bgmScore.meta'),
+        statusLabel: isBgmScoreRunning
+          ? translate('status.generatingBgm')
+          : isBgmScoreFailed
+            ? translate('status.failed')
+            : hasBgmScore
+              ? translate('status.ready')
+              : translate('status.pending'),
+        isRunning: isBgmScoreRunning,
+        width: BGM_SCORE_NODE_WIDTH,
+        height: BGM_SCORE_NODE_HEIGHT,
+        indexLabel: 'M',
+        bgmScoreDetails: {
+          status: bgmScore?.status ?? (isBgmScoreRunning ? 'generating' : 'pending'),
+          durationSeconds: bgmScore?.durationSeconds ?? null,
+          musicModel: bgmScore?.musicModel ?? null,
+          stemCount: bgmScore?.stems?.length ?? 0,
+          mixUrl: bgmScore?.mix?.url ?? null,
+          errorMessage: bgmScoreErrorMessage ?? bgmScore?.errorMessage ?? null,
+          stems: (bgmScore?.stems ?? []).map((stem) => ({
+            role: stem.role,
+            reason: stem.reason,
+            startSec: stem.startSec,
+            durationSec: stem.durationSec,
+            gainDb: stem.gainDb,
+            prompt: stem.prompt,
+          })),
+        },
+        actionLabel: isBgmScoreRunning ? translate('actions.generatingBgm') : translate('actions.generateBgmScore'),
+        action: { type: 'generate_bgm_score' },
+        actionDisabled: isBgmScoreRunning,
+        onAction,
+      },
+    }))
     nodes.push(createNode({
       id: finalNodeId,
       fallbackX: PANEL_GRID_BASE_X,
@@ -1101,13 +1430,14 @@ export function buildWorkspaceNodeCanvasProjection({
         },
         actionLabel: isFinalRenderRunning ? translate('actions.aiEditing') : translate('actions.renderFinalVideo'),
         action: { type: 'render_final_video' },
-        actionDisabled: isFinalRenderRunning,
+        actionDisabled: isFinalRenderRunning || !hasBgmScore,
         onAction,
       },
     }))
     videoOutputNodeIds.forEach((videoNodeId) => {
-      edges.push(createEdge(`edge:video-final:${videoNodeId}`, videoNodeId, finalNodeId))
+      edges.push(createEdge(`edge:video-bgm:${videoNodeId}`, videoNodeId, bgmScoreNodeId))
     })
+    edges.push(createEdge(`edge:bgm-final:${episodeId}`, bgmScoreNodeId, finalNodeId))
   }
 
   return { nodes, edges }
@@ -1121,6 +1451,7 @@ export function useWorkspaceNodeCanvasProjection({
   clips,
   storyboards,
   shots,
+  editScreenplay,
   editScript,
   editScriptPending,
   finalVideo,
@@ -1141,6 +1472,7 @@ export function useWorkspaceNodeCanvasProjection({
       clips,
       storyboards,
       shots,
+      editScreenplay,
       editScript,
       editScriptPending,
       finalVideo,
@@ -1165,6 +1497,7 @@ export function useWorkspaceNodeCanvasProjection({
       videoGroups,
       savedLayouts,
       shots,
+      editScreenplay,
       editScript,
       editScriptPending,
       storyText,
