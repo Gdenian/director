@@ -1382,6 +1382,7 @@ export function buildWorkspaceNodeCanvasProjection({
             durationSec: stem.durationSec,
             gainDb: stem.gainDb,
             prompt: stem.prompt,
+            url: stem.url ?? null,
           })),
         },
         actionLabel: isBgmScoreRunning ? translate('actions.generatingBgm') : translate('actions.generateBgmScore'),

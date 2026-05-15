@@ -410,6 +410,58 @@ describe('workspace node rendering', () => {
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
   })
 
+  it('renders playable BGM mix and stem audio when the BGM node is expanded', () => {
+    const html = renderNode({
+      kind: 'bgmScore',
+      layoutNodeType: 'bgmScore',
+      targetType: 'episode',
+      targetId: 'episode-1',
+      title: 'BGM Score',
+      eyebrow: 'Music',
+      body: 'continuous BGM',
+      meta: 'ready',
+      statusLabel: 'Ready',
+      width: 420,
+      height: 320,
+      expanded: true,
+      bgmScoreDetails: {
+        status: 'completed',
+        durationSeconds: 12,
+        musicModel: 'music-model',
+        stemCount: 2,
+        mixUrl: 'https://example.com/final-mix.m4a',
+        errorMessage: null,
+        stems: [
+          {
+            role: 'atmosphere',
+            reason: 'continuous bed',
+            startSec: 0,
+            durationSec: 12,
+            gainDb: -9,
+            prompt: 'isolated atmosphere stem',
+            url: 'https://example.com/atmosphere.m4a',
+          },
+          {
+            role: 'pulse',
+            reason: 'motion layer',
+            startSec: 2,
+            durationSec: 8,
+            gainDb: -12,
+            prompt: 'isolated pulse stem',
+            url: 'https://example.com/pulse.m4a',
+          },
+        ],
+      },
+    })
+
+    expect(html).toContain('finalBgmMix')
+    expect(html).toContain('src="https://example.com/final-mix.m4a"')
+    expect(html).toContain('src="https://example.com/atmosphere.m4a"')
+    expect(html).toContain('src="https://example.com/pulse.m4a"')
+    expect(html).toContain('aria-label="stemAudio: atmosphere"')
+    expect(html).toContain('aria-label="stemAudio: pulse"')
+  })
+
   it('renders a disabled video reference action with an asset-image prerequisite hint', () => {
     const html = renderNode({
       kind: 'videoPlan',

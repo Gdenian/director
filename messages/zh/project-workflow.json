@@ -374,6 +374,8 @@
         "musicModel": "音乐模型",
         "status": "状态",
         "gainDb": "增益",
+        "finalBgmMix": "最终混音",
+        "stemAudio": "分轨音频",
         "videoOrder": "视频顺序",
         "editScriptMeta": "剪辑表信息",
         "shotIndexHeader": "镜头",

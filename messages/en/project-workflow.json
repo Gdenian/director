@@ -374,6 +374,8 @@
         "musicModel": "Music Model",
         "status": "Status",
         "gainDb": "Gain",
+        "finalBgmMix": "Final Mix",
+        "stemAudio": "Stem Audio",
         "videoOrder": "Video Order",
         "editScriptMeta": "Edit Table Info",
         "shotIndexHeader": "Shot",

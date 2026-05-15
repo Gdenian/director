@@ -44,6 +44,11 @@ export default function BgmScoreDetail({ node, onGenerateBgmScore }: BgmScoreDet
                     {stem.startSec}s - {Math.round((stem.startSec + stem.durationSec) * 10) / 10}s · {stem.gainDb}dB
                   </span>
                 </div>
+                {stem.url ? (
+                  <div className="mt-2 rounded-md border border-black/5 bg-slate-50 p-2">
+                    <audio src={toDisplayImageUrl(stem.url) ?? stem.url} controls className="w-full" />
+                  </div>
+                ) : null}
                 <p className="mt-1 text-xs leading-5 text-[var(--glass-text-secondary)]">{stem.reason}</p>
                 <p className="mt-1 line-clamp-3 text-xs leading-5 text-[var(--glass-text-tertiary)]">{stem.prompt}</p>
               </div>

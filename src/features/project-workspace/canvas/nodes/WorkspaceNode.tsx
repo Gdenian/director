@@ -778,7 +778,10 @@ function BgmScoreContent({
   return (
     <div className={`space-y-2 rounded-[18px] ${data.__running === true ? 'workspace-node-loading-surface' : ''}`}>
       {displayMixUrl ? (
-        <div className="rounded-[14px] border border-slate-200 bg-white p-2">
+        <div className="space-y-1.5 rounded-[14px] border border-slate-200 bg-white p-2">
+          <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>
+            {labels('finalBgmMix')}
+          </p>
           <audio src={displayMixUrl} controls className="w-full" />
         </div>
       ) : null}
@@ -800,6 +803,11 @@ function BgmScoreContent({
                   {stem.startSec}s - {Math.round((stem.startSec + stem.durationSec) * 10) / 10}s
                 </span>
               </div>
+              {stem.url ? (
+                <div className="rounded-[12px] border border-slate-200 bg-white p-2">
+                  <audio src={toDisplayImageUrl(stem.url) ?? stem.url} controls className="w-full" aria-label={`${labels('stemAudio')}: ${stem.role}`} />
+                </div>
+              ) : null}
               {renderSummaryText(stem.reason, 2)}
               {renderValue(labels('gainDb'), stem.gainDb)}
               {renderSummaryText(stem.prompt, 3)}

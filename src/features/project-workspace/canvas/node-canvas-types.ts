@@ -230,6 +230,7 @@ export interface WorkspaceCanvasBgmScoreDetails {
     readonly durationSec: number
     readonly gainDb: number
     readonly prompt: string
+    readonly url?: string | null
   }[]
 }
 
