@@ -43,6 +43,8 @@ function formatSkillLabel(skillId: string | null | undefined, t: ReturnType<type
 
 type MessagePartComponents = NonNullable<ComponentProps<typeof MessagePrimitive.Parts>['components']>
 
+export const WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS = 'w-fit rounded-2xl bg-neutral-100 px-3 py-2.5 text-sm leading-6 text-[var(--glass-text-primary)]'
+
 function ProjectPhaseDataCard({ data }: DataMessagePartProps<ProjectPhasePartData>) {
   const t = useTranslations('assistantAgent')
   return (
@@ -441,7 +443,7 @@ export function WorkspaceAssistantThreadMessage(props: {
     <>
       <MessagePrimitive.If user>
         <div className="ml-auto flex w-full max-w-[88%] flex-col items-end">
-          <MessagePrimitive.Root className="w-fit rounded-lg border border-white/80 bg-white/90 px-3 py-2.5 text-sm leading-6 text-[var(--glass-text-primary)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-md">
+          <MessagePrimitive.Root className={WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS}>
             <MessagePrimitive.Parts />
           </MessagePrimitive.Root>
         </div>

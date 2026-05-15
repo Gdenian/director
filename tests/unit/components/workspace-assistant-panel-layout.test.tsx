@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { WorkspaceAssistantPanelHeader } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantPanelHeader'
 import { WorkspaceAssistantPanelRail } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantPanelRail'
+import { WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantRenderers'
 import {
   buildWorkspaceAssistantPanelLayout,
   clampWorkspaceAssistantPanelWidth,
@@ -70,5 +71,12 @@ describe('workspace assistant panel layout', () => {
     expect(headerHtml).toContain('Download Log')
     expect(railHtml).toContain('Expand AI assistant sidebar')
     expect(railHtml).not.toContain('Workspace Chat')
+  })
+
+  it('keeps user messages as flat gray bubbles without border or shadow', () => {
+    expect(WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS).toContain('bg-neutral-100')
+    expect(WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS).not.toContain('border')
+    expect(WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS).not.toContain('shadow')
+    expect(WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS).not.toContain('backdrop-blur')
   })
 })
