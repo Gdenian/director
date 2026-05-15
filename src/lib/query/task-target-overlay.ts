@@ -39,6 +39,10 @@ function buildOptimisticTaskId(targetType: string, targetId: string, now: number
   return `optimistic:${targetType}:${targetId}:${now.toString(36)}`
 }
 
+function isOptimisticTaskId(taskId: string | null): boolean {
+  return typeof taskId === 'string' && taskId.startsWith('optimistic:')
+}
+
 function pruneExpiredOverlay(prev: TaskTargetOverlayMap | undefined, now: number) {
   const next: TaskTargetOverlayMap = { ...(prev || {}) }
   for (const [overlayKey, value] of Object.entries(next)) {
@@ -184,7 +188,12 @@ export function applyTaskLifecycleToOverlay(
         const current = prev[key]
         const incomingTaskId = normalizeOptionalString(params.taskId)
         const currentTaskId = normalizeOptionalString(current.runningTaskId)
-        if (incomingTaskId && currentTaskId && incomingTaskId !== currentTaskId) {
+        if (
+          incomingTaskId &&
+          currentTaskId &&
+          incomingTaskId !== currentTaskId &&
+          !isOptimisticTaskId(currentTaskId)
+        ) {
           return prev
         }
         const next: TaskTargetOverlayMap = { ...prev }

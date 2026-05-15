@@ -102,4 +102,39 @@ describe('task-target-overlay', () => {
     const overlay = getOverlay(queryClient, projectId, key)
     expect(overlay).toBeNull()
   })
+
+  it('clears optimistic overlay when the real task completes', () => {
+    const queryClient = new QueryClient()
+    const projectId = 'project-1'
+    const key = 'ProjectEpisode:episode-1'
+
+    upsertTaskTargetOverlay(queryClient, {
+      projectId,
+      targetType: 'ProjectEpisode',
+      targetId: 'episode-1',
+      runningTaskType: 'bgm_score_generate',
+      intent: 'generate',
+    })
+
+    const optimisticOverlay = getOverlay(queryClient, projectId, key)
+    expect(optimisticOverlay?.runningTaskId).toMatch(/^optimistic:ProjectEpisode:episode-1:/)
+
+    applyTaskLifecycleToOverlay(queryClient, {
+      projectId,
+      lifecycleType: TASK_EVENT_TYPE.COMPLETED,
+      targetType: 'ProjectEpisode',
+      targetId: 'episode-1',
+      taskId: 'task-bgm-real',
+      taskType: 'bgm_score_generate',
+      intent: 'generate',
+      hasOutputAtStart: null,
+      progress: null,
+      stage: null,
+      stageLabel: null,
+      eventTs: new Date().toISOString(),
+    })
+
+    const overlay = getOverlay(queryClient, projectId, key)
+    expect(overlay).toBeNull()
+  })
 })

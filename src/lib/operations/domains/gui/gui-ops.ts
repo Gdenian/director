@@ -38,6 +38,7 @@ import { resolveProjectModelCapabilityGenerationOptions } from '@/lib/config-ser
 import { resolveBuiltinCapabilitiesByModelKey as _resolveCaps } from '@/lib/ai-registry/capabilities-catalog'
 import type { ProjectAgentOperationRegistryDraft } from '@/lib/operations/types'
 import { defineOperation } from '@/lib/operations/define-operation'
+import { normalizeFinalVideoSummary } from './final-video-summary'
 
 const EFFECTS_QUERY = {
   writes: false,
@@ -76,38 +77,6 @@ function toObject(value: unknown): Record<string, unknown> {
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function normalizeNullableString(value: unknown): string | null {
-  const normalized = normalizeString(value)
-  return normalized.length > 0 ? normalized : null
-}
-
-function normalizeBgmScoreSummary(projectData: unknown) {
-  const record = toObject(projectData)
-  const bgmScore = toObject(record.bgmScore)
-  const status = normalizeString(bgmScore.status)
-  if (!status) return null
-  return bgmScore
-}
-
-function normalizeFinalVideoSummary(value: unknown) {
-  const record = toObject(value)
-  const id = normalizeString(record.id)
-  const episodeId = normalizeString(record.episodeId)
-  if (!id || !episodeId) return null
-
-  return {
-    id,
-    episodeId,
-    renderStatus: normalizeNullableString(record.renderStatus),
-    renderTaskId: normalizeNullableString(record.renderTaskId),
-    outputUrl: normalizeNullableString(record.outputUrl),
-    bgmScore: normalizeBgmScoreSummary(record.projectData),
-    updatedAt: record.updatedAt instanceof Date
-      ? record.updatedAt.toISOString()
-      : normalizeNullableString(record.updatedAt),
-  }
 }
 
 function resolveStoryboardGroupInsertCreatedAt<T extends { createdAt: Date }>(
