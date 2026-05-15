@@ -775,6 +775,36 @@ function BgmScoreContent({
   const details = data.bgmScoreDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
   const displayMixUrl = toDisplayImageUrl(details.mixUrl) ?? details.mixUrl ?? null
+  const renderTimedSectionList = (
+    sections: typeof details.designSections,
+    sectionTitle: string,
+  ) => sections.length > 0 ? (
+    <div className="space-y-2">
+      <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{sectionTitle}</p>
+      {sections.map((section, index) => {
+        const timeRange = typeof section.startSec === 'number' || typeof section.endSec === 'number'
+          ? `${section.startSec ?? 0}s - ${section.endSec ?? details.durationSeconds ?? ''}s`
+          : null
+        return (
+          <section key={`${section.title}-${index}`} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                {section.category ? (
+                  <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{section.category}</p>
+                ) : null}
+                <p className={`${SELECTABLE_TEXT_CLASS} break-words text-xs font-semibold text-[var(--glass-text-primary)]`}>{section.title}</p>
+              </div>
+              {timeRange ? (
+                <span className={`${SELECTABLE_TEXT_CLASS} shrink-0 text-[10px] text-[var(--glass-text-tertiary)]`}>{timeRange}</span>
+              ) : null}
+            </div>
+            {renderSummaryText(section.purpose ?? null, 2)}
+            {renderSummaryText(section.content, 4)}
+          </section>
+        )
+      })}
+    </div>
+  ) : null
   return (
     <div className={`space-y-2 rounded-[18px] ${data.__running === true ? 'workspace-node-loading-surface' : ''}`}>
       {displayMixUrl ? (
@@ -789,32 +819,29 @@ function BgmScoreContent({
         <div className="space-y-1">
           {renderValue(labels('status'), details.status)}
           {renderValue(labels('totalDuration'), details.durationSeconds)}
-          {renderValue(labels('stemCount'), details.stemCount)}
+          {renderValue(labels('designSectionCount'), details.designSectionCount)}
+          {renderValue(labels('promptSectionCount'), details.promptSectionCount)}
+          {renderValue(labels('virtualLayerCount'), details.virtualLayerCount)}
           {renderValue(labels('musicModel'), details.musicModel)}
         </div>
       ))}
-      {expanded && details.stems.length > 0 ? (
+      {expanded ? renderTextSection(labels('scoreOverview'), details.scoreOverview) : null}
+      {expanded ? renderTimedSectionList(details.designSections, labels('scoreDesignSections')) : null}
+      {expanded && details.virtualLayers.length > 0 ? (
         <div className="space-y-2">
-          {details.stems.map((stem) => (
-            <section key={stem.role} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
-              <div className="flex items-center justify-between gap-2">
-                <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{stem.role}</p>
-                <span className={`${SELECTABLE_TEXT_CLASS} text-[10px] text-[var(--glass-text-tertiary)]`}>
-                  {stem.startSec}s - {Math.round((stem.startSec + stem.durationSec) * 10) / 10}s
-                </span>
-              </div>
-              {stem.url ? (
-                <div className="rounded-[12px] border border-slate-200 bg-white p-2">
-                  <audio src={toDisplayImageUrl(stem.url) ?? stem.url} controls className="w-full" aria-label={`${labels('stemAudio')}: ${stem.role}`} />
-                </div>
-              ) : null}
-              {renderSummaryText(stem.reason, 2)}
-              {renderValue(labels('gainDb'), stem.gainDb)}
-              {renderSummaryText(stem.prompt, 3)}
+          <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{labels('virtualLayers')}</p>
+          {details.virtualLayers.map((layer, index) => (
+            <section key={`${layer.name}-${index}`} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+              <p className={`${SELECTABLE_TEXT_CLASS} break-words text-xs font-semibold text-[var(--glass-text-primary)]`}>{layer.name}</p>
+              {renderSummaryText(layer.purpose, 2)}
+              {renderSummaryText(layer.content, 4)}
             </section>
           ))}
         </div>
       ) : null}
+      {expanded ? renderTimedSectionList(details.promptSections, labels('promptSections')) : null}
+      {expanded ? renderTextSection(labels('finalMusicPrompt'), details.finalPrompt) : null}
+      {expanded ? renderTextSection(labels('negativePrompt'), details.negativePrompt) : null}
       {renderTextSection(labels('error'), details.errorMessage)}
     </div>
   )

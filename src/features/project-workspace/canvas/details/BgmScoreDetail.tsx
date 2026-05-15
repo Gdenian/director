@@ -15,6 +15,34 @@ export default function BgmScoreDetail({ node, onGenerateBgmScore }: BgmScoreDet
   const t = useTranslations('projectWorkflow.canvas.workspace.detail')
   const details = node.data.bgmScoreDetails
   const mixUrl = toDisplayImageUrl(details?.mixUrl) ?? details?.mixUrl ?? null
+  const renderTimedSections = (
+    sections: NonNullable<typeof details>['designSections'],
+  ) => (
+    <div className="space-y-2">
+      {sections.map((section, index) => {
+        const timeRange = typeof section.startSec === 'number' || typeof section.endSec === 'number'
+          ? `${section.startSec ?? 0}s - ${section.endSec ?? details?.durationSeconds ?? ''}s`
+          : null
+        return (
+          <div key={`${section.title}-${index}`} className="rounded-md border border-black/5 bg-white px-3 py-2 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                {section.category ? (
+                  <p className="text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]">{section.category}</p>
+                ) : null}
+                <span className="break-words font-semibold">{section.title}</span>
+              </div>
+              {timeRange ? (
+                <span className="shrink-0 text-xs text-[var(--glass-text-tertiary)]">{timeRange}</span>
+              ) : null}
+            </div>
+            {section.purpose ? <p className="mt-1 text-xs leading-5 text-[var(--glass-text-secondary)]">{section.purpose}</p> : null}
+            <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-[var(--glass-text-tertiary)]">{section.content}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -28,32 +56,49 @@ export default function BgmScoreDetail({ node, onGenerateBgmScore }: BgmScoreDet
       <DetailSection title={t('sections.bgmScoreStats')}>
         <div className="grid gap-3 md:grid-cols-4">
           <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmStatus', { status: details?.status ?? '-' })}</p>
-          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmStemCount', { count: details?.stemCount ?? 0 })}</p>
+          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmDesignSectionCount', { count: details?.designSectionCount ?? 0 })}</p>
+          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmPromptSectionCount', { count: details?.promptSectionCount ?? 0 })}</p>
+          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmVirtualLayerCount', { count: details?.virtualLayerCount ?? 0 })}</p>
           <p className="rounded-md bg-white p-3 text-sm">{t('stats.totalDuration', { count: details?.durationSeconds ?? 0 })}</p>
           <p className="rounded-md bg-white p-3 text-sm">{details?.musicModel ?? '-'}</p>
         </div>
       </DetailSection>
-      {details?.stems && details.stems.length > 0 ? (
-        <DetailSection title={t('sections.bgmScoreStems')}>
+      {details?.scoreOverview ? (
+        <DetailSection title={t('sections.bgmScoreOverview')}>
+          <p className="rounded-md bg-white p-3 text-sm leading-6 text-[var(--glass-text-secondary)]">{details.scoreOverview}</p>
+        </DetailSection>
+      ) : null}
+      {details?.designSections && details.designSections.length > 0 ? (
+        <DetailSection title={t('sections.bgmScoreDesign')}>
+          {renderTimedSections(details.designSections)}
+        </DetailSection>
+      ) : null}
+      {details?.virtualLayers && details.virtualLayers.length > 0 ? (
+        <DetailSection title={t('sections.bgmScoreVirtualLayers')}>
           <div className="space-y-2">
-            {details.stems.map((stem) => (
-              <div key={stem.role} className="rounded-md border border-black/5 bg-white px-3 py-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold">{stem.role}</span>
-                  <span className="text-xs text-[var(--glass-text-tertiary)]">
-                    {stem.startSec}s - {Math.round((stem.startSec + stem.durationSec) * 10) / 10}s · {stem.gainDb}dB
-                  </span>
-                </div>
-                {stem.url ? (
-                  <div className="mt-2 rounded-md border border-black/5 bg-slate-50 p-2">
-                    <audio src={toDisplayImageUrl(stem.url) ?? stem.url} controls className="w-full" />
-                  </div>
-                ) : null}
-                <p className="mt-1 text-xs leading-5 text-[var(--glass-text-secondary)]">{stem.reason}</p>
-                <p className="mt-1 line-clamp-3 text-xs leading-5 text-[var(--glass-text-tertiary)]">{stem.prompt}</p>
+            {details.virtualLayers.map((layer, index) => (
+              <div key={`${layer.name}-${index}`} className="rounded-md border border-black/5 bg-white px-3 py-2 text-sm">
+                <p className="font-semibold">{layer.name}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--glass-text-secondary)]">{layer.purpose}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-[var(--glass-text-tertiary)]">{layer.content}</p>
               </div>
             ))}
           </div>
+        </DetailSection>
+      ) : null}
+      {details?.promptSections && details.promptSections.length > 0 ? (
+        <DetailSection title={t('sections.bgmScorePromptSections')}>
+          {renderTimedSections(details.promptSections)}
+        </DetailSection>
+      ) : null}
+      {details?.finalPrompt ? (
+        <DetailSection title={t('sections.finalMusicPrompt')}>
+          <p className="rounded-md bg-white p-3 whitespace-pre-wrap break-words text-xs leading-5 text-[var(--glass-text-secondary)]">{details.finalPrompt}</p>
+        </DetailSection>
+      ) : null}
+      {details?.negativePrompt ? (
+        <DetailSection title={t('sections.negativePrompt')}>
+          <p className="rounded-md bg-white p-3 whitespace-pre-wrap break-words text-xs leading-5 text-[var(--glass-text-secondary)]">{details.negativePrompt}</p>
         </DetailSection>
       ) : null}
       {details?.errorMessage ? (

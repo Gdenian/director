@@ -220,18 +220,30 @@ export interface WorkspaceCanvasBgmScoreDetails {
   readonly status?: string | null
   readonly durationSeconds?: number | null
   readonly musicModel?: string | null
-  readonly stemCount: number
+  readonly designSectionCount: number
+  readonly promptSectionCount: number
+  readonly virtualLayerCount: number
   readonly mixUrl?: string | null
   readonly errorMessage?: string | null
-  readonly stems: readonly {
-    readonly role: string
-    readonly reason: string
-    readonly startSec: number
-    readonly durationSec: number
-    readonly gainDb: number
-    readonly prompt: string
-    readonly url?: string | null
+  readonly scoreOverview?: string | null
+  readonly designSections: readonly WorkspaceCanvasBgmScoreTimedTextSection[]
+  readonly promptSections: readonly WorkspaceCanvasBgmScoreTimedTextSection[]
+  readonly virtualLayers: readonly {
+    readonly name: string
+    readonly purpose: string
+    readonly content: string
   }[]
+  readonly finalPrompt?: string | null
+  readonly negativePrompt?: string | null
+}
+
+export interface WorkspaceCanvasBgmScoreTimedTextSection {
+  readonly category?: string | null
+  readonly title: string
+  readonly purpose?: string | null
+  readonly startSec?: number | null
+  readonly endSec?: number | null
+  readonly content: string
 }
 
 export interface WorkspaceCanvasEditScriptDetails {

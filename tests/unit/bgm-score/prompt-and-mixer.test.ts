@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildBgmScoreMixFilter } from '@/lib/bgm-score/mixer'
-import { buildBgmScorePlanPrompt } from '@/lib/bgm-score/prompt'
+import { buildBgmScorePlanPrompt, buildFinalBgmMusicPrompt } from '@/lib/bgm-score/prompt'
 
-describe('bgm score prompt and mixer', () => {
-  it('builds a plan prompt with timeline context and stem constraints', () => {
+describe('bgm score prompt builder', () => {
+  it('builds a plan prompt with timeline context and dynamic single-track guidance', () => {
     const prompt = buildBgmScorePlanPrompt({
       editScript: {
         id: 'edit-1',
@@ -43,44 +42,57 @@ describe('bgm score prompt and mixer', () => {
       }],
     })
 
-    expect(prompt).toContain('Allowed stem roles')
-    expect(prompt).not.toContain('- pulse:')
-    expect(prompt).toContain('Score Blueprint')
-    expect(prompt).toContain('tempoMap')
-    expect(prompt).toContain('chordMap')
-    expect(prompt).toContain('stemRules')
-    expect(prompt).toContain('isolated stem only')
+    expect(prompt).toContain('one single complete instrumental BGM track')
+    expect(prompt).toContain('These concepts are guidance, not a fixed template')
+    expect(prompt).toContain('scoreDesign.sections must be dynamic')
+    expect(prompt).toContain('virtualLayers are text-only')
+    expect(prompt).toContain('finalPrompt must be a self-contained prompt')
     expect(prompt).toContain('Final rendered media timeline JSON')
     expect(prompt).toContain('The detective enters the room')
+    expect(prompt).not.toContain('Allowed stem roles')
+    expect(prompt).not.toContain('isolated stem only')
   })
 
-  it('builds an ffmpeg filter with delay, fade, gain, amix, and loudnorm', () => {
-    const filter = buildBgmScoreMixFilter({
-      durationSeconds: 30,
-      stems: [
-        {
-          inputPath: '/tmp/a.mp3',
-          startSec: 0,
-          durationSec: 30,
-          gainDb: -12,
-          fadeInSec: 1,
-          fadeOutSec: 2,
-        },
-        {
-          inputPath: '/tmp/b.mp3',
-          startSec: 5,
-          durationSec: 10,
-          gainDb: -8,
-          fadeInSec: 0.5,
-          fadeOutSec: 1,
-        },
-      ],
+  it('condenses the score plan into one final provider prompt with design notes', () => {
+    const providerPrompt = buildFinalBgmMusicPrompt({
+      durationSeconds: 12,
+      creativeBrief: {
+        cueType: 'continuous instrumental underscore',
+        genre: 'sci-fi drama',
+        mood: 'awe and dread',
+        narrativeFunction: 'connect the edit while leaving space for native video sound',
+      },
+      scoreDesign: {
+        overview: 'A single cue with cold opening pressure and a warm reveal.',
+        sections: [{
+          category: 'Hit Point',
+          title: 'planet reveal',
+          purpose: 'Support awe without literal impact sound.',
+          startSec: 8,
+          endSec: 12,
+          content: 'Open harmony and brighter register at the reveal.',
+        }],
+      },
+      virtualLayers: [{
+        name: 'wide harmonic pad',
+        purpose: 'Internal color inside the single final cue.',
+        content: 'Slowly opens from dark to warm.',
+      }],
+      promptSections: [{
+        title: 'Reveal cue',
+        purpose: 'Prompt building block.',
+        startSec: 8,
+        endSec: 12,
+        content: 'Gradual harmonic opening at the reveal.',
+      }],
+      finalPrompt: 'Generate one complete continuous instrumental cinematic BGM track for 12 seconds, sci-fi drama, cold pressure into warm reveal, restrained orchestration, leave space for native video sound.',
+      negativePrompt: 'no vocals, no lyrics, no Foley',
     })
 
-    expect(filter).toContain('afade=t=in:st=0:d=1.000')
-    expect(filter).toContain('volume=-12.000dB')
-    expect(filter).toContain('adelay=5000:all=1')
-    expect(filter).toContain('amix=inputs=2')
-    expect(filter).toContain('loudnorm=I=-16.000')
+    expect(providerPrompt).toContain('Generate one complete continuous instrumental cinematic BGM track')
+    expect(providerPrompt).toContain('Composer design notes')
+    expect(providerPrompt).toContain('wide harmonic pad')
+    expect(providerPrompt).toContain('Render exactly one coherent instrumental BGM track')
+    expect(providerPrompt).toContain('Negative prompt: no vocals, no lyrics, no Foley')
   })
 })

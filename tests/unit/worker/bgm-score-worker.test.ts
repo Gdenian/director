@@ -1,10 +1,7 @@
 import type { Job } from 'bullmq'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GenerateResult } from '@/lib/ai-providers/runtime-types'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 
-const execFileMock = vi.hoisted(() => vi.fn())
-const readFileMock = vi.hoisted(() => vi.fn())
 const prismaMock = vi.hoisted(() => ({
   project: {
     findUnique: vi.fn(),
@@ -38,18 +35,6 @@ const storageMock = vi.hoisted(() => ({
   toFetchableUrl: vi.fn((url: string) => url),
   uploadObject: vi.fn(),
 }))
-
-vi.mock('node:child_process', () => ({
-  execFile: execFileMock,
-}))
-
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>()
-  return {
-    ...actual,
-    readFile: readFileMock,
-  }
-})
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
@@ -150,145 +135,62 @@ function mockCompleteTimeline(): void {
 function buildValidPlanText(): string {
   return JSON.stringify({
     durationSeconds: 3,
-    global: {
-      mood: 'tense',
-      genre: 'cinematic minimal',
-      bpm: 96,
-      key: 'D minor',
-      intensityCurve: [
-        { timeSec: 0, intensity: 30 },
-        { timeSec: 3, intensity: 55 },
-      ],
+    creativeBrief: {
+      cueType: 'continuous instrumental underscore',
+      genre: 'minimal suspense drama',
+      mood: 'tense and restrained',
+      narrativeFunction: 'hold continuity while staying under native video sound',
     },
-    blueprint: {
-      tempoMap: [{
-        startSec: 0,
-        endSec: 3,
-        bpm: 96,
-        timeSignature: '4/4',
-        barStart: 1,
-        barEnd: 2,
-        downbeatSec: 0,
-        feel: 'steady restrained underscore',
-      }],
-      keyMap: [{
-        startSec: 0,
-        endSec: 3,
-        key: 'D minor',
-        mode: 'minor',
-        function: 'single tonal center',
-      }],
-      chordMap: [{
-        startSec: 0,
-        endSec: 3,
-        bars: '1-2',
-        chords: ['Dm'],
-        harmonicRhythm: 'static pedal harmony',
-      }],
-      hitPoints: [{
-        timeSec: 2,
-        label: 'shot resolves',
-        musicalAction: 'small swell without impact sound',
-      }],
-      motif: null,
-      orchestrationMap: [{
-        startSec: 0,
-        endSec: 3,
-        registerPlan: 'atmosphere high, low_end below 120 Hz',
-        instrumentation: 'dark pad and sub string support',
-        frequencyFocus: 'separate low and high bands',
-        density: 35,
-      }],
-      stemRules: [
+    scoreDesign: {
+      overview: 'A single sparse cue with low tension, restrained harmony, and one tiny lift near the end.',
+      sections: [
         {
-          role: 'atmosphere',
-          allowedMaterial: 'sustained chord tones only',
-          forbiddenMaterial: 'melody, bass movement, percussion, independent harmony',
-          register: 'mid-high',
-          rhythmicRule: 'no rhythmic pulse',
-          chordRule: 'follow chordMap exactly',
+          category: 'Cue Arc',
+          title: 'Restrained suspense bed',
+          purpose: 'Keep the scene connected without replacing source audio.',
+          startSec: 0,
+          endSec: 3,
+          content: 'Slow 72 BPM implied pulse, D minor color, no literal effects.',
         },
         {
-          role: 'low_end',
-          allowedMaterial: 'root pedal and soft sub swell only',
-          forbiddenMaterial: 'chords, melody, percussion, independent rhythm',
-          register: 'sub and low strings',
-          rhythmicRule: 'slow pressure movement only',
-          chordRule: 'root of chordMap only',
+          category: 'Hit Point',
+          title: 'End lift',
+          purpose: 'Support the visual resolve.',
+          startSec: 2.4,
+          endSec: 3,
+          content: 'Small harmonic swell, no impact sound.',
         },
       ],
     },
-    stems: [
+    virtualLayers: [
       {
-        role: 'atmosphere',
-        reason: 'Supports continuity across the shot without replacing source ambience.',
-        startSec: 0,
-        durationSec: 3,
-        gainDb: -9,
-        fadeInSec: 0.2,
-        fadeOutSec: 0.4,
-        density: 30,
-        tension: 50,
-        brightness: 20,
-        motion: 10,
-        prompt: 'Sparse dark atmospheric pad, isolated stem only.',
-        negativePrompt: 'melody, drums, vocals',
+        name: 'sustained harmonic bed',
+        purpose: 'Provide the main emotional continuity.',
+        content: 'Soft low strings and air pad, no independent melody.',
       },
       {
-        role: 'low_end',
-        reason: 'Adds restrained low-frequency weight without independent rhythm.',
-        startSec: 0,
-        durationSec: 3,
-        gainDb: -12,
-        fadeInSec: 0.1,
-        fadeOutSec: 0.3,
-        density: 45,
-        tension: 65,
-        brightness: 25,
-        motion: 55,
-        prompt: 'Muted low-end root pedal, isolated stem only.',
-        negativePrompt: 'full drums, vocals, independent rhythm',
+        name: 'restrained low weight',
+        purpose: 'Add pressure without clutter.',
+        content: 'Subtle low pedal below the video sound effects.',
       },
     ],
+    promptSections: [
+      {
+        title: 'Main cue direction',
+        purpose: 'Single final music prompt basis.',
+        startSec: 0,
+        endSec: 3,
+        content: 'Generate a sparse suspense underscore in D minor, continuous for 3 seconds.',
+      },
+    ],
+    finalPrompt: 'Generate one complete continuous instrumental cinematic BGM track for 3 seconds. Minimal suspense drama underscore in D minor, sparse low strings and air pad, restrained harmonic movement, tiny swell near 2.4 seconds, no literal sound effects, leave space for native video dialogue and sound.',
+    negativePrompt: 'no vocals, no lyrics, no dialogue, no Foley, no literal sound effects, no whoosh, no footsteps',
   })
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, resolve, reject }
-}
-
-async function waitForCondition(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    if (predicate()) return
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  }
-  throw new Error('condition was not met')
 }
 
 describe('bgm score worker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    execFileMock.mockImplementation((
-      _command: string,
-      _args: readonly string[],
-      optionsOrCallback: unknown,
-      maybeCallback?: unknown,
-    ) => {
-      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback
-      if (typeof callback !== 'function') throw new Error('execFile callback missing')
-      callback(null, { stdout: '', stderr: '' })
-    })
-    readFileMock.mockImplementation(async (filePath: string) => {
-      if (filePath.endsWith('bgm-score.m4a')) return Buffer.from('mixed-bgm')
-      const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
-      return actual.readFile(filePath)
-    })
     storageMock.uploadObject.mockImplementation(async (_buffer: Buffer, key: string) => key)
     mediaServiceMock.ensureMediaObjectFromStorageKey.mockImplementation(async (storageKey: string) => ({
       id: storageKey.includes('music/bgm-score') ? 'media-mix' : `media-${storageKey}`,
@@ -331,21 +233,15 @@ describe('bgm score worker', () => {
     expect(generateMusicMock).not.toHaveBeenCalled()
   })
 
-  it('writes completed BGM only after every stem is generated and mixed', async () => {
+  it('writes completed BGM after one final music generation request', async () => {
     mockReadyProject()
     mockCompleteTimeline()
     executeAiTextStepMock.mockResolvedValue({ text: buildValidPlanText() })
-    generateMusicMock
-      .mockResolvedValueOnce({
-        success: true,
-        audioBase64: Buffer.from('atmosphere').toString('base64'),
-        audioMimeType: 'audio/mpeg',
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        audioBase64: Buffer.from('low_end').toString('base64'),
-        audioMimeType: 'audio/mpeg',
-      })
+    generateMusicMock.mockResolvedValue({
+      success: true,
+      audioBase64: Buffer.from('final-bgm').toString('base64'),
+      audioMimeType: 'audio/mpeg',
+    })
 
     const { handleBgmScoreGenerateTask } = await import('@/lib/bgm-score/generate')
     const result = await handleBgmScoreGenerateTask(buildJob({
@@ -357,97 +253,63 @@ describe('bgm score worker', () => {
       episodeId: 'episode-1',
       mediaId: 'media-mix',
       audioUrl: '/m/bgm-mix',
-      stemCount: 2,
+      designSectionCount: 2,
+      promptSectionCount: 1,
+      virtualLayerCount: 2,
     })
-    expect(generateMusicMock).toHaveBeenCalledTimes(2)
-    expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('isolated atmosphere BGM stem only')
-    expect(execFileMock).toHaveBeenCalledWith(
-      'ffmpeg',
-      expect.arrayContaining(['-filter_complex']),
-      expect.objectContaining({ maxBuffer: expect.any(Number) }),
-      expect.any(Function),
-    )
-    expect(storageMock.uploadObject).toHaveBeenCalledTimes(3)
+    expect(generateMusicMock).toHaveBeenCalledTimes(1)
+    expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('Generate one complete continuous instrumental cinematic BGM track')
+    expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('Text-only internal arrangement layers')
+    expect(storageMock.uploadObject).toHaveBeenCalledTimes(1)
+
     const completedCall = prismaMock.videoEditorProject.upsert.mock.calls.find((call) => {
       const arg = call[0] as { update?: { projectData?: string } }
-      const projectData = JSON.parse(arg.update?.projectData ?? '{}') as { bgmScore?: { status?: string } }
+      const projectData = JSON.parse(arg.update?.projectData ?? '{}') as {
+        bgmScore?: {
+          status?: string
+          schemaVersion?: number
+          plan?: { virtualLayers?: readonly unknown[]; promptSections?: readonly unknown[] }
+          mix?: { url?: string }
+        }
+      }
       return projectData.bgmScore?.status === 'completed'
+        && projectData.bgmScore.schemaVersion === 2
+        && projectData.bgmScore.mix?.url === '/m/bgm-mix'
+        && projectData.bgmScore.plan?.virtualLayers?.length === 2
+        && projectData.bgmScore.plan?.promptSections?.length === 1
     })
     expect(completedCall).toBeTruthy()
+
+    const progressCall = reportTaskProgressMock.mock.calls.find((call) => {
+      const payload = call[2] as { stage?: string; designSectionCount?: number; promptSectionCount?: number }
+      return payload.stage === 'bgm_score_generate_music'
+        && payload.designSectionCount === 2
+        && payload.promptSectionCount === 1
+    })
+    expect(progressCall).toBeTruthy()
   })
 
-  it('submits all stem generation requests in parallel before waiting for any stem result', async () => {
+  it('fails the task and does not upload a mix when final music generation fails', async () => {
     mockReadyProject()
     mockCompleteTimeline()
     executeAiTextStepMock.mockResolvedValue({ text: buildValidPlanText() })
-    const atmosphere = createDeferred<GenerateResult>()
-    const lowEnd = createDeferred<GenerateResult>()
-    generateMusicMock
-      .mockImplementationOnce(() => atmosphere.promise)
-      .mockImplementationOnce(() => lowEnd.promise)
-
-    const { handleBgmScoreGenerateTask } = await import('@/lib/bgm-score/generate')
-    const resultPromise = handleBgmScoreGenerateTask(buildJob({
-      episodeId: 'episode-1',
-      musicModel: 'google::lyria-3-pro-preview',
-    }))
-
-    await waitForCondition(() => generateMusicMock.mock.calls.length === 2)
-
-    expect(generateMusicMock).toHaveBeenCalledTimes(2)
-    const initialStemProgressCall = reportTaskProgressMock.mock.calls.find((call) => {
-      const payload = call[2] as { stage?: string; stemCount?: number; completedStemCount?: number; generationMode?: string }
-      return payload.stage === 'bgm_score_generate_stem'
-        && payload.stemCount === 2
-        && payload.completedStemCount === 0
-        && payload.generationMode === 'parallel'
+    generateMusicMock.mockResolvedValue({
+      success: false,
+      error: 'provider rejected final BGM',
     })
-    expect(initialStemProgressCall).toBeTruthy()
-
-    atmosphere.resolve({
-      success: true,
-      audioBase64: Buffer.from('atmosphere').toString('base64'),
-      audioMimeType: 'audio/mpeg',
-    })
-    lowEnd.resolve({
-      success: true,
-      audioBase64: Buffer.from('low_end').toString('base64'),
-      audioMimeType: 'audio/mpeg',
-    })
-
-    await expect(resultPromise).resolves.toMatchObject({
-      episodeId: 'episode-1',
-      stemCount: 2,
-    })
-  })
-
-  it('fails the task and does not upload a mix when any stem generation fails', async () => {
-    mockReadyProject()
-    mockCompleteTimeline()
-    executeAiTextStepMock.mockResolvedValue({ text: buildValidPlanText() })
-    generateMusicMock
-      .mockResolvedValueOnce({
-        success: true,
-        audioBase64: Buffer.from('atmosphere').toString('base64'),
-        audioMimeType: 'audio/mpeg',
-      })
-      .mockResolvedValueOnce({
-        success: false,
-        error: 'provider rejected low_end stem',
-      })
 
     const { handleBgmScoreGenerateTask } = await import('@/lib/bgm-score/generate')
     await expect(handleBgmScoreGenerateTask(buildJob({
       episodeId: 'episode-1',
       musicModel: 'google::lyria-3-pro-preview',
-    }))).rejects.toThrow('provider rejected low_end stem')
+    }))).rejects.toThrow('provider rejected final BGM')
 
     expect(storageMock.uploadObject).not.toHaveBeenCalled()
     const failedCall = prismaMock.videoEditorProject.upsert.mock.calls.find((call) => {
       const arg = call[0] as { update?: { projectData?: string } }
       const projectData = JSON.parse(arg.update?.projectData ?? '{}') as { bgmScore?: { status?: string; errorMessage?: string } }
       return projectData.bgmScore?.status === 'failed'
-        && projectData.bgmScore.errorMessage === 'provider rejected low_end stem'
+        && projectData.bgmScore.errorMessage === 'provider rejected final BGM'
     })
     expect(failedCall).toBeTruthy()
   })

@@ -1337,6 +1337,10 @@ export function buildWorkspaceNodeCanvasProjection({
     const isBgmScoreRunning = bgmScorePhase === 'queued' || bgmScorePhase === 'processing' || bgmScore?.status === 'generating'
     const isBgmScoreFailed = bgmScorePhase === 'failed' || bgmScore?.status === 'failed'
     const hasBgmScore = bgmScore?.status === 'completed' && Boolean(bgmScore.mix?.url)
+    const bgmScorePlan = bgmScore?.plan ?? null
+    const bgmDesignSections = bgmScorePlan?.scoreDesign.sections ?? []
+    const bgmPromptSections = bgmScorePlan?.promptSections ?? []
+    const bgmVirtualLayers = bgmScorePlan?.virtualLayers ?? []
     const hasFinalOutput = Boolean(finalVideo?.outputUrl && finalVideo.renderStatus === 'completed')
     nodes.push(createNode({
       id: bgmScoreNodeId,
@@ -1355,7 +1359,7 @@ export function buildWorkspaceNodeCanvasProjection({
         meta: isBgmScoreFailed
           ? bgmScoreErrorMessage ?? bgmScore?.errorMessage ?? translate('nodes.bgmScore.failed')
           : hasBgmScore
-            ? translate('nodes.bgmScore.ready', { count: bgmScore?.stems?.length ?? 0 })
+            ? translate('nodes.bgmScore.ready', { count: bgmPromptSections.length })
             : translate('nodes.bgmScore.meta'),
         statusLabel: isBgmScoreRunning
           ? translate('status.generatingBgm')
@@ -1372,18 +1376,35 @@ export function buildWorkspaceNodeCanvasProjection({
           status: bgmScore?.status ?? (isBgmScoreRunning ? 'generating' : 'pending'),
           durationSeconds: bgmScore?.durationSeconds ?? null,
           musicModel: bgmScore?.musicModel ?? null,
-          stemCount: bgmScore?.stems?.length ?? 0,
+          designSectionCount: bgmDesignSections.length,
+          promptSectionCount: bgmPromptSections.length,
+          virtualLayerCount: bgmVirtualLayers.length,
           mixUrl: bgmScore?.mix?.url ?? null,
           errorMessage: bgmScoreErrorMessage ?? bgmScore?.errorMessage ?? null,
-          stems: (bgmScore?.stems ?? []).map((stem) => ({
-            role: stem.role,
-            reason: stem.reason,
-            startSec: stem.startSec,
-            durationSec: stem.durationSec,
-            gainDb: stem.gainDb,
-            prompt: stem.prompt,
-            url: stem.url ?? null,
+          scoreOverview: bgmScorePlan?.scoreDesign.overview ?? null,
+          designSections: bgmDesignSections.map((section) => ({
+            category: section.category ?? null,
+            title: section.title,
+            purpose: section.purpose ?? null,
+            startSec: section.startSec ?? null,
+            endSec: section.endSec ?? null,
+            content: section.content,
           })),
+          promptSections: bgmPromptSections.map((section) => ({
+            category: section.category ?? null,
+            title: section.title,
+            purpose: section.purpose ?? null,
+            startSec: section.startSec ?? null,
+            endSec: section.endSec ?? null,
+            content: section.content,
+          })),
+          virtualLayers: bgmVirtualLayers.map((layer) => ({
+            name: layer.name,
+            purpose: layer.purpose,
+            content: layer.content,
+          })),
+          finalPrompt: bgmScorePlan?.finalPrompt ?? null,
+          negativePrompt: bgmScorePlan?.negativePrompt ?? null,
         },
         actionLabel: isBgmScoreRunning ? translate('actions.generatingBgm') : translate('actions.generateBgmScore'),
         action: { type: 'generate_bgm_score' },

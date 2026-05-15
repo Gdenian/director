@@ -12,31 +12,30 @@ describe('final video summary normalization', () => {
       updatedAt: new Date('2026-05-15T12:02:41.656Z'),
       projectData: JSON.stringify({
         bgmScore: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           status: 'completed',
           taskId: 'task-bgm-1',
           editScriptId: 'edit-script-1',
           timelineSignature: 'timeline-1',
           durationSeconds: 57,
           musicModel: 'google::lyria-3-pro-preview',
-          stems: [
-            {
-              role: 'atmosphere',
-              reason: 'continuous bed',
-              startSec: 0,
-              durationSec: 57,
-              gainDb: -8,
-              fadeInSec: 0,
-              fadeOutSec: 2,
-              prompt: 'isolated stem',
-              negativePrompt: null,
-              mediaId: 'stem-media-1',
-              url: '/m/stem-1',
-              storageKey: 'images/music-stems/stem-1.mp3',
-              mimeType: 'audio/mpeg',
-              durationMs: 57000,
+          plan: {
+            durationSeconds: 57,
+            creativeBrief: {
+              cueType: 'continuous instrumental underscore',
+              genre: 'sci-fi drama',
+              mood: 'awe',
+              narrativeFunction: 'connect the edit',
             },
-          ],
+            scoreDesign: {
+              overview: 'One coherent score design.',
+              sections: [{ category: 'Cue Arc', title: 'Reveal', content: 'Open harmony.' }],
+            },
+            virtualLayers: [{ name: 'wide pad', purpose: 'internal color', content: 'not rendered separately' }],
+            promptSections: [{ title: 'Main prompt', content: 'Generate one final cue.' }],
+            finalPrompt: 'Generate one complete continuous instrumental cinematic BGM track for 57 seconds.',
+            negativePrompt: 'no vocals',
+          },
           mix: {
             mediaId: 'mix-media-1',
             url: '/m/mix-1',
@@ -55,7 +54,8 @@ describe('final video summary normalization', () => {
         url: '/m/mix-1',
       },
     })
-    expect(summary?.bgmScore?.stems).toHaveLength(1)
+    const plan = summary?.bgmScore?.plan as { virtualLayers?: readonly unknown[] } | undefined
+    expect(plan?.virtualLayers).toHaveLength(1)
   })
 
   it('fails explicitly for invalid serialized editor project data', () => {

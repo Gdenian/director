@@ -510,7 +510,7 @@ describe('workspace node canvas projection', () => {
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('bgm-score:episode-1->final:episode-1')
   })
 
-  it('passes generated BGM stem audio urls into the expandable canvas node', () => {
+  it('passes generated BGM score design into the expandable canvas node', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: 'A real story',
@@ -538,13 +538,53 @@ describe('workspace node canvas projection', () => {
         outputUrl: null,
         updatedAt: '2026-05-11T04:50:59.342Z',
         bgmScore: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           status: 'completed',
           taskId: 'task-bgm',
           editScriptId: 'edit-video',
           timelineSignature: 'sig',
           durationSeconds: 2,
           musicModel: 'music-model',
+          plan: {
+            durationSeconds: 2,
+            creativeBrief: {
+              cueType: 'continuous instrumental underscore',
+              genre: 'sci-fi drama',
+              mood: 'awe',
+              narrativeFunction: 'connect the final edit',
+            },
+            scoreDesign: {
+              overview: 'One coherent reveal cue.',
+              sections: [
+                {
+                  category: 'Reveal',
+                  title: 'Planet reveal',
+                  purpose: 'support awe without literal sound effects',
+                  startSec: 0,
+                  endSec: 2,
+                  content: 'Open harmony and wide register.',
+                },
+              ],
+            },
+            virtualLayers: [
+              {
+                name: 'wide pad',
+                purpose: 'internal color',
+                content: 'Text-only layer inside the single final cue.',
+              },
+            ],
+            promptSections: [
+              {
+                title: 'Main prompt',
+                purpose: 'provider prompt basis',
+                startSec: 0,
+                endSec: 2,
+                content: 'Generate one continuous reveal cue.',
+              },
+            ],
+            finalPrompt: 'Generate one complete continuous instrumental cinematic BGM track for 2 seconds.',
+            negativePrompt: 'no vocals',
+          },
           mix: {
             mediaId: 'media-mix',
             url: 'https://example.com/bgm-mix.m4a',
@@ -552,19 +592,6 @@ describe('workspace node canvas projection', () => {
             mimeType: 'audio/mp4',
             durationMs: 2000,
           },
-          stems: [
-            {
-              role: 'atmosphere',
-              reason: 'continuous bed',
-              startSec: 0,
-              durationSec: 2,
-              gainDb: -9,
-              fadeInSec: 0.1,
-              fadeOutSec: 0.2,
-              prompt: 'isolated atmosphere stem',
-              url: 'https://example.com/atmosphere.m4a',
-            },
-          ],
         },
       },
       savedLayouts: [],
@@ -574,10 +601,15 @@ describe('workspace node canvas projection', () => {
     const bgmNode = projection.nodes.find((node) => node.id === 'bgm-score:episode-1')
     const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
     expect(bgmNode?.data.bgmScoreDetails?.mixUrl).toBe('https://example.com/bgm-mix.m4a')
-    expect(bgmNode?.data.bgmScoreDetails?.stems[0]).toMatchObject({
-      role: 'atmosphere',
-      url: 'https://example.com/atmosphere.m4a',
+    expect(bgmNode?.data.bgmScoreDetails?.scoreOverview).toBe('One coherent reveal cue.')
+    expect(bgmNode?.data.bgmScoreDetails?.designSections[0]).toMatchObject({
+      category: 'Reveal',
+      title: 'Planet reveal',
     })
+    expect(bgmNode?.data.bgmScoreDetails?.virtualLayers[0]).toMatchObject({
+      name: 'wide pad',
+    })
+    expect(bgmNode?.data.bgmScoreDetails?.finalPrompt).toContain('one complete continuous')
     expect(finalNode?.data.actionDisabled).toBe(false)
   })
 

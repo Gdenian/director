@@ -410,7 +410,7 @@ describe('workspace node rendering', () => {
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
   })
 
-  it('renders playable BGM mix and stem audio when the BGM node is expanded', () => {
+  it('renders playable BGM mix and dynamic score prompt details when the BGM node is expanded', () => {
     const html = renderNode({
       kind: 'bgmScore',
       layoutNodeType: 'bgmScore',
@@ -428,38 +428,51 @@ describe('workspace node rendering', () => {
         status: 'completed',
         durationSeconds: 12,
         musicModel: 'music-model',
-        stemCount: 2,
+        designSectionCount: 1,
+        promptSectionCount: 1,
+        virtualLayerCount: 1,
         mixUrl: 'https://example.com/final-mix.m4a',
         errorMessage: null,
-        stems: [
+        scoreOverview: 'One coherent suspense cue.',
+        designSections: [
           {
-            role: 'atmosphere',
-            reason: 'continuous bed',
+            category: 'Cue Arc',
+            title: 'Tense entrance',
+            purpose: 'hold continuity',
             startSec: 0,
-            durationSec: 12,
-            gainDb: -9,
-            prompt: 'isolated atmosphere stem',
-            url: 'https://example.com/atmosphere.m4a',
-          },
-          {
-            role: 'low_end',
-            reason: 'weight layer',
-            startSec: 2,
-            durationSec: 8,
-            gainDb: -12,
-            prompt: 'isolated low end stem',
-            url: 'https://example.com/low-end.m4a',
+            endSec: 12,
+            content: 'Sparse harmony with restrained motion.',
           },
         ],
+        virtualLayers: [
+          {
+            name: 'low piano color',
+            purpose: 'internal arrangement layer only',
+            content: 'Adds noir weight inside the single cue.',
+          },
+        ],
+        promptSections: [
+          {
+            title: 'Main prompt block',
+            purpose: 'provider prompt basis',
+            startSec: 0,
+            endSec: 12,
+            content: 'Generate a single continuous suspense BGM track.',
+          },
+        ],
+        finalPrompt: 'Generate one complete continuous instrumental cinematic BGM track for 12 seconds.',
+        negativePrompt: 'no vocals',
       },
     })
 
     expect(html).toContain('finalBgmMix')
     expect(html).toContain('src="https://example.com/final-mix.m4a"')
-    expect(html).toContain('src="https://example.com/atmosphere.m4a"')
-    expect(html).toContain('src="https://example.com/low-end.m4a"')
-    expect(html).toContain('aria-label="stemAudio: atmosphere"')
-    expect(html).toContain('aria-label="stemAudio: low_end"')
+    expect(html).toContain('scoreDesignSections')
+    expect(html).toContain('Tense entrance')
+    expect(html).toContain('virtualLayers')
+    expect(html).toContain('low piano color')
+    expect(html).toContain('finalMusicPrompt')
+    expect(html).not.toContain('stemAudio')
   })
 
   it('renders a disabled video reference action with an asset-image prerequisite hint', () => {

@@ -301,17 +301,37 @@ export interface ProjectEditScriptVideoBlock {
 
 export type ProjectBgmScoreStatus = 'pending' | 'generating' | 'completed' | 'failed'
 
-export interface ProjectBgmScoreStem {
-  role: string
-  reason: string
-  startSec: number
-  durationSec: number
-  gainDb: number
-  fadeInSec: number
-  fadeOutSec: number
-  prompt: string
+export interface ProjectBgmScoreTimedTextSection {
+  category?: string | null
+  title: string
+  purpose?: string | null
+  startSec?: number | null
+  endSec?: number | null
+  content: string
+}
+
+export interface ProjectBgmScoreVirtualLayer {
+  name: string
+  purpose: string
+  content: string
+}
+
+export interface ProjectBgmScorePlan {
+  durationSeconds: number
+  creativeBrief: {
+    cueType: string
+    genre: string
+    mood: string
+    narrativeFunction: string
+  }
+  scoreDesign: {
+    overview: string
+    sections: ProjectBgmScoreTimedTextSection[]
+  }
+  virtualLayers: ProjectBgmScoreVirtualLayer[]
+  promptSections: ProjectBgmScoreTimedTextSection[]
+  finalPrompt: string
   negativePrompt?: string | null
-  url?: string | null
 }
 
 export interface ProjectBgmScore {
@@ -322,7 +342,7 @@ export interface ProjectBgmScore {
   timelineSignature: string
   durationSeconds: number
   musicModel: string
-  stems?: ProjectBgmScoreStem[]
+  plan?: ProjectBgmScorePlan
   mix?: {
     mediaId: string
     url: string
