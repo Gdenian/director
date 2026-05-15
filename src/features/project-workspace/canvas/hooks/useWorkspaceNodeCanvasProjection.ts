@@ -1338,9 +1338,17 @@ export function buildWorkspaceNodeCanvasProjection({
     const isBgmScoreFailed = bgmScorePhase === 'failed' || bgmScore?.status === 'failed'
     const hasBgmScore = bgmScore?.status === 'completed' && Boolean(bgmScore.mix?.url)
     const bgmScorePlan = bgmScore?.plan ?? null
-    const bgmDesignSections = bgmScorePlan?.scoreDesign.sections ?? []
+    const bgmDesignSections = bgmScorePlan?.scoreDesign?.sections ?? []
     const bgmPromptSections = bgmScorePlan?.promptSections ?? []
     const bgmVirtualLayers = bgmScorePlan?.virtualLayers ?? []
+    const hasBgmPromptDesign = Boolean(
+      bgmScorePlan?.finalPrompt
+      || bgmScorePlan?.scoreDesign?.overview
+      || bgmDesignSections.length > 0
+      || bgmPromptSections.length > 0
+      || bgmVirtualLayers.length > 0,
+    )
+    const isBgmPromptDesignMissing = hasBgmScore && !hasBgmPromptDesign
     const hasFinalOutput = Boolean(finalVideo?.outputUrl && finalVideo.renderStatus === 'completed')
     nodes.push(createNode({
       id: bgmScoreNodeId,
@@ -1359,7 +1367,9 @@ export function buildWorkspaceNodeCanvasProjection({
         meta: isBgmScoreFailed
           ? bgmScoreErrorMessage ?? bgmScore?.errorMessage ?? translate('nodes.bgmScore.failed')
           : hasBgmScore
-            ? translate('nodes.bgmScore.ready', { count: bgmPromptSections.length })
+            ? isBgmPromptDesignMissing
+              ? translate('nodes.bgmScore.readyMissingPromptDesign')
+              : translate('nodes.bgmScore.ready', { count: bgmPromptSections.length })
             : translate('nodes.bgmScore.meta'),
         statusLabel: isBgmScoreRunning
           ? translate('status.generatingBgm')
@@ -1376,6 +1386,8 @@ export function buildWorkspaceNodeCanvasProjection({
           status: bgmScore?.status ?? (isBgmScoreRunning ? 'generating' : 'pending'),
           durationSeconds: bgmScore?.durationSeconds ?? null,
           musicModel: bgmScore?.musicModel ?? null,
+          hasPromptDesign: hasBgmPromptDesign,
+          promptDesignMissing: isBgmPromptDesignMissing,
           designSectionCount: bgmDesignSections.length,
           promptSectionCount: bgmPromptSections.length,
           virtualLayerCount: bgmVirtualLayers.length,

@@ -56,13 +56,22 @@ export default function BgmScoreDetail({ node, onGenerateBgmScore }: BgmScoreDet
       <DetailSection title={t('sections.bgmScoreStats')}>
         <div className="grid gap-3 md:grid-cols-4">
           <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmStatus', { status: details?.status ?? '-' })}</p>
-          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmDesignSectionCount', { count: details?.designSectionCount ?? 0 })}</p>
-          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmPromptSectionCount', { count: details?.promptSectionCount ?? 0 })}</p>
-          <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmVirtualLayerCount', { count: details?.virtualLayerCount ?? 0 })}</p>
+          {details?.hasPromptDesign ? (
+            <>
+              <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmDesignSectionCount', { count: details.designSectionCount })}</p>
+              <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmPromptSectionCount', { count: details.promptSectionCount })}</p>
+              <p className="rounded-md bg-white p-3 text-sm">{t('stats.bgmVirtualLayerCount', { count: details.virtualLayerCount })}</p>
+            </>
+          ) : null}
           <p className="rounded-md bg-white p-3 text-sm">{t('stats.totalDuration', { count: details?.durationSeconds ?? 0 })}</p>
           <p className="rounded-md bg-white p-3 text-sm">{details?.musicModel ?? '-'}</p>
         </div>
       </DetailSection>
+      {details?.promptDesignMissing ? (
+        <DetailSection title={t('sections.promptDesignMissing')}>
+          <p className="rounded-md bg-white p-3 text-sm leading-6 text-[var(--glass-tone-warning-fg)]">{t('messages.promptDesignMissingDescription')}</p>
+        </DetailSection>
+      ) : null}
       {details?.scoreOverview ? (
         <DetailSection title={t('sections.bgmScoreOverview')}>
           <p className="rounded-md bg-white p-3 text-sm leading-6 text-[var(--glass-text-secondary)]">{details.scoreOverview}</p>

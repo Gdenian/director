@@ -428,6 +428,8 @@ describe('workspace node rendering', () => {
         status: 'completed',
         durationSeconds: 12,
         musicModel: 'music-model',
+        hasPromptDesign: true,
+        promptDesignMissing: false,
         designSectionCount: 1,
         promptSectionCount: 1,
         virtualLayerCount: 1,
@@ -473,6 +475,47 @@ describe('workspace node rendering', () => {
     expect(html).toContain('low piano color')
     expect(html).toContain('finalMusicPrompt')
     expect(html).not.toContain('stemAudio')
+  })
+
+  it('shows a clear missing prompt design message for completed legacy BGM data', () => {
+    const html = renderNode({
+      kind: 'bgmScore',
+      layoutNodeType: 'bgmScore',
+      targetType: 'episode',
+      targetId: 'episode-1',
+      title: 'BGM Score',
+      eyebrow: 'Music',
+      body: 'continuous BGM',
+      meta: 'ready',
+      statusLabel: 'Ready',
+      width: 420,
+      height: 320,
+      expanded: true,
+      bgmScoreDetails: {
+        status: 'completed',
+        durationSeconds: 12,
+        musicModel: 'music-model',
+        hasPromptDesign: false,
+        promptDesignMissing: true,
+        designSectionCount: 0,
+        promptSectionCount: 0,
+        virtualLayerCount: 0,
+        mixUrl: 'https://example.com/final-mix.m4a',
+        errorMessage: null,
+        scoreOverview: null,
+        designSections: [],
+        virtualLayers: [],
+        promptSections: [],
+        finalPrompt: null,
+        negativePrompt: null,
+      },
+    })
+
+    expect(html).toContain('promptDesignMissing')
+    expect(html).toContain('promptDesignMissingDescription')
+    expect(html).not.toContain('designSectionCount')
+    expect(html).not.toContain('promptSectionCount')
+    expect(html).not.toContain('virtualLayerCount')
   })
 
   it('renders a disabled video reference action with an asset-image prerequisite hint', () => {

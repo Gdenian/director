@@ -220,6 +220,8 @@ export interface WorkspaceCanvasBgmScoreDetails {
   readonly status?: string | null
   readonly durationSeconds?: number | null
   readonly musicModel?: string | null
+  readonly hasPromptDesign: boolean
+  readonly promptDesignMissing: boolean
   readonly designSectionCount: number
   readonly promptSectionCount: number
   readonly virtualLayerCount: number

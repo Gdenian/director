@@ -819,12 +819,13 @@ function BgmScoreContent({
         <div className="space-y-1">
           {renderValue(labels('status'), details.status)}
           {renderValue(labels('totalDuration'), details.durationSeconds)}
-          {renderValue(labels('designSectionCount'), details.designSectionCount)}
-          {renderValue(labels('promptSectionCount'), details.promptSectionCount)}
-          {renderValue(labels('virtualLayerCount'), details.virtualLayerCount)}
+          {details.hasPromptDesign ? renderValue(labels('designSectionCount'), details.designSectionCount) : null}
+          {details.hasPromptDesign ? renderValue(labels('promptSectionCount'), details.promptSectionCount) : null}
+          {details.hasPromptDesign ? renderValue(labels('virtualLayerCount'), details.virtualLayerCount) : null}
           {renderValue(labels('musicModel'), details.musicModel)}
         </div>
       ))}
+      {details.promptDesignMissing ? renderTextSection(labels('promptDesignMissing'), labels('promptDesignMissingDescription')) : null}
       {expanded ? renderTextSection(labels('scoreOverview'), details.scoreOverview) : null}
       {expanded ? renderTimedSectionList(details.designSections, labels('scoreDesignSections')) : null}
       {expanded && details.virtualLayers.length > 0 ? (

@@ -383,6 +383,8 @@
         "virtualLayers": "内部编曲层次",
         "finalMusicPrompt": "最终音乐提示词",
         "negativePrompt": "负向提示词",
+        "promptDesignMissing": "提示词设计缺失",
+        "promptDesignMissingDescription": "当前 BGM 是旧版数据或生成时未写入配乐设计。请重新生成 BGM 后查看动态设计部分和最终提示词。",
         "videoOrder": "视频顺序",
         "editScriptMeta": "剪辑表信息",
         "shotIndexHeader": "镜头",
@@ -422,6 +424,7 @@
           "bgmScoreVirtualLayers": "内部编曲层次",
           "finalMusicPrompt": "最终音乐提示词",
           "negativePrompt": "负向提示词",
+          "promptDesignMissing": "提示词设计缺失",
           "finalOutput": "成片输出",
           "finalStats": "成片统计",
           "timelineOrder": "时间线顺序",
@@ -552,7 +555,8 @@
           "referenceSelection": "已选择 {count} 张参考图，可包含分镜、角色、场景、道具、URL、上传或粘贴图片。",
           "noNextPanelForFirstLast": "当前镜头后面没有下一个镜头，无法使用首尾帧模式。",
           "finalRenderRequiresVideos": "所有镜头视频生成完成后才可 AI 剪辑成片。",
-          "finalRenderRequiresBgm": "需要先生成连续 BGM，完成后才可 AI 剪辑成片。"
+          "finalRenderRequiresBgm": "需要先生成连续 BGM，完成后才可 AI 剪辑成片。",
+          "promptDesignMissingDescription": "当前 BGM 是旧版数据或生成时未写入配乐设计。请重新生成 BGM 后查看动态设计部分和最终提示词。"
         },
         "status": {
           "videoReady": "已生成",
@@ -630,6 +634,7 @@
           "body": "{videos} 个视频片段将作为 BGM 编曲依据。",
           "meta": "等待生成连续 BGM",
           "ready": "BGM 已完成 · {count} 个提示词段落",
+          "readyMissingPromptDesign": "BGM 已完成 · 缺少提示词设计",
           "failed": "BGM 生成失败"
         },
         "final": {

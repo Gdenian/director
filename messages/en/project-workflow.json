@@ -383,6 +383,8 @@
         "virtualLayers": "Internal Arrangement Layers",
         "finalMusicPrompt": "Final Music Prompt",
         "negativePrompt": "Negative Prompt",
+        "promptDesignMissing": "Prompt design missing",
+        "promptDesignMissingDescription": "This BGM was generated with old data or without saved score design. Regenerate BGM to view the dynamic design sections and final prompt.",
         "videoOrder": "Video Order",
         "editScriptMeta": "Edit Table Info",
         "shotIndexHeader": "Shot",
@@ -422,6 +424,7 @@
           "bgmScoreVirtualLayers": "Internal Arrangement Layers",
           "finalMusicPrompt": "Final Music Prompt",
           "negativePrompt": "Negative Prompt",
+          "promptDesignMissing": "Prompt design missing",
           "finalOutput": "Final Output",
           "finalStats": "Final Stats",
           "timelineOrder": "Timeline Order",
@@ -552,7 +555,8 @@
           "referenceSelection": "{count} reference images selected. References can come from panels, characters, locations, props, URLs, uploads, or pasted images.",
           "noNextPanelForFirstLast": "This shot has no next shot, so first/last frame mode cannot be used.",
           "finalRenderRequiresVideos": "Generate every shot video before running the AI final edit.",
-          "finalRenderRequiresBgm": "Generate the continuous BGM before running the AI final edit."
+          "finalRenderRequiresBgm": "Generate the continuous BGM before running the AI final edit.",
+          "promptDesignMissingDescription": "This BGM was generated with old data or without saved score design. Regenerate BGM to view the dynamic design sections and final prompt."
         },
         "status": {
           "videoReady": "Ready",
@@ -630,6 +634,7 @@
           "body": "{videos} video segments will guide the BGM arrangement.",
           "meta": "Waiting to generate continuous BGM",
           "ready": "BGM ready · {count} prompt sections",
+          "readyMissingPromptDesign": "BGM ready · prompt design missing",
           "failed": "BGM generation failed"
         },
         "final": {

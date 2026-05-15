@@ -613,6 +613,60 @@ describe('workspace node canvas projection', () => {
     expect(finalNode?.data.actionDisabled).toBe(false)
   })
 
+  it('marks completed BGM without saved score design as missing prompt design', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: 'A real story',
+      clips: [createClip('clip-1', 'clip content')],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels: [
+            createPanel({
+              id: 'panel-1',
+              panelIndex: 0,
+              imageUrl: 'https://example.com/panel-1.png',
+              videoUrl: 'https://example.com/panel-1.mp4',
+            }),
+          ],
+        }),
+      ],
+      editScript: createSingleVideoEditScript(),
+      finalVideo: {
+        id: 'editor-1',
+        episodeId: 'episode-1',
+        renderStatus: null,
+        renderTaskId: null,
+        outputUrl: null,
+        updatedAt: '2026-05-11T04:50:59.342Z',
+        bgmScore: {
+          schemaVersion: 1,
+          status: 'completed',
+          taskId: 'task-bgm',
+          editScriptId: 'edit-video',
+          timelineSignature: 'sig',
+          durationSeconds: 2,
+          musicModel: 'music-model',
+          mix: {
+            mediaId: 'media-mix',
+            url: 'https://example.com/bgm-mix.m4a',
+            storageKey: 'music/bgm-mix.m4a',
+            mimeType: 'audio/mp4',
+            durationMs: 2000,
+          },
+        },
+      },
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const bgmNode = projection.nodes.find((node) => node.id === 'bgm-score:episode-1')
+    expect(bgmNode?.data.meta).toBe('nodes.bgmScore.readyMissingPromptDesign')
+    expect(bgmNode?.data.bgmScoreDetails?.hasPromptDesign).toBe(false)
+    expect(bgmNode?.data.bgmScoreDetails?.promptDesignMissing).toBe(true)
+  })
+
   it('shows completed final render output on the final timeline node', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
