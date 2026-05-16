@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import type { UIMessage } from 'ai'
@@ -60,6 +60,10 @@ interface WorkspaceAssistantPanelProps {
 }
 
 const WORKSPACE_ASSISTANT_WIDTH_STORAGE_KEY = 'workspace-assistant-panel-width'
+export const WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE = {
+  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 28px, black 100%)',
+  maskImage: 'linear-gradient(to bottom, transparent 0, black 28px, black 100%)',
+} satisfies CSSProperties
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -504,6 +508,7 @@ export default function WorkspaceAssistantPanel({
             <ThreadPrimitive.Viewport
               autoScroll
               className="flex-1 overflow-y-auto px-5 pb-4 pt-2"
+              style={WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE}
             >
               <div className="space-y-3">
                 {pendingActionItems.length > 0 ? (
