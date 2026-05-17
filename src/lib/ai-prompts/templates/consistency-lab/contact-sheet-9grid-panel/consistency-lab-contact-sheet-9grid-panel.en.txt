@@ -1,0 +1,31 @@
+Generate one cell of a 3x3 storyboard contact sheet for the following videoBlock. This experiment first generates the full 3x3 sheet and then crops it into individual storyboard panel images.
+
+【Current Cell Shot Data】
+{shot_json}
+
+【Parent Video Block】
+{video_block_json}
+
+【Character Assets】
+{character_assets_json}
+
+【Location Assets】
+{location_assets_json}
+
+【Contact Sheet Group】
+{contact_sheet_group_json}
+
+【Consistency Lab Output: 9-Grid Contact Sheet】
+{strategy_output_json}
+
+Full sheet requirements:
+- Generate a regular 3x3 contact sheet with equal-sized cells and clear composition.
+- Each used cell corresponds to one shot; unused cells remain blank or visually minimal.
+- Preserve character appearance, background, lighting, and spatial anchors across the same videoBlock.
+- Do not add coordinate constraints or draw a coordinate map.
+- No text, numbers, subtitles, labels, or watermarks.
+
+Current cell requirements:
+- This panel corresponds to the cellIndex in contact_sheet_group_json.
+- Use shot.videoPrompt as this cell's core visual intent.
+- Preserve the action, characters, location, and camera information from shot.visualAction, shot.charactersAndScene, and shot.camera.

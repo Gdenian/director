@@ -41,6 +41,9 @@ export const AI_PROMPT_IDS = {
   EDIT_SCRIPT_PRIMARY: 'edit-script-primary',
   EDIT_SCRIPT_ASSET_EXTRACT: 'edit-script-asset-extract',
   EDIT_SCRIPT_STORYBOARD_PANEL: 'edit-script-storyboard-panel',
+  CONSISTENCY_LAB_STRUCTURED_TEXT_PANEL: 'consistency-lab-structured-text-panel',
+  CONSISTENCY_LAB_GRID_COORDINATES_PANEL: 'consistency-lab-grid-coordinates-panel',
+  CONSISTENCY_LAB_CONTACT_SHEET_9GRID_PANEL: 'consistency-lab-contact-sheet-9grid-panel',
 } as const
 
 export type AiPromptId = (typeof AI_PROMPT_IDS)[keyof typeof AI_PROMPT_IDS]

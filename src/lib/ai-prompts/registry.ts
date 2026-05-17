@@ -234,6 +234,37 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
       'location_assets_json',
     ],
   },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_STRUCTURED_TEXT_PANEL]: {
+    pathStem: 'consistency-lab/structured-text-panel',
+    variableKeys: [
+      'shot_json',
+      'video_block_json',
+      'character_assets_json',
+      'location_assets_json',
+      'strategy_output_json',
+    ],
+  },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_GRID_COORDINATES_PANEL]: {
+    pathStem: 'consistency-lab/grid-coordinates-panel',
+    variableKeys: [
+      'shot_json',
+      'video_block_json',
+      'character_assets_json',
+      'location_assets_json',
+      'strategy_output_json',
+    ],
+  },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_CONTACT_SHEET_9GRID_PANEL]: {
+    pathStem: 'consistency-lab/contact-sheet-9grid-panel',
+    variableKeys: [
+      'shot_json',
+      'video_block_json',
+      'character_assets_json',
+      'location_assets_json',
+      'strategy_output_json',
+      'contact_sheet_group_json',
+    ],
+  },
 }
 
 const OPERATION_TO_AI_PROMPT_ID = new Map<string, AiPromptId>()

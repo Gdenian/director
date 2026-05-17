@@ -118,6 +118,7 @@ export type WorkspaceCanvasNodeAction =
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
   | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
   | { readonly type: 'generate_edit_storyboard'; readonly editScriptId: string }
+  | { readonly type: 'open_consistency_lab'; readonly editScriptId: string }
 
 export type WorkspaceCanvasNodeActionHandler = (
   action: WorkspaceCanvasNodeAction,
@@ -340,6 +341,8 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly height: number
   readonly actionLabel?: string
   readonly action?: WorkspaceCanvasNodeAction
+  readonly secondaryActionLabel?: string
+  readonly secondaryAction?: WorkspaceCanvasNodeAction
   readonly actionDisabled?: boolean
   readonly onAction?: WorkspaceCanvasNodeActionHandler
   readonly expanded?: boolean

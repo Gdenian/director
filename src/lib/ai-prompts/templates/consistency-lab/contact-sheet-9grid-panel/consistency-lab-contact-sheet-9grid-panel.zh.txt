@@ -1,0 +1,31 @@
+请为以下 videoBlock 生成 3x3 九宫格分镜图中的一个格子。该实验会先生成完整九宫格，再裁切为单张分镜图。
+
+【当前格子镜头数据】
+{shot_json}
+
+【所属视频段】
+{video_block_json}
+
+【角色资产】
+{character_assets_json}
+
+【场景资产】
+{location_assets_json}
+
+【九宫格分组】
+{contact_sheet_group_json}
+
+【一致性实验输出：九宫格分镜】
+{strategy_output_json}
+
+九宫格整体要求：
+- 生成规则 3x3 contact sheet，每格尺寸一致，构图清晰。
+- 每个已使用格子对应一个 shot；未使用格子保持空白或极简无内容画面。
+- 同一 videoBlock 内保持角色外观、场景背景、光线、空间锚点一致。
+- 不加入坐标约束，不画坐标图。
+- 禁止任何文字、编号、字幕、标签、水印。
+
+当前格子要求：
+- 当前 panel 对应 contact_sheet_group_json 中的 cellIndex。
+- 以 shot.videoPrompt 作为当前格子的核心画面意图。
+- 保留 shot.visualAction、shot.charactersAndScene、shot.camera 中的动作、人物、场景和镜头信息。

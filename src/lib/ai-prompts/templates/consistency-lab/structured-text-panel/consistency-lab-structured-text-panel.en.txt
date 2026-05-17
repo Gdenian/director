@@ -1,0 +1,24 @@
+Convert the following edit-table shot into one storyboard panel image. Generate only this shot. Do not expand the plot or rewrite the shot action.
+
+【Shot Data】
+{shot_json}
+
+【Parent Video Block】
+{video_block_json}
+
+【Character Assets】
+{character_assets_json}
+
+【Location Assets】
+{location_assets_json}
+
+【Consistency Lab Output: Structured Spatial Continuity】
+{strategy_output_json}
+
+Image requirements:
+- Use shot.videoPrompt as the core visual intent.
+- Preserve the action, characters, location, and camera information from shot.visualAction, shot.charactersAndScene, and shot.camera.
+- If this shot is classified as fixed_space_strong or fixed_space_weak, preserve spatial anchors, screen left/right continuity, eyelines, and foreground/background relationships inside the videoBlock.
+- For solo dialogue, close-up, or reaction shots, do not force the counterpart to become the main subject. If the counterpart belongs to the same fixed-space relation, keep their presence as a foreground shoulder, blurred background figure, edge-of-frame silhouette, or offscreen eyeline target.
+- If the output is no_fixed_space or skipped, follow the original shot without forcing fixed-space continuity.
+- This is a cinematic storyboard panel. Do not include subtitles, text, numbers, labels, watermarks, or split-screen layouts.

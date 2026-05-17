@@ -253,7 +253,8 @@
         "renderFinalVideo": "AI剪辑",
         "aiEditing": "AI剪辑中",
         "generateEditAssets": "全部生成",
-        "generateEditAsset": "生成图片"
+        "generateEditAsset": "生成图片",
+        "openConsistencyLab": "分镜一致性实验"
       },
       "status": {
         "empty": "待输入",
@@ -665,6 +666,60 @@
         "editAsset": {
           "meta": "关联镜头：{shots}"
         }
+      }
+    }
+  },
+  "consistencyLab": {
+    "title": "分镜一致性实验",
+    "subtitle": "同一剪辑表下比较三种分镜提示词策略，实验结果不会覆盖主链路。",
+    "back": "返回画布",
+    "source": "固定源数据",
+    "editScriptId": "剪辑表",
+    "episode": "剧集",
+    "videoRatio": "画面比例",
+    "modelConfig": "模型配置",
+    "shots": "镜头",
+    "videoBlocks": "视频段",
+    "assets": "资产",
+    "loadFailed": "加载实验失败",
+    "missingParams": "缺少 episode 或 editScriptId",
+    "refresh": "刷新",
+    "ready": "已配置",
+    "notCreated": "未创建",
+    "createFailed": "创建实验失败",
+    "deleteFailed": "删除实验失败",
+    "adoptFailed": "采纳失败",
+    "empty": "还没有实验 run。请选择策略创建。",
+    "create": "创建 run",
+    "regenerate": "重新创建",
+    "delete": "删除 run",
+    "adopt": "采纳为主分镜",
+    "adopted": "已采纳",
+    "loading": "加载中",
+    "creating": "创建中",
+    "deleting": "删除中",
+    "adopting": "采纳中",
+    "strategyInput": "策略输入",
+    "strategyOutput": "策略输出",
+    "panelPrompts": "Panel 提示词",
+    "panelImages": "分镜图",
+    "videos": "视频",
+    "placeholderImages": "第一阶段暂不生成图片。",
+    "placeholderVideos": "视频实验将在后续阶段接入。",
+    "status": "状态",
+    "panels": "{count} 个 panel",
+    "strategies": {
+      "structured_text": {
+        "title": "结构化空间关系",
+        "description": "用电影场面调度语言保持人物在场、左右关系、视线和前后景。"
+      },
+      "grid_coordinates": {
+        "title": "平面坐标",
+        "description": "按画面比例生成自适应俯视坐标，再转译成镜头语言。"
+      },
+      "contact_sheet_9grid": {
+        "title": "九宫格分镜",
+        "description": "按 videoBlock 生成 3x3 contact sheet 提示词，利用同图生成的一致性。"
       }
     }
   }

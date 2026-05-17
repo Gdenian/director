@@ -253,7 +253,8 @@
         "renderFinalVideo": "AI Edit",
         "aiEditing": "AI Editing",
         "generateEditAssets": "Generate All",
-        "generateEditAsset": "Generate Image"
+        "generateEditAsset": "Generate Image",
+        "openConsistencyLab": "Consistency Lab"
       },
       "status": {
         "empty": "Empty",
@@ -665,6 +666,60 @@
         "editAsset": {
           "meta": "Linked shots: {shots}"
         }
+      }
+    }
+  },
+  "consistencyLab": {
+    "title": "Storyboard Consistency Lab",
+    "subtitle": "Compare three storyboard prompt strategies under the same edit table. Experiment results do not overwrite the main chain.",
+    "back": "Back to Canvas",
+    "source": "Fixed Source Data",
+    "editScriptId": "Edit Table",
+    "episode": "Episode",
+    "videoRatio": "Video Ratio",
+    "modelConfig": "Model Config",
+    "shots": "Shots",
+    "videoBlocks": "Video Blocks",
+    "assets": "Assets",
+    "loadFailed": "Failed to load experiments",
+    "missingParams": "Missing episode or editScriptId",
+    "refresh": "Refresh",
+    "ready": "Configured",
+    "notCreated": "Not created",
+    "createFailed": "Failed to create experiment",
+    "deleteFailed": "Failed to delete experiment",
+    "adoptFailed": "Failed to adopt run",
+    "empty": "No experiment run yet. Choose a strategy to create one.",
+    "create": "Create Run",
+    "regenerate": "Create Again",
+    "delete": "Delete Run",
+    "adopt": "Adopt as Main Storyboard",
+    "adopted": "Adopted",
+    "loading": "Loading",
+    "creating": "Creating",
+    "deleting": "Deleting",
+    "adopting": "Adopting",
+    "strategyInput": "Strategy Input",
+    "strategyOutput": "Strategy Output",
+    "panelPrompts": "Panel Prompts",
+    "panelImages": "Panel Images",
+    "videos": "Videos",
+    "placeholderImages": "Image generation is not connected in phase one.",
+    "placeholderVideos": "Video experiments will be connected in a later phase.",
+    "status": "Status",
+    "panels": "{count} panel(s)",
+    "strategies": {
+      "structured_text": {
+        "title": "Structured Spatial Text",
+        "description": "Use cinematic blocking language to preserve presence, left/right relation, eyelines, and depth."
+      },
+      "grid_coordinates": {
+        "title": "Plane Coordinates",
+        "description": "Generate ratio-aware top-down coordinates, then translate them into cinematic language."
+      },
+      "contact_sheet_9grid": {
+        "title": "9-Grid Contact Sheet",
+        "description": "Generate 3x3 contact sheet prompts by videoBlock to test same-image consistency."
       }
     }
   }

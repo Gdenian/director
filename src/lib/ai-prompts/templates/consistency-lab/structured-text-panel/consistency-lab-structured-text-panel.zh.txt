@@ -1,0 +1,24 @@
+请把以下剪辑镜头转换为单张分镜图画面。只生成这个镜头对应的一张画面，不扩写剧情，不改写原 shot 动作。
+
+【镜头数据】
+{shot_json}
+
+【所属视频段】
+{video_block_json}
+
+【角色资产】
+{character_assets_json}
+
+【场景资产】
+{location_assets_json}
+
+【一致性实验输出：结构化空间关系】
+{strategy_output_json}
+
+画面生成要求：
+- 以 shot.videoPrompt 作为核心画面意图。
+- 保留 shot.visualAction、shot.charactersAndScene、shot.camera 中的动作、人物、场景和镜头信息。
+- 若一致性输出将本 shot 标为 fixed_space_strong 或 fixed_space_weak，请保持该 videoBlock 内的空间锚点、人物左右关系、视线关系和前后景关系。
+- 对单人台词、特写、反应镜头：不要把对手强行改成主体；但如果对手属于同一固定空间关系，可作为前景肩背、背景虚焦、画面边缘轮廓或画外视线目标保留存在感。
+- 若一致性输出标为 no_fixed_space 或 skipped，只按原 shot 生成，不强行添加固定空间关系。
+- 这是一张电影分镜图，不要出现字幕、文字、编号、标签、水印或分屏。

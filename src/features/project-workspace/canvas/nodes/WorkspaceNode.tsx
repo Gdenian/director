@@ -1274,7 +1274,13 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
   const action = data.action
   const canToggleDetails = nodeCanToggleDetails(data.kind)
   const isRunning = nodeIsRunning(data)
-  const shouldShowFooter = !isRunning && (canToggleDetails || Boolean(action && data.actionLabel) || nodeShowsMetaFooter(data.kind))
+  const secondaryAction = data.secondaryAction
+  const shouldShowFooter = !isRunning && (
+    canToggleDetails ||
+    Boolean(action && data.actionLabel) ||
+    Boolean(secondaryAction && data.secondaryActionLabel) ||
+    nodeShowsMetaFooter(data.kind)
+  )
   const runningData = isRunning ? { ...data, __running: true } : data
 
   useEffect(() => {
@@ -1339,6 +1345,19 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
                   >
                     {isRunning ? <LoadingSpinner /> : <AppIcon name="arrowRight" className="h-3.5 w-3.5" />}
                     {data.actionLabel}
+                  </button>
+                ) : null}
+                {secondaryAction && data.secondaryActionLabel ? (
+                  <button
+                    type="button"
+                    className="nodrag inline-flex items-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[var(--glass-text-secondary)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={data.actionDisabled === true || isRunning}
+                    onClick={() => {
+                      if (!isRunning) data.onAction?.(secondaryAction, data.nodeId)
+                    }}
+                  >
+                    <AppIcon name="externalLink" className="h-3.5 w-3.5" />
+                    {data.secondaryActionLabel}
                   </button>
                 ) : null}
               </div>

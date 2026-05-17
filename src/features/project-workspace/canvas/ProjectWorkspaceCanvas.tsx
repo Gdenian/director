@@ -18,6 +18,7 @@ import {
 } from '@xyflow/react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
+import { useRouter } from '@/i18n/navigation'
 import { logWarn as _ulogWarn } from '@/lib/logging/core'
 import { TASK_TYPE } from '@/lib/task/types'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
@@ -136,6 +137,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const t = useTranslations('projectWorkflow.canvas.workspace')
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceRuntime()
+  const router = useRouter()
   const { episodeName, novelText, clips, storyboards, shots, finalVideo, videoGroups } = useWorkspaceEpisodeStageData()
   const { data: editScreenplay } = useProjectEditScreenplay(projectId, episodeId ?? null)
   const { data: editScript } = useProjectEditScript(projectId, episodeId ?? null)
@@ -247,6 +249,17 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       : node))
   }, [clearOptimisticRunningNode, nodeRunningStatusLabel])
   const onNodeAction = useCallback(async (action: WorkspaceCanvasNodeAction, nodeId?: string) => {
+    if (action.type === 'open_consistency_lab') {
+      if (!episodeId) return
+      router.push({
+        pathname: `/workspace/${projectId}/consistency-lab`,
+        query: {
+          episode: episodeId,
+          editScriptId: action.editScriptId,
+        },
+      })
+      return
+    }
     if (nodeId) markNodeOptimisticallyRunning(nodeId)
     try {
       await runNodeAction(action)
@@ -266,7 +279,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       _ulogWarn('[ProjectWorkspaceCanvas] node action failed', error)
       throw error
     }
-  }, [clearOptimisticRunningNode, markNodeOptimisticallyRunning, runNodeAction])
+  }, [clearOptimisticRunningNode, episodeId, markNodeOptimisticallyRunning, projectId, router, runNodeAction])
   const toggleNodeExpanded = useCallback((nodeId: string) => {
     setNodeExpansionOverrides((current) => {
       const defaultExpanded = defaultExpandedNodeIdsRef.current.has(nodeId)
