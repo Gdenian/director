@@ -11,6 +11,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type NodeChange,
   type Viewport,
   useReactFlow,
@@ -48,6 +49,7 @@ import {
   getWorkspaceCanvasNodePresentationProfile,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
+import { repairWorkspaceNodeOverlaps } from './layout/workspace-node-auto-layout'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
@@ -446,6 +448,12 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
   }, [])
 
+  const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceCanvasFlowNode>>(() => {
+    const repairedNodes = attachNodeUiState(repairWorkspaceNodeOverlaps(reactFlow.getNodes()))
+    setNodes(repairedNodes)
+    persistCurrentLayoutSafely(repairedNodes)
+  }, [attachNodeUiState, persistCurrentLayoutSafely, reactFlow])
+
   const handleNodeClick = useCallback<NodeMouseHandler<WorkspaceCanvasFlowNode>>((_event, node) => {
     if (node.data.kind === 'analysis' || node.data.kind === 'storyInput') return
     setSelectedNodeId(node.id)
@@ -545,7 +553,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
           onNodesChange={handleNodesChange}
           onNodeClick={handleNodeClick}
           onPaneClick={() => setSelectedNodeId(null)}
-          onNodeDragStop={() => persistCurrentLayoutSafely(nodes)}
+          onNodeDragStop={handleNodeDragStop}
           onMoveEnd={() => persistCurrentLayoutSafely(nodes)}
           nodesDraggable
           nodesConnectable={false}

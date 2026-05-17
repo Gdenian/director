@@ -39,11 +39,12 @@ import {
   WORKSPACE_CANVAS_FINAL_NODE_SIZE,
   WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE,
 } from '../node-presentation-profiles'
+import { repairWorkspaceNodeOverlaps } from '../layout/workspace-node-auto-layout'
 
 const DEFAULT_NODE_WIDTH = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.width
 const DEFAULT_NODE_HEIGHT = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.height
 const VIDEO_PLAN_NODE_WIDTH = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.width
-const VIDEO_PLAN_NODE_HEIGHT = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.height
+const VIDEO_PLAN_NODE_MIN_HEIGHT = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.height
 const VIDEO_PLAN_GRID_ROW_GAP = 640
 const BGM_SCORE_NODE_WIDTH = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.width
 const BGM_SCORE_NODE_HEIGHT = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.height
@@ -77,6 +78,16 @@ const PANEL_GRID_BASE_X = STORY_COLUMN_X + COLUMN_GAP * 2
 const NODE_CONTENT_INLINE_PADDING = 40
 const DEFAULT_MEDIA_PREVIEW_HEIGHT = 118
 const MAX_MEDIA_PREVIEW_HEIGHT = 220
+const VIDEO_PLAN_HEADER_HEIGHT = 82
+const VIDEO_PLAN_CONTENT_VERTICAL_PADDING = 40
+const VIDEO_PLAN_SECTION_GAP = 12
+const VIDEO_PLAN_FOOTER_HEIGHT = 66
+const VIDEO_PLAN_PENDING_PREVIEW_EXTRA_HEIGHT = 96
+const VIDEO_PLAN_SECTION_BASE_HEIGHT = 42
+const VIDEO_PLAN_TEXT_LINE_HEIGHT = 20
+const VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT = 58
+const VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT = 34
+const VIDEO_PLAN_CONTENT_WIDTH = VIDEO_PLAN_NODE_WIDTH - NODE_CONTENT_INLINE_PADDING
 
 interface TranslateValues {
   readonly [key: string]: string | number
@@ -388,6 +399,64 @@ function estimateWrappedLineCount(text: string | null | undefined, charactersPer
   return normalized
     .split(/\r?\n/)
     .reduce((total, line) => total + Math.max(1, Math.ceil(line.trim().length / charactersPerLine)), 0)
+}
+
+function estimateClampedTextHeight(text: string | null | undefined, charactersPerLine: number, maxLines: number): number {
+  return Math.min(maxLines, estimateWrappedLineCount(text, charactersPerLine)) * VIDEO_PLAN_TEXT_LINE_HEIGHT
+}
+
+function estimateVideoPlanTextSectionHeight(text: string | null | undefined, charactersPerLine: number, maxLines: number): number {
+  if (!text?.trim()) return 0
+  return VIDEO_PLAN_SECTION_BASE_HEIGHT + estimateClampedTextHeight(text, charactersPerLine, maxLines)
+}
+
+function estimateVideoPlanPreviewHeight(input: {
+  readonly outputAspectRatio: number | null
+  readonly hasOutput: boolean
+  readonly shotCount: number
+}): number {
+  const aspectRatio = input.outputAspectRatio && input.outputAspectRatio > 0 ? input.outputAspectRatio : 16 / 9
+  const mediaHeight = Math.round(VIDEO_PLAN_CONTENT_WIDTH / aspectRatio)
+  return input.hasOutput
+    ? mediaHeight
+    : mediaHeight + (input.shotCount > 0 ? VIDEO_PLAN_PENDING_PREVIEW_EXTRA_HEIGHT : 24)
+}
+
+function estimateVideoPlanAssetReferenceSectionHeight(assetReferenceCount: number, showsModelHint: boolean): number {
+  const imageRows = assetReferenceCount > 0 ? Math.ceil(assetReferenceCount / 3) : 1
+  const imageHeight = imageRows * VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT
+  const hintHeight = showsModelHint ? VIDEO_PLAN_TEXT_LINE_HEIGHT + 8 : 0
+  return VIDEO_PLAN_SECTION_BASE_HEIGHT + imageHeight + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT + hintHeight + 20
+}
+
+function estimateVideoPlanNodeHeight(input: {
+  readonly outputAspectRatio: number | null
+  readonly hasOutput: boolean
+  readonly shotCount: number
+  readonly assetReferenceCount: number
+  readonly showsModelHint: boolean
+  readonly prompt: string | null | undefined
+  readonly reason: string | null | undefined
+  readonly errorMessage: string | null | undefined
+  readonly validationMessage: string | null | undefined
+}): number {
+  const sections = [
+    estimateVideoPlanPreviewHeight(input),
+    VIDEO_PLAN_SECTION_BASE_HEIGHT + VIDEO_PLAN_TEXT_LINE_HEIGHT * 2,
+    estimateVideoPlanAssetReferenceSectionHeight(input.assetReferenceCount, input.showsModelHint),
+    estimateVideoPlanTextSectionHeight(input.prompt, 54, 3),
+    estimateVideoPlanTextSectionHeight(input.errorMessage, 54, 5),
+    estimateVideoPlanTextSectionHeight(input.validationMessage, 54, 4),
+    estimateVideoPlanTextSectionHeight(input.reason, 54, 4),
+  ].filter((height) => height > 0)
+
+  const contentHeight = sections.reduce((total, height) => total + height, 0)
+    + Math.max(0, sections.length - 1) * VIDEO_PLAN_SECTION_GAP
+
+  return Math.max(
+    VIDEO_PLAN_NODE_MIN_HEIGHT,
+    VIDEO_PLAN_HEADER_HEIGHT + VIDEO_PLAN_CONTENT_VERTICAL_PADDING + contentHeight + VIDEO_PLAN_FOOTER_HEIGHT,
+  )
 }
 
 function estimateEditScriptNodeHeight(editScript: ProjectEditScript): number {
@@ -1234,6 +1303,7 @@ export function buildWorkspaceNodeCanvasProjection({
           : outputUrl
             ? translate('status.ready')
             : translate('status.pending')
+      const assetReferences = assetReferencesForVideoBlock(editScript, block.shotNumbers)
       const action: WorkspaceCanvasNodeAction | undefined = validationKey || runtimeErrorMessage || isRunning
         ? undefined
         : block.kind === 'group'
@@ -1254,6 +1324,18 @@ export function buildWorkspaceNodeCanvasProjection({
             : undefined
       const modeLabel = block.kind === 'group' ? translate('nodeFields.videoPlanGroup') : translate('nodeFields.videoPlanSingle')
       const nodeId = `video-plan:${editScript.id}:${index + 1}`
+      const validationMessage = validationKey ? translate(`errors.${validationKey}`) : null
+      const videoPlanHeight = estimateVideoPlanNodeHeight({
+        outputAspectRatio,
+        hasOutput: Boolean(outputUrl),
+        shotCount: block.shotNumbers.length,
+        assetReferenceCount: assetReferences.length,
+        showsModelHint: assetReferences.length > 0 && assetReferenceVideoModel.length === 0,
+        prompt: block.prompt,
+        reason: block.reason,
+        errorMessage: runtimeErrorMessage,
+        validationMessage,
+      })
       const position = gridPosition({
         index,
         baseX: PANEL_GRID_BASE_X,
@@ -1283,7 +1365,7 @@ export function buildWorkspaceNodeCanvasProjection({
           statusLabel,
           isRunning,
           width: VIDEO_PLAN_NODE_WIDTH,
-          height: VIDEO_PLAN_NODE_HEIGHT,
+          height: videoPlanHeight,
           indexLabel: `B${index + 1}`,
           previewImageUrl: outputUrl ?? null,
           previewAspectRatio: outputAspectRatio,
@@ -1308,8 +1390,8 @@ export function buildWorkspaceNodeCanvasProjection({
                 aspectRatio: panel ? panelImageAspectRatio(panel) : null,
               }
             }),
-            assetReferences: assetReferencesForVideoBlock(editScript, block.shotNumbers),
-            validationMessage: validationKey ? translate(`errors.${validationKey}`) : null,
+            assetReferences,
+            validationMessage,
           },
           actionLabel: action ? translate('actions.generateVideo') : undefined,
           action,
@@ -1485,7 +1567,7 @@ export function buildWorkspaceNodeCanvasProjection({
     edges.push(createEdge(`edge:bgm-final:${episodeId}`, bgmScoreNodeId, finalNodeId))
   }
 
-  return { nodes, edges }
+  return { nodes: repairWorkspaceNodeOverlaps(nodes), edges }
 }
 
 export function useWorkspaceNodeCanvasProjection({

@@ -154,6 +154,21 @@ function createSingleVideoEditScript(input?: Partial<ProjectEditScript>): Projec
   }
 }
 
+function nodesOverlap(left: {
+  readonly position: { readonly x: number; readonly y: number }
+  readonly data: { readonly width: number; readonly height: number }
+}, right: {
+  readonly position: { readonly x: number; readonly y: number }
+  readonly data: { readonly width: number; readonly height: number }
+}): boolean {
+  return (
+    left.position.x < right.position.x + right.data.width &&
+    left.position.x + left.data.width > right.position.x &&
+    left.position.y < right.position.y + right.data.height &&
+    left.position.y + left.data.height > right.position.y
+  )
+}
+
 describe('workspace node canvas projection', () => {
   it('keeps the canvas empty when the episode has no generated data', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
@@ -777,6 +792,111 @@ describe('workspace node canvas projection', () => {
     expect(shotNodes[5].position.y).toBeGreaterThan(shotNodes[0].position.y)
   })
 
+  it('repairs overlapping saved node positions before rendering the canvas', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels: [
+            createPanel({ id: 'panel-1', panelIndex: 0 }),
+            createPanel({ id: 'panel-2', panelIndex: 1 }),
+          ],
+        }),
+      ],
+      savedLayouts: [
+        {
+          nodeKey: 'shot:panel-1',
+          x: 100,
+          y: 100,
+          width: 320,
+          height: 560,
+          zIndex: 0,
+          locked: false,
+          collapsed: false,
+        },
+        {
+          nodeKey: 'shot:panel-2',
+          x: 100,
+          y: 100,
+          width: 320,
+          height: 560,
+          zIndex: 1,
+          locked: false,
+          collapsed: false,
+        },
+      ],
+      translate: t,
+    })
+
+    const shotNodes = projection.nodes.filter((node) => node.data.kind === 'shot')
+    expect(shotNodes).toHaveLength(2)
+    expect(nodesOverlap(shotNodes[0], shotNodes[1])).toBe(false)
+    expect(shotNodes[1].position.y).toBeGreaterThanOrEqual(shotNodes[0].position.y + shotNodes[0].data.height)
+  })
+
+  it('sizes tall video segment cards and pushes the next row below them', () => {
+    const panels = Array.from({ length: 6 }, (_item, index) => createPanel({
+      id: `panel-${index + 1}`,
+      panelIndex: index,
+      panelNumber: index + 1,
+      imageUrl: `https://example.com/shot-${index + 1}.png`,
+    }))
+    const videoBlocks = Array.from({ length: 6 }, (_item, index) => ({
+      kind: 'single' as const,
+      shotNumbers: [index + 1],
+      reason: `A deliberately long video segment reason ${index + 1}. `.repeat(12),
+      prompt: `A deliberately long video segment prompt ${index + 1}. `.repeat(18),
+    }))
+
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          panels,
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+      defaultSequenceVideoModel: null,
+      editScript: createSingleVideoEditScript({
+        id: 'edit-tall-video',
+        shotCount: 6,
+        durationSec: 24,
+        shots: videoBlocks.map((block, index) => ({
+          shotNumber: index + 1,
+          durationSec: 4,
+          visualAction: `Shot ${index + 1}`,
+          charactersAndScene: 'Room',
+          camera: 'locked',
+          videoPrompt: block.prompt,
+          sound: 'room tone',
+        })),
+        videoBlocks,
+      }),
+    })
+
+    const videoPlanNodes = projection.nodes.filter((node) => node.data.kind === 'videoPlan')
+    expect(videoPlanNodes).toHaveLength(6)
+    expect(videoPlanNodes[0].data.height).toBeGreaterThan(560)
+    expect(videoPlanNodes[5].position.x).toBe(videoPlanNodes[0].position.x)
+    expect(videoPlanNodes[5].position.y).toBeGreaterThanOrEqual(
+      videoPlanNodes[0].position.y + videoPlanNodes[0].data.height,
+    )
+    videoPlanNodes.forEach((node, index) => {
+      videoPlanNodes.slice(index + 1).forEach((otherNode) => {
+        expect(nodesOverlap(node, otherNode)).toBe(false)
+      })
+    })
+  })
+
   it('projects full non-voice business details into typed node data', () => {
     const screenplay = JSON.stringify({
       scenes: [
@@ -1184,7 +1304,7 @@ describe('workspace node canvas projection', () => {
     const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-2:1')
     expect(videoPlanNode?.data.kind).toBe('videoPlan')
     expect(videoPlanNode?.data.width).toBe(420)
-    expect(videoPlanNode?.data.height).toBe(560)
+    expect(videoPlanNode?.data.height).toBeGreaterThan(560)
     expect(videoPlanNode?.data.action).toEqual({
       type: 'generate_video_group',
       videoModel: 'ark::sequence-project-model',

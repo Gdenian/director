@@ -1,0 +1,113 @@
+import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
+
+const DEFAULT_NODE_GAP = 72
+const POSITION_EPSILON = 0.5
+
+interface NodeRect {
+  readonly id: string
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+  readonly order: number
+}
+
+function numericStyleValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function nodeSize(node: WorkspaceCanvasFlowNode): { readonly width: number; readonly height: number } {
+  const style = node.style
+  const styleWidth = style ? numericStyleValue(style.width) : null
+  const styleHeight = style ? numericStyleValue(style.height) : null
+  return {
+    width: styleWidth ?? node.data.width,
+    height: styleHeight ?? node.data.height,
+  }
+}
+
+function nodeRect(node: WorkspaceCanvasFlowNode, order: number): NodeRect {
+  const size = nodeSize(node)
+  return {
+    id: node.id,
+    x: node.position.x,
+    y: node.position.y,
+    width: size.width,
+    height: size.height,
+    order,
+  }
+}
+
+function rectsOverlap(left: NodeRect, right: NodeRect): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  )
+}
+
+function nextAvailableY(candidate: NodeRect, placed: readonly NodeRect[], gap: number): number {
+  let y = candidate.y
+  let moved = true
+
+  while (moved) {
+    moved = false
+    const nextCandidate = { ...candidate, y }
+    for (const rect of placed) {
+      if (!rectsOverlap(nextCandidate, rect)) continue
+      const pushedY = rect.y + rect.height + gap
+      if (pushedY > y + POSITION_EPSILON) {
+        y = pushedY
+        moved = true
+      }
+    }
+  }
+
+  return y
+}
+
+export function workspaceCanvasNodesOverlap(
+  left: WorkspaceCanvasFlowNode,
+  right: WorkspaceCanvasFlowNode,
+): boolean {
+  return rectsOverlap(nodeRect(left, 0), nodeRect(right, 1))
+}
+
+export function repairWorkspaceNodeOverlaps(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+  options?: {
+    readonly gap?: number
+  },
+): WorkspaceCanvasFlowNode[] {
+  const gap = options?.gap ?? DEFAULT_NODE_GAP
+  const rects = nodes
+    .map(nodeRect)
+    .sort((left, right) => {
+      if (left.y !== right.y) return left.y - right.y
+      if (left.x !== right.x) return left.x - right.x
+      return left.order - right.order
+    })
+
+  const placed: NodeRect[] = []
+  const repairedYById = new Map<string, number>()
+
+  for (const rect of rects) {
+    const y = nextAvailableY(rect, placed, gap)
+    const repaired = { ...rect, y }
+    placed.push(repaired)
+    repairedYById.set(rect.id, y)
+  }
+
+  return nodes.map((node) => {
+    const y = repairedYById.get(node.id)
+    if (y === undefined || Math.abs(y - node.position.y) <= POSITION_EPSILON) return node
+    return {
+      ...node,
+      position: {
+        ...node.position,
+        y,
+      },
+    }
+  })
+}
