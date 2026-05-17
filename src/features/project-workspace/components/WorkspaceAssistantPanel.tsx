@@ -42,7 +42,11 @@ import {
   resolveAssistantAsyncTaskTerminalEvent,
   type AssistantAsyncTaskSubmission,
 } from './workspace-assistant/async-task-follow-up'
-import { queryKeys } from '@/lib/query/keys'
+import {
+  extractWorkspaceResourceChangesFromWriteResult,
+  syncWorkspaceResourceChanges,
+  syncWorkspaceResourceChangesFromWriteResult,
+} from '@/lib/query/resource-change-sync'
 import { TASK_EVENT_TYPE } from '@/lib/task/types'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
 import type { WorkspaceAssistantSelectionContext } from '../canvas/ProjectWorkspaceCanvas'
@@ -86,6 +90,14 @@ function readOperationResultSummary(payload: unknown): string {
   const runId = typeof result.runId === 'string' ? result.runId.trim() : ''
   const status = typeof result.status === 'string' ? result.status.trim() : ''
   return [status, taskId || runId].filter(Boolean).join(' · ')
+}
+
+function readAssistantToolOutput(part: unknown): unknown | null {
+  if (!isRecord(part)) return null
+  const type = typeof part.type === 'string' ? part.type : ''
+  if (type !== 'dynamic-tool' && !type.startsWith('tool-')) return null
+  if (part.state !== 'output-available') return null
+  return 'output' in part ? part.output : null
 }
 
 function readStoredAssistantPanelWidth(): number {
@@ -137,6 +149,7 @@ export default function WorkspaceAssistantPanel({
   const asyncTaskSubmissionsRef = useRef<Map<string, AssistantAsyncTaskSubmission>>(new Map())
   const followedTaskIdsRef = useRef<Set<string>>(new Set())
   const followedBatchKeysRef = useRef<Set<string>>(new Set())
+  const syncedAssistantToolOutputKeysRef = useRef<Set<string>>(new Set())
   const batchTerminalStateRef = useRef<Map<string, {
     operationId: string
     allTaskIds: Set<string>
@@ -150,6 +163,34 @@ export default function WorkspaceAssistantPanel({
   useEffect(() => {
     asyncTaskSubmissionsRef.current = collectAssistantAsyncTaskSubmissions(assistantRuntime.messages)
   }, [assistantRuntime.messages])
+  useEffect(() => {
+    const pendingSyncs: Promise<unknown>[] = []
+    for (const message of assistantRuntime.messages) {
+      message.parts.forEach((part, partIndex) => {
+        const output = readAssistantToolOutput(part)
+        if (output === null) return
+        const partRecord: Record<string, unknown> | null = isRecord(part) ? part : null
+        const toolCallId = typeof partRecord?.toolCallId === 'string' ? partRecord.toolCallId : null
+        const key = toolCallId
+          ? `${message.id}:${toolCallId}`
+          : `${message.id}:part:${String(partIndex)}`
+        if (syncedAssistantToolOutputKeysRef.current.has(key)) return
+        const changes = extractWorkspaceResourceChangesFromWriteResult({
+          result: output,
+          projectId,
+          fallbackEpisodeId: episodeId ?? null,
+        })
+        if (changes.length === 0) return
+        syncedAssistantToolOutputKeysRef.current.add(key)
+        pendingSyncs.push(syncWorkspaceResourceChanges({
+          queryClient,
+          changes,
+        }))
+      })
+    }
+    if (pendingSyncs.length === 0) return
+    void Promise.all(pendingSyncs)
+  }, [assistantRuntime.messages, episodeId, projectId, queryClient])
   const sendAutoFollowUpMessage = useCallback((message: string) => {
     const runtime = assistantRuntimeRef.current
     if (runtime.pending || runtime.storageLoading) {
@@ -305,15 +346,12 @@ export default function WorkspaceAssistantPanel({
       const operationEpisodeId = typeof argsHint?.episodeId === 'string' && argsHint.episodeId.trim()
         ? argsHint.episodeId.trim()
         : episodeId
-      if (operationEpisodeId) {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.project.editScreenplay(projectId, operationEpisodeId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.project.editScript(projectId, operationEpisodeId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, operationEpisodeId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.project.context(projectId, operationEpisodeId) }),
-        ])
-      }
+      await syncWorkspaceResourceChangesFromWriteResult({
+        queryClient,
+        result: payload,
+        projectId,
+        fallbackEpisodeId: operationEpisodeId ?? null,
+      })
 
       const nextMessages = removeConfirmationRequestFromMessages(assistantRuntime.messages, operationId)
       const resultSummary = readOperationResultSummary(payload)

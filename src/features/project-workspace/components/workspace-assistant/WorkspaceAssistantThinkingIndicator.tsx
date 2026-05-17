@@ -8,7 +8,7 @@ interface WorkspaceAssistantThinkingIndicatorProps {
 }
 
 export function shouldShowWorkspaceAssistantThinkingIndicator(status: ChatStatus): boolean {
-  return status === 'submitted'
+  return status === 'submitted' || status === 'streaming'
 }
 
 export function WorkspaceAssistantThinkingIndicator({

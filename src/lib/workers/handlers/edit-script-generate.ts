@@ -29,12 +29,10 @@ function createWorkerRequest(job: Job<TaskJobData>): NextRequest {
 export async function handleEditScriptGenerateTask(job: Job<TaskJobData>) {
   const payload = job.data.payload || {}
   const episodeId = readText(payload.episodeId) || readText(job.data.episodeId)
-  const prompt = readText(payload.prompt)
   const screenplayId = readText(payload.screenplayId)
   const videoRatio = readVideoRatio(payload.videoRatio)
   const artStyle = readText(payload.artStyle)
   if (!episodeId) throw new Error('episodeId is required')
-  if (!prompt) throw new Error('prompt is required')
 
   await reportTaskProgress(job, 12, {
     stage: 'edit_script_prepare',
@@ -54,7 +52,6 @@ export async function handleEditScriptGenerateTask(job: Job<TaskJobData>) {
         userId: job.data.userId,
         episodeId,
         locale: job.data.locale,
-        prompt,
         ...(screenplayId ? { screenplayId } : {}),
         ...(videoRatio ? { videoRatio } : {}),
         ...(artStyle ? { artStyle } : {}),

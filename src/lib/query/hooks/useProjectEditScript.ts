@@ -18,7 +18,6 @@ interface EditScreenplayResponse {
 
 interface CreateEditScriptInput {
   episodeId: string
-  prompt: string
   screenplayId?: string
   videoRatio?: EditScriptVideoRatio
   artStyle?: ArtStyleValue

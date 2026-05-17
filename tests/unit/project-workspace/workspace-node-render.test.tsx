@@ -424,6 +424,7 @@ describe('workspace node rendering', () => {
       width: 420,
       height: 320,
       expanded: true,
+      expandedLayout: 'wide',
       bgmScoreDetails: {
         status: 'completed',
         durationSeconds: 12,
@@ -468,6 +469,7 @@ describe('workspace node rendering', () => {
     })
 
     expect(html).toContain('finalBgmMix')
+    expect(html).toContain('lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]')
     expect(html).toContain('src="https://example.com/final-mix.m4a"')
     expect(html).toContain('scoreDesignSections')
     expect(html).toContain('Tense entrance')

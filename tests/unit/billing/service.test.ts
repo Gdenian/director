@@ -59,7 +59,6 @@ describe('billing/service', () => {
       'u1',
       'anthropic/claude-sonnet-4',
       1000,
-      1000,
       { projectId: 'p1', action: 'a1' },
       async () => ({ ok: true }),
     )
@@ -75,7 +74,6 @@ describe('billing/service', () => {
     const result = await withTextBilling(
       'u1',
       'uncatalogued::missing-text-model',
-      1000,
       1000,
       { projectId: 'p1', action: 'a1' },
       async () => ({ ok: true }),
@@ -93,7 +91,6 @@ describe('billing/service', () => {
     const result = await withTextBilling(
       'u1',
       'anthropic/claude-sonnet-4',
-      1000,
       1000,
       { projectId: 'p1', action: 'a1' },
       async () => ({ ok: true }),
@@ -114,7 +111,6 @@ describe('billing/service', () => {
         'u1',
         'anthropic/claude-sonnet-4',
         1000,
-        1000,
         { projectId: 'p1', action: 'a1' },
         async () => ({ ok: true }),
       ),
@@ -129,7 +125,6 @@ describe('billing/service', () => {
       withTextBilling(
         'u1',
         'anthropic/claude-sonnet-4',
-        1000,
         1000,
         { projectId: 'p1', action: 'a1' },
         async () => {
@@ -192,7 +187,6 @@ describe('billing/service', () => {
         'u1',
         'anthropic/claude-sonnet-4',
         1000,
-        1000,
         { projectId: 'p1', action: 'a1', billingKey: 'billing-key-1' },
         execute,
       ),
@@ -216,7 +210,6 @@ describe('billing/service', () => {
       withTextBilling(
         'u1',
         'anthropic/claude-sonnet-4',
-        1000,
         1000,
         { projectId: 'p1', action: 'a1', billingKey: 'billing-key-2' },
         execute,
@@ -545,14 +538,14 @@ describe('billing/service', () => {
     })
 
     it('settleTaskBilling keeps quoted charge when text usage has no token counts', async () => {
-      const quoted = calcText('anthropic/claude-sonnet-4', 500, 500)
+      const quoted = calcText('anthropic/claude-sonnet-4', 500, 0)
       const textBillingInfo: Extract<TaskBillingInfo, { billable: true }> = {
         billable: true,
         source: 'task',
         taskType: 'analyze_novel',
         apiType: 'text',
         model: 'anthropic/claude-sonnet-4',
-        quantity: 1000,
+        quantity: 500,
         unit: 'token',
         maxFrozenCost: quoted,
         action: 'analyze_novel',

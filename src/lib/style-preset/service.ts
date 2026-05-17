@@ -224,7 +224,6 @@ export async function designUserStylePreset(params: {
     params.userId,
     analysisModel,
     Math.max(1200, Math.ceil(prompt.length * 1.2)),
-    2000,
     { projectId: 'user-style-presets', action, metadata: { kind: parsed.data.kind } },
     async () =>
       await executeAiTextStep({

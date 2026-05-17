@@ -28,6 +28,7 @@ export const TASK_SSE_EVENT_TYPE = {
 
 export const WORKSPACE_SSE_EVENT_TYPE = {
   MUTATION_BATCH: 'mutation.batch',
+  RESOURCE_CHANGED: 'resource.changed',
 } as const
 
 export type TaskSSEEventType = (typeof TASK_SSE_EVENT_TYPE)[keyof typeof TASK_SSE_EVENT_TYPE]
@@ -161,7 +162,24 @@ export type MutationBatchSSEEvent = {
   targets: Array<{ targetType: string; targetId: string }>
 }
 
-export type SSEEvent = TaskSSEEvent | MutationBatchSSEEvent
+export type WorkspaceResourceName =
+  | 'editScreenplay'
+  | 'editScript'
+  | 'episodeData'
+  | 'projectData'
+  | 'projectContext'
+
+export type ResourceChangedSSEEvent = {
+  id: string
+  type: typeof WORKSPACE_SSE_EVENT_TYPE.RESOURCE_CHANGED
+  projectId: string
+  userId: string
+  ts: string
+  episodeId: string | null
+  resources: WorkspaceResourceName[]
+}
+
+export type SSEEvent = TaskSSEEvent | MutationBatchSSEEvent | ResourceChangedSSEEvent
 
 export type CreateTaskInput = {
   userId: string

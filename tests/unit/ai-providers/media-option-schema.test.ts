@@ -260,6 +260,72 @@ describe('media adapter video option schema', () => {
     })).toThrow('AI_OPTION_INVALID:unit:generationMode=firstlastframe_for_minimax-hailuo-2.3')
   })
 
+  it('validates Fal Happy Horse video duration and resolution before provider execution', () => {
+    const descriptor = falAdapter.video?.describe(mediaSelection({
+      provider: 'fal',
+      modelId: 'alibaba/happy-horse/image-to-video',
+      modelKey: 'fal::alibaba/happy-horse/image-to-video',
+    }))
+    expect(descriptor).toBeDefined()
+
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: {
+        prompt: 'animate with native audio',
+        duration: 15,
+        resolution: '1080p',
+        aspectRatio: '16:9',
+      },
+      context: 'fal-happy-horse',
+    })).not.toThrow()
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: { duration: 2, resolution: '1080p' },
+      context: 'fal-happy-horse',
+    })).toThrow('AI_OPTION_INVALID:fal-happy-horse:duration:min=3')
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: { duration: 5, resolution: '4k' },
+      context: 'fal-happy-horse',
+    })).toThrow('AI_OPTION_INVALID:fal-happy-horse:resolution:unsupported_value=4k')
+  })
+
+  it('validates Fal Seedance 2.0 video duration, resolution, and aspect ratio before provider execution', () => {
+    const descriptor = falAdapter.video?.describe(mediaSelection({
+      provider: 'fal',
+      modelId: 'bytedance/seedance-2.0',
+      modelKey: 'fal::bytedance/seedance-2.0',
+    }))
+    expect(descriptor).toBeDefined()
+
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: {
+        prompt: 'animate with synced audio',
+        duration: 4,
+        resolution: '1080p',
+        aspectRatio: '9:16',
+        generateAudio: true,
+      },
+      context: 'fal-seedance-2',
+    })).not.toThrow()
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: { duration: 3, resolution: '720p' },
+      context: 'fal-seedance-2',
+    })).toThrow('AI_OPTION_INVALID:fal-seedance-2:duration:min=4')
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: { duration: 5, resolution: '4k' },
+      context: 'fal-seedance-2',
+    })).toThrow('AI_OPTION_INVALID:fal-seedance-2:resolution:unsupported_value=4k')
+    expect(() => validateDescriptorOptions({
+      schema: descriptor!.optionSchema,
+      options: { duration: 5, resolution: '720p', aspectRatio: '2:3' },
+      context: 'fal-seedance-2',
+    })).toThrow('AI_OPTION_INVALID:fal-seedance-2:aspectRatio:unsupported_value=2:3')
+  })
+
   it('rejects Vidu invalid duration/resolution combinations from descriptor schema', () => {
     const descriptor = viduAdapter.video?.describe(mediaSelection({
       provider: 'vidu',

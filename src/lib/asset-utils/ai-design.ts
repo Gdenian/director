@@ -83,7 +83,6 @@ export async function aiDesign(options: AIDesignOptions): Promise<AIDesignResult
     // 调用 LLM
     const action = assetType === 'character' ? 'ai_design_character' : 'ai_design_location'
     const maxInputTokens = Math.max(1200, Math.ceil(finalPrompt.length * 1.2))
-    const maxOutputTokens = 1200
     const runCompletion = async () =>
         await executeAiTextStep({
             userId,
@@ -105,7 +104,6 @@ export async function aiDesign(options: AIDesignOptions): Promise<AIDesignResult
             userId,
             analysisModel,
             maxInputTokens,
-            maxOutputTokens,
             { projectId, action, metadata: { assetType } },
             runCompletion,
         )

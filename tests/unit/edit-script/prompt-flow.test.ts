@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AI_PROMPT_IDS, buildAiPrompt } from '@/lib/ai-prompts'
 
 describe('edit script block-first prompt flow', () => {
-  it('builds block-first audio and primary prompts without a per-shot video prompt input', () => {
+  it('builds a unified primary prompt without intermediate specialist inputs', () => {
     const screenplayText = [
       '标题：《灯下的人》',
       '',
@@ -12,29 +12,6 @@ describe('edit script block-first prompt flow', () => {
       '',
       '动作：人物走入昏暗房间，沿着窗边的光线慢慢前行，在桌前停下。',
     ].join('\n')
-    const cameraJson = JSON.stringify({
-      videoBlocks: [
-        {
-          blockNumber: 1,
-          type: 'group',
-          shotNumbers: [1, 2],
-          shots: [
-            { shotNumber: 1, camera: 'wide shot, slow push in' },
-            { shotNumber: 2, camera: 'medium shot, same-direction track' },
-          ],
-        },
-      ],
-    })
-
-    const audioPrompt = buildAiPrompt({
-      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_AUDIO,
-      locale: 'zh',
-      variables: {
-        user_request: '生成一条连续短片',
-        screenplay_text: screenplayText,
-        camera_json: cameraJson,
-      },
-    })
 
     const screenplayPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_SCREENPLAY,
@@ -47,23 +24,17 @@ describe('edit script block-first prompt flow', () => {
       },
     })
 
-    expect(screenplayPrompt).toContain('传统短片剧本')
+    expect(screenplayPrompt).toContain('AI 可控短片剧本')
     expect(screenplayPrompt).toContain('这里只写剧情内容')
     expect(screenplayPrompt).toContain('不输出 JSON')
-
-    expect(audioPrompt).toContain('block-first 镜头方式 JSON')
-    expect(audioPrompt).toContain(cameraJson)
-    expect(audioPrompt).toContain(screenplayText)
-    expect(audioPrompt).toContain('编剧剧本')
-    expect(audioPrompt).toContain('sound effects only')
-    expect(audioPrompt).toContain('不要写 BGM、背景音乐、持续配乐')
-    expect(audioPrompt).toContain('不要写 BGM 或持续配乐')
-    expect(audioPrompt).toContain('有叙事目的的电影化短音效')
-    expect(audioPrompt).toContain('非同期但叙事绑定的主观声音设计')
-    expect(audioPrompt).toContain('耳鸣、心跳放大、低频压迫')
-    expect(audioPrompt).toContain('角色主观体验或剪辑点')
-    expect(audioPrompt).toContain('不能发展成连续音乐')
-    expect(audioPrompt).not.toContain('video_prompt_json')
+    expect(screenplayPrompt).toContain('角色表')
+    expect(screenplayPrompt).toContain('场景 1｜内景/外景. 地点 - 时间')
+    expect(screenplayPrompt).toContain('角色名（可选表演提示）')
+    expect(screenplayPrompt).toContain('旁白（V.O.）')
+    expect(screenplayPrompt).toContain('角色名（O.S.）')
+    expect(screenplayPrompt).toContain('场景 N｜内景/外景. 地点 - 时间')
+    expect(screenplayPrompt).toContain('不要把它写成字幕或屏幕文字')
+    expect(screenplayPrompt).toContain('不要出现“镜头”“特写”“推镜”“剪切”“CUT TO”')
 
     const primaryPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
@@ -74,64 +45,41 @@ describe('edit script block-first prompt flow', () => {
         duration_seconds: '8',
         aspect_ratio: '9:16',
         style_context: 'cinematic',
-        timeline_json: JSON.stringify({
-          videoBlocks: [
-            {
-              blockNumber: 1,
-              type: 'group',
-              shotNumbers: [1, 2],
-              gridMode: '2x2',
-              durationSec: 8,
-              shots: [
-                { shotNumber: 1, durationSec: 4, beat: '建立空间' },
-                { shotNumber: 2, durationSec: 4, beat: '动作延续' },
-              ],
-            },
-          ],
-        }),
-        visual_action_json: JSON.stringify({
-          videoBlocks: [
-            {
-              blockNumber: 1,
-              type: 'group',
-              shotNumbers: [1, 2],
-              shots: [
-                { shotNumber: 1, visualAction: '人物走入光线', charactersAndScene: '人物 / 房间' },
-                { shotNumber: 2, visualAction: '人物顺着光线继续前行', charactersAndScene: '人物 / 房间' },
-              ],
-            },
-          ],
-        }),
-        camera_json: cameraJson,
-        audio_json: JSON.stringify({
-          videoBlocks: [
-            {
-              blockNumber: 1,
-              type: 'group',
-              shotNumbers: [1, 2],
-              shots: [
-                { shotNumber: 1, sound: '低频环境声' },
-                { shotNumber: 2, sound: '环境声延续' },
-              ],
-            },
-          ],
-        }),
       },
     })
 
+    expect(primaryPrompt).toContain('统一剪辑核心表 Agent')
+    expect(primaryPrompt).toContain('从编剧剧本直接生成唯一核心剪辑表')
     expect(primaryPrompt).toContain('videoBlocks 是视频生成主结构')
-    expect(primaryPrompt).toContain('必须以编剧剧本作为唯一剧情事实')
+    expect(primaryPrompt).toContain('编剧剧本是唯一剧情事实')
     expect(primaryPrompt).toContain(screenplayText)
     expect(primaryPrompt).toContain('videoBlocks[].prompt 是后续直接发给视频模型的最终提示词')
-    expect(primaryPrompt).toContain('不得机械拼接 shots[].videoPrompt')
-    expect(primaryPrompt).toContain('每个 videoBlocks[].prompt 必须包含视频模型声音约束')
+    expect(primaryPrompt).toContain('group prompt 不是把 single prompt 机械合并')
+    expect(primaryPrompt).toContain('纯文字生视频')
+    expect(primaryPrompt).toContain('[00:00-00:03] 镜头1')
+    expect(primaryPrompt).toContain('每个 prompt 必须包含声音约束')
     expect(primaryPrompt).toContain('sound effects only')
     expect(primaryPrompt).toContain('不要生成 BGM、背景音乐、持续配乐')
     expect(primaryPrompt).toContain('有叙事目的的电影化短音效')
+    expect(primaryPrompt).toContain('剧本已有对白、旁白或画外音')
+    expect(primaryPrompt).toContain('角色说{台词原文}')
+    expect(primaryPrompt).toContain('生成配音不等于生成字幕')
+    expect(primaryPrompt).toContain('音效使用 <音效描述>')
+    expect(primaryPrompt).toContain('台词必须来自剧本或用户需求')
     expect(primaryPrompt).toContain('非同期但叙事绑定的主观声音设计')
     expect(primaryPrompt).toContain('惊吓 stinger 或 sub hit')
     expect(primaryPrompt).toContain('不能发展成连续音乐')
+    expect(primaryPrompt).toContain('声音可以轻微先于画面出现形成 pre-lap')
+    expect(primaryPrompt).toContain('切镜后保留短暂尾音')
     expect(primaryPrompt).toContain('single prompt 的声音必须克制')
-    expect(primaryPrompt).not.toContain('video_prompt_json')
+    expect(primaryPrompt).toContain('slowly lifts')
+    expect(primaryPrompt).not.toContain('slowly li  fts')
+    expect(primaryPrompt).not.toContain('timeline_json')
+    expect(primaryPrompt).not.toContain('visual_action_json')
+    expect(primaryPrompt).not.toContain('camera_json')
+    expect(primaryPrompt).not.toContain('audio_json')
+    expect(primaryPrompt).not.toContain('2x2')
+    expect(primaryPrompt).not.toContain('3x3')
+    expect(primaryPrompt).not.toContain('宫格')
   })
 })

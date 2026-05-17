@@ -190,6 +190,8 @@ describe('provider models truth', () => {
     expect(BAILIAN_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'wan2.7-i2v')?.capabilities?.video?.generationModeOptions).toEqual(['normal', 'firstlastframe'])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'banana-2')?.capabilities?.image?.resolutionOptions).toEqual(['1K', '2K', '4K'])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gpt-image-2')?.capabilities?.image?.resolutionOptions).toContain('landscape_16_9')
+    expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'alibaba/happy-horse/image-to-video')?.capabilities?.video?.resolutionOptions).toEqual(['720p', '1080p'])
+    expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'bytedance/seedance-2.0')?.capabilities?.video?.generateAudioOptions).toEqual([true, false])
     expect(GOOGLE_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gemini-3-pro-image-preview')?.capabilities?.image?.resolutionOptions).toEqual(['1K', '2K', '4K'])
     expect(GOOGLE_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gemini-3.1-flash-image-preview')?.capabilities?.image?.resolutionOptions).toEqual(['0.5K', '1K', '2K', '4K'])
     expect(GOOGLE_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gemini-2.5-flash-image-preview')?.capabilities?.image?.resolutionOptions).toEqual(['1K'])
@@ -204,6 +206,8 @@ describe('provider models truth', () => {
   it('wires representative pricing catalog entries from provider models', () => {
     expect(ARK_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'doubao-seedream-4-5-251128')?.pricing.flatAmount).toBe(0.25)
     expect(BAILIAN_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'qwen-voice-design')?.pricing.flatAmount).toBe(0.2)
+    expect(FAL_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'alibaba/happy-horse/image-to-video')?.pricing.tiers?.[1]).toEqual({ when: { resolution: '1080p' }, amount: 1.4 })
+    expect(FAL_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'bytedance/seedance-2.0')?.pricing.tiers?.[1]).toEqual({ when: { resolution: '720p' }, amount: 0.3024 })
     expect(FAL_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'fal-ai/kling-video/lipsync/audio-to-video')?.pricing.flatAmount).toBe(0.5)
     expect(GOOGLE_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'veo-3.1-fast-generate-preview')?.pricing.tiers?.[0]?.amount).toBe(4.32)
     expect(GOOGLE_BUILTIN_PRICING_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gemini-3-pro-image-preview')?.pricing.tiers?.[0]).toEqual({ when: { resolution: '1K' }, amount: 0.9648 })
@@ -327,6 +331,30 @@ describe('provider models truth', () => {
       outputFormat: 'png',
       quality: 'high',
     }, 'fal-gpt-image-2')
+
+    const falHappyHorseVideo = falAdapter.video?.describe(mediaSelection({
+      provider: 'fal',
+      modelId: 'alibaba/happy-horse/image-to-video',
+      modelKey: 'fal::alibaba/happy-horse/image-to-video',
+    }))
+    expect(falHappyHorseVideo).toBeDefined()
+    expectValidOptions(falHappyHorseVideo!.optionSchema, {
+      duration: 5,
+      resolution: '720p',
+    }, 'fal-happy-horse-video')
+
+    const falSeedance2Video = falAdapter.video?.describe(mediaSelection({
+      provider: 'fal',
+      modelId: 'bytedance/seedance-2.0',
+      modelKey: 'fal::bytedance/seedance-2.0',
+    }))
+    expect(falSeedance2Video).toBeDefined()
+    expectValidOptions(falSeedance2Video!.optionSchema, {
+      duration: 8,
+      resolution: '1080p',
+      aspectRatio: '16:9',
+      generateAudio: true,
+    }, 'fal-seedance-2-video')
 
     const googleImage = googleAdapter.image?.describe(mediaSelection({
       provider: 'google',

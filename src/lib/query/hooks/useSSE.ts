@@ -8,6 +8,11 @@ import { TASK_EVENT_TYPE, TASK_SSE_EVENT_TYPE, TASK_TYPE, WORKSPACE_SSE_EVENT_TY
 import { applyTaskLifecycleToOverlay } from '../task-target-overlay'
 import { isTaskIntent, resolveTaskIntent } from '@/lib/task/intent'
 import { invalidateByTarget } from '../invalidation/invalidate-by-target'
+import {
+  syncWorkspaceResourceChanges,
+  WORKSPACE_RESOURCE_KIND,
+  type WorkspaceResourceChange,
+} from '../resource-change-sync'
 
 type UseSSEOptions = {
   projectId?: string | null
@@ -61,6 +66,57 @@ export function useSSE({ projectId, episodeId, enabled = true, onEvent }: UseSSE
               })
             }
           }
+          return
+        }
+
+        if (eventType === WORKSPACE_SSE_EVENT_TYPE.RESOURCE_CHANGED) {
+          const eventProjectId = typeof payload.projectId === 'string' ? payload.projectId : projectId
+          const eventEpisodeId = typeof payload.episodeId === 'string'
+            ? payload.episodeId
+            : episodeId ?? null
+          const rawResources: unknown[] = Array.isArray(payload.resources) ? payload.resources : []
+          const resources = rawResources
+            .filter((resource): resource is string => typeof resource === 'string')
+          const changes: WorkspaceResourceChange[] = []
+          for (const resource of resources) {
+            if (resource === WORKSPACE_RESOURCE_KIND.PROJECT_DATA) {
+              changes.push({ kind: WORKSPACE_RESOURCE_KIND.PROJECT_DATA, projectId: eventProjectId })
+              continue
+            }
+            if (!eventEpisodeId) continue
+            if (resource === WORKSPACE_RESOURCE_KIND.EDIT_SCREENPLAY) {
+              changes.push({
+                kind: WORKSPACE_RESOURCE_KIND.EDIT_SCREENPLAY,
+                projectId: eventProjectId,
+                episodeId: eventEpisodeId,
+              })
+              continue
+            }
+            if (resource === WORKSPACE_RESOURCE_KIND.EDIT_SCRIPT) {
+              changes.push({
+                kind: WORKSPACE_RESOURCE_KIND.EDIT_SCRIPT,
+                projectId: eventProjectId,
+                episodeId: eventEpisodeId,
+              })
+              continue
+            }
+            if (resource === WORKSPACE_RESOURCE_KIND.EPISODE_DATA) {
+              changes.push({
+                kind: WORKSPACE_RESOURCE_KIND.EPISODE_DATA,
+                projectId: eventProjectId,
+                episodeId: eventEpisodeId,
+              })
+              continue
+            }
+            if (resource === WORKSPACE_RESOURCE_KIND.PROJECT_CONTEXT) {
+              changes.push({
+                kind: WORKSPACE_RESOURCE_KIND.PROJECT_CONTEXT,
+                projectId: eventProjectId,
+                episodeId: eventEpisodeId,
+              })
+            }
+          }
+          void syncWorkspaceResourceChanges({ queryClient, changes })
           return
         }
 
@@ -181,6 +237,7 @@ export function useSSE({ projectId, episodeId, enabled = true, onEvent }: UseSSE
       TASK_SSE_EVENT_TYPE.LIFECYCLE,
       TASK_SSE_EVENT_TYPE.STREAM,
       WORKSPACE_SSE_EVENT_TYPE.MUTATION_BATCH,
+      WORKSPACE_SSE_EVENT_TYPE.RESOURCE_CHANGED,
     ] as const
     const listeners: Array<{ type: string; handler: EventListener }> = []
     for (const type of namedEvents) {

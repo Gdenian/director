@@ -240,9 +240,14 @@ describe('api contract - task run routes (behavior)', () => {
     expect(reader).toBeTruthy()
     const chunk1 = await reader!.read()
     const chunk2 = await reader!.read()
-    const merged = `${new TextDecoder().decode(chunk1.value)}${new TextDecoder().decode(chunk2.value)}`
+    const chunk3 = await reader!.read()
+    const merged = [
+      new TextDecoder().decode(chunk1.value),
+      new TextDecoder().decode(chunk2.value),
+      new TextDecoder().decode(chunk3.value),
+    ].join('')
 
-    expect(merged).not.toContain('"userId":"user-2"')
+    expect(merged).toContain('"userId":"user-2"')
     expect(merged).toContain('"lifecycleType":"processing"')
     expect(merged).toContain('"lifecycleType":"completed"')
     await reader!.cancel()

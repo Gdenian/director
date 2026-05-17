@@ -775,6 +775,7 @@ function BgmScoreContent({
   const details = data.bgmScoreDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
   const displayMixUrl = toDisplayImageUrl(details.mixUrl) ?? details.mixUrl ?? null
+  const wideExpanded = expanded && data.expandedLayout === 'wide'
   const renderTimedSectionList = (
     sections: typeof details.designSections,
     sectionTitle: string,
@@ -805,45 +806,84 @@ function BgmScoreContent({
       })}
     </div>
   ) : null
+
+  const mixSection = displayMixUrl ? (
+    <div className="space-y-1.5 rounded-[14px] border border-slate-200 bg-white p-2">
+      <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>
+        {labels('finalBgmMix')}
+      </p>
+      <audio src={displayMixUrl} controls className="w-full" />
+    </div>
+  ) : null
+  const statsSection = renderSection(labels('bgmScoreStats'), (
+    <div className="space-y-1">
+      {renderValue(labels('status'), details.status)}
+      {renderValue(labels('totalDuration'), details.durationSeconds)}
+      {details.hasPromptDesign ? renderValue(labels('designSectionCount'), details.designSectionCount) : null}
+      {details.hasPromptDesign ? renderValue(labels('promptSectionCount'), details.promptSectionCount) : null}
+      {details.hasPromptDesign ? renderValue(labels('virtualLayerCount'), details.virtualLayerCount) : null}
+      {renderValue(labels('musicModel'), details.musicModel)}
+    </div>
+  ))
+  const missingPromptSection = details.promptDesignMissing
+    ? renderTextSection(labels('promptDesignMissing'), labels('promptDesignMissingDescription'))
+    : null
+  const overviewSection = expanded ? renderTextSection(labels('scoreOverview'), details.scoreOverview) : null
+  const designSections = expanded ? renderTimedSectionList(details.designSections, labels('scoreDesignSections')) : null
+  const virtualLayerSections = expanded && details.virtualLayers.length > 0 ? (
+    <div className="space-y-2">
+      <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{labels('virtualLayers')}</p>
+      {details.virtualLayers.map((layer, index) => (
+        <section key={`${layer.name}-${index}`} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+          <p className={`${SELECTABLE_TEXT_CLASS} break-words text-xs font-semibold text-[var(--glass-text-primary)]`}>{layer.name}</p>
+          {renderSummaryText(layer.purpose, 2)}
+          {renderSummaryText(layer.content, 4)}
+        </section>
+      ))}
+    </div>
+  ) : null
+  const promptSections = expanded ? renderTimedSectionList(details.promptSections, labels('promptSections')) : null
+  const finalPromptSection = expanded ? renderTextSection(labels('finalMusicPrompt'), details.finalPrompt) : null
+  const negativePromptSection = expanded ? renderTextSection(labels('negativePrompt'), details.negativePrompt) : null
+  const errorSection = renderTextSection(labels('error'), details.errorMessage)
+
+  if (wideExpanded) {
+    return (
+      <div className={`grid gap-3 rounded-[18px] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] ${data.__running === true ? 'workspace-node-loading-surface' : ''}`}>
+        <div className="space-y-2">
+          {mixSection}
+          {statsSection}
+          {missingPromptSection}
+          {errorSection}
+        </div>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            {overviewSection}
+            {designSections}
+            {virtualLayerSections}
+          </div>
+          <div className="space-y-2">
+            {promptSections}
+            {finalPromptSection}
+            {negativePromptSection}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`space-y-2 rounded-[18px] ${data.__running === true ? 'workspace-node-loading-surface' : ''}`}>
-      {displayMixUrl ? (
-        <div className="space-y-1.5 rounded-[14px] border border-slate-200 bg-white p-2">
-          <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>
-            {labels('finalBgmMix')}
-          </p>
-          <audio src={displayMixUrl} controls className="w-full" />
-        </div>
-      ) : null}
-      {renderSection(labels('bgmScoreStats'), (
-        <div className="space-y-1">
-          {renderValue(labels('status'), details.status)}
-          {renderValue(labels('totalDuration'), details.durationSeconds)}
-          {details.hasPromptDesign ? renderValue(labels('designSectionCount'), details.designSectionCount) : null}
-          {details.hasPromptDesign ? renderValue(labels('promptSectionCount'), details.promptSectionCount) : null}
-          {details.hasPromptDesign ? renderValue(labels('virtualLayerCount'), details.virtualLayerCount) : null}
-          {renderValue(labels('musicModel'), details.musicModel)}
-        </div>
-      ))}
-      {details.promptDesignMissing ? renderTextSection(labels('promptDesignMissing'), labels('promptDesignMissingDescription')) : null}
-      {expanded ? renderTextSection(labels('scoreOverview'), details.scoreOverview) : null}
-      {expanded ? renderTimedSectionList(details.designSections, labels('scoreDesignSections')) : null}
-      {expanded && details.virtualLayers.length > 0 ? (
-        <div className="space-y-2">
-          <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-[var(--glass-text-tertiary)]`}>{labels('virtualLayers')}</p>
-          {details.virtualLayers.map((layer, index) => (
-            <section key={`${layer.name}-${index}`} className="space-y-1.5 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
-              <p className={`${SELECTABLE_TEXT_CLASS} break-words text-xs font-semibold text-[var(--glass-text-primary)]`}>{layer.name}</p>
-              {renderSummaryText(layer.purpose, 2)}
-              {renderSummaryText(layer.content, 4)}
-            </section>
-          ))}
-        </div>
-      ) : null}
-      {expanded ? renderTimedSectionList(details.promptSections, labels('promptSections')) : null}
-      {expanded ? renderTextSection(labels('finalMusicPrompt'), details.finalPrompt) : null}
-      {expanded ? renderTextSection(labels('negativePrompt'), details.negativePrompt) : null}
-      {renderTextSection(labels('error'), details.errorMessage)}
+      {mixSection}
+      {statsSection}
+      {missingPromptSection}
+      {overviewSection}
+      {designSections}
+      {virtualLayerSections}
+      {promptSections}
+      {finalPromptSection}
+      {negativePromptSection}
+      {errorSection}
     </div>
   )
 }

@@ -111,7 +111,6 @@ describe('edit-script operations', () => {
   it('submits edit script generation as an async episode task', async () => {
     const operations = createEditScriptOperations()
     const result = await operations.generate_edit_script.execute(buildContext(), {
-      prompt: 'make a short film',
       screenplayId: 'screenplay-1',
       confirmed: true,
     })
@@ -134,8 +133,12 @@ describe('edit-script operations', () => {
       confirmed: true,
       payload: expect.objectContaining({
         episodeId: 'episode-1',
-        prompt: 'make a short film',
         screenplayId: 'screenplay-1',
+      }),
+    }))
+    expect(submitOperationTaskMock.submitOperationTask).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.not.objectContaining({
+        prompt: expect.anything(),
       }),
     }))
   })

@@ -5,6 +5,7 @@ import {
   MessagePrimitive,
   useMessage,
   type DataMessagePartProps,
+  type ReasoningMessagePartProps,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react'
 import type { ComponentProps } from 'react'
@@ -135,6 +136,16 @@ export function HiddenApprovalRequestDataCard() {
 
 export function HiddenRuntimeContextDataCard() {
   return null
+}
+
+export function WorkspaceAssistantReasoningPart(props: ReasoningMessagePartProps) {
+  const text = props.text.trim()
+  if (!text) return null
+  return (
+    <div className="whitespace-pre-wrap border-l-2 border-[var(--glass-stroke-base)] pl-3 text-xs leading-5 text-[var(--glass-text-tertiary)]">
+      {text}
+    </div>
+  )
 }
 
 export function ConfirmationActionCard(props: {
@@ -432,6 +443,7 @@ export function useWorkspaceAssistantMessagePartComponents({
 }: WorkspaceAssistantMessagePartComponentsOptions): MessagePartComponents {
   return useMemo<MessagePartComponents>(() => ({
     Text: MarkdownTextPart,
+    Reasoning: WorkspaceAssistantReasoningPart,
     tools: {
       Fallback: WorkspaceAssistantToolCallCard,
     },

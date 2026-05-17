@@ -103,7 +103,6 @@ describe('billing/concurrency', () => {
         user.id,
         'anthropic/claude-sonnet-4',
         1000,
-        500,
         {
           projectId: project.id,
           action: 'retry_no_double_charge',
@@ -116,7 +115,7 @@ describe('billing/concurrency', () => {
     expect(results.some((item) => item.status === 'fulfilled')).toBe(true)
 
     const balance = await getBalance(user.id)
-    const expected = calcText('anthropic/claude-sonnet-4', 1000, 500)
+    const expected = calcText('anthropic/claude-sonnet-4', 1000, 0)
     expect(balance.totalSpent).toBeLessThanOrEqual(expected + 1e-8)
     expect(await prisma.balanceFreeze.count()).toBe(1)
     expect(await prisma.balanceTransaction.count({ where: { type: 'consume' } })).toBeLessThanOrEqual(1)

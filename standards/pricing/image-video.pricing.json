@@ -1154,6 +1154,56 @@
   {
     "apiType": "video",
     "provider": "fal",
+    "modelId": "alibaba/happy-horse/image-to-video",
+    "pricing": {
+      "mode": "capability",
+      "tiers": [
+        {
+          "when": {
+            "resolution": "720p"
+          },
+          "amount": 0.7
+        },
+        {
+          "when": {
+            "resolution": "1080p"
+          },
+          "amount": 1.4
+        }
+      ]
+    }
+  },
+  {
+    "apiType": "video",
+    "provider": "fal",
+    "modelId": "bytedance/seedance-2.0",
+    "pricing": {
+      "mode": "capability",
+      "tiers": [
+        {
+          "when": {
+            "resolution": "480p"
+          },
+          "amount": 0.1346
+        },
+        {
+          "when": {
+            "resolution": "720p"
+          },
+          "amount": 0.3024
+        },
+        {
+          "when": {
+            "resolution": "1080p"
+          },
+          "amount": 0.6804
+        }
+      ]
+    }
+  },
+  {
+    "apiType": "video",
+    "provider": "fal",
     "modelId": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
     "pricing": {
       "mode": "capability",

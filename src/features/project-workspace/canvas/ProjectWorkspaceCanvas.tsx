@@ -44,6 +44,10 @@ import {
 } from './canvasViewport'
 import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
 import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
+import {
+  getWorkspaceCanvasNodePresentationProfile,
+  resolveWorkspaceCanvasNodeSize,
+} from './node-presentation-profiles'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
@@ -138,8 +142,8 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const [nodes, setNodes] = useState<WorkspaceCanvasFlowNode[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [expandedNodeIds, setExpandedNodeIds] = useState<ReadonlySet<string>>(() => new Set())
-  const expandedNodeIdsRef = useRef<ReadonlySet<string>>(expandedNodeIds)
+  const [nodeExpansionOverrides, setNodeExpansionOverrides] = useState<ReadonlyMap<string, boolean>>(() => new Map())
+  const defaultExpandedNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningClearTimersRef = useRef<Map<string, number>>(new Map())
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
@@ -262,33 +266,54 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     }
   }, [clearOptimisticRunningNode, markNodeOptimisticallyRunning, runNodeAction])
   const toggleNodeExpanded = useCallback((nodeId: string) => {
-    setExpandedNodeIds((current) => {
-      const next = new Set(current)
-      if (next.has(nodeId)) {
-        next.delete(nodeId)
-      } else {
-        next.add(nodeId)
-      }
+    setNodeExpansionOverrides((current) => {
+      const defaultExpanded = defaultExpandedNodeIdsRef.current.has(nodeId)
+      const currentExpanded = current.get(nodeId) ?? defaultExpanded
+      const next = new Map(current)
+      next.set(nodeId, !currentExpanded)
       return next
     })
   }, [])
-  const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => inputNodes.map((node) => {
-    const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
-    return {
-      ...node,
-      data: {
-        ...node.data,
-        ...(isOptimisticallyRunning
-          ? {
-              isRunning: true,
-              statusLabel: nodeRunningStatusLabel(node),
-            }
-          : {}),
-        expanded: expandedNodeIdsRef.current.has(node.id),
-        onToggleExpanded: toggleNodeExpanded,
-      },
-    }
-  }), [nodeRunningStatusLabel, toggleNodeExpanded])
+  const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => {
+    const defaultExpandedNodeIds = new Set<string>()
+    const nextNodes = inputNodes.map((node) => {
+      const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
+      const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
+      const defaultExpanded = node.data.defaultExpanded ?? profile.defaultExpanded
+      if (defaultExpanded) defaultExpandedNodeIds.add(node.id)
+      const expanded = nodeExpansionOverrides.get(node.id) ?? defaultExpanded
+      const size = resolveWorkspaceCanvasNodeSize({
+        kind: node.data.kind,
+        expanded,
+        collapsedSize: {
+          width: node.data.width,
+          height: node.data.height,
+        },
+      })
+      return {
+        ...node,
+        style: {
+          ...node.style,
+          width: size.width,
+          height: size.height,
+        },
+        data: {
+          ...node.data,
+          ...(isOptimisticallyRunning
+            ? {
+                isRunning: true,
+                statusLabel: nodeRunningStatusLabel(node),
+              }
+            : {}),
+          expanded,
+          expandedLayout: expanded ? profile.expandedLayout : undefined,
+          onToggleExpanded: toggleNodeExpanded,
+        },
+      }
+    })
+    defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
+    return nextNodes
+  }, [nodeExpansionOverrides, nodeRunningStatusLabel, toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -363,16 +388,24 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   }, [])
 
   useEffect(() => {
-    expandedNodeIdsRef.current = expandedNodeIds
-    setNodes((currentNodes) => currentNodes.map((node) => ({
-      ...node,
-      data: {
-        ...node.data,
-        expanded: expandedNodeIds.has(node.id),
-        onToggleExpanded: toggleNodeExpanded,
-      },
-    })))
-  }, [expandedNodeIds, toggleNodeExpanded])
+    setNodes((currentNodes) => attachNodeUiState(currentNodes))
+  }, [attachNodeUiState])
+
+  useEffect(() => {
+    const projectedNodeIds = new Set(projection.nodes.map((node) => node.id))
+    setNodeExpansionOverrides((current) => {
+      let changed = false
+      const next = new Map<string, boolean>()
+      current.forEach((expanded, nodeId) => {
+        if (projectedNodeIds.has(nodeId)) {
+          next.set(nodeId, expanded)
+        } else {
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }, [projection.nodes, projectionNodeSignature])
 
   useEffect(() => {
     if (!layout) return

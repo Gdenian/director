@@ -57,14 +57,13 @@ describe('worker edit-script-generate behavior', () => {
     vi.clearAllMocks()
   })
 
-  it('requires prompt explicitly', async () => {
-    await expect(handleEditScriptGenerateTask(buildJob({ episodeId: 'episode-1' }))).rejects.toThrow('prompt is required')
+  it('requires episode explicitly', async () => {
+    await expect(handleEditScriptGenerateTask(buildJob({}, null))).rejects.toThrow('episodeId is required')
   })
 
   it('runs edit script service and reports task progress', async () => {
     const result = await handleEditScriptGenerateTask(buildJob({
       episodeId: 'episode-1',
-      prompt: 'make a short film',
       screenplayId: 'screenplay-1',
       videoRatio: '9:16',
       artStyle: 'american-comic',
@@ -75,11 +74,13 @@ describe('worker edit-script-generate behavior', () => {
       userId: 'user-1',
       episodeId: 'episode-1',
       locale: 'zh',
-      prompt: 'make a short film',
       screenplayId: 'screenplay-1',
       videoRatio: '9:16',
       artStyle: 'american-comic',
       onGenerationStepPersisted: expect.any(Function),
+    }))
+    expect(serviceMock.generateProjectEditScript).toHaveBeenCalledWith(expect.not.objectContaining({
+      prompt: expect.anything(),
     }))
     expect(workerMock.reportTaskProgress).toHaveBeenCalledWith(expect.anything(), 12, expect.objectContaining({
       stage: 'edit_script_prepare',

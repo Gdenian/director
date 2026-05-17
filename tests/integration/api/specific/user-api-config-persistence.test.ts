@@ -88,7 +88,10 @@ describe('api specific - user api-config persistence', () => {
           modelId?: string
           type?: string
           name?: string
-          capabilities?: { image?: { resolutionOptions?: string[] } }
+          capabilities?: {
+            image?: { resolutionOptions?: string[] }
+            video?: { durationOptions?: number[]; resolutionOptions?: string[] }
+          }
         }>
       }
     }
@@ -111,6 +114,22 @@ describe('api specific - user api-config persistence', () => {
       && model.type === 'image'
       && model.name === 'GPT Image 2'
       && model.capabilities?.image?.resolutionOptions?.includes('landscape_16_9') === true
+    ))).toBe(true)
+    expect(json.catalog?.models?.some((model) => (
+      model.provider === 'fal'
+      && model.modelId === 'alibaba/happy-horse/image-to-video'
+      && model.type === 'video'
+      && model.name === 'Happy Horse 1.0'
+      && model.capabilities?.video?.resolutionOptions?.includes('1080p') === true
+      && model.capabilities?.video?.durationOptions?.includes(15) === true
+    ))).toBe(true)
+    expect(json.catalog?.models?.some((model) => (
+      model.provider === 'fal'
+      && model.modelId === 'bytedance/seedance-2.0'
+      && model.type === 'video'
+      && model.name === 'Seedance 2.0'
+      && model.capabilities?.video?.resolutionOptions?.includes('1080p') === true
+      && model.capabilities?.video?.durationOptions?.includes(15) === true
     ))).toBe(true)
   })
 

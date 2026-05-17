@@ -7,9 +7,9 @@ import {
 } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantThinkingIndicator'
 
 describe('WorkspaceAssistantThinkingIndicator', () => {
-  it('shows only while waiting for the first assistant response', () => {
+  it('shows while the assistant request is pending or streaming', () => {
     expect(shouldShowWorkspaceAssistantThinkingIndicator('submitted')).toBe(true)
-    expect(shouldShowWorkspaceAssistantThinkingIndicator('streaming')).toBe(false)
+    expect(shouldShowWorkspaceAssistantThinkingIndicator('streaming')).toBe(true)
     expect(shouldShowWorkspaceAssistantThinkingIndicator('ready')).toBe(false)
     expect(shouldShowWorkspaceAssistantThinkingIndicator('error')).toBe(false)
 
@@ -23,8 +23,10 @@ describe('WorkspaceAssistantThinkingIndicator', () => {
     expect(submittedHtml).not.toContain('data-icon="loader"')
   })
 
-  it('renders nothing after the first response starts streaming or when idle or errored', () => {
-    expect(renderToStaticMarkup(<WorkspaceAssistantThinkingIndicator status="streaming" />)).toBe('')
+  it('renders nothing when idle or errored', () => {
+    const streamingHtml = renderToStaticMarkup(<WorkspaceAssistantThinkingIndicator status="streaming" />)
+    expect(streamingHtml).toContain('role="status"')
+    expect(streamingHtml).toContain('assistant-thinking-minimal')
     expect(renderToStaticMarkup(<WorkspaceAssistantThinkingIndicator status="ready" />)).toBe('')
     expect(renderToStaticMarkup(<WorkspaceAssistantThinkingIndicator status="error" />)).toBe('')
   })

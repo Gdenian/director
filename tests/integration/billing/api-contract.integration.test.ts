@@ -23,7 +23,6 @@ describe('billing/api contract integration', () => {
         user.id,
         'anthropic/claude-sonnet-4',
         1000,
-        500,
         { projectId: project.id, action: 'api_contract_insufficient' },
         async () => ({ ok: true }),
       )
@@ -53,7 +52,6 @@ describe('billing/api contract integration', () => {
         user.id,
         'anthropic/claude-sonnet-4',
         1000,
-        500,
         { projectId: project.id, action: 'api_contract_dedupe' },
         async () => ({ ok: true }),
       )
@@ -79,7 +77,7 @@ describe('billing/api contract integration', () => {
     expect(String(body2?.error?.message || '')).toContain('duplicate billing request already confirmed')
 
     const balance = await prisma.userBalance.findUnique({ where: { userId: user.id } })
-    const expectedCharge = calcText('anthropic/claude-sonnet-4', 1000, 500)
+    const expectedCharge = calcText('anthropic/claude-sonnet-4', 1000, 0)
     expect(balance?.totalSpent).toBeCloseTo(expectedCharge, 8)
     expect(await prisma.balanceFreeze.count()).toBe(1)
   })

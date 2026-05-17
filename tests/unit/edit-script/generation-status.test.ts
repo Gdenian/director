@@ -56,7 +56,6 @@ const billingMock = vi.hoisted(() => ({
     _userId: string,
     _model: string,
     _maxInputTokens: number,
-    _maxOutputTokens: number,
     _billingMeta: unknown,
     runCompletion: () => Promise<unknown>,
   ) => await runCompletion()),
@@ -74,6 +73,7 @@ vi.mock('@/lib/edit-script/asset-design', () => ({
 vi.mock('@/lib/assets/services/asset-actions', () => ({ submitAssetGenerateTask: vi.fn() }))
 
 import { generateProjectEditScreenplay, generateProjectEditScript } from '@/lib/edit-script/service'
+import { AI_PROMPT_IDS } from '@/lib/ai-prompts'
 
 function createRequest(): NextRequest {
   return new Request('http://localhost/api/projects/project-1/edit-script', {
@@ -84,70 +84,6 @@ function createRequest(): NextRequest {
 
 function mockSuccessfulAiSteps() {
   aiExecMock.executeAiTextStep
-    .mockResolvedValueOnce({
-      text: JSON.stringify({
-        title: 'Sci-Fi Short',
-        logline: 'A quiet signal wakes a station.',
-        videoBlocks: [
-          {
-            blockNumber: 1,
-            type: 'single',
-            shotNumbers: [1],
-            durationSec: 3,
-            reason: 'Single establishing shot.',
-            shots: [
-              { shotNumber: 1, durationSec: 3, beat: 'Establish the station corridor.' },
-            ],
-          },
-        ],
-      }),
-    })
-    .mockResolvedValueOnce({
-      text: JSON.stringify({
-        videoBlocks: [
-          {
-            blockNumber: 1,
-            type: 'single',
-            shotNumbers: [1],
-            shots: [
-              {
-                shotNumber: 1,
-                visualAction: 'A station corridor flickers awake.',
-                charactersAndScene: 'Station corridor',
-              },
-            ],
-          },
-        ],
-      }),
-    })
-    .mockResolvedValueOnce({
-      text: JSON.stringify({
-        videoBlocks: [
-          {
-            blockNumber: 1,
-            type: 'single',
-            shotNumbers: [1],
-            shots: [
-              { shotNumber: 1, camera: 'slow push in' },
-            ],
-          },
-        ],
-      }),
-    })
-    .mockResolvedValueOnce({
-      text: JSON.stringify({
-        videoBlocks: [
-          {
-            blockNumber: 1,
-            type: 'single',
-            shotNumbers: [1],
-            shots: [
-              { shotNumber: 1, sound: 'low electrical hum' },
-            ],
-          },
-        ],
-      }),
-    })
     .mockResolvedValueOnce({
       text: JSON.stringify({
         title: 'Sci-Fi Short',
@@ -297,7 +233,6 @@ describe('edit script generation status persistence', () => {
       episodeId: 'episode-1',
       userId: 'user-1',
       locale: 'zh',
-      prompt: '做一个科幻短片',
     })
 
     expect(prismaMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({
@@ -322,6 +257,23 @@ describe('edit script generation status persistence', () => {
     expect(prismaMock.projectEditScript.upsert.mock.invocationCallOrder[0]).toBeLessThan(
       aiExecMock.executeAiTextStep.mock.invocationCallOrder[0],
     )
+    expect(aiExecMock.executeAiTextStep).toHaveBeenCalledTimes(2)
+    expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      action: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
+      meta: expect.objectContaining({
+        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
+        stepIndex: 1,
+        stepTotal: 2,
+      }),
+    }))
+    expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      action: AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT,
+      meta: expect.objectContaining({
+        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT,
+        stepIndex: 2,
+        stepTotal: 2,
+      }),
+    }))
     expect(txMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({
       create: expect.objectContaining({
         screenplayText: expect.stringContaining('标题：《科幻短片》'),
@@ -354,23 +306,6 @@ describe('edit script generation status persistence', () => {
     expect(prismaMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({
       update: expect.objectContaining({
         status: 'generating',
-        shotCount: 1,
-        shotsJson: [
-          expect.objectContaining({
-            shotNumber: 1,
-            durationSec: 3,
-            visualAction: '',
-            charactersAndScene: '',
-            camera: '',
-            videoPrompt: '',
-            sound: '',
-          }),
-        ],
-      }),
-    }))
-    expect(prismaMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      update: expect.objectContaining({
-        status: 'generating',
         shotsJson: [
           expect.objectContaining({
             shotNumber: 1,
@@ -393,7 +328,6 @@ describe('edit script generation status persistence', () => {
       episodeId: 'episode-1',
       userId: 'user-1',
       locale: 'zh',
-      prompt: '做一个科幻短片',
     })).rejects.toThrow('LLM_DOWN')
 
     expect(prismaMock.projectEditScript.upsert).toHaveBeenCalledTimes(2)

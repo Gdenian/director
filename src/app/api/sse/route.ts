@@ -31,6 +31,9 @@ function isSSEEventLike(value: unknown): value is SSEEvent {
   if (record.type === 'mutation.batch') {
     return typeof record.mutationBatchId === 'string' && Array.isArray(record.targets)
   }
+  if (record.type === 'resource.changed') {
+    return Array.isArray(record.resources)
+  }
   return typeof record.taskId === 'string'
 }
 
@@ -148,7 +151,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
             })
             return
           }
-          if (payload.userId !== session.user.id) {
+          if (projectId === 'global-asset-hub' && payload.userId !== session.user.id) {
             logger.error({
               action: 'sse.message.user_mismatch',
               message: 'sse message userId mismatch',

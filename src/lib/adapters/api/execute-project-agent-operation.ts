@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { ApiError } from '@/lib/api-errors'
 import { createProjectAgentOperationRegistryForApi } from '@/lib/operations/registry'
+import { publishWorkspaceResourceChangedEventsFromWriteResult } from '@/lib/workspace-resource/resource-change-events'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -94,6 +95,12 @@ export async function executeProjectAgentOperationFromApi(params: {
         issues: outputParsed.error.issues,
       })
     }
+    await publishWorkspaceResourceChangedEventsFromWriteResult({
+      result: outputParsed.data,
+      fallbackProjectId: params.projectId,
+      userId: params.userId,
+      fallbackEpisodeId: params.context?.episodeId ?? null,
+    })
     return outputParsed.data
   } catch (error) {
     if (error instanceof ApiError) throw error

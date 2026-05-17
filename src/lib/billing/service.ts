@@ -630,7 +630,6 @@ export async function withTextBilling<T>(
   userId: string,
   model: string,
   maxInputTokens: number,
-  maxOutputTokens: number,
   recordParams: BillingRecordParams,
   generateFn: () => Promise<T>,
 ): Promise<T> {
@@ -640,7 +639,7 @@ export async function withTextBilling<T>(
   }
 
   const customPricing = await loadUserCustomPricing(userId, model)
-  const quotedCost = calcText(model, maxInputTokens, maxOutputTokens, customPricing)
+  const quotedCost = calcText(model, maxInputTokens, 0, customPricing)
   return await withSyncBillingCore(
     {
       userId,
@@ -648,12 +647,11 @@ export async function withTextBilling<T>(
       action: recordParams.action,
       apiType: 'text',
       model,
-      quantity: maxInputTokens + maxOutputTokens,
+      quantity: maxInputTokens,
       unit: 'token',
       metadata: {
         ...recordParams.metadata,
         maxInputTokens,
-        maxOutputTokens,
       },
       maxCost: quotedCost,
       customPricing,

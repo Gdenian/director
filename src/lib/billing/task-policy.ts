@@ -90,14 +90,13 @@ function pickFirstString(values: unknown[]): string | null {
 
 function buildTextTaskInfo(taskType: TaskType, payload: AnyPayload): TaskBillingInfo | null {
   const inputTokens = Math.max(0, Math.floor(toNumber(payload?.maxInputTokens, 3000)))
-  const outputTokens = Math.max(0, Math.floor(toNumber(payload?.maxOutputTokens, 1200)))
   const model = pickFirstString([payload?.analysisModel, payload?.model])
   if (!model) return null
 
   // calcText may throw if model has no built-in pricing (user custom pricing resolved later)
   let maxFrozenCost = 0
   try {
-    maxFrozenCost = calcText(model, inputTokens, outputTokens)
+    maxFrozenCost = calcText(model, inputTokens, 0)
   } catch {
     // Custom-priced or uncatalogued model: actual cost resolved in prepareTaskBilling with user context
   }
@@ -108,12 +107,12 @@ function buildTextTaskInfo(taskType: TaskType, payload: AnyPayload): TaskBilling
     taskType,
     apiType: 'text',
     model,
-    quantity: inputTokens + outputTokens,
+    quantity: inputTokens,
     unit: 'token',
     maxFrozenCost,
     pricingVersion: BUILTIN_PRICING_VERSION,
     action: String(taskType),
-    metadata: { inputTokens, outputTokens },
+    metadata: { inputTokens },
     status: 'quoted',
   }
 }

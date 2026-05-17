@@ -8,7 +8,8 @@ type EffectCleanup = (() => void) | void | null
 
 const runtime = vi.hoisted(() => ({
   queryClient: {
-    invalidateQueries: vi.fn(async (_arg?: InvalidateArg) => undefined),
+    invalidateQueries: vi.fn<(arg?: InvalidateArg) => Promise<void>>(async () => undefined),
+    setQueryData: vi.fn(),
   },
   effectCleanup: null as EffectCleanup,
   scheduledTimers: [] as Array<() => void>,
@@ -219,6 +220,54 @@ describe('sse invalidation behavior', () => {
         && key[0] === queryKeys.voiceLines.matched('project-1', 'episode-1')[0]
         && key[1] === 'project-1'
         && key[2] === 'episode-1'
+    })).toBe(true)
+  })
+
+  it('resource.changed 事件按资源名称触发 query invalidation', async () => {
+    const { useSSE } = await import('@/lib/query/hooks/useSSE')
+
+    useSSE({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      enabled: true,
+    })
+
+    const source = FakeEventSource.instances[0]
+    expect(source).toBeTruthy()
+
+    source.emit(WORKSPACE_SSE_EVENT_TYPE.RESOURCE_CHANGED, {
+      id: 'resource:1',
+      type: WORKSPACE_SSE_EVENT_TYPE.RESOURCE_CHANGED,
+      projectId: 'project-1',
+      userId: 'user-2',
+      ts: '2026-04-24T00:00:00.000Z',
+      episodeId: 'episode-1',
+      resources: ['editScreenplay', 'editScript', 'episodeData', 'projectContext', 'projectData'],
+    })
+
+    expect(hasInvalidation((arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.project.editScreenplay('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'edit-screenplay'
+        && key[3] === 'episode-1'
+    })).toBe(true)
+
+    expect(hasInvalidation((arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.project.editScript('project-1', 'episode-1')[0]
+        && key[1] === 'project-1'
+        && key[2] === 'edit-script'
+        && key[3] === 'episode-1'
+    })).toBe(true)
+
+    expect(hasInvalidation((arg) => {
+      const key = arg.queryKey || []
+      return Array.isArray(key)
+        && key[0] === queryKeys.projectData('project-1')[0]
+        && key[1] === 'project-1'
     })).toBe(true)
   })
 })

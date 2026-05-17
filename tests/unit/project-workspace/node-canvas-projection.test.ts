@@ -505,6 +505,10 @@ describe('workspace node canvas projection', () => {
     const bgmNode = projection.nodes.find((node) => node.id === 'bgm-score:episode-1')
     const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
     expect(bgmNode?.data.kind).toBe('bgmScore')
+    expect(bgmNode?.data.defaultExpanded).toBe(false)
+    expect(bgmNode?.data.width).toBe(420)
+    expect(bgmNode?.data.height).toBe(320)
+    expect(bgmNode?.style).toMatchObject({ width: 420, height: 320 })
     expect(bgmNode?.data.action).toEqual({ type: 'generate_bgm_score' })
     expect(finalNode?.data.actionDisabled).toBe(true)
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain('bgm-score:episode-1->final:episode-1')
@@ -600,6 +604,7 @@ describe('workspace node canvas projection', () => {
 
     const bgmNode = projection.nodes.find((node) => node.id === 'bgm-score:episode-1')
     const finalNode = projection.nodes.find((node) => node.id === 'final:episode-1')
+    expect(bgmNode?.data.defaultExpanded).toBe(true)
     expect(bgmNode?.data.bgmScoreDetails?.mixUrl).toBe('https://example.com/bgm-mix.m4a')
     expect(bgmNode?.data.bgmScoreDetails?.scoreOverview).toBe('One coherent reveal cue.')
     expect(bgmNode?.data.bgmScoreDetails?.designSections[0]).toMatchObject({

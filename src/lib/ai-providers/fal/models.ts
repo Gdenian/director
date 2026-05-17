@@ -14,6 +14,8 @@ import {
 } from '@/lib/ai-providers/shared/openai-image'
 
 export const FAL_GPT_IMAGE_2_MODEL_ID = 'gpt-image-2'
+export const FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID = 'alibaba/happy-horse/image-to-video'
+export const FAL_SEEDANCE_2_VIDEO_MODEL_ID = 'bytedance/seedance-2.0'
 export const FAL_IMAGE_RESOLUTIONS = ['1K', '2K', '4K'] as const
 export const FAL_GPT_IMAGE_2_IMAGE_SIZES = [
   'auto',
@@ -28,6 +30,8 @@ export const FAL_GPT_IMAGE_2_IMAGE_SIZES = [
 export const FAL_VIDEO_MODEL_IDS = new Set([
   'fal-wan25',
   'fal-veo31',
+  FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID,
+  FAL_SEEDANCE_2_VIDEO_MODEL_ID,
   'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
   'fal-ai/kling-video/v3/standard/image-to-video',
   'fal-ai/kling-video/v3/pro/image-to-video',
@@ -45,6 +49,35 @@ export const FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES = [
     provider: 'fal',
     modelId: FAL_GPT_IMAGE_2_MODEL_ID,
     capabilities: { image: { resolutionOptions: [...FAL_GPT_IMAGE_2_IMAGE_SIZES] } },
+  },
+  {
+    modelType: 'video',
+    provider: 'fal',
+    modelId: FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID,
+    capabilities: {
+      video: {
+        generationModeOptions: ['normal'],
+        durationOptions: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        resolutionOptions: ['720p', '1080p'],
+        firstlastframe: false,
+        supportGenerateAudio: true,
+      },
+    },
+  },
+  {
+    modelType: 'video',
+    provider: 'fal',
+    modelId: FAL_SEEDANCE_2_VIDEO_MODEL_ID,
+    capabilities: {
+      video: {
+        generationModeOptions: ['normal', 'firstlastframe'],
+        generateAudioOptions: [true, false],
+        durationOptions: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        resolutionOptions: ['480p', '720p', '1080p'],
+        firstlastframe: true,
+        supportGenerateAudio: true,
+      },
+    },
   },
   {
     modelType: 'video',
@@ -90,6 +123,8 @@ export const FAL_API_CONFIG_CATALOG_MODELS = [
   { modelId: 'fal-wan25', name: 'Wan 2.6', type: 'video', provider: 'fal' },
   { modelId: 'fal-veo31', name: 'Veo 3.1', type: 'video', provider: 'fal' },
   { modelId: 'fal-sora2', name: 'Sora 2', type: 'video', provider: 'fal' },
+  { modelId: FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID, name: 'Happy Horse 1.0', type: 'video', provider: 'fal' },
+  { modelId: FAL_SEEDANCE_2_VIDEO_MODEL_ID, name: 'Seedance 2.0', type: 'video', provider: 'fal' },
   { modelId: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video', name: 'Kling 2.5 Turbo Pro', type: 'video', provider: 'fal' },
   { modelId: 'fal-ai/kling-video/v3/standard/image-to-video', name: 'Kling 3 Standard', type: 'video', provider: 'fal' },
   { modelId: 'fal-ai/kling-video/v3/pro/image-to-video', name: 'Kling 3 Pro', type: 'video', provider: 'fal' },
@@ -126,6 +161,31 @@ export const FAL_BUILTIN_PRICING_CATALOG_ENTRIES = [
   { apiType: 'video', provider: 'fal', modelId: 'fal-wan25', pricing: falFlatPricing(1.8) },
   { apiType: 'video', provider: 'fal', modelId: 'fal-veo31', pricing: falFlatPricing(2.88) },
   { apiType: 'video', provider: 'fal', modelId: 'fal-kling25', pricing: falFlatPricing(2.16) },
+  {
+    apiType: 'video',
+    provider: 'fal',
+    modelId: FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID,
+    pricing: {
+      mode: 'capability',
+      tiers: [
+        { when: { resolution: '720p' }, amount: 0.7 },
+        { when: { resolution: '1080p' }, amount: 1.4 },
+      ],
+    },
+  },
+  {
+    apiType: 'video',
+    provider: 'fal',
+    modelId: FAL_SEEDANCE_2_VIDEO_MODEL_ID,
+    pricing: {
+      mode: 'capability',
+      tiers: [
+        { when: { resolution: '480p' }, amount: 0.1346 },
+        { when: { resolution: '720p' }, amount: 0.3024 },
+        { when: { resolution: '1080p' }, amount: 0.6804 },
+      ],
+    },
+  },
   { apiType: 'video', provider: 'fal', modelId: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video', pricing: falDurationPricing([[5, 0.35], [10, 0.7]]) },
   {
     apiType: 'video',
@@ -178,6 +238,28 @@ export function resolveFalOptionSchema(modality: MediaModality, modelId: string)
     })
   }
   if (modality === 'video') {
+    if (modelId === FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID) {
+      return buildMediaOptionSchema('video', {
+        ...FAL_VIDEO_OPTION_SCHEMA_CONFIG,
+        validators: {
+          duration: integerRangeValidator({ min: 3, max: 15 }),
+          aspectRatio: nonEmptyStringValidator(),
+          resolution: enumValidator(['720p', '1080p']),
+        },
+        objectValidators: [createFalVideoObjectValidator(modelId, FAL_VIDEO_MODEL_IDS)],
+      })
+    }
+    if (modelId === FAL_SEEDANCE_2_VIDEO_MODEL_ID) {
+      return buildMediaOptionSchema('video', {
+        ...FAL_VIDEO_OPTION_SCHEMA_CONFIG,
+        validators: {
+          duration: integerRangeValidator({ min: 4, max: 15 }),
+          aspectRatio: enumValidator(['auto', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16']),
+          resolution: enumValidator(['480p', '720p', '1080p']),
+        },
+        objectValidators: [createFalVideoObjectValidator(modelId, FAL_VIDEO_MODEL_IDS)],
+      })
+    }
     return buildMediaOptionSchema('video', {
       ...FAL_VIDEO_OPTION_SCHEMA_CONFIG,
       validators: {

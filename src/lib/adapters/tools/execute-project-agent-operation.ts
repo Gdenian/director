@@ -9,6 +9,7 @@ import {
   type ProjectAgentToolResult,
 } from '@/lib/operations/types'
 import type { ConfirmationRequestPartData, ProjectAgentContext } from '@/lib/project-agent/types'
+import { publishWorkspaceResourceChangedEventsFromWriteResult } from '@/lib/workspace-resource/resource-change-events'
 
 function toMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -208,6 +209,12 @@ export async function executeProjectAgentOperationFromTool(params: {
       }),
     }
   }
+  await publishWorkspaceResourceChangedEventsFromWriteResult({
+    result: outputParsed.data,
+    fallbackProjectId: params.projectId,
+    userId: params.userId,
+    fallbackEpisodeId: effectiveEpisodeId || null,
+  })
   return {
     ok: true,
     data: outputParsed.data,

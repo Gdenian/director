@@ -348,6 +348,7 @@ export async function createProjectAgentChatResponse(input: {
 
       writer.merge(result.toUIMessageStream({
         originalMessages: runtimeMessages,
+        sendReasoning: true,
       }))
     },
     onError: (error) => (error instanceof Error ? error.message : String(error)),

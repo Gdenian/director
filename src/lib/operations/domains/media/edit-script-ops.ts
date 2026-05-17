@@ -32,7 +32,7 @@ const generateEditScreenplayInputSchema = z.object({
 
 const generateEditScriptInputSchema = z.object({
   ...confirmedInputFields,
-  prompt: z.string().trim().min(1),
+  prompt: z.never().optional(),
   screenplayId: z.string().trim().min(1).optional(),
   videoRatio: editScriptVideoRatioSchema.optional(),
   artStyle: z.string().trim().min(1).optional(),
@@ -182,7 +182,7 @@ export function createEditScriptOperations(): ProjectAgentOperationRegistryDraft
     }),
     generate_edit_script: defineOperation({
       id: 'generate_edit_script',
-      summary: 'Generate the edit-first core table from an existing ready screenplay. Fails if no ready screenplay exists.',
+      summary: 'Generate the edit-first core table from an existing ready screenplay and its original user request. Fails if no ready screenplay exists.',
       intent: 'act',
       prerequisites: { episodeId: 'required' },
       effects: EFFECTS_SYNC_AI_WRITE,
@@ -196,7 +196,6 @@ export function createEditScriptOperations(): ProjectAgentOperationRegistryDraft
         const episodeId = resolveEpisodeId(input, ctx.context.episodeId)
         const payload: Record<string, unknown> = {
           episodeId,
-          prompt: input.prompt,
           ...(input.screenplayId ? { screenplayId: input.screenplayId } : {}),
           ...(input.videoRatio ? { videoRatio: input.videoRatio } : {}),
           ...(input.artStyle ? { artStyle: input.artStyle } : {}),
