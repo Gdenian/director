@@ -40,17 +40,28 @@ export type ProjectAgentStopPartData =
     maxSteps: number
   }
   | {
-    reason: 'async_task_submitted'
-    stepCount: number
-    operationIds: string[]
-    taskIds: string[]
-  }
-  | {
-    reason: 'awaiting_task_terminal'
+    reason: 'awaiting_external_task'
     stepCount: number
     operationIds: string[]
     taskIds: string[]
     phases: string[]
+  }
+  | {
+    reason: 'awaiting_user_confirmation'
+    stepCount: number
+    operationIds: string[]
+  }
+  | {
+    reason: 'repeated_tool_call'
+    stepCount: number
+    toolName: string
+    argsHash: string
+  }
+  | {
+    reason: 'tool_error'
+    stepCount: number
+    operationIds: string[]
+    codes: string[]
   }
 
 export interface AgentPlanPartData {
@@ -91,12 +102,12 @@ export interface AgentRuntimeContextPartData {
   projectId: string
   episodeId?: string | null
   interactionMode: ProjectAgentInteractionMode
-  systemPrompt: string
-  rawMessages: unknown
-  runtimeMessages: unknown
-  modelMessages: unknown
-  projectContext: ProjectAgentContext
-  projectPhase: unknown
+  messageCounts: {
+    normalized: number
+    runtime: number
+    model: number
+  }
+  contextTokenEstimate: number | null
   route: unknown
   selectedTools: Array<{
     operationId: string

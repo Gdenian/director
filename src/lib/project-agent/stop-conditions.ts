@@ -1,129 +1,174 @@
 import type { StepResult, StopCondition, ToolSet } from 'ai'
+import {
+  buildToolCallSignature,
+  normalizeOperationRuntimeSignal,
+  stableArgsHash,
+  type OperationRuntimeSignal,
+} from './runtime-signal'
 import type { ProjectAgentStopPartData } from './types'
 
-export const PROJECT_AGENT_MAX_STEPS = 20
+export const PROJECT_AGENT_MAX_STEPS = 12
 
-type UnknownRecord = Record<string, unknown>
-
-type TaskBoundaryDescriptor = {
-  reason: 'async_task_submitted' | 'awaiting_task_terminal'
-  operationId: string
-  taskIds: string[]
-  phases: string[]
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed || null
-}
-
-function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((item) => {
-    const normalized = readNonEmptyString(item)
-    return normalized ? [normalized] : []
-  })
-}
-
-function readToolResultData(output: unknown): UnknownRecord | null {
-  if (!isRecord(output)) return null
-  if (output.ok !== true) return null
-  return isRecord(output.data) ? output.data : null
-}
-
-function detectAsyncTaskSubmission(toolName: string, output: unknown): TaskBoundaryDescriptor | null {
-  const data = readToolResultData(output)
-  if (!data || data.async !== true) return null
-
-  const singleTaskId = readNonEmptyString(data.taskId)
-  const batchTaskIds = readStringArray(data.taskIds)
-  const taskIds = singleTaskId ? [singleTaskId] : batchTaskIds
-  if (taskIds.length === 0) return null
-
-  return {
-    reason: 'async_task_submitted',
-    operationId: readNonEmptyString(data.operationId) ?? toolName,
-    taskIds,
-    phases: [],
+type RuntimeSignalDescriptor =
+  | {
+    reason: 'awaiting_external_task'
+    operationId: string
+    taskIds: string[]
+    phases: string[]
   }
-}
-
-function detectActiveTaskStatus(toolName: string, output: unknown): TaskBoundaryDescriptor | null {
-  if (toolName !== 'get_task_status') return null
-  const data = readToolResultData(output)
-  if (!data || !Array.isArray(data.states)) return null
-
-  const activeStates = data.states.flatMap((state) => {
-    if (!isRecord(state)) return []
-    const phase = readNonEmptyString(state.phase)
-    if (phase !== 'queued' && phase !== 'processing') return []
-    const taskId = readNonEmptyString(state.runningTaskId)
-    return [{
-      phase,
-      taskId,
-    }]
-  })
-  if (activeStates.length === 0) return null
-
-  return {
-    reason: 'awaiting_task_terminal',
-    operationId: toolName,
-    taskIds: activeStates.flatMap((state) => state.taskId ? [state.taskId] : []),
-    phases: Array.from(new Set(activeStates.map((state) => state.phase))).sort(),
+  | {
+    reason: 'awaiting_user_confirmation'
+    operationId: string
   }
+  | {
+    reason: 'tool_error'
+    operationId: string
+    code?: string
+  }
+
+function signalToDescriptor(signal: OperationRuntimeSignal): RuntimeSignalDescriptor | null {
+  if (signal.kind === 'await_task' || signal.kind === 'active_status') {
+    return {
+      reason: 'awaiting_external_task',
+      operationId: signal.operationId,
+      taskIds: signal.taskIds,
+      phases: signal.phases,
+    }
+  }
+  if (signal.kind === 'await_user_confirmation') {
+    return {
+      reason: 'awaiting_user_confirmation',
+      operationId: signal.operationId,
+    }
+  }
+  if (signal.kind === 'tool_error') {
+    return {
+      reason: 'tool_error',
+      operationId: signal.operationId,
+      ...(signal.code ? { code: signal.code } : {}),
+    }
+  }
+  return null
 }
 
-function collectTaskBoundaryDescriptors<TOOLS extends ToolSet>(
+function collectRuntimeSignalDescriptors<TOOLS extends ToolSet>(
   step: StepResult<TOOLS> | undefined,
-): TaskBoundaryDescriptor[] {
+): RuntimeSignalDescriptor[] {
   if (!step) return []
   const toolResults = Array.isArray(step.toolResults) ? step.toolResults : []
   return toolResults.flatMap((result) => {
-    const asyncSubmission = detectAsyncTaskSubmission(result.toolName, result.output)
-    if (asyncSubmission) return [asyncSubmission]
-    const activeTaskStatus = detectActiveTaskStatus(result.toolName, result.output)
-    return activeTaskStatus ? [activeTaskStatus] : []
+    const signal = normalizeOperationRuntimeSignal({
+      toolName: result.toolName,
+      output: result.output,
+    })
+    const descriptor = signalToDescriptor(signal)
+    return descriptor ? [descriptor] : []
   })
 }
 
 function mergeDescriptors(
   stepCount: number,
-  descriptors: TaskBoundaryDescriptor[],
+  descriptors: RuntimeSignalDescriptor[],
 ): ProjectAgentStopPartData | null {
   const firstReason = descriptors[0]?.reason
   if (!firstReason) return null
   const matching = descriptors.filter((descriptor) => descriptor.reason === firstReason)
-  return firstReason === 'async_task_submitted'
-    ? {
-        reason: firstReason,
-        stepCount,
-        operationIds: Array.from(new Set(matching.map((descriptor) => descriptor.operationId))).sort(),
-        taskIds: Array.from(new Set(matching.flatMap((descriptor) => descriptor.taskIds))).sort(),
+
+  if (firstReason === 'awaiting_external_task') {
+    const externalTaskDescriptors = matching.filter((descriptor): descriptor is Extract<RuntimeSignalDescriptor, { reason: 'awaiting_external_task' }> => (
+      descriptor.reason === 'awaiting_external_task'
+    ))
+    return {
+      reason: firstReason,
+      stepCount,
+      operationIds: Array.from(new Set(externalTaskDescriptors.map((descriptor) => descriptor.operationId))).sort(),
+      taskIds: Array.from(new Set(externalTaskDescriptors.flatMap((descriptor) => descriptor.taskIds))).sort(),
+      phases: Array.from(new Set(externalTaskDescriptors.flatMap((descriptor) => descriptor.phases))).sort(),
+    }
+  }
+
+  if (firstReason === 'awaiting_user_confirmation') {
+    return {
+      reason: firstReason,
+      stepCount,
+      operationIds: Array.from(new Set(matching.map((descriptor) => descriptor.operationId))).sort(),
+    }
+  }
+
+  const toolErrorDescriptors = matching.filter((descriptor): descriptor is Extract<RuntimeSignalDescriptor, { reason: 'tool_error' }> => (
+    descriptor.reason === 'tool_error'
+  ))
+  return {
+    reason: 'tool_error',
+    stepCount,
+    operationIds: Array.from(new Set(toolErrorDescriptors.map((descriptor) => descriptor.operationId))).sort(),
+    codes: Array.from(new Set(toolErrorDescriptors.flatMap((descriptor) => descriptor.code ? [descriptor.code] : []))).sort(),
+  }
+}
+
+function detectRepeatedToolCall<TOOLS extends ToolSet>(steps: StepResult<TOOLS>[]): ProjectAgentStopPartData | null {
+  const callCounts = new Map<string, {
+    count: number
+    toolName: string
+    argsHash: string
+  }>()
+
+  for (const step of steps) {
+    const toolCalls = Array.isArray(step.toolCalls) ? step.toolCalls : []
+    const toolResults = Array.isArray(step.toolResults) ? step.toolResults : []
+    const calls = toolCalls.length > 0
+      ? toolCalls.map((call) => ({
+          toolName: call.toolName,
+          input: call.input,
+        }))
+      : toolResults.map((result) => ({
+          toolName: result.toolName,
+          input: result.input,
+        }))
+
+    for (const call of calls) {
+      const argsHash = stableArgsHash(call.input ?? {})
+      const signature = buildToolCallSignature({
+        toolName: call.toolName,
+        input: call.input ?? {},
+      })
+      const previous = callCounts.get(signature)
+      const nextCount = (previous?.count ?? 0) + 1
+      callCounts.set(signature, {
+        count: nextCount,
+        toolName: call.toolName,
+        argsHash,
+      })
+      if (nextCount >= 2) {
+        return {
+          reason: 'repeated_tool_call',
+          stepCount: steps.length,
+          toolName: call.toolName,
+          argsHash,
+        }
       }
-    : {
-        reason: firstReason,
-        stepCount,
-        operationIds: Array.from(new Set(matching.map((descriptor) => descriptor.operationId))).sort(),
-        taskIds: Array.from(new Set(matching.flatMap((descriptor) => descriptor.taskIds))).sort(),
-        phases: Array.from(new Set(matching.flatMap((descriptor) => descriptor.phases))).sort(),
-      }
+    }
+  }
+
+  return null
 }
 
 export function createProjectAgentStopController<TToolSet extends ToolSet>(_tools: TToolSet) {
   void _tools
   let stopPart: ProjectAgentStopPartData | null = null
   const stopWhen: StopCondition<TToolSet> = ({ steps }) => {
-    const taskBoundaryStop = mergeDescriptors(
+    const runtimeSignalStop = mergeDescriptors(
       steps.length,
-      collectTaskBoundaryDescriptors(steps[steps.length - 1]),
+      collectRuntimeSignalDescriptors(steps[steps.length - 1]),
     )
-    if (taskBoundaryStop) {
-      stopPart = taskBoundaryStop
+    if (runtimeSignalStop) {
+      stopPart = runtimeSignalStop
+      return true
+    }
+
+    const repeatStop = detectRepeatedToolCall(steps)
+    if (repeatStop) {
+      stopPart = repeatStop
       return true
     }
 
@@ -140,7 +185,7 @@ export function createProjectAgentStopController<TToolSet extends ToolSet>(_tool
 
   const buildStopPart = (stepCount: number): ProjectAgentStopPartData | null => {
     if (!stopPart) return null
-    return stopPart.reason === 'step_cap'
+    return stopPart.reason === 'step_cap' || stopPart.reason === 'repeated_tool_call'
       ? { ...stopPart, stepCount }
       : stopPart
   }

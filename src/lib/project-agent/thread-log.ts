@@ -25,6 +25,26 @@ function formatJsonBlock(value: unknown): string {
   return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``
 }
 
+function renderRuntimeContextData(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [
+      '### data-agent-runtime-context',
+      formatJsonBlock(null),
+    ]
+  }
+  return [
+    '### data-agent-runtime-context',
+    formatJsonBlock({
+      requestId: value.requestId ?? null,
+      modelKey: value.modelKey ?? null,
+      route: value.route ?? null,
+      selectedTools: value.selectedTools ?? [],
+      messageCounts: value.messageCounts ?? null,
+      contextTokenEstimate: value.contextTokenEstimate ?? null,
+    }),
+  ]
+}
+
 function renderPart(part: unknown): string[] {
   if (!isRecord(part)) return ['- unsupported part']
   const partType = readString(part.type)
@@ -60,6 +80,9 @@ function renderPart(part: unknown): string[] {
   }
 
   if (partType.startsWith('data-')) {
+    if (partType === 'data-agent-runtime-context') {
+      return renderRuntimeContextData(part.data)
+    }
     return [
       `### ${partType}`,
       formatJsonBlock(part.data ?? null),

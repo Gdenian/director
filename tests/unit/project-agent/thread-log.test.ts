@@ -68,4 +68,41 @@ describe('project assistant thread log', () => {
       updatedAt: '2026-04-21T00:00:05.000Z',
     })).toBe('workspace-assistant__project-1__episode_episode-1__thread-1.log')
   })
+
+  it('renders runtime context as summary and omits nested raw/model messages', () => {
+    const thread: ProjectAssistantThreadSnapshot = {
+      id: 'thread-1',
+      assistantId: 'workspace-command',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      scopeRef: 'episode:episode-1',
+      messages: [{
+        id: 'assistant-1',
+        role: 'assistant',
+        parts: [{
+          type: 'data-agent-runtime-context',
+          data: {
+            requestId: 'request-1',
+            modelKey: 'model-1',
+            route: { intent: 'act' },
+            selectedTools: [{ operationId: 'get_project_context' }],
+            messageCounts: { normalized: 3, runtime: 2, model: 2 },
+            contextTokenEstimate: 120,
+            rawMessages: [{ role: 'user', parts: [{ text: 'nested' }] }],
+            modelMessages: [{ role: 'user', content: 'nested' }],
+          },
+        } as unknown as ProjectAssistantThreadSnapshot['messages'][number]['parts'][number]],
+      }],
+      createdAt: '2026-04-21T00:00:00.000Z',
+      updatedAt: '2026-04-21T00:00:05.000Z',
+    }
+
+    const text = serializeWorkspaceAssistantThreadLog({ thread })
+
+    expect(text).toContain('"requestId": "request-1"')
+    expect(text).toContain('"contextTokenEstimate": 120')
+    expect(text).not.toContain('rawMessages')
+    expect(text).not.toContain('modelMessages')
+    expect(text).not.toContain('nested')
+  })
 })

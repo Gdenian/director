@@ -523,6 +523,33 @@ model ProjectAssistantThread {
   @@map("project_assistant_threads")
 }
 
+model ProjectAgentWait {
+  id              String    @id @default(uuid())
+  projectId       String
+  userId          String
+  assistantId     String
+  scopeRef        String
+  episodeId       String?
+  operationId     String
+  taskIds         Json
+  status          String    @default("pending")
+  terminalStatus  String?
+  terminalTaskIds Json?
+  failedTaskIds   Json?
+  followUpKey     String?
+  followedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  resolvedAt      DateTime?
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, userId, assistantId, scopeRef, status, createdAt])
+  @@index([projectId, status, createdAt])
+  @@index([followUpKey])
+  @@map("project_agent_waits")
+}
+
 model ProjectAssistantToolSelection {
   id            String    @id @default(uuid())
   userId        String
@@ -658,6 +685,7 @@ model Project {
   executionPlans     ExecutionPlan[]
   planApprovals      PlanApproval[]
   assistantThreads   ProjectAssistantThread[]
+  agentWaits         ProjectAgentWait[]
   assistantToolSelections ProjectAssistantToolSelection[]
   mutationBatches    MutationBatch[]
   savedSkills        SavedSkill[]
@@ -779,6 +807,7 @@ model User {
   projectCommands         ProjectCommand[]
   planApprovals           PlanApproval[]
   projectAssistantThreads ProjectAssistantThread[]
+  projectAgentWaits       ProjectAgentWait[]
   projectAssistantToolSelections ProjectAssistantToolSelection[]
   mutationBatches         MutationBatch[]
   savedSkills             SavedSkill[]

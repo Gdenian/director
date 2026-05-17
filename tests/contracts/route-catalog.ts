@@ -141,6 +141,7 @@ const ROUTE_FILES = [
   'src/app/api/projects/[projectId]/assistant/chat/route.ts',
   'src/app/api/projects/[projectId]/assistant/chat/log/route.ts',
   'src/app/api/projects/[projectId]/assistant/confirm-operation/route.ts',
+  'src/app/api/projects/[projectId]/assistant/waits/route.ts',
   'src/app/api/projects/[projectId]/commands/[commandId]/route.ts',
   'src/app/api/projects/[projectId]/commands/route.ts',
   'src/app/api/projects/[projectId]/context/route.ts',

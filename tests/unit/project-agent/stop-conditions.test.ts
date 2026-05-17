@@ -61,10 +61,11 @@ describe('project agent stop conditions', () => {
 
     expect(controller.stopWhen({ steps })).toBe(true)
     expect(controller.buildStopPart(steps.length)).toEqual({
-      reason: 'async_task_submitted',
+      reason: 'awaiting_external_task',
       stepCount: 1,
       operationIds: ['generate_edit_script'],
       taskIds: ['task-1'],
+      phases: [],
     })
   })
 
@@ -89,7 +90,7 @@ describe('project agent stop conditions', () => {
 
     expect(controller.stopWhen({ steps })).toBe(true)
     expect(controller.buildStopPart(steps.length)).toEqual({
-      reason: 'awaiting_task_terminal',
+      reason: 'awaiting_external_task',
       stepCount: 1,
       operationIds: ['get_task_status'],
       taskIds: ['task-1'],
@@ -118,5 +119,51 @@ describe('project agent stop conditions', () => {
 
     expect(controller.stopWhen({ steps })).toBe(false)
     expect(controller.buildStopPart(steps.length)).toBeNull()
+  })
+
+  it('[confirmation required] -> stops for user confirmation', () => {
+    const controller = createProjectAgentStopController({} as ToolSet)
+    const steps = [
+      buildToolResultStep({
+        toolName: 'delete_storyboard_panel',
+        output: {
+          ok: false,
+          confirmationRequired: true,
+          error: {
+            operationId: 'delete_storyboard_panel',
+            code: 'CONFIRMATION_REQUIRED',
+          },
+        },
+      }),
+    ]
+
+    expect(controller.stopWhen({ steps })).toBe(true)
+    expect(controller.buildStopPart(steps.length)).toEqual({
+      reason: 'awaiting_user_confirmation',
+      stepCount: 1,
+      operationIds: ['delete_storyboard_panel'],
+    })
+  })
+
+  it('[repeated tool call] -> stops on second identical tool+args signature', () => {
+    const controller = createProjectAgentStopController({} as ToolSet)
+    const repeatedStep = buildToolResultStep({
+      toolName: 'get_task_status',
+      output: {
+        ok: true,
+        data: {
+          states: [{ phase: 'completed', runningTaskId: null }],
+        },
+      },
+    })
+    const steps = [repeatedStep, repeatedStep]
+
+    expect(controller.stopWhen({ steps })).toBe(true)
+    expect(controller.buildStopPart(steps.length)).toEqual({
+      reason: 'repeated_tool_call',
+      stepCount: 2,
+      toolName: 'get_task_status',
+      argsHash: '44136fa355b3678a',
+    })
   })
 })

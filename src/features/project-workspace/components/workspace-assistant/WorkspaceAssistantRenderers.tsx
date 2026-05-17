@@ -69,20 +69,33 @@ export function AgentStopDataCard({ data }: DataMessagePartProps<ProjectAgentSto
   const t = useTranslations('assistantAgent')
   const title = data.reason === 'step_cap'
     ? t('cards.maxSteps')
-    : data.reason === 'async_task_submitted'
-      ? t('cards.asyncTaskBoundary')
-      : t('cards.awaitingTaskTerminal')
+    : data.reason === 'awaiting_external_task'
+      ? t('cards.awaitingExternalTask')
+      : data.reason === 'awaiting_user_confirmation'
+        ? t('cards.awaitingUserConfirmation')
+        : data.reason === 'repeated_tool_call'
+          ? t('cards.repeatedToolCall')
+          : t('cards.toolErrorBoundary')
   const detail = data.reason === 'step_cap'
     ? t('cards.stepUsage', { stepCount: data.stepCount, maxSteps: data.maxSteps })
-    : data.reason === 'async_task_submitted'
-      ? t('cards.asyncTaskBoundaryDetail', {
-          operations: data.operationIds.join(', '),
-          tasks: data.taskIds.join(', '),
-        })
-      : t('cards.awaitingTaskTerminalDetail', {
+    : data.reason === 'awaiting_external_task'
+      ? t('cards.awaitingExternalTaskDetail', {
           operations: data.operationIds.join(', '),
           tasks: data.taskIds.length > 0 ? data.taskIds.join(', ') : t('cards.unknownTask'),
-          phases: data.phases.join(', '),
+          phases: data.phases.length > 0 ? data.phases.join(', ') : t('cards.none'),
+        })
+      : data.reason === 'awaiting_user_confirmation'
+        ? t('cards.awaitingUserConfirmationDetail', {
+            operations: data.operationIds.join(', '),
+          })
+        : data.reason === 'repeated_tool_call'
+          ? t('cards.repeatedToolCallDetail', {
+              tool: data.toolName,
+              hash: data.argsHash,
+            })
+          : t('cards.toolErrorBoundaryDetail', {
+          operations: data.operationIds.join(', '),
+          codes: data.codes.length > 0 ? data.codes.join(', ') : t('cards.none'),
         })
   return (
     <details className="group border-l-2 border-[var(--glass-text-tertiary)]/40 pl-2 text-[12px] leading-5 text-[var(--glass-text-secondary)]">

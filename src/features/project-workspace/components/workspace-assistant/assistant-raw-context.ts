@@ -81,7 +81,8 @@ function isAgentRuntimeContextPartData(value: unknown): value is AgentRuntimeCon
   if (!isRecord(value)) return false
   return (
     typeof value.requestId === 'string'
-    && typeof value.systemPrompt === 'string'
+    && isRecord(value.messageCounts)
+    && typeof value.contextTokenEstimate !== 'undefined'
     && Array.isArray(value.selectedTools)
   )
 }

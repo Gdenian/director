@@ -3,6 +3,8 @@ import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isErrorResponse, requireProjectAuth } from '@/lib/api-auth'
 import { executeProjectAgentOperationFromApi } from '@/lib/adapters/api/execute-project-agent-operation'
 import { normalizeConfirmedOperationRequest } from '@/lib/project-agent/confirmed-operation-request'
+import { normalizeOperationRuntimeSignal } from '@/lib/project-agent/runtime-signal'
+import { createProjectAgentWait } from '@/lib/project-agent/waits'
 
 export const runtime = 'nodejs'
 
@@ -35,6 +37,29 @@ export const POST = apiHandler(async (
     context: confirmedRequest.context,
     source: 'assistant-confirmation',
   })
+  const runtimeSignal = normalizeOperationRuntimeSignal({
+    toolName: confirmedRequest.operationId,
+    output: {
+      ok: true,
+      data: result,
+    },
+  })
+  if (runtimeSignal.kind === 'await_task' && runtimeSignal.taskIds.length > 0) {
+    const contextRecord = confirmedRequest.context && typeof confirmedRequest.context === 'object' && !Array.isArray(confirmedRequest.context)
+      ? confirmedRequest.context as Record<string, unknown>
+      : null
+    const episodeId = typeof contextRecord?.episodeId === 'string' && contextRecord.episodeId.trim()
+      ? contextRecord.episodeId.trim()
+      : null
+    await createProjectAgentWait({
+      projectId,
+      userId: authResult.session.user.id,
+      episodeId,
+      assistantId: 'workspace-command',
+      operationId: runtimeSignal.operationId,
+      taskIds: runtimeSignal.taskIds,
+    })
+  }
 
   return NextResponse.json({
     success: true,

@@ -28,6 +28,8 @@ import { compressMessages } from './message-compression'
 import { resolveProjectAgentLanguageModel } from './model'
 import type { ProjectAgentInteractionMode } from './types'
 import { resolveProjectAgentExecutionMode } from './execution-mode'
+import { createProjectAgentWait } from './waits'
+import { stableArgsHash } from './runtime-signal'
 
 type UnknownObject = { [key: string]: unknown }
 
@@ -87,6 +89,54 @@ async function toModelMessages(messages: UIMessage[]) {
     return rest
   })
   return await convertToModelMessages(withoutIds)
+}
+
+function estimateContextTokens(value: unknown): number | null {
+  try {
+    return Math.ceil(JSON.stringify(value).length / 4)
+  } catch {
+    return null
+  }
+}
+
+function readNumberField(record: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+function readUsageTokens(value: unknown): { inputTokens: number | null; outputTokens: number | null } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      inputTokens: null,
+      outputTokens: null,
+    }
+  }
+  const record = value as Record<string, unknown>
+  return {
+    inputTokens: readNumberField(record, ['inputTokens', 'promptTokens']),
+    outputTokens: readNumberField(record, ['outputTokens', 'completionTokens']),
+  }
+}
+
+function readToolNamesAndHashes(step: unknown): Array<{ toolName: string; argsHash: string }> {
+  if (!step || typeof step !== 'object' || Array.isArray(step)) return []
+  const record = step as Record<string, unknown>
+  const toolCalls = Array.isArray(record.toolCalls) ? record.toolCalls : []
+  const toolResults = Array.isArray(record.toolResults) ? record.toolResults : []
+  const candidates = toolCalls.length > 0 ? toolCalls : toolResults
+  return candidates.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return []
+    const candidateRecord = candidate as Record<string, unknown>
+    const toolName = typeof candidateRecord.toolName === 'string' ? candidateRecord.toolName : ''
+    if (!toolName) return []
+    return [{
+      toolName,
+      argsHash: stableArgsHash(candidateRecord.input ?? {}),
+    }]
+  })
 }
 
 export async function createProjectAgentChatResponse(input: {
@@ -242,12 +292,12 @@ export async function createProjectAgentChatResponse(input: {
         projectId: input.projectId,
         episodeId: context.episodeId || null,
         interactionMode: executionMode.interactionMode,
-        systemPrompt,
-        rawMessages: normalizedMessages,
-        runtimeMessages,
-        modelMessages,
-        projectContext: context,
-        projectPhase: phase,
+        messageCounts: {
+          normalized: normalizedMessages.length,
+          runtime: runtimeMessages.length,
+          model: modelMessages.length,
+        },
+        contextTokenEstimate: estimateContextTokens(modelMessages),
         route,
         selectedTools: toolEntries.map((item) => item.debugTool),
       })
@@ -324,9 +374,42 @@ export async function createProjectAgentChatResponse(input: {
               },
             })
           },
-          onFinish: ({ steps }) => {
+          onFinish: async ({ steps }) => {
             const stopPart = stopController.buildStopPart(steps.length)
+            const stopReason = stopPart?.reason ?? null
+            steps.forEach((step, stepIndex) => {
+              const usage = readUsageTokens((step as Record<string, unknown>).usage)
+              const toolCalls = readToolNamesAndHashes(step)
+              projectAgentLogger.info({
+                audit: true,
+                action: 'assistant.step.audit',
+                message: 'Project agent step audit',
+                requestId,
+                projectId: input.projectId,
+                userId: input.userId,
+                details: {
+                  stepIndex,
+                  modelKey: analysisModelKey,
+                  finishReason: (step as Record<string, unknown>).finishReason ?? null,
+                  toolName: toolCalls.map((toolCall) => toolCall.toolName).join(',') || null,
+                  argsHash: toolCalls.map((toolCall) => toolCall.argsHash).join(',') || null,
+                  stopReason,
+                  inputTokens: usage.inputTokens,
+                  outputTokens: usage.outputTokens,
+                },
+              })
+            })
             if (!stopPart) return
+            if (stopPart.reason === 'awaiting_external_task' && stopPart.taskIds.length > 0) {
+              await createProjectAgentWait({
+                projectId: input.projectId,
+                userId: input.userId,
+                episodeId: context.episodeId || null,
+                assistantId: 'workspace-command',
+                operationId: stopPart.operationIds.join(','),
+                taskIds: stopPart.taskIds,
+              })
+            }
             writeOperationDataPart<ProjectAgentStopPartData>(writer, 'data-agent-stop', stopPart)
           },
           temperature: 0.2,

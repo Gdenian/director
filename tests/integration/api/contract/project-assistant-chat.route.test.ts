@@ -17,6 +17,12 @@ const apiAdapterMock = vi.hoisted(() => ({
   })),
 }))
 
+const waitMock = vi.hoisted(() => ({
+  createProjectAgentWait: vi.fn(async (): Promise<string> => 'wait-1'),
+  listResolvedProjectAgentWaitFollowUps: vi.fn(async (): Promise<unknown[]> => []),
+  markProjectAgentWaitFollowed: vi.fn(async (): Promise<void> => undefined),
+}))
+
 const compressionState = vi.hoisted(() => ({
   shouldCompress: false,
   compressedMessages: [
@@ -88,6 +94,7 @@ vi.mock('@/lib/api-auth', () => {
 vi.mock('@/lib/project-agent', () => projectAgentMock)
 vi.mock('@/lib/adapters/api/execute-project-agent-operation', () => apiAdapterMock)
 vi.mock('@/lib/project-agent/persistence', () => persistenceMock)
+vi.mock('@/lib/project-agent/waits', () => waitMock)
 vi.mock('@/lib/project-agent/thread-log', () => threadLogMock)
 vi.mock('@/lib/config-service', () => modelConfigMock)
 vi.mock('@/lib/project-agent/model', () => modelResolverMock)
@@ -101,6 +108,10 @@ import {
 } from '@/app/api/projects/[projectId]/assistant/chat/route'
 import { GET as chatLogGet } from '@/app/api/projects/[projectId]/assistant/chat/log/route'
 import { POST as confirmOperationPost } from '@/app/api/projects/[projectId]/assistant/confirm-operation/route'
+import {
+  GET as waitsGet,
+  POST as waitsPost,
+} from '@/app/api/projects/[projectId]/assistant/waits/route'
 
 describe('project assistant chat route', () => {
   beforeEach(() => {
@@ -259,6 +270,7 @@ describe('project assistant chat route', () => {
 
   it('POST /api/projects/[projectId]/assistant/confirm-operation -> executes the saved operation arguments directly with confirmed=true', async () => {
     apiAdapterMock.executeProjectAgentOperationFromApi.mockResolvedValueOnce({
+      async: true,
       status: 'submitted',
       taskId: 'task-music-1',
     })
@@ -310,10 +322,19 @@ describe('project assistant chat route', () => {
         selectedAssetId: 'asset-1',
       },
     }))
+    expect(waitMock.createProjectAgentWait).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      userId: 'user-1',
+      episodeId: 'episode-1',
+      assistantId: 'workspace-command',
+      operationId: 'generate_project_music',
+      taskIds: ['task-music-1'],
+    })
     await expect(response.json()).resolves.toEqual({
       success: true,
       operationId: 'generate_project_music',
       result: {
+        async: true,
         status: 'submitted',
         taskId: 'task-music-1',
       },
@@ -364,6 +385,65 @@ describe('project assistant chat route', () => {
 
     expect(response.status).toBe(401)
     expect(apiAdapterMock.executeProjectAgentOperationFromApi).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/projects/[projectId]/assistant/waits -> returns resolved follow-ups for the assistant scope', async () => {
+    waitMock.listResolvedProjectAgentWaitFollowUps.mockResolvedValueOnce([{
+      waitId: 'wait-1',
+      followUpKey: 'project-agent-wait:wait-1:completed',
+      operationId: 'generate_edit_script',
+      taskIds: ['task-1'],
+      failedTaskIds: [],
+      terminalStatus: 'completed',
+      total: 1,
+    }])
+
+    const response = await waitsGet(
+      buildMockRequest({
+        path: '/api/projects/project-1/assistant/waits?episodeId=episode-1',
+        method: 'GET',
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(waitMock.listResolvedProjectAgentWaitFollowUps).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      userId: 'user-1',
+      episodeId: 'episode-1',
+      assistantId: 'workspace-command',
+    })
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      followUps: [{
+        waitId: 'wait-1',
+        followUpKey: 'project-agent-wait:wait-1:completed',
+        operationId: 'generate_edit_script',
+        taskIds: ['task-1'],
+        failedTaskIds: [],
+        terminalStatus: 'completed',
+        total: 1,
+      }],
+    })
+  })
+
+  it('POST /api/projects/[projectId]/assistant/waits -> marks a follow-up as consumed', async () => {
+    const response = await waitsPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/assistant/waits',
+        method: 'POST',
+        body: { waitId: 'wait-1' },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(waitMock.markProjectAgentWaitFollowed).toHaveBeenCalledWith({
+      waitId: 'wait-1',
+      projectId: 'project-1',
+      userId: 'user-1',
+    })
+    await expect(response.json()).resolves.toEqual({ success: true })
   })
 
   it('GET /api/projects/[projectId]/assistant/chat -> loads persisted workspace thread from database service', async () => {

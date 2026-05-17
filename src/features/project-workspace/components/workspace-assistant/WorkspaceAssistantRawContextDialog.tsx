@@ -24,8 +24,7 @@ interface WorkspaceAssistantRawContextDialogLabels {
   storageError: string
   dialogueTitle: string
   runtimeTitle: string
-  systemPrompt: string
-  modelMessages: string
+  runtimeSummary: string
   selectedTools: string
   rawJsonTitle: string
 }
@@ -159,15 +158,13 @@ export function WorkspaceAssistantRawContextDialog(props: WorkspaceAssistantRawC
                         </div>
                         <div className="space-y-3 px-3 py-3">
                           <div>
-                            <div className="mb-1 text-xs font-medium text-[var(--glass-text-primary)]">{props.labels.systemPrompt}</div>
+                            <div className="mb-1 text-xs font-medium text-[var(--glass-text-primary)]">{props.labels.runtimeSummary}</div>
                             <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--glass-bg-surface)] px-3 py-2 text-[11px] leading-5 text-[var(--glass-text-primary)]">
-                              {context.systemPrompt}
-                            </pre>
-                          </div>
-                          <div>
-                            <div className="mb-1 text-xs font-medium text-[var(--glass-text-primary)]">{props.labels.modelMessages}</div>
-                            <pre className="max-h-72 overflow-auto rounded-lg bg-[var(--glass-bg-surface)] px-3 py-2 text-[11px] leading-5 text-[var(--glass-text-primary)]">
-                              {JSON.stringify(context.modelMessages, null, 2)}
+                              {JSON.stringify({
+                                messageCounts: context.messageCounts,
+                                contextTokenEstimate: context.contextTokenEstimate,
+                                route: context.route,
+                              }, null, 2)}
                             </pre>
                           </div>
                           <div>

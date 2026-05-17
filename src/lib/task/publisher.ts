@@ -8,6 +8,7 @@ import {
   type TaskSSEEvent,
 } from './types'
 import { coerceTaskIntent, resolveTaskIntent } from './intent'
+import { safelyResolveProjectAgentWaitsForTaskEvent } from '@/lib/project-agent/waits'
 
 const CHANNEL_PREFIX = 'task-events:project:'
 const STREAM_EPHEMERAL_ENABLED = process.env.LLM_STREAM_EPHEMERAL_ENABLED !== 'false'
@@ -260,6 +261,12 @@ export async function publishTaskLifecycleEvent(params: {
     payload: params.payload || null,
   })
 
+  await safelyResolveProjectAgentWaitsForTaskEvent({
+    taskId: params.taskId,
+    projectId: params.projectId,
+    userId: params.userId,
+    lifecycleType: normalizedType,
+  })
   await redis.publish(getProjectChannel(params.projectId), JSON.stringify(message))
   return message
 }

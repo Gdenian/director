@@ -36,20 +36,32 @@ import {
   WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT,
 } from './workspace-assistant/assistant-send-event'
 import {
-  collectAssistantAsyncTaskSubmissions,
   createTaskBatchSubmittedDataFromOperationPayload,
   createTaskSubmittedDataFromOperationPayload,
   resolveAssistantAsyncTaskTerminalEvent,
-  type AssistantAsyncTaskSubmission,
 } from './workspace-assistant/async-task-follow-up'
 import {
   extractWorkspaceResourceChangesFromWriteResult,
   syncWorkspaceResourceChanges,
   syncWorkspaceResourceChangesFromWriteResult,
 } from '@/lib/query/resource-change-sync'
-import { TASK_EVENT_TYPE } from '@/lib/task/types'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
 import type { WorkspaceAssistantSelectionContext } from '../canvas/ProjectWorkspaceCanvas'
+
+interface ProjectAgentWaitFollowUp {
+  waitId: string
+  followUpKey: string
+  operationId: string
+  taskIds: string[]
+  failedTaskIds: string[]
+  terminalStatus: 'completed' | 'failed'
+  total: number
+}
+
+interface ProjectAgentWaitFollowUpResponse {
+  success: boolean
+  followUps: ProjectAgentWaitFollowUp[]
+}
 
 interface WorkspaceAssistantPanelProps {
   projectId: string
@@ -146,23 +158,12 @@ export default function WorkspaceAssistantPanel({
     interactionMode: 'fast',
   })
   const assistantRuntimeRef = useRef(assistantRuntime)
-  const asyncTaskSubmissionsRef = useRef<Map<string, AssistantAsyncTaskSubmission>>(new Map())
-  const followedTaskIdsRef = useRef<Set<string>>(new Set())
-  const followedBatchKeysRef = useRef<Set<string>>(new Set())
   const syncedAssistantToolOutputKeysRef = useRef<Set<string>>(new Set())
-  const batchTerminalStateRef = useRef<Map<string, {
-    operationId: string
-    allTaskIds: Set<string>
-    terminalTaskIds: Set<string>
-    failedTaskIds: Set<string>
-  }>>(new Map())
+  const consumedWaitFollowUpKeysRef = useRef<Set<string>>(new Set())
   const queuedAutoFollowUpRef = useRef<string[]>([])
   useEffect(() => {
     assistantRuntimeRef.current = assistantRuntime
   }, [assistantRuntime])
-  useEffect(() => {
-    asyncTaskSubmissionsRef.current = collectAssistantAsyncTaskSubmissions(assistantRuntime.messages)
-  }, [assistantRuntime.messages])
   useEffect(() => {
     const pendingSyncs: Promise<unknown>[] = []
     for (const message of assistantRuntime.messages) {
@@ -206,59 +207,46 @@ export default function WorkspaceAssistantPanel({
     queuedAutoFollowUpRef.current = remainingMessages
     void assistantRuntime.sendMessage(queuedMessage)
   }, [assistantRuntime, assistantRuntime.pending, assistantRuntime.storageLoading])
+  const flushResolvedWaitFollowUps = useCallback(async () => {
+    const search = new URLSearchParams()
+    if (episodeId) search.set('episodeId', episodeId)
+    const response = await apiFetch(`/api/projects/${projectId}/assistant/waits?${search.toString()}`)
+    if (!response.ok) return
+    const payload = await response.json().catch(() => null) as ProjectAgentWaitFollowUpResponse | null
+    if (!payload?.success || !Array.isArray(payload.followUps)) return
+    for (const followUp of payload.followUps) {
+      if (consumedWaitFollowUpKeysRef.current.has(followUp.followUpKey)) continue
+      consumedWaitFollowUpKeysRef.current.add(followUp.followUpKey)
+      sendAutoFollowUpMessage(
+        followUp.terminalStatus === 'failed'
+          ? t('autoFollowUp.waitFailed', {
+              operation: followUp.operationId,
+              failed: followUp.failedTaskIds.length,
+              total: followUp.total,
+            })
+          : t('autoFollowUp.waitCompleted', {
+              operation: followUp.operationId,
+              total: followUp.total,
+            }),
+      )
+      await apiFetch(`/api/projects/${projectId}/assistant/waits`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ waitId: followUp.waitId }),
+      })
+    }
+  }, [episodeId, projectId, sendAutoFollowUpMessage, t])
+  useEffect(() => {
+    if (assistantRuntime.storageLoading) return
+    void flushResolvedWaitFollowUps()
+  }, [assistantRuntime.storageLoading, flushResolvedWaitFollowUps])
   useEffect(() => {
     return subscribeTaskEvents((event) => {
       const terminalEvent = resolveAssistantAsyncTaskTerminalEvent(event)
       if (!terminalEvent) return
-      const submission = asyncTaskSubmissionsRef.current.get(terminalEvent.taskId)
-      if (!submission) return
-
-      if (submission.kind === 'single') {
-        if (followedTaskIdsRef.current.has(submission.taskId)) return
-        followedTaskIdsRef.current.add(submission.taskId)
-        sendAutoFollowUpMessage(
-          terminalEvent.lifecycleType === TASK_EVENT_TYPE.COMPLETED
-            ? t('autoFollowUp.taskCompleted', {
-                operation: submission.operationId,
-                taskId: submission.taskId,
-              })
-            : t('autoFollowUp.taskFailed', {
-                operation: submission.operationId,
-                taskId: submission.taskId,
-              }),
-        )
-        return
-      }
-
-      const existingState = batchTerminalStateRef.current.get(submission.batchKey)
-      const state = existingState ?? {
-        operationId: submission.operationId,
-        allTaskIds: new Set(submission.data.taskIds),
-        terminalTaskIds: new Set<string>(),
-        failedTaskIds: new Set<string>(),
-      }
-      state.terminalTaskIds.add(submission.taskId)
-      if (terminalEvent.lifecycleType === TASK_EVENT_TYPE.FAILED) {
-        state.failedTaskIds.add(submission.taskId)
-      }
-      batchTerminalStateRef.current.set(submission.batchKey, state)
-      if (state.terminalTaskIds.size < state.allTaskIds.size) return
-      if (followedBatchKeysRef.current.has(submission.batchKey)) return
-      followedBatchKeysRef.current.add(submission.batchKey)
-      sendAutoFollowUpMessage(
-        state.failedTaskIds.size > 0
-          ? t('autoFollowUp.batchFailed', {
-              operation: state.operationId,
-              failed: state.failedTaskIds.size,
-              total: state.allTaskIds.size,
-            })
-          : t('autoFollowUp.batchCompleted', {
-              operation: state.operationId,
-              total: state.allTaskIds.size,
-            }),
-      )
+      void flushResolvedWaitFollowUps()
     })
-  }, [sendAutoFollowUpMessage, subscribeTaskEvents, t])
+  }, [flushResolvedWaitFollowUps, subscribeTaskEvents])
   const consumedMessageKeysRef = useRef<Set<string>>(new Set())
   const sendAssistantMessageOnce = useCallback(async (key: string, message: string) => {
     const normalizedKey = key.trim()
@@ -535,8 +523,7 @@ export default function WorkspaceAssistantPanel({
                   storageError: t('debugContext.storageError'),
                   dialogueTitle: t('debugContext.dialogueTitle'),
                   runtimeTitle: t('debugContext.runtimeTitle'),
-                  systemPrompt: t('debugContext.systemPrompt'),
-                  modelMessages: t('debugContext.modelMessages'),
+                  runtimeSummary: t('debugContext.runtimeSummary'),
                   selectedTools: t('debugContext.selectedTools'),
                   rawJsonTitle: t('debugContext.rawJsonTitle'),
                 }}
