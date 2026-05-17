@@ -49,7 +49,7 @@ import {
   getWorkspaceCanvasNodePresentationProfile,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
-import { repairWorkspaceNodeOverlaps } from './layout/workspace-node-auto-layout'
+import { repairWorkspaceNodeOverlapsNearMovedNodes } from './layout/workspace-node-auto-layout'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
@@ -448,8 +448,14 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
   }, [])
 
-  const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceCanvasFlowNode>>(() => {
-    const repairedNodes = attachNodeUiState(repairWorkspaceNodeOverlaps(reactFlow.getNodes()))
+  const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceCanvasFlowNode>>((_event, node, draggedNodes) => {
+    const movedNodeIds = new Set<string>([
+      node.id,
+      ...draggedNodes.map((draggedNode) => draggedNode.id),
+    ])
+    const repairedNodes = attachNodeUiState(
+      repairWorkspaceNodeOverlapsNearMovedNodes(reactFlow.getNodes(), movedNodeIds),
+    )
     setNodes(repairedNodes)
     persistCurrentLayoutSafely(repairedNodes)
   }, [attachNodeUiState, persistCurrentLayoutSafely, reactFlow])

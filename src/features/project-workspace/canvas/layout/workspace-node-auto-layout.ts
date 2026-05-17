@@ -1,6 +1,7 @@
 import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
 
 const DEFAULT_NODE_GAP = 72
+const DRAG_NODE_GAP = 24
 const POSITION_EPSILON = 0.5
 
 interface NodeRect {
@@ -45,6 +46,33 @@ function rectsOverlap(left: NodeRect, right: NodeRect): boolean {
     left.y < right.y + right.height &&
     left.y + left.height > right.y
   )
+}
+
+function rectsOverlapWithGap(left: NodeRect, right: NodeRect, gap: number): boolean {
+  return (
+    left.x - gap < right.x + right.width &&
+    left.x + left.width + gap > right.x &&
+    left.y - gap < right.y + right.height &&
+    left.y + left.height + gap > right.y
+  )
+}
+
+function moveRectAwayFromAnchor(rect: NodeRect, anchor: NodeRect, gap: number): NodeRect {
+  const moveLeft = anchor.x - rect.width - gap - rect.x
+  const moveRight = anchor.x + anchor.width + gap - rect.x
+  const moveUp = anchor.y - rect.height - gap - rect.y
+  const moveDown = anchor.y + anchor.height + gap - rect.y
+  const moves = [
+    { axis: 'x' as const, delta: moveLeft },
+    { axis: 'x' as const, delta: moveRight },
+    { axis: 'y' as const, delta: moveUp },
+    { axis: 'y' as const, delta: moveDown },
+  ].sort((left, right) => Math.abs(left.delta) - Math.abs(right.delta))
+  const move = moves[0]
+
+  return move.axis === 'x'
+    ? { ...rect, x: rect.x + move.delta }
+    : { ...rect, y: rect.y + move.delta }
 }
 
 function nextAvailableY(candidate: NodeRect, placed: readonly NodeRect[], gap: number): number {
@@ -107,6 +135,63 @@ export function repairWorkspaceNodeOverlaps(
       position: {
         ...node.position,
         y,
+      },
+    }
+  })
+}
+
+export function repairWorkspaceNodeOverlapsNearMovedNodes(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+  movedNodeIds: ReadonlySet<string>,
+  options?: {
+    readonly gap?: number
+  },
+): WorkspaceCanvasFlowNode[] {
+  if (movedNodeIds.size === 0) return [...nodes]
+
+  const gap = options?.gap ?? DRAG_NODE_GAP
+  const rectById = new Map(nodes.map((node, index) => {
+    const rect = nodeRect(node, index)
+    return [node.id, rect]
+  }))
+  const movableIds = new Set(nodes.map((node) => node.id).filter((id) => !movedNodeIds.has(id)))
+  const queue = [...movedNodeIds]
+  const queuedIds = new Set(queue)
+
+  while (queue.length > 0) {
+    const anchorId = queue.shift()
+    if (!anchorId) continue
+    queuedIds.delete(anchorId)
+    const anchor = rectById.get(anchorId)
+    if (!anchor) continue
+
+    for (const id of movableIds) {
+      if (id === anchorId) continue
+      const rect = rectById.get(id)
+      if (!rect || !rectsOverlapWithGap(anchor, rect, gap)) continue
+      const repaired = moveRectAwayFromAnchor(rect, anchor, gap)
+      rectById.set(id, repaired)
+      if (!queuedIds.has(id)) {
+        queue.push(id)
+        queuedIds.add(id)
+      }
+    }
+  }
+
+  return nodes.map((node) => {
+    const repaired = rectById.get(node.id)
+    if (!repaired) return node
+    if (
+      Math.abs(repaired.x - node.position.x) <= POSITION_EPSILON &&
+      Math.abs(repaired.y - node.position.y) <= POSITION_EPSILON
+    ) {
+      return node
+    }
+    return {
+      ...node,
+      position: {
+        x: repaired.x,
+        y: repaired.y,
       },
     }
   })
