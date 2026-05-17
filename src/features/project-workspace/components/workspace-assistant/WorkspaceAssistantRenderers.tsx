@@ -67,11 +67,28 @@ function ProjectPhaseDataCard({ data }: DataMessagePartProps<ProjectPhasePartDat
 
 export function AgentStopDataCard({ data }: DataMessagePartProps<ProjectAgentStopPartData>) {
   const t = useTranslations('assistantAgent')
+  const title = data.reason === 'step_cap'
+    ? t('cards.maxSteps')
+    : data.reason === 'async_task_submitted'
+      ? t('cards.asyncTaskBoundary')
+      : t('cards.awaitingTaskTerminal')
+  const detail = data.reason === 'step_cap'
+    ? t('cards.stepUsage', { stepCount: data.stepCount, maxSteps: data.maxSteps })
+    : data.reason === 'async_task_submitted'
+      ? t('cards.asyncTaskBoundaryDetail', {
+          operations: data.operationIds.join(', '),
+          tasks: data.taskIds.join(', '),
+        })
+      : t('cards.awaitingTaskTerminalDetail', {
+          operations: data.operationIds.join(', '),
+          tasks: data.taskIds.length > 0 ? data.taskIds.join(', ') : t('cards.unknownTask'),
+          phases: data.phases.join(', '),
+        })
   return (
     <details className="group border-l-2 border-[var(--glass-text-tertiary)]/40 pl-2 text-[12px] leading-5 text-[var(--glass-text-secondary)]">
       <summary className="flex cursor-pointer list-none items-center gap-2">
         <AppIcon name="alert" className="h-3.5 w-3.5 shrink-0" />
-        <span className="min-w-0 truncate">{t('cards.maxSteps')} · {t('cards.stepUsage', { stepCount: data.stepCount, maxSteps: data.maxSteps })}</span>
+        <span className="min-w-0 truncate">{title} · {detail}</span>
         <AppIcon name="chevronDown" className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
       <div className="ml-5 mt-1 text-[11px] text-[var(--glass-text-tertiary)]">{t('cards.reason', { reason: data.reason })}</div>

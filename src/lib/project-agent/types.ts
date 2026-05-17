@@ -33,11 +33,25 @@ export interface ProjectPhasePartData {
   snapshot: ProjectPhaseSnapshot
 }
 
-export interface ProjectAgentStopPartData {
-  reason: 'step_cap'
-  stepCount: number
-  maxSteps: number
-}
+export type ProjectAgentStopPartData =
+  | {
+    reason: 'step_cap'
+    stepCount: number
+    maxSteps: number
+  }
+  | {
+    reason: 'async_task_submitted'
+    stepCount: number
+    operationIds: string[]
+    taskIds: string[]
+  }
+  | {
+    reason: 'awaiting_task_terminal'
+    stepCount: number
+    operationIds: string[]
+    taskIds: string[]
+    phases: string[]
+  }
 
 export interface AgentPlanPartData {
   draftPlanId: string
