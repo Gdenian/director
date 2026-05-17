@@ -2,6 +2,8 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { ApiError } from '@/lib/api-errors'
 import type { Locale } from '@/i18n/routing'
+import { TASK_TYPE } from '@/lib/task/types'
+import { submitTask } from '@/lib/task/submitter'
 import { buildConsistencyLabSource } from './source-snapshot'
 import {
   buildContactSheet9GridStrategyOutput,
@@ -21,6 +23,7 @@ import {
   type ConsistencyLabStrategy,
   type ConsistencyLabStrategyOutput,
   type ConsistencyLabVideoDto,
+  consistencyLabSourceSnapshotSchema,
 } from './types'
 
 interface CreateRunInput {
@@ -41,6 +44,14 @@ interface ListRunsInput {
 interface DeleteRunInput {
   readonly projectId: string
   readonly runId: string
+}
+
+interface SubmitRunTaskInput {
+  readonly projectId: string
+  readonly runId: string
+  readonly userId: string
+  readonly locale: Locale
+  readonly requestId?: string | null
 }
 
 function isRunStatus(value: string): value is ConsistencyLabRunStatus {
@@ -74,6 +85,36 @@ function buildStrategyOutput(
   if (strategy === 'structured_text') return buildStructuredTextStrategyOutput(snapshot)
   if (strategy === 'grid_coordinates') return buildGridCoordinatesStrategyOutput(snapshot)
   return buildContactSheet9GridStrategyOutput(snapshot)
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function readString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function readModelConfigSnapshot(value: unknown): {
+  readonly storyboardModel: string | null
+  readonly videoModel: string | null
+} {
+  const snapshot = readRecord(value)
+  return {
+    storyboardModel: readString(snapshot.storyboardModel),
+    videoModel: readString(snapshot.videoModel),
+  }
+}
+
+function sourceSnapshotFromRun(run: {
+  readonly sourceSnapshotJson: Prisma.JsonValue
+}): ConsistencyLabSourceSnapshot {
+  const parsed = consistencyLabSourceSnapshotSchema.safeParse(run.sourceSnapshotJson)
+  if (!parsed.success) throw new Error('CONSISTENCY_LAB_SOURCE_SNAPSHOT_INVALID')
+  return parsed.data
 }
 
 function mapPanel(panel: {
@@ -245,4 +286,164 @@ export async function deleteConsistencyExperimentRun(input: DeleteRunInput): Pro
   if (!run) throw new ApiError('NOT_FOUND')
   await prisma.consistencyExperimentRun.delete({ where: { id: run.id } })
   return { success: true }
+}
+
+export async function submitConsistencyExperimentImageGeneration(input: SubmitRunTaskInput) {
+  const run = await prisma.consistencyExperimentRun.findFirst({
+    where: {
+      id: input.runId,
+      projectId: input.projectId,
+    },
+    include: {
+      panels: true,
+    },
+  })
+  if (!run) throw new ApiError('NOT_FOUND')
+  if (run.panels.length === 0) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_RUN_EMPTY',
+      message: 'Consistency lab run has no panels to generate',
+    })
+  }
+  const modelConfig = readModelConfigSnapshot(run.modelConfigSnapshot)
+  if (!modelConfig.storyboardModel) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_STORYBOARD_MODEL_REQUIRED',
+      message: 'Storyboard model is required before generating experiment images',
+    })
+  }
+  await prisma.$transaction([
+    prisma.consistencyExperimentRun.update({
+      where: { id: run.id },
+      data: { status: 'generating', errorMessage: null },
+    }),
+    prisma.consistencyExperimentPanel.updateMany({
+      where: { runId: run.id },
+      data: { status: 'pending', errorMessage: null },
+    }),
+  ])
+  try {
+    return await submitTask({
+      userId: input.userId,
+      locale: input.locale,
+      projectId: input.projectId,
+      episodeId: run.episodeId,
+      type: TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE,
+      targetType: 'ConsistencyExperimentRun',
+      targetId: run.id,
+      operationId: 'consistency_lab_generate_images',
+      operationSource: 'project-ui',
+      requestId: input.requestId || null,
+      payload: {
+        runId: run.id,
+        imageModel: modelConfig.storyboardModel,
+        count: run.strategy === 'contact_sheet_9grid' ? 1 : run.panels.length,
+      },
+      dedupeKey: `consistency_lab_images:${run.id}`,
+    })
+  } catch (error) {
+    await prisma.$transaction([
+      prisma.consistencyExperimentRun.update({
+        where: { id: run.id },
+        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+      }),
+      prisma.consistencyExperimentPanel.updateMany({
+        where: { runId: run.id },
+        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+      }),
+    ]).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function submitConsistencyExperimentVideoGeneration(input: SubmitRunTaskInput) {
+  const run = await prisma.consistencyExperimentRun.findFirst({
+    where: {
+      id: input.runId,
+      projectId: input.projectId,
+    },
+    include: {
+      panels: true,
+    },
+  })
+  if (!run) throw new ApiError('NOT_FOUND')
+  const snapshot = sourceSnapshotFromRun(run)
+  const modelConfig = readModelConfigSnapshot(run.modelConfigSnapshot)
+  if (!modelConfig.videoModel) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_VIDEO_MODEL_REQUIRED',
+      message: 'Video model is required before generating experiment videos',
+    })
+  }
+  const panelByShotNumber = new Map(run.panels.map((panel) => [panel.sourceShotNumber, panel]))
+  const videoDrafts = snapshot.videoBlocks.map((block) => {
+    const panels = block.shotNumbers.map((shotNumber) => {
+      const panel = panelByShotNumber.get(shotNumber)
+      if (!panel) throw new Error(`CONSISTENCY_LAB_VIDEO_PANEL_MISSING:${shotNumber}`)
+      if (!panel.imageUrl || !panel.imageMediaId) throw new Error(`CONSISTENCY_LAB_VIDEO_PANEL_IMAGE_REQUIRED:${shotNumber}`)
+      return panel
+    })
+    return {
+      sourceVideoBlockId: block.sourceVideoBlockId,
+      sourceShotNumbers: block.shotNumbers,
+      prompt: block.prompt,
+      referencePanelImageIds: panels.map((panel) => panel.imageMediaId),
+      metadataJson: {
+        strategy: run.strategy,
+        sourceEditScriptId: run.sourceEditScriptId,
+        videoModel: modelConfig.videoModel,
+      },
+      status: 'pending',
+    }
+  })
+  await prisma.$transaction(async (tx) => {
+    await tx.consistencyExperimentVideo.deleteMany({ where: { runId: run.id } })
+    await tx.consistencyExperimentVideo.createMany({
+      data: videoDrafts.map((draft) => ({
+        runId: run.id,
+        sourceVideoBlockId: draft.sourceVideoBlockId,
+        sourceShotNumbers: draft.sourceShotNumbers as Prisma.InputJsonValue,
+        prompt: draft.prompt,
+        referencePanelImageIds: draft.referencePanelImageIds as Prisma.InputJsonValue,
+        metadataJson: draft.metadataJson as Prisma.InputJsonValue,
+        status: draft.status,
+      })),
+    })
+    await tx.consistencyExperimentRun.update({
+      where: { id: run.id },
+      data: { status: 'generating', errorMessage: null },
+    })
+  })
+  try {
+    return await submitTask({
+      userId: input.userId,
+      locale: input.locale,
+      projectId: input.projectId,
+      episodeId: run.episodeId,
+      type: TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO,
+      targetType: 'ConsistencyExperimentRun',
+      targetId: run.id,
+      operationId: 'consistency_lab_generate_videos',
+      operationSource: 'project-ui',
+      requestId: input.requestId || null,
+      payload: {
+        runId: run.id,
+        videoModel: modelConfig.videoModel,
+        count: videoDrafts.length,
+      },
+      dedupeKey: `consistency_lab_videos:${run.id}`,
+    })
+  } catch (error) {
+    await prisma.$transaction([
+      prisma.consistencyExperimentRun.update({
+        where: { id: run.id },
+        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+      }),
+      prisma.consistencyExperimentVideo.updateMany({
+        where: { runId: run.id },
+        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+      }),
+    ]).catch(() => undefined)
+    throw error
+  }
 }

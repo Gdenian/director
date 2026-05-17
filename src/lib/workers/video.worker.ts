@@ -29,6 +29,7 @@ import {
   FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID,
   FAL_SEEDANCE_2_VIDEO_MODEL_ID,
 } from '@/lib/ai-providers/fal/models'
+import { handleConsistencyExperimentVideoTask } from './handlers/consistency-experiment-video-task-handler'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -787,6 +788,8 @@ async function processVideoTask(job: Job<TaskJobData>) {
         }
         throw error
       }
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO:
+      return await handleConsistencyExperimentVideoTask(job)
     case TASK_TYPE.LIP_SYNC:
       return await handleLipSyncTask(job)
     case TASK_TYPE.FINAL_VIDEO_RENDER:

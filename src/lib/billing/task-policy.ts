@@ -18,12 +18,14 @@ type AnyPayload = Record<string, unknown> | null | undefined
 
 const BILLABLE_TASK_TYPES = new Set<TaskType>([
   TASK_TYPE.IMAGE_PANEL,
+  TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE,
   TASK_TYPE.IMAGE_CHARACTER,
   TASK_TYPE.IMAGE_LOCATION,
   TASK_TYPE.MUSIC_GENERATE,
   TASK_TYPE.BGM_SCORE_GENERATE,
   TASK_TYPE.VIDEO_PANEL,
   TASK_TYPE.VIDEO_GROUP,
+  TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO,
   TASK_TYPE.LIP_SYNC,
   TASK_TYPE.VOICE_LINE,
   TASK_TYPE.VOICE_DESIGN,
@@ -279,6 +281,7 @@ export function buildDefaultTaskBillingInfo(taskType: TaskType, payload: AnyPayl
 
   switch (taskType) {
     case TASK_TYPE.IMAGE_PANEL:
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE:
     case TASK_TYPE.IMAGE_CHARACTER:
     case TASK_TYPE.IMAGE_LOCATION:
     case TASK_TYPE.MODIFY_ASSET_IMAGE:
@@ -288,6 +291,7 @@ export function buildDefaultTaskBillingInfo(taskType: TaskType, payload: AnyPayl
       return buildImageTaskInfo(taskType, payload)
     case TASK_TYPE.VIDEO_PANEL:
     case TASK_TYPE.VIDEO_GROUP:
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO:
       return buildVideoTaskInfo(taskType, payload)
     case TASK_TYPE.MUSIC_GENERATE:
     case TASK_TYPE.BGM_SCORE_GENERATE:

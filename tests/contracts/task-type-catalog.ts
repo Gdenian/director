@@ -10,6 +10,7 @@ export type TaskTypeCoverageEntry = {
 
 const TASK_TYPE_OWNER_MAP = {
   [TASK_TYPE.IMAGE_PANEL]: 'tests/unit/worker/panel-image-task-handler.test.ts',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE]: 'tests/unit/worker/consistency-experiment-image-task-handler.test.ts',
   [TASK_TYPE.IMAGE_CHARACTER]: 'tests/unit/worker/character-image-task-handler.test.ts',
   [TASK_TYPE.IMAGE_LOCATION]: 'tests/unit/worker/location-image-task-handler.test.ts',
   [TASK_TYPE.MUSIC_GENERATE]: 'tests/unit/worker/music-worker.test.ts',
@@ -17,6 +18,7 @@ const TASK_TYPE_OWNER_MAP = {
   [TASK_TYPE.FINAL_VIDEO_RENDER]: 'tests/unit/worker/final-video-render-worker.test.ts',
   [TASK_TYPE.VIDEO_PANEL]: 'tests/unit/worker/video-worker.test.ts',
   [TASK_TYPE.VIDEO_GROUP]: 'tests/unit/worker/video-worker.test.ts',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO]: 'tests/unit/worker/consistency-experiment-video-worker.test.ts',
   [TASK_TYPE.LIP_SYNC]: 'tests/unit/worker/video-worker.test.ts',
   [TASK_TYPE.VOICE_LINE]: 'tests/unit/worker/voice-worker.test.ts',
   [TASK_TYPE.VOICE_DESIGN]: 'tests/unit/worker/voice-worker.test.ts',

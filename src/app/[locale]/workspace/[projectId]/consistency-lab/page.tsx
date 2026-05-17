@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import { AppIcon } from '@/components/ui/icons'
 import { apiFetch } from '@/lib/api-fetch'
@@ -62,6 +63,61 @@ function PromptList({ run }: { readonly run: ConsistencyLabRunDto }) {
             {panel.prompt}
           </pre>
         </details>
+      ))}
+    </div>
+  )
+}
+
+function PanelImages(props: {
+  readonly run: ConsistencyLabRunDto
+  readonly generatingLabel: string
+  readonly emptyLabel: string
+  readonly shotLabel: string
+}) {
+  const { run } = props
+  const panelsWithImages = run.panels.filter((panel) => panel.imageUrl)
+  if (panelsWithImages.length === 0) {
+    return <p className="mt-1">{run.panels.some((panel) => panel.status === 'generating') ? props.generatingLabel : props.emptyLabel}</p>
+  }
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      {panelsWithImages.map((panel) => (
+        panel.imageUrl ? (
+          <figure key={panel.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+            <Image
+              src={panel.imageUrl}
+              alt={`${props.shotLabel} ${panel.sourceShotNumber}`}
+              width={320}
+              height={180}
+              unoptimized
+              className="aspect-video w-full object-cover"
+            />
+            <figcaption className="px-2 py-1 text-[11px] text-slate-500">#{panel.sourceShotNumber}</figcaption>
+          </figure>
+        ) : null
+      ))}
+    </div>
+  )
+}
+
+function ExperimentVideos(props: {
+  readonly run: ConsistencyLabRunDto
+  readonly emptyLabel: string
+}) {
+  const { run } = props
+  if (run.videos.length === 0) return <p className="mt-1">{props.emptyLabel}</p>
+  return (
+    <div className="mt-3 space-y-3">
+      {run.videos.map((video) => (
+        <div key={video.id} className="rounded-md border border-slate-200 bg-white p-2">
+          <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+            <span>{Array.isArray(video.sourceShotNumbers) ? video.sourceShotNumbers.join(', ') : video.sourceVideoBlockId}</span>
+            <span>{video.status}</span>
+          </div>
+          {video.videoUrl ? (
+            <video src={video.videoUrl} className="aspect-video w-full rounded bg-black" controls />
+          ) : null}
+        </div>
       ))}
     </div>
   )
@@ -142,6 +198,42 @@ export default function ConsistencyLabPage() {
     }
   }
 
+  const generateImages = async (runId: string) => {
+    setBusyKey(`images:${runId}`)
+    setError(null)
+    try {
+      const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/images`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ meta: { locale } }),
+      })
+      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('imageFailed')))
+      await loadRuns()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  const generateVideos = async (runId: string) => {
+    setBusyKey(`videos:${runId}`)
+    setError(null)
+    try {
+      const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/videos`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ meta: { locale } }),
+      })
+      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('videoFailed')))
+      await loadRuns()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   const deleteRun = async (runId: string) => {
     setBusyKey(`delete:${runId}`)
     setError(null)
@@ -173,6 +265,19 @@ export default function ConsistencyLabPage() {
       setBusyKey(null)
     }
   }
+
+  useEffect(() => {
+    const hasGeneratingRun = runs.some((run) => (
+      run.status === 'generating'
+      || run.panels.some((panel) => panel.status === 'generating' || panel.status === 'pending')
+      || run.videos.some((video) => video.status === 'generating' || video.status === 'pending')
+    ))
+    if (!hasGeneratingRun) return
+    const timer = window.setInterval(() => {
+      void loadRuns()
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [loadRuns, runs])
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -269,6 +374,24 @@ export default function ConsistencyLabPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={busyKey === `images:${run.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => void generateImages(run.id)}
+                        >
+                          <AppIcon name="image" className="h-3.5 w-3.5" />
+                          {busyKey === `images:${run.id}` ? t('generatingImages') : t('generateImages')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyKey === `videos:${run.id}` || run.panels.some((panel) => !panel.imageUrl)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => void generateVideos(run.id)}
+                        >
+                          <AppIcon name="video" className="h-3.5 w-3.5" />
+                          {busyKey === `videos:${run.id}` ? t('generatingVideos') : t('generateVideos')}
+                        </button>
+                        <button
+                          type="button"
                           disabled={busyKey === `adopt:${run.id}`}
                           className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => void adoptRun(run.id)}
@@ -300,11 +423,11 @@ export default function ConsistencyLabPage() {
                     </section>
                     <section className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       <p className="font-semibold text-slate-700">{t('panelImages')}</p>
-                      <p className="mt-1">{t('placeholderImages')}</p>
+                      <PanelImages run={run} generatingLabel={t('generating')} emptyLabel={t('emptyMedia')} shotLabel={t('shot')} />
                     </section>
                     <section className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       <p className="font-semibold text-slate-700">{t('videos')}</p>
-                      <p className="mt-1">{t('placeholderVideos')}</p>
+                      <ExperimentVideos run={run} emptyLabel={t('emptyMedia')} />
                     </section>
                   </div>
                 ) : (

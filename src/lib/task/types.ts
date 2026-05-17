@@ -45,6 +45,7 @@ export type TaskLifecycleEventType = (typeof TASK_LIFECYCLE_EVENT_TYPES)[number]
 
 export const TASK_TYPE = {
   IMAGE_PANEL: 'image_panel',
+  CONSISTENCY_EXPERIMENT_IMAGE: 'consistency_experiment_image',
   IMAGE_CHARACTER: 'image_character',
   IMAGE_LOCATION: 'image_location',
   MUSIC_GENERATE: 'music_generate',
@@ -52,6 +53,7 @@ export const TASK_TYPE = {
   FINAL_VIDEO_RENDER: 'final_video_render',
   VIDEO_PANEL: 'video_panel',
   VIDEO_GROUP: 'video_group',
+  CONSISTENCY_EXPERIMENT_VIDEO: 'consistency_experiment_video',
   LIP_SYNC: 'lip_sync',
   VOICE_LINE: 'voice_line',
   VOICE_DESIGN: 'voice_design',

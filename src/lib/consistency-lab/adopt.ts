@@ -22,6 +22,29 @@ function editStoryboardMarker(editScriptId: string): string {
   })
 }
 
+function readRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function readString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function parseShotNumbers(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0)
+}
+
+function sameShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((shotNumber, index) => shotNumber === right[index])
+}
+
 function buildShotTimingByNumber(snapshot: ConsistencyLabSourceSnapshot): Map<number, {
   readonly start: number
   readonly end: number
@@ -51,6 +74,7 @@ export async function adoptConsistencyExperimentRun(input: {
     },
     include: {
       panels: { orderBy: { panelIndex: 'asc' } },
+      videos: { orderBy: { createdAt: 'asc' } },
     },
   })
   if (!run) throw new ApiError('NOT_FOUND')
@@ -212,6 +236,52 @@ export async function adoptConsistencyExperimentRun(input: {
     where: { id: storyboard.id },
     data: { panelCount: run.panels.length },
   })
+  for (const video of run.videos) {
+    if (video.status !== 'ready' || !video.videoUrl) continue
+    const shotNumbers = parseShotNumbers(video.sourceShotNumbers)
+    const existingVideoGroups = await prisma.projectVideoGroup.findMany({
+      where: {
+        projectId: input.projectId,
+        episodeId: snapshot.episodeId,
+      },
+    })
+    const existingGroup = existingVideoGroups.find((group) => sameShotNumbers(
+      parseShotNumbers(group.shotNumbers),
+      shotNumbers,
+    ))
+    const durationSec = shotNumbers.reduce((total, shotNumber) => {
+      const shot = snapshot.shots.find((item) => item.shotNumber === shotNumber)
+      if (!shot) throw new Error(`CONSISTENCY_LAB_ADOPT_VIDEO_SHOT_MISSING:${shotNumber}`)
+      return total + shot.durationSec
+    }, 0)
+    const videoMetadata = readRecord(video.metadataJson)
+    const referenceImageUrl = readString(videoMetadata.referenceImageUrl)
+    const referenceImageMediaId = readString(videoMetadata.referenceImageMediaId)
+    const data = {
+      projectId: input.projectId,
+      episodeId: snapshot.episodeId,
+      gridMode: shotNumbers.length > 4 ? '3x3' : '2x2',
+      shotNumbers,
+      durationSec,
+      prompt: video.prompt,
+      status: 'completed',
+      taskId: null,
+      errorCode: null,
+      errorMessage: null,
+      referenceImageUrl,
+      referenceImageMediaId,
+      videoUrl: video.videoUrl,
+      videoMediaId: video.videoMediaId,
+    }
+    if (existingGroup) {
+      await prisma.projectVideoGroup.update({
+        where: { id: existingGroup.id },
+        data,
+      })
+    } else {
+      await prisma.projectVideoGroup.create({ data })
+    }
+  }
   return {
     storyboardId: storyboard.id,
     panelCount: run.panels.length,
