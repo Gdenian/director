@@ -184,9 +184,6 @@
   background-image:
     linear-gradient(135deg, rgba(224, 242, 254, 0.32), transparent 42%, rgba(255, 255, 255, 0.2));
   background-blend-mode: screen;
-  box-shadow:
-    inset 0 0 0 1px rgba(56, 189, 248, 0.28),
-    inset 0 0 44px rgba(14, 165, 233, 0.16);
 }
 
 .workspace-node-loading-surface::before,
@@ -219,6 +216,5 @@
   filter: blur(0.5px);
   opacity: 0.96;
   mix-blend-mode: screen;
-  box-shadow: 0 0 28px rgba(56, 189, 248, 0.42);
-  animation: workspaceNodeLightSweep 1.08s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+  animation: workspaceNodeLightSweep 1.8s cubic-bezier(0.35, 0, 0.2, 1) infinite;
 }
