@@ -61,9 +61,13 @@
 - 顶层 durationSec 必须等于所有 shots 的 durationSec 总和，并接近用户需求总时长。
 - videoBlocks 必须覆盖所有 shot 且只能按 shotNumber 原顺序排列，不得跳号、重复、重排。
 - single 必须且只能包含 1 个 shot。
-- group 必须包含 2-9 个连续 shot，且这些 shot 的 durationSec 累加后必须在 2-15 秒之间。
-- 默认优先使用 group。只有空间/时间断裂严重、静态展示、单独情绪特写、强主体切换，或连续生成会污染画面时才使用 single。
-- 如果连续镜头适合 group 但累计超过 15 秒，必须在 15 秒以内拆分为多个 group。
+- group 必须同时满足两个条件：包含 2-9 个连续 shot；这些 shot 的 durationSec 累加必须在 2-15 秒之间。
+- 15 秒是最高优先级硬上限，高于“同一场景/同一季节/同一主体/默认优先 group”等连续性判断；任何 group 总时长超过 15 秒都是无效输出。
+- 构建每个 group 时必须按顺序累加 durationSec；如果加入下一个 shot 会让当前 group 超过 15 秒，必须在加入前结束当前 group，并从下一个 shot 开始新 block。
+- 禁止仅因为同一季节、同一庭院、同一角色或同一段落就把超过 15 秒的镜头合成一个 group。
+- 例如 5 个 shot 各 4 秒时，不能输出一个 20 秒 group；应拆成 12 秒 + 8 秒等多个合法 block。例如 5 个 shot 各 5 秒时，不能输出一个 25 秒 group；应拆成 15 秒 + 10 秒等多个合法 block。
+- 默认优先使用 group 只在不超过 15 秒时成立。只有空间/时间断裂严重、静态展示、单独情绪特写、强主体切换，或连续生成会污染画面时才使用 single。
+- 输出 JSON 前必须自检每个 videoBlocks item：sum(shots.durationSec for shotNumbers) <= 15；发现超过 15 秒时先拆分，不要输出。
 - reason 必须解释生成稳定性与连续性依据，不要写空泛理由。
 
 shot 字段职责：

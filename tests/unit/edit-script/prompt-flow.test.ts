@@ -56,6 +56,11 @@ describe('edit script block-first prompt flow', () => {
     expect(primaryPrompt).toContain('videoBlocks[].prompt 是后续直接发给视频模型的最终提示词')
     expect(primaryPrompt).toContain('group prompt 不是把 single prompt 机械合并')
     expect(primaryPrompt).toContain('纯文字生视频')
+    expect(primaryPrompt).toContain('15 秒是最高优先级硬上限')
+    expect(primaryPrompt).toContain('如果加入下一个 shot 会让当前 group 超过 15 秒')
+    expect(primaryPrompt).toContain('不能输出一个 20 秒 group')
+    expect(primaryPrompt).toContain('不能输出一个 25 秒 group')
+    expect(primaryPrompt).toContain('默认优先使用 group 只在不超过 15 秒时成立')
     expect(primaryPrompt).toContain('[00:00-00:03] 镜头1')
     expect(primaryPrompt).toContain('每个 prompt 必须包含声音约束')
     expect(primaryPrompt).toContain('sound effects only')
@@ -81,5 +86,23 @@ describe('edit script block-first prompt flow', () => {
     expect(primaryPrompt).not.toContain('2x2')
     expect(primaryPrompt).not.toContain('3x3')
     expect(primaryPrompt).not.toContain('宫格')
+
+    const englishPrimaryPrompt = buildAiPrompt({
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
+      locale: 'en',
+      variables: {
+        user_request: 'Create a continuous short film',
+        screenplay_text: screenplayText,
+        duration_seconds: '8',
+        aspect_ratio: '9:16',
+        style_context: 'cinematic',
+      },
+    })
+
+    expect(englishPrimaryPrompt).toContain('15-second limit is the highest-priority hard ceiling')
+    expect(englishPrimaryPrompt).toContain('If adding the next shot would make the current group exceed 15 seconds')
+    expect(englishPrimaryPrompt).toContain('must not become one 20-second group')
+    expect(englishPrimaryPrompt).toContain('must not become one 25-second group')
+    expect(englishPrimaryPrompt).toContain('Prefer group by default only when the group stays within 15 seconds')
   })
 })

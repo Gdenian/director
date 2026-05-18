@@ -61,9 +61,13 @@ Structural hard requirements:
 - Top-level durationSec must equal the sum of all shot durationSec values and be close to the requested duration.
 - videoBlocks must cover every shot exactly once in original shotNumber order. Do not skip, duplicate, or reorder shots.
 - single must contain exactly 1 shot.
-- group must contain 2-9 adjacent shots, and the summed durationSec of those shots must be 2-15 seconds.
-- Prefer group by default. Use single only for severe space/time jumps, static display shots, isolated emotional close-ups, strong subject switches, or cases where continuous generation would contaminate the image.
-- If adjacent shots are suitable for grouping but exceed 15 seconds total, split them into multiple groups within the 15-second limit.
+- A group must satisfy both conditions: it contains 2-9 adjacent shots; the summed durationSec of those shots is 2-15 seconds.
+- The 15-second limit is the highest-priority hard ceiling. It overrides same scene, same season, same subject, and default preference for groups. Any group above 15 seconds is invalid output.
+- When building each group, add shot durations in order. If adding the next shot would make the current group exceed 15 seconds, end the current group before that shot and start a new block from the next shot.
+- Do not group shots above 15 seconds just because they share the same season, courtyard, character, or story section.
+- For example, five 4-second shots must not become one 20-second group; split them into legal blocks such as 12 seconds + 8 seconds. Five 5-second shots must not become one 25-second group; split them into legal blocks such as 15 seconds + 10 seconds.
+- Prefer group by default only when the group stays within 15 seconds. Use single only for severe space/time jumps, static display shots, isolated emotional close-ups, strong subject switches, or cases where continuous generation would contaminate the image.
+- Before outputting JSON, self-check every videoBlocks item: sum(shots.durationSec for shotNumbers) <= 15. If any group exceeds 15 seconds, split it before output.
 - reason must explain generation stability and continuity. Do not write vague reasons.
 
 Shot field responsibilities:
