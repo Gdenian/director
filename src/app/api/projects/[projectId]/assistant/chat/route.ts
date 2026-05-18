@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { safeValidateUIMessages } from 'ai'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isErrorResponse, requireProjectAuth } from '@/lib/api-auth'
-import { getUserModelConfig } from '@/lib/config-service'
+import { getProjectModelConfig } from '@/lib/config-service'
 import { createProjectAgentChatResponse } from '@/lib/project-agent'
 import { normalizeProjectAgentLocale } from '@/lib/project-agent/locale'
 import { compressMessages, shouldCompressMessages } from '@/lib/project-agent/message-compression'
@@ -87,6 +87,7 @@ function readLocaleFromBody(body: RequestBody): 'zh' | 'en' {
 
 async function compressThreadMessagesIfNeeded(params: {
   userId: string
+  projectId: string
   locale: 'zh' | 'en'
   messages: unknown
 }) {
@@ -98,8 +99,8 @@ async function compressThreadMessagesIfNeeded(params: {
     return validation.data
   }
 
-  const userConfig = await getUserModelConfig(params.userId)
-  const analysisModelKey = userConfig.analysisModel?.trim() || ''
+  const projectConfig = await getProjectModelConfig(params.projectId, params.userId)
+  const analysisModelKey = projectConfig.analysisModel?.trim() || ''
   if (!analysisModelKey) {
     throw new Error('PROJECT_AGENT_MODEL_NOT_CONFIGURED')
   }
@@ -162,6 +163,7 @@ export const PUT = apiHandler(async (
     const locale = readLocaleFromBody(body)
     const messages = await compressThreadMessagesIfNeeded({
       userId: authResult.session.user.id,
+      projectId,
       locale,
       messages: body.messages ?? [],
     })
@@ -223,6 +225,7 @@ export const POST = apiHandler(async (
     const locale = readLocaleFromBody(body)
     const messages = await compressThreadMessagesIfNeeded({
       userId: authResult.session.user.id,
+      projectId,
       locale,
       messages: body.messages,
     })

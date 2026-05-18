@@ -63,8 +63,8 @@ const threadLogMock = vi.hoisted(() => ({
 }))
 
 const modelConfigMock = vi.hoisted(() => ({
-  getUserModelConfig: vi.fn(async () => ({
-    analysisModel: 'llm::mock',
+  getProjectModelConfig: vi.fn(async () => ({
+    analysisModel: 'llm::project-analysis',
   })),
 }))
 
@@ -248,10 +248,10 @@ describe('project assistant chat route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(modelConfigMock.getUserModelConfig).toHaveBeenCalledWith('user-1')
+    expect(modelConfigMock.getProjectModelConfig).toHaveBeenCalledWith('project-1', 'user-1')
     expect(modelResolverMock.resolveProjectAgentLanguageModel).toHaveBeenCalledWith({
       userId: 'user-1',
-      analysisModelKey: 'llm::mock',
+      analysisModelKey: 'llm::project-analysis',
     })
     expect(messageCompressionMock.compressMessages).toHaveBeenCalledTimes(1)
     expect(projectAgentMock.createProjectAgentChatResponse).toHaveBeenCalledWith(expect.objectContaining({

@@ -11,7 +11,7 @@ import {
 import type { Tool } from '@ai-sdk/provider-utils'
 import type { NextRequest } from 'next/server'
 import { createProjectAgentOperationRegistry } from '@/lib/operations/registry'
-import { getUserModelConfig } from '@/lib/config-service'
+import { getProjectModelConfig } from '@/lib/config-service'
 import { executeProjectAgentOperationFromTool } from '@/lib/adapters/tools/execute-project-agent-operation'
 import { writeOperationDataPart } from '@/lib/operations/types'
 import { getRequestId } from '@/lib/api-errors'
@@ -161,8 +161,8 @@ export async function createProjectAgentChatResponse(input: {
     throw new Error('PROJECT_AGENT_EMPTY_MESSAGES')
   }
 
-  const userConfig = await getUserModelConfig(input.userId)
-  const analysisModelKey = userConfig.analysisModel?.trim() || ''
+  const projectConfig = await getProjectModelConfig(input.projectId, input.userId)
+  const analysisModelKey = projectConfig.analysisModel?.trim() || ''
   if (!analysisModelKey) {
     throw new Error('PROJECT_AGENT_MODEL_NOT_CONFIGURED')
   }

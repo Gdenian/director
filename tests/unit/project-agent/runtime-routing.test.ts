@@ -59,7 +59,7 @@ vi.mock('ai', async () => {
 })
 
 vi.mock('@/lib/config-service', () => ({
-  getUserModelConfig: vi.fn(async () => ({ analysisModel: 'llm::mock' })),
+  getProjectModelConfig: vi.fn(async () => ({ analysisModel: 'llm::project-analysis' })),
 }))
 
 vi.mock('@/lib/project-agent/model', () => ({
@@ -126,6 +126,8 @@ vi.mock('@/lib/api-errors', () => ({
 }))
 
 import { createProjectAgentChatResponse } from '@/lib/project-agent/runtime'
+import { getProjectModelConfig } from '@/lib/config-service'
+import { resolveProjectAgentLanguageModel } from '@/lib/project-agent/model'
 
 function buildRequest(): NextRequest {
   return new Request('http://localhost') as unknown as NextRequest
@@ -222,6 +224,11 @@ describe('project agent runtime tool routing', () => {
     await flushAsyncWork()
 
     expect(response.status).toBe(200)
+    expect(vi.mocked(getProjectModelConfig)).toHaveBeenCalledWith('project-1', 'user-1')
+    expect(vi.mocked(resolveProjectAgentLanguageModel)).toHaveBeenCalledWith({
+      userId: 'user-1',
+      analysisModelKey: 'llm::project-analysis',
+    })
     expect(streamState.capturedToolNames).toContain('get_character_detail')
     expect(streamState.capturedToolNames).not.toContain('regenerate_panel_image')
     expect(streamState.capturedSystem).toContain('get_project_phase')
