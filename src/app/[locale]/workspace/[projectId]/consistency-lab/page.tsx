@@ -10,7 +10,13 @@ import { apiFetch } from '@/lib/api-fetch'
 import { readApiErrorMessage } from '@/lib/api/read-error-message'
 import { useProjectEditScript } from '@/lib/query/hooks'
 import { useRouter } from '@/i18n/navigation'
-import type { ConsistencyLabArtifactDto, ConsistencyLabRunDto, ConsistencyLabStrategy } from '@/lib/consistency-lab/types'
+import type {
+  ConsistencyLabArtifactDto,
+  ConsistencyLabRunDto,
+  ConsistencyLabRunStage,
+  ConsistencyLabRunStatus,
+  ConsistencyLabStrategy,
+} from '@/lib/consistency-lab/types'
 
 const STRATEGIES: readonly ConsistencyLabStrategy[] = [
   'structured_text',
@@ -24,6 +30,11 @@ interface RunsResponse {
 
 interface RunResponse {
   readonly run: ConsistencyLabRunDto
+}
+
+interface TaskSubmitResponse {
+  readonly taskId?: string
+  readonly deduped?: boolean
 }
 
 function latestRunForStrategy(runs: readonly ConsistencyLabRunDto[], strategy: ConsistencyLabStrategy) {
@@ -199,6 +210,7 @@ export default function ConsistencyLabPage() {
   const [runs, setRuns] = useState<readonly ConsistencyLabRunDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [adoptedRunId, setAdoptedRunId] = useState<string | null>(null)
   const editScriptQuery = useProjectEditScript(projectId, episodeId || null)
@@ -243,6 +255,7 @@ export default function ConsistencyLabPage() {
   const createRun = async (strategy: ConsistencyLabStrategy) => {
     setBusyKey(`create:${strategy}`)
     setError(null)
+    setNotice(t('submittingTask'))
     try {
       const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs`, {
         method: 'POST',
@@ -252,26 +265,55 @@ export default function ConsistencyLabPage() {
       if (!response.ok) throw new Error(await readApiErrorMessage(response, t('createFailed')))
       const payload = await response.json() as RunResponse
       setRuns((previous) => [payload.run, ...previous])
+      setNotice(t('runCreated'))
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
+      setNotice(null)
     } finally {
       setBusyKey(null)
     }
   }
 
+  const updateRunProgress = useCallback((runId: string, status: ConsistencyLabRunStatus, currentStage: ConsistencyLabRunStage) => {
+    setRuns((previous) => previous.map((run) => (
+      run.id === runId
+        ? {
+            ...run,
+            status,
+            currentStage,
+            errorMessage: null,
+          }
+        : run
+    )))
+  }, [])
+
+  const readTaskSubmitResponse = async (response: Response, fallbackMessage: string): Promise<TaskSubmitResponse> => {
+    if (!response.ok) throw new Error(await readApiErrorMessage(response, fallbackMessage))
+    return await response.json() as TaskSubmitResponse
+  }
+
+  const showSubmittedNotice = (payload: TaskSubmitResponse) => {
+    const taskId = payload.taskId ?? '-'
+    setNotice(payload.deduped ? t('taskAlreadyRunning', { taskId }) : t('taskSubmitted', { taskId }))
+  }
+
   const generateImages = async (runId: string) => {
     setBusyKey(`images:${runId}`)
     setError(null)
+    setNotice(t('submittingTask'))
     try {
       const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/images`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ meta: { locale } }),
       })
-      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('imageFailed')))
+      const payload = await readTaskSubmitResponse(response, t('imageFailed'))
+      updateRunProgress(runId, 'generating', 'images_generating')
+      showSubmittedNotice(payload)
       await loadRuns()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
+      setNotice(null)
     } finally {
       setBusyKey(null)
     }
@@ -280,16 +322,20 @@ export default function ConsistencyLabPage() {
   const generateFloorPlans = async (runId: string) => {
     setBusyKey(`floorPlans:${runId}`)
     setError(null)
+    setNotice(t('submittingTask'))
     try {
       const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/floor-plans`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ meta: { locale } }),
       })
-      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('floorPlanFailed')))
+      const payload = await readTaskSubmitResponse(response, t('floorPlanFailed'))
+      updateRunProgress(runId, 'generating', 'floor_plans_generating')
+      showSubmittedNotice(payload)
       await loadRuns()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
+      setNotice(null)
     } finally {
       setBusyKey(null)
     }
@@ -298,16 +344,20 @@ export default function ConsistencyLabPage() {
   const analyzeGrid = async (runId: string) => {
     setBusyKey(`gridAnalysis:${runId}`)
     setError(null)
+    setNotice(t('submittingTask'))
     try {
       const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/grid-analysis`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ meta: { locale } }),
       })
-      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('gridAnalysisFailed')))
+      const payload = await readTaskSubmitResponse(response, t('gridAnalysisFailed'))
+      updateRunProgress(runId, 'generating', 'grid_analyzing')
+      showSubmittedNotice(payload)
       await loadRuns()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
+      setNotice(null)
     } finally {
       setBusyKey(null)
     }
@@ -316,16 +366,20 @@ export default function ConsistencyLabPage() {
   const generateVideos = async (runId: string) => {
     setBusyKey(`videos:${runId}`)
     setError(null)
+    setNotice(t('submittingTask'))
     try {
       const response = await apiFetch(`/api/projects/${projectId}/consistency-lab/runs/${runId}/videos`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ meta: { locale } }),
       })
-      if (!response.ok) throw new Error(await readApiErrorMessage(response, t('videoFailed')))
+      const payload = await readTaskSubmitResponse(response, t('videoFailed'))
+      updateRunProgress(runId, 'generating', 'videos_generating')
+      showSubmittedNotice(payload)
       await loadRuns()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
+      setNotice(null)
     } finally {
       setBusyKey(null)
     }
@@ -411,6 +465,9 @@ export default function ConsistencyLabPage() {
 
         {error ? (
           <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        ) : null}
+        {notice ? (
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800">{notice}</div>
         ) : null}
 
         <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-4">
