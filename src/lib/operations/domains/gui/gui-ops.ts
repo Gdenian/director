@@ -1081,6 +1081,7 @@ export function createGuiOperations(): ProjectAgentOperationRegistryDraft {
           where: { episodeId: input.episodeId },
           include: {
             clip: true,
+            blockingArtifacts: { orderBy: [{ groupIndex: 'asc' }, { createdAt: 'asc' }] },
             panels: { orderBy: { panelIndex: 'asc' } },
           },
           orderBy: { createdAt: 'asc' },
@@ -1906,6 +1907,7 @@ export function createGuiOperations(): ProjectAgentOperationRegistryDraft {
             storyboards: {
               include: {
                 clip: true,
+                blockingArtifacts: { orderBy: [{ groupIndex: 'asc' }, { createdAt: 'asc' }] },
                 panels: { orderBy: { panelIndex: 'asc' } },
               },
               orderBy: { createdAt: 'asc' },

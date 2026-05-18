@@ -95,6 +95,8 @@ function createStoryboard(input: {
   readonly id: string
   readonly clipId: string
   readonly panels: ProjectPanel[]
+  readonly photographyPlan?: string | null
+  readonly blockingArtifacts?: ProjectStoryboard['blockingArtifacts']
 }): ProjectStoryboard {
   return {
     id: input.id,
@@ -105,8 +107,9 @@ function createStoryboard(input: {
     storyboardImageUrl: null,
     candidateImages: null,
     lastError: null,
-    photographyPlan: null,
+    photographyPlan: input.photographyPlan ?? null,
     panels: input.panels,
+    blockingArtifacts: input.blockingArtifacts ?? [],
   }
 }
 
@@ -1567,5 +1570,124 @@ describe('workspace node canvas projection', () => {
       type: 'generate_edit_storyboard',
       editScriptId: 'edit-ready',
     })
+  })
+
+  it('projects coordinate storyboard artifacts as a space consistency node before panels', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-grid',
+          clipId: 'clip-grid',
+          panels: [
+            createPanel({ id: 'panel-grid-1', storyboardId: 'storyboard-grid', panelIndex: 0, panelNumber: 1 }),
+          ],
+          photographyPlan: JSON.stringify({
+            consistencyMode: 'grid_coordinates',
+            currentStage: 'panel_prompts_ready',
+            strategyOutput: {
+              blocks: [{
+                sourceVideoBlockId: 'edit-grid:videoBlock:1',
+                classification: 'fixed_space_strong',
+                skipped: false,
+                reason: 'Two-person dialogue in a fixed courtyard.',
+                cinematicTranslation: 'Old monk screen left, young disciple screen right, flower bed between them.',
+                coordinates: [
+                  { name: 'Old monk', kind: 'character', x: 6.5, y: 6.5, facing: 'east' },
+                  { name: 'Young disciple', kind: 'character', x: 8.5, y: 6.5, facing: 'west' },
+                ],
+              }],
+            },
+          }),
+          blockingArtifacts: [
+            {
+              id: 'artifact-floor',
+              storyboardId: 'storyboard-grid',
+              kind: 'grid_floor_plan',
+              sourceVideoBlockId: 'edit-grid:videoBlock:1',
+              groupIndex: 0,
+              prompt: 'Top-down temple courtyard floor plan.',
+              imageUrl: 'https://example.com/floor.png',
+              imageMediaId: null,
+              media: null,
+              candidateImages: null,
+              metadataJson: {},
+              status: 'ready',
+              errorMessage: null,
+            },
+            {
+              id: 'artifact-overlay',
+              storyboardId: 'storyboard-grid',
+              kind: 'grid_coordinate_overlay',
+              sourceVideoBlockId: 'edit-grid:videoBlock:1',
+              groupIndex: 0,
+              prompt: null,
+              imageUrl: 'https://example.com/overlay.png',
+              imageMediaId: null,
+              media: null,
+              candidateImages: null,
+              metadataJson: {},
+              status: 'ready',
+              errorMessage: null,
+            },
+          ],
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+      editScript: {
+        id: 'edit-grid',
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        userPrompt: 'temple lesson',
+        title: 'Temple Lesson',
+        logline: null,
+        durationSec: 8,
+        shotCount: 1,
+        status: 'ready',
+        shots: [
+          {
+            shotNumber: 1,
+            durationSec: 8,
+            visualAction: 'Old monk teaches the young disciple.',
+            charactersAndScene: 'Temple courtyard',
+            camera: 'medium shot',
+            videoPrompt: 'Temple lesson.',
+            sound: 'wind',
+          },
+        ],
+        videoBlocks: [
+          {
+            kind: 'single',
+            shotNumbers: [1],
+            reason: 'Fixed courtyard blocking.',
+            prompt: 'Temple lesson.',
+          },
+        ],
+        requirements: [],
+      },
+    })
+
+    const spaceNode = projection.nodes.find((node) => node.id === 'space-consistency:storyboard-grid')
+    expect(spaceNode?.data.kind).toBe('spaceConsistency')
+    expect(spaceNode?.data.previewImageUrl).toBe('https://example.com/overlay.png')
+    expect(spaceNode?.data.spaceConsistencyDetails).toMatchObject({
+      floorPlanCount: 1,
+      overlayCount: 1,
+      blocks: [
+        {
+          sourceVideoBlockId: 'edit-grid:videoBlock:1',
+          cinematicTranslation: 'Old monk screen left, young disciple screen right, flower bed between them.',
+          coordinates: [
+            { name: 'Old monk', x: 6.5, y: 6.5 },
+            { name: 'Young disciple', x: 8.5, y: 6.5 },
+          ],
+        },
+      ],
+    })
+    expect(projection.edges.some((edge) => edge.id === 'edge:space-consistency-source:storyboard-grid')).toBe(true)
+    expect(projection.edges.some((edge) => edge.id === 'edge:space-consistency-shot:storyboard-grid')).toBe(true)
   })
 })

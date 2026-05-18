@@ -36,6 +36,8 @@ function nodeIconName(kind: WorkspaceCanvasFlowNode['data']['kind']): AppIconNam
       return 'chart'
     case 'editScript':
       return 'clipboardCheck'
+    case 'spaceConsistency':
+      return 'chart'
     case 'videoPlan':
       return 'clapperboard'
     case 'bgmScore':
@@ -1215,6 +1217,94 @@ function VideoPlanContent({
   )
 }
 
+function SpaceConsistencyContent({
+  data,
+  labels,
+  expanded,
+}: {
+  readonly data: WorkspaceCanvasFlowNode['data']
+  readonly labels: ReturnType<typeof useTranslations>
+  readonly expanded: boolean
+}) {
+  const details = data.spaceConsistencyDetails
+  if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
+  const imageArtifacts = details.artifacts.filter((artifact) => artifact.imageUrl)
+  const visibleBlocks = expanded ? details.blocks : details.blocks.slice(0, 2)
+  return (
+    <div className="nodrag nowheel space-y-3">
+      <MediaPreview data={data} />
+      {renderSection(labels('spaceConsistencyStats'), (
+        <div className="space-y-1">
+          {renderValue(labels('status'), details.stage ?? data.statusLabel)}
+          {renderValue(labels('floorPlanCount'), details.floorPlanCount)}
+          {renderValue(labels('coordinateOverlayCount'), details.overlayCount)}
+          {renderValue(labels('blockingBlockCount'), details.blocks.length)}
+        </div>
+      ))}
+      {imageArtifacts.length > 0 ? renderSection(labels('coordinateMaps'), (
+        <div className="grid grid-cols-2 gap-2">
+          {imageArtifacts.slice(0, expanded ? imageArtifacts.length : 4).map((artifact) => {
+            const imageUrl = artifact.imageUrl ? toDisplayImageUrl(artifact.imageUrl) ?? artifact.imageUrl : null
+            return imageUrl ? (
+              <div key={artifact.id} className="overflow-hidden rounded-[12px] bg-white ring-1 ring-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageUrl} alt={artifact.kind} className="h-28 w-full object-contain" />
+                <div className="border-t border-slate-100 px-2 py-1">
+                  <p className={`${SELECTABLE_TEXT_CLASS} truncate text-[10px] font-semibold text-[var(--glass-text-tertiary)]`}>
+                    {artifact.kind}
+                  </p>
+                </div>
+              </div>
+            ) : null
+          })}
+        </div>
+      )) : null}
+      {visibleBlocks.length > 0 ? (
+        <div className="space-y-2">
+          {visibleBlocks.map((block, index) => (
+            <section key={`${block.sourceVideoBlockId ?? 'block'}:${index}`} className="space-y-2 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between gap-2">
+                <p className={`${SELECTABLE_TEXT_CLASS} truncate text-xs font-semibold text-[var(--glass-text-primary)]`}>
+                  {block.sourceVideoBlockId ?? labels('blockingBlock')}
+                </p>
+                <span className={`${SELECTABLE_TEXT_CLASS} shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200`}>
+                  {block.classification ?? labels('unknown')}
+                </span>
+              </div>
+              {block.cinematicTranslation ? renderTextBlock(block.cinematicTranslation) : null}
+              {block.coordinates.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {block.coordinates.slice(0, expanded ? block.coordinates.length : 6).map((coordinate, coordinateIndex) => (
+                    <span key={`${coordinate.name ?? coordinate.kind ?? 'coordinate'}:${coordinateIndex}`} className={`${SELECTABLE_TEXT_CLASS} inline-flex rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200`}>
+                      {coordinate.name ?? coordinate.kind ?? labels('coordinate')}
+                      {typeof coordinate.x === 'number' && typeof coordinate.y === 'number' ? ` [${coordinate.x}, ${coordinate.y}]` : ''}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {expanded && block.reason ? renderTextBlock(block.reason) : null}
+            </section>
+          ))}
+          {!expanded && details.blocks.length > visibleBlocks.length ? (
+            <p className={`${SELECTABLE_TEXT_CLASS} text-xs text-[var(--glass-text-tertiary)]`}>
+              {labels('moreItems', { count: details.blocks.length - visibleBlocks.length })}
+            </p>
+          ) : null}
+        </div>
+      ) : renderTextSection(labels('reason'), data.body)}
+      {expanded ? (
+        <div className="space-y-2">
+          {details.artifacts.filter((artifact) => artifact.prompt).slice(0, 3).map((artifact) => (
+            <React.Fragment key={artifact.id}>
+              {renderSection(labels('floorPlanPrompt'), renderSummaryText(artifact.prompt, 5))}
+            </React.Fragment>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function NodeContent({
   data,
   draft,
@@ -1262,6 +1352,8 @@ function NodeContent({
       return <EditPipelineStepContent data={data} labels={labels} expanded={expanded} />
     case 'editScript':
       return <EditScriptContent data={data} labels={labels} />
+    case 'spaceConsistency':
+      return <SpaceConsistencyContent data={data} labels={labels} expanded={expanded} />
     case 'videoPlan':
       return <VideoPlanContent data={data} labels={labels} expanded={expanded} />
     case 'editRequiredAsset':

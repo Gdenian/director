@@ -342,6 +342,15 @@
         "reason": "Reason",
         "videoPlanMeta": "Segment Info",
         "videoPlanPrompt": "Final Video Prompt",
+        "spaceConsistencyStats": "Space Consistency",
+        "floorPlanCount": "Floor Plans",
+        "coordinateOverlayCount": "Coordinate Maps",
+        "blockingBlockCount": "Blocks",
+        "coordinateMaps": "Coordinate Maps",
+        "blockingBlock": "Blocking Block",
+        "coordinate": "Coordinate",
+        "unknown": "Unknown",
+        "floorPlanPrompt": "Floor Plan Prompt",
         "editStepTimeline": "Timing Plan",
         "editStepVisualAction": "Visible Action",
         "editStepCamera": "Camera Design",
@@ -661,6 +670,12 @@
           "pendingTitle": "Generating Edit Table",
           "pendingBody": "AI is generating the edit-first table from the current video brief, including characters, locations, shot rhythm, video segments, and sound design.",
           "pendingMeta": "This will become an editable edit table when generation completes"
+        },
+        "spaceConsistency": {
+          "title": "Space Consistency",
+          "eyebrow": "Coordinate Blocking",
+          "body": "2D floor plans, coordinate overlays, and Vision blocking used by the production storyboard prompts.",
+          "meta": "{floorPlans} floor plan(s) · {overlays} coordinate map(s) · {blocks} block(s)"
         },
         "editAsset": {
           "meta": "Linked shots: {shots}"

@@ -24,6 +24,11 @@ export const WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE: WorkspaceCanvasNodeSize = {
   height: 560,
 }
 
+export const WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE: WorkspaceCanvasNodeSize = {
+  width: 460,
+  height: 620,
+}
+
 export const WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE: WorkspaceCanvasNodeSize = {
   width: 420,
   height: 320,
@@ -105,6 +110,15 @@ const WORKSPACE_CANVAS_NODE_PRESENTATION_PROFILES = {
       height: 420,
     },
     expandedLayout: 'stack',
+    defaultExpanded: false,
+  },
+  spaceConsistency: {
+    collapsed: WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE,
+    expanded: {
+      width: 760,
+      height: 820,
+    },
+    expandedLayout: 'wide',
     defaultExpanded: false,
   },
   videoPlan: {

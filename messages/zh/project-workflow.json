@@ -342,6 +342,15 @@
         "reason": "判断理由",
         "videoPlanMeta": "片段信息",
         "videoPlanPrompt": "最终视频提示词",
+        "spaceConsistencyStats": "空间一致性",
+        "floorPlanCount": "平面图",
+        "coordinateOverlayCount": "坐标图",
+        "blockingBlockCount": "空间块",
+        "coordinateMaps": "坐标图",
+        "blockingBlock": "空间块",
+        "coordinate": "坐标",
+        "unknown": "未知",
+        "floorPlanPrompt": "平面图提示词",
         "editStepTimeline": "时间安排",
         "editStepVisualAction": "可见动作",
         "editStepCamera": "镜头设计",
@@ -661,6 +670,12 @@
           "pendingTitle": "剪辑表生成中",
           "pendingBody": "AI 正在根据当前短片需求生成剪辑先行表，并提取人物、场景、镜头节奏、视频片段和声音设计。",
           "pendingMeta": "生成完成后会替换为可编辑剪辑表"
+        },
+        "spaceConsistency": {
+          "title": "空间一致性",
+          "eyebrow": "坐标调度",
+          "body": "正式分镜提示词使用的 2D 平面图、坐标覆盖图和 Vision 空间调度结果。",
+          "meta": "{floorPlans} 张平面图 · {overlays} 张坐标图 · {blocks} 个空间块"
         },
         "editAsset": {
           "meta": "关联镜头：{shots}"

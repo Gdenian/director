@@ -12,11 +12,12 @@ export type WorkspaceCanvasNodeKind =
   | 'editScreenplay'
   | 'editPipelineStep'
   | 'editScript'
+  | 'spaceConsistency'
   | 'videoPlan'
   | 'bgmScore'
   | 'editRequiredAsset'
 
-export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'panel' | 'videoGroup' | 'editScreenplay' | 'editPipelineStep' | 'editScript' | 'editAssetRequirement' | 'projectCharacter' | 'projectLocation'
+export type WorkspaceCanvasTargetType = 'episode' | 'clip' | 'storyboard' | 'panel' | 'videoGroup' | 'editScreenplay' | 'editPipelineStep' | 'editScript' | 'editAssetRequirement' | 'projectCharacter' | 'projectLocation'
 
 export type WorkspaceCanvasNodeAction =
   | { readonly type: 'update_story'; readonly value: string }
@@ -320,6 +321,37 @@ export interface WorkspaceCanvasEditAssetDetails {
   readonly errorMessage?: string | null
 }
 
+export interface WorkspaceCanvasSpaceConsistencyDetails {
+  readonly storyboardId: string
+  readonly stage?: string | null
+  readonly floorPlanCount: number
+  readonly overlayCount: number
+  readonly artifacts: readonly {
+    readonly id: string
+    readonly kind: string
+    readonly sourceVideoBlockId?: string | null
+    readonly groupIndex?: number | null
+    readonly prompt?: string | null
+    readonly imageUrl?: string | null
+    readonly status?: string | null
+    readonly errorMessage?: string | null
+  }[]
+  readonly blocks: readonly {
+    readonly sourceVideoBlockId?: string | null
+    readonly classification?: string | null
+    readonly skipped?: boolean | null
+    readonly reason?: string | null
+    readonly cinematicTranslation?: string | null
+    readonly coordinates: readonly {
+      readonly name?: string | null
+      readonly kind?: string | null
+      readonly x?: number | null
+      readonly y?: number | null
+      readonly facing?: string | null
+    }[]
+  }[]
+}
+
 export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly nodeId?: string
   readonly projectId?: string
@@ -362,6 +394,7 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly editScreenplayDetails?: WorkspaceCanvasEditScreenplayDetails
   readonly editPipelineStepDetails?: WorkspaceCanvasEditPipelineStepDetails
   readonly editScriptDetails?: WorkspaceCanvasEditScriptDetails
+  readonly spaceConsistencyDetails?: WorkspaceCanvasSpaceConsistencyDetails
   readonly videoPlanDetails?: WorkspaceCanvasVideoPlanDetails
   readonly editAssetDetails?: WorkspaceCanvasEditAssetDetails
 }

@@ -39,6 +39,7 @@ import {
   WORKSPACE_CANVAS_EDIT_SCREENPLAY_NODE_SIZE,
   WORKSPACE_CANVAS_EDIT_SCRIPT_TABLE_NODE_WIDTH,
   WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
+  WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE,
   WORKSPACE_CANVAS_FINAL_NODE_SIZE,
   WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE,
 } from '../node-presentation-profiles'
@@ -48,6 +49,8 @@ const DEFAULT_NODE_WIDTH = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.width
 const DEFAULT_NODE_HEIGHT = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.height
 const VIDEO_PLAN_NODE_WIDTH = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.width
 const VIDEO_PLAN_NODE_MIN_HEIGHT = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.height
+const SPACE_CONSISTENCY_NODE_WIDTH = WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE.width
+const SPACE_CONSISTENCY_NODE_HEIGHT = WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE.height
 const VIDEO_PLAN_GRID_ROW_GAP = 640
 const BGM_SCORE_NODE_WIDTH = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.width
 const BGM_SCORE_NODE_HEIGHT = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.height
@@ -105,6 +108,7 @@ interface TranslateValues {
 type Translate = (key: string, values?: TranslateValues) => string
 type EditPipelineStepKey = 'timeline' | 'visualAction' | 'camera' | 'audio' | 'primaryTable' | 'assetExtract'
 type EditPipelineStepState = 'pending' | 'processing' | 'ready' | 'failed'
+type SpaceConsistencyCoordinates = NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>['blocks'][number]['coordinates']
 
 export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly projectId?: string
@@ -151,6 +155,15 @@ function parseJson(value: string | null | undefined): unknown | null {
   } catch {
     return null
   }
+}
+
+function readJsonRecord(value: unknown): JsonRecord {
+  if (isRecord(value)) return value
+  return {}
+}
+
+function booleanValue(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
 }
 
 function uniqueStrings(values: readonly string[]): string[] {
@@ -599,6 +612,74 @@ function assetReferencesForVideoBlock(
       shotNumbers: requirement.shotNumbers,
     }]
   })
+}
+
+function storyboardUsesGridConsistency(storyboard: ProjectStoryboard): boolean {
+  const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
+  return stringValue(plan.consistencyMode) === 'grid_coordinates'
+    || (storyboard.blockingArtifacts ?? []).length > 0
+}
+
+function coordinatesFromValue(value: unknown): SpaceConsistencyCoordinates {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return []
+    return [{
+      name: stringValue(item.name),
+      kind: stringValue(item.kind),
+      x: numberValue(item.x),
+      y: numberValue(item.y),
+      facing: stringValue(item.facing),
+    }]
+  })
+}
+
+function blocksFromStrategyOutput(strategyOutput: unknown): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>['blocks'] {
+  const output = readJsonRecord(strategyOutput)
+  const blocks = output.blocks
+  if (!Array.isArray(blocks)) return []
+  return blocks.flatMap((block) => {
+    if (!isRecord(block)) return []
+    return [{
+      sourceVideoBlockId: stringValue(block.sourceVideoBlockId),
+      classification: stringValue(block.classification),
+      skipped: booleanValue(block.skipped),
+      reason: stringValue(block.reason),
+      cinematicTranslation: stringValue(block.cinematicTranslation),
+      coordinates: coordinatesFromValue(block.coordinates),
+    }]
+  })
+}
+
+function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']> {
+  const artifacts = (storyboard.blockingArtifacts ?? []).map((artifact) => ({
+    id: artifact.id,
+    kind: artifact.kind,
+    sourceVideoBlockId: artifact.sourceVideoBlockId,
+    groupIndex: artifact.groupIndex,
+    prompt: artifact.prompt,
+    imageUrl: artifact.media?.url ?? artifact.imageUrl,
+    status: artifact.status,
+    errorMessage: artifact.errorMessage,
+  }))
+  const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
+  return {
+    storyboardId: storyboard.id,
+    stage: stringValue(plan.currentStage),
+    floorPlanCount: artifacts.filter((artifact) => artifact.kind === 'grid_floor_plan').length,
+    overlayCount: artifacts.filter((artifact) => artifact.kind === 'grid_coordinate_overlay').length,
+    artifacts,
+    blocks: blocksFromStrategyOutput(plan.strategyOutput),
+  }
+}
+
+function primarySpaceConsistencyImageUrl(storyboard: ProjectStoryboard): string | null {
+  const artifacts = storyboard.blockingArtifacts ?? []
+  return artifacts.find((artifact) => artifact.kind === 'grid_coordinate_overlay' && (artifact.media?.url || artifact.imageUrl))?.media?.url
+    ?? artifacts.find((artifact) => artifact.kind === 'grid_coordinate_overlay' && (artifact.media?.url || artifact.imageUrl))?.imageUrl
+    ?? artifacts.find((artifact) => artifact.kind === 'grid_floor_plan' && (artifact.media?.url || artifact.imageUrl))?.media?.url
+    ?? artifacts.find((artifact) => artifact.kind === 'grid_floor_plan' && (artifact.media?.url || artifact.imageUrl))?.imageUrl
+    ?? null
 }
 
 function sortPanels(panels: readonly ProjectPanel[]): ProjectPanel[] {
@@ -1232,8 +1313,65 @@ export function buildWorkspaceNodeCanvasProjection({
   const videoPlanBaseY = shotGridBaseY + panelGridRows * shotGridRowGap + 150
   const bgmScoreBaseY = videoPlanBaseY + (canShowVideoPlanLayer ? videoPlanRows * VIDEO_PLAN_GRID_ROW_GAP + 130 : 0)
   const finalGridBaseY = bgmScoreBaseY + BGM_SCORE_NODE_HEIGHT + 130
+  const firstPanelIdByStoryboardId = new Map<string, string>()
+  panelsWithStoryboard.forEach(({ storyboard, panel }) => {
+    if (!firstPanelIdByStoryboardId.has(storyboard.id)) firstPanelIdByStoryboardId.set(storyboard.id, panel.id)
+  })
 
   const shotNodeIds = new Map<string, string>()
+  const spaceConsistencyNodeIds = new Map<string, string>()
+  sortedStoryboards(storyboards, clipOrder).filter(storyboardUsesGridConsistency).forEach((storyboard, index) => {
+    const details = createSpaceConsistencyDetails(storyboard)
+    const nodeId = `space-consistency:${storyboard.id}`
+    spaceConsistencyNodeIds.set(storyboard.id, nodeId)
+    const previewImageUrl = primarySpaceConsistencyImageUrl(storyboard)
+    const hasFailedArtifact = details.artifacts.some((artifact) => artifact.status === 'failed' || artifact.errorMessage)
+    const isRunning = details.artifacts.some((artifact) => artifact.status === 'pending' || artifact.status === 'generating')
+      || details.stage === 'preparing'
+      || details.stage === 'floor_plan_prompts_ready'
+      || details.stage === 'floor_plans_ready'
+    nodes.push(createNode({
+      id: nodeId,
+      fallbackX: PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackY: shotGridBaseY + index * (SPACE_CONSISTENCY_NODE_HEIGHT + 92),
+      zIndex: zIndex++,
+      savedLayoutByKey,
+      data: {
+        kind: 'spaceConsistency',
+        layoutNodeType: 'spaceConsistency',
+        targetType: 'storyboard',
+        targetId: storyboard.id,
+        storyboardId: storyboard.id,
+        title: translate('nodes.spaceConsistency.title'),
+        eyebrow: translate('nodes.spaceConsistency.eyebrow'),
+        body: translate('nodes.spaceConsistency.body'),
+        meta: translate('nodes.spaceConsistency.meta', {
+          floorPlans: details.floorPlanCount,
+          overlays: details.overlayCount,
+          blocks: details.blocks.length,
+        }),
+        statusLabel: isRunning
+          ? translate('status.processing')
+          : hasFailedArtifact || storyboard.lastError
+            ? translate('status.failed')
+            : translate('status.ready'),
+        isRunning,
+        width: SPACE_CONSISTENCY_NODE_WIDTH,
+        height: SPACE_CONSISTENCY_NODE_HEIGHT,
+        indexLabel: 'G',
+        previewImageUrl,
+        previewAspectRatio: 16 / 9,
+        spaceConsistencyDetails: details,
+        onAction,
+      },
+    }))
+    const editScriptSourceNodeId = editScript ? `edit-script:${editScript.id}` : null
+    const clipSourceNodeId = clipNodeIds.get(storyboard.clipId) ?? null
+    const sourceNodeId = editScriptSourceNodeId ?? clipSourceNodeId
+    if (sourceNodeId) {
+      edges.push(createEdge(`edge:space-consistency-source:${storyboard.id}`, sourceNodeId, nodeId))
+    }
+  })
   panelsWithStoryboard.forEach(({ storyboard, panel }, index) => {
     const nodeId = `shot:${panel.id}`
     shotNodeIds.set(panel.id, nodeId)
@@ -1289,6 +1427,10 @@ export function buildWorkspaceNodeCanvasProjection({
     const source = clipNodeIds.get(storyboard.clipId) ?? analysisNodeId
     if (clipNodeIds.has(storyboard.clipId) || hasStory) {
       edges.push(createEdge(`edge:clip-shot:${panel.id}`, source, nodeId))
+    }
+    if (firstPanelIdByStoryboardId.get(storyboard.id) === panel.id) {
+      const spaceNodeId = spaceConsistencyNodeIds.get(storyboard.id)
+      if (spaceNodeId) edges.push(createEdge(`edge:space-consistency-shot:${storyboard.id}`, spaceNodeId, nodeId))
     }
   })
 

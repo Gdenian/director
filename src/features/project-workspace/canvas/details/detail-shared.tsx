@@ -82,6 +82,7 @@ export function resolveTone(kind: WorkspaceCanvasFlowNode['data']['kind']): Deta
     case 'editScreenplay':
     case 'editPipelineStep':
     case 'editScript':
+    case 'spaceConsistency':
     case 'videoPlan':
     case 'bgmScore':
     case 'editRequiredAsset':

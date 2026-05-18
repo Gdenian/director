@@ -14,6 +14,7 @@ export const projectCanvasNodeTypeSchema = z.enum([
   'editScreenplay',
   'editPipelineStep',
   'editScript',
+  'spaceConsistency',
   'videoPlan',
   'bgmScore',
   'editRequiredAsset',

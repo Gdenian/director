@@ -215,6 +215,23 @@ export interface ProjectStoryboard {
   lastError?: string | null  // 最后一次生成失败的错误信息
   photographyPlan?: string | null  // 摄影方案JSON
   panels?: ProjectPanel[]
+  blockingArtifacts?: ProjectStoryboardBlockingArtifact[]
+}
+
+export interface ProjectStoryboardBlockingArtifact {
+  id: string
+  storyboardId: string
+  kind: 'grid_floor_plan' | 'grid_coordinate_overlay' | string
+  sourceVideoBlockId: string | null
+  groupIndex: number | null
+  prompt: string | null
+  imageUrl: string | null
+  imageMediaId?: string | null
+  media?: MediaRef | null
+  candidateImages: string | null
+  metadataJson: unknown
+  status: string
+  errorMessage: string | null
 }
 
 export interface ProjectShot {
