@@ -9,12 +9,10 @@ import {
   ThreadPrimitive,
 } from '@assistant-ui/react'
 import {
-  ConfirmationActionCard,
   useWorkspaceAssistantMessagePartComponents,
   WorkspaceAssistantThreadMessage,
 } from './workspace-assistant/WorkspaceAssistantRenderers'
 import {
-  collectPendingConfirmationActions,
   removeConfirmationRequestFromMessages,
 } from './workspace-assistant/approval-state'
 import { createAssistantMessage } from './workspace-assistant/assistant-messages'
@@ -300,23 +298,6 @@ export default function WorkspaceAssistantPanel({
     window.addEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
     return () => window.removeEventListener(WORKSPACE_ASSISTANT_SEND_MESSAGE_EVENT, handleSendMessage)
   }, [sendAssistantMessageOnce])
-  const pendingConfirmationActions = useMemo(
-    () => collectPendingConfirmationActions(assistantRuntime.messages),
-    [assistantRuntime.messages],
-  )
-  const [selectedPendingActionKey, setSelectedPendingActionKey] = useState<string | null>(null)
-  const pendingActionItems = [
-    ...pendingConfirmationActions.map((item) => ({
-      key: `confirm:${item.operationId}`,
-      label: item.operationId,
-      kind: 'confirmation' as const,
-      summary: item.data.summary,
-    })),
-  ]
-  const effectiveSelectedPendingActionKey = selectedPendingActionKey || pendingActionItems[pendingActionItems.length - 1]?.key || null
-  const activePendingConfirmation = effectiveSelectedPendingActionKey?.startsWith('confirm:')
-    ? pendingConfirmationActions.find((item) => `confirm:${item.operationId}` === effectiveSelectedPendingActionKey) || null
-    : null
   const [confirmationSubmittingKey, setConfirmationSubmittingKey] = useState<string | null>(null)
   const handleConfirmOperation = async (operationId: string, argsHint?: Record<string, unknown> | null) => {
     setConfirmationSubmittingKey(`confirm:${operationId}:continue`)
@@ -549,40 +530,6 @@ export default function WorkspaceAssistantPanel({
               style={WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE}
             >
               <div className="space-y-3">
-                {pendingActionItems.length > 0 ? (
-                  <div className="rounded-[22px] border border-[var(--glass-stroke-base)] bg-white/82 p-3 shadow-[0_12px_34px_rgba(15,23,42,0.06)]">
-                    <div className="mb-3 text-sm font-medium text-[var(--glass-text-primary)]">
-                      {t('panel.pendingActionsTitle')}
-                    </div>
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {pendingActionItems.map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className={
-                            effectiveSelectedPendingActionKey === item.key
-                              ? 'rounded-full bg-[var(--glass-text-primary)] px-3 py-1.5 text-xs font-medium text-white'
-                              : 'rounded-full border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] px-3 py-1.5 text-xs text-[var(--glass-text-secondary)]'
-                          }
-                          onClick={() => setSelectedPendingActionKey(item.key)}
-                        >
-                          {t('panel.pendingConfirmationChip', { label: item.label })}
-                        </button>
-                      ))}
-                    </div>
-                    {activePendingConfirmation ? (
-                      <ConfirmationActionCard
-                        operationId={activePendingConfirmation.operationId}
-                        summary={activePendingConfirmation.data.summary}
-                        argsHint={activePendingConfirmation.data.argsHint ?? null}
-                        onConfirm={async () => handleConfirmOperation(activePendingConfirmation.operationId, activePendingConfirmation.data.argsHint ?? null)}
-                        onCancel={async () => handleCancelOperation(activePendingConfirmation.operationId)}
-                        confirmPending={confirmationSubmittingKey === `confirm:${activePendingConfirmation.operationId}:continue`}
-                        cancelPending={confirmationSubmittingKey === `confirm:${activePendingConfirmation.operationId}:cancel`}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
                 <ThreadPrimitive.Messages>
                   {() => (
                     <WorkspaceAssistantThreadMessage messagePartComponents={partComponents} />

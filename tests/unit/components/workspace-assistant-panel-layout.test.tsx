@@ -1,4 +1,6 @@
 import { createElement } from 'react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { WorkspaceAssistantPanelHeader } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantPanelHeader'
@@ -92,5 +94,21 @@ describe('workspace assistant panel layout', () => {
       'linear-gradient(to bottom, transparent 0, black 28px, black 100%)',
     )
     expect(WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE.WebkitMaskImage).toBe(WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE.maskImage)
+  })
+
+  it('keeps confirmation actions in the message stream without a duplicate pending action summary', () => {
+    const panelSource = readFileSync(
+      join(process.cwd(), 'src/features/project-workspace/components/WorkspaceAssistantPanel.tsx'),
+      'utf8',
+    )
+    const rendererSource = readFileSync(
+      join(process.cwd(), 'src/features/project-workspace/components/workspace-assistant/WorkspaceAssistantRenderers.tsx'),
+      'utf8',
+    )
+
+    expect(panelSource).not.toContain('pendingActionsTitle')
+    expect(panelSource).not.toContain('pendingConfirmationChip')
+    expect(rendererSource).toContain("'confirmation-request'")
+    expect(rendererSource).toContain('InlineConfirmationRequestDataCard')
   })
 })
