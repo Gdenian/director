@@ -1,5 +1,5 @@
 ALTER TABLE `project_agent_waits`
-  ADD COLUMN `claimId` VARCHAR(191) NULL,
+  ADD COLUMN `claimId` VARCHAR(36) NULL,
   ADD COLUMN `claimedAt` DATETIME(3) NULL,
   ADD COLUMN `claimExpiresAt` DATETIME(3) NULL;
 

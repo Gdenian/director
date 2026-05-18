@@ -602,17 +602,17 @@ model ProjectAgentWait {
   id              String    @id @default(uuid())
   projectId       String
   userId          String
-  assistantId     String
-  scopeRef        String
+  assistantId     String    @db.VarChar(64)
+  scopeRef        String    @db.VarChar(64)
   episodeId       String?
-  operationId     String
+  operationId     String    @db.VarChar(128)
   taskIds         Json
-  status          String    @default("pending")
-  terminalStatus  String?
+  status          String    @default("pending") @db.VarChar(32)
+  terminalStatus  String?   @db.VarChar(32)
   terminalTaskIds Json?
   failedTaskIds   Json?
-  followUpKey     String?
-  claimId         String?
+  followUpKey     String?   @db.VarChar(96)
+  claimId         String?   @db.VarChar(36)
   claimedAt       DateTime?
   claimExpiresAt  DateTime?
   followedAt      DateTime?
