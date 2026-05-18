@@ -157,11 +157,11 @@ async function resolveAssetPreview(requirement: EditAssetRequirement): Promise<s
 }
 
 async function buildAssetSnapshots(requirements: readonly EditAssetRequirement[]): Promise<ConsistencyLabAssetSnapshot[]> {
-  const notReady = requirements.filter((requirement) => requirement.status !== 'completed' || !requirement.targetId)
-  if (notReady.length > 0) {
+  const unbound = requirements.filter((requirement) => !requirement.targetId)
+  if (unbound.length > 0) {
     throw new ApiError('CONFLICT', {
       code: 'CONSISTENCY_LAB_ASSETS_NOT_READY',
-      message: `Consistency lab requires completed edit-script assets: ${notReady.map((item) => item.name).join(', ')}`,
+      message: `Consistency lab requires bound edit-script assets: ${unbound.map((item) => item.name).join(', ')}`,
     })
   }
   return await Promise.all(requirements.map(async (requirement) => {
