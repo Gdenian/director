@@ -40,6 +40,16 @@ interface ContactSheetMetadata {
   readonly cells: readonly ContactSheetCellMetadata[]
 }
 
+export async function runConsistencyExperimentImageItemsInParallel<T>(
+  items: readonly T[],
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  const results = await Promise.allSettled(items.map((item, index) => worker(item, index)))
+  const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+  if (!failed) return
+  throw failed.reason instanceof Error ? failed.reason : new Error(String(failed.reason))
+}
+
 function readRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return value as Record<string, unknown>
@@ -404,7 +414,7 @@ async function generateRegularPanelImages(params: {
   readonly modelId: string
 }) {
   const total = params.run.panels.length
-  for (const [index, panel] of params.run.panels.entries()) {
+  await runConsistencyExperimentImageItemsInParallel(params.run.panels, async (panel, index) => {
     await reportTaskProgress(params.job, 10 + Math.floor(index / Math.max(total, 1) * 80), {
       stage: 'generate_consistency_experiment_panel',
       panelId: panel.id,
@@ -428,7 +438,7 @@ async function generateRegularPanelImages(params: {
     const storageKey = await uploadImageSourceToCos(source, 'consistency-experiment-panel', panel.id)
     await assertTaskActive(params.job, 'persist_consistency_experiment_panel')
     await persistPanelImage({ panel, storageKey })
-  }
+  })
 }
 
 async function cropContactSheetPanels(params: {
@@ -490,7 +500,7 @@ async function generateContactSheetImages(params: {
   readonly modelId: string
 }) {
   const groups = groupContactSheetPanels(params.run.panels)
-  for (const [index, group] of groups.entries()) {
+  await runConsistencyExperimentImageItemsInParallel(groups, async (group, index) => {
     await reportTaskProgress(params.job, 10 + Math.floor(index / Math.max(groups.length, 1) * 70), {
       stage: 'generate_consistency_experiment_contact_sheet',
       sourceVideoBlockId: group.metadata.sourceVideoBlockId,
@@ -557,7 +567,7 @@ async function generateContactSheetImages(params: {
       metadata: group.metadata,
       panels: group.panels,
     })
-  }
+  })
 }
 
 export async function handleConsistencyExperimentFloorPlanImageTask(job: Job<TaskJobData>) {
@@ -572,7 +582,7 @@ export async function handleConsistencyExperimentFloorPlanImageTask(job: Job<Tas
   ))
   if (floorPlans.length === 0) throw new Error('CONSISTENCY_EXPERIMENT_FLOOR_PLAN_PROMPTS_REQUIRED')
   try {
-    for (const [index, artifact] of floorPlans.entries()) {
+    await runConsistencyExperimentImageItemsInParallel(floorPlans, async (artifact, index) => {
       if (!artifact.prompt?.trim()) throw new Error(`CONSISTENCY_EXPERIMENT_FLOOR_PLAN_PROMPT_REQUIRED:${artifact.id}`)
       await reportTaskProgress(job, 10 + Math.floor(index / Math.max(floorPlans.length, 1) * 70), {
         stage: 'consistency_experiment_floor_plan',
@@ -614,7 +624,7 @@ export async function handleConsistencyExperimentFloorPlanImageTask(job: Job<Tas
         fullImageUrl: fullMedia.url,
         fullMediaId: fullMedia.id,
       })
-    }
+    })
     await prisma.consistencyExperimentRun.update({
       where: { id: run.id },
       data: { status: 'ready', currentStage: 'floor_plans_ready', errorMessage: null },
