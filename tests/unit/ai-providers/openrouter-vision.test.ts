@@ -23,8 +23,17 @@ const openAiConstructorMock = vi.hoisted(() => vi.fn(() => ({
   },
 })))
 
+const normalizeToOriginalMediaUrlMock = vi.hoisted(() => vi.fn(async (input: string) => {
+  if (input === '/m/media-overlay') return 'https://cdn.example.com/media-overlay.png?token=signed'
+  return input
+}))
+
 vi.mock('openai', () => ({
   default: openAiConstructorMock,
+}))
+
+vi.mock('@/lib/media/outbound-image', () => ({
+  normalizeToOriginalMediaUrl: normalizeToOriginalMediaUrlMock,
 }))
 
 import { openRouterAdapter } from '@/lib/ai-providers/openrouter/adapter'
@@ -56,7 +65,7 @@ describe('OpenRouter vision adapter', () => {
         baseUrl: 'https://openrouter.example/v1',
       },
       textPrompt: 'Analyze this coordinate overlay.',
-      imageUrls: ['https://example.com/overlay.png'],
+      imageUrls: ['/m/media-overlay'],
       temperature: 0.2,
       reasoning: true,
     })
@@ -71,11 +80,12 @@ describe('OpenRouter vision adapter', () => {
         role: 'user',
         content: [
           { type: 'text', text: 'Analyze this coordinate overlay.' },
-          { type: 'image_url', image_url: { url: 'https://example.com/overlay.png' } },
+          { type: 'image_url', image_url: { url: 'https://cdn.example.com/media-overlay.png?token=signed' } },
         ],
       }],
       temperature: 0.2,
     })
+    expect(normalizeToOriginalMediaUrlMock).toHaveBeenCalledWith('/m/media-overlay')
     expect(result.text).toBe('coordinate analysis')
     expect(result.logProvider).toBe('openrouter')
   })
