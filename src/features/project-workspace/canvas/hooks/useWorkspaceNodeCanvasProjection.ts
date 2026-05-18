@@ -32,10 +32,13 @@ import type {
 import {
   WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE,
   WORKSPACE_CANVAS_DEFAULT_NODE_SIZE,
+  WORKSPACE_CANVAS_EDIT_ASSET_GRID_COLUMNS,
+  WORKSPACE_CANVAS_EDIT_ASSET_GRID_GAP_Y,
   WORKSPACE_CANVAS_EDIT_ASSET_NODE_SIZE,
   WORKSPACE_CANVAS_EDIT_PIPELINE_STEP_NODE_SIZE,
   WORKSPACE_CANVAS_EDIT_SCREENPLAY_NODE_SIZE,
   WORKSPACE_CANVAS_EDIT_SCRIPT_TABLE_NODE_WIDTH,
+  WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
   WORKSPACE_CANVAS_FINAL_NODE_SIZE,
   WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE,
 } from '../node-presentation-profiles'
@@ -59,6 +62,12 @@ const EDIT_PIPELINE_STEP_GRID_GAP_Y = 96
 const EDIT_PIPELINE_STEP_LAYER_GAP_Y = 150
 const EDIT_PIPELINE_TO_SCRIPT_GAP_Y = 180
 const EDIT_SCRIPT_NODE_MIN_HEIGHT = 420
+const EDIT_SCREENPLAY_NODE_HEADER_HEIGHT = 86
+const EDIT_SCREENPLAY_NODE_BODY_VERTICAL_PADDING = 40
+const EDIT_SCREENPLAY_NODE_FOOTER_HEIGHT = 66
+const EDIT_SCREENPLAY_SECTION_BASE_HEIGHT = 42
+const EDIT_SCREENPLAY_SECTION_GAP = 8
+const EDIT_SCREENPLAY_TEXT_LINE_HEIGHT = 20
 const EDIT_ASSET_NODE_HEIGHT = WORKSPACE_CANVAS_EDIT_ASSET_NODE_SIZE.height
 const STORY_COLUMN_X = 260
 const COLUMN_GAP = 940
@@ -66,10 +75,10 @@ const ROW_GAP = 248
 const EDIT_SCRIPT_TABLE_NODE_WIDTH = WORKSPACE_CANVAS_EDIT_SCRIPT_TABLE_NODE_WIDTH
 const EDIT_SCRIPT_NODE_BASE_HEIGHT = 300
 const EDIT_ASSET_NODE_WIDTH = WORKSPACE_CANVAS_EDIT_ASSET_NODE_SIZE.width
-const EDIT_ASSET_GRID_COLUMNS = 4
+const EDIT_ASSET_GRID_COLUMNS = WORKSPACE_CANVAS_EDIT_ASSET_GRID_COLUMNS
 const EDIT_ASSET_GRID_GAP_X = 44
-const EDIT_ASSET_GRID_GAP_Y = 120
-const EDIT_SCRIPT_ASSET_LAYER_GAP_Y = 240
+const EDIT_ASSET_GRID_GAP_Y = WORKSPACE_CANVAS_EDIT_ASSET_GRID_GAP_Y
+const EDIT_SCRIPT_ASSET_LAYER_GAP_Y = WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y
 const PANEL_GRID_COLUMNS = 5
 const PANEL_GRID_GAP_X = 44
 const SHOT_NODE_HEIGHT = 560
@@ -477,6 +486,26 @@ function estimateEditScriptNodeHeight(editScript: ProjectEditScript): number {
   return Math.max(EDIT_SCRIPT_NODE_MIN_HEIGHT, EDIT_SCRIPT_NODE_BASE_HEIGHT + summaryHeight + screenplayHeight + rowHeightTotal)
 }
 
+function estimateEditScreenplayNodeHeight(editScreenplay: ProjectEditScreenplay): number {
+  const screenplayLines = estimateWrappedLineCount(editScreenplay.screenplayText, 34)
+  const screenplaySectionHeight = EDIT_SCREENPLAY_SECTION_BASE_HEIGHT
+    + screenplayLines * EDIT_SCREENPLAY_TEXT_LINE_HEIGHT
+  const userPromptSectionHeight = editScreenplay.userPrompt.trim()
+    ? EDIT_SCREENPLAY_SECTION_GAP
+      + EDIT_SCREENPLAY_SECTION_BASE_HEIGHT
+      + estimateWrappedLineCount(editScreenplay.userPrompt, 34) * EDIT_SCREENPLAY_TEXT_LINE_HEIGHT
+    : 0
+
+  return Math.max(
+    EDIT_SCREENPLAY_NODE_HEIGHT,
+    EDIT_SCREENPLAY_NODE_HEADER_HEIGHT
+      + EDIT_SCREENPLAY_NODE_BODY_VERTICAL_PADDING
+      + screenplaySectionHeight
+      + userPromptSectionHeight
+      + EDIT_SCREENPLAY_NODE_FOOTER_HEIGHT,
+  )
+}
+
 function extractEditScreenplayTitle(screenplayText: string): string {
   const firstLine = screenplayText
     .split(/\r?\n/)
@@ -865,6 +894,9 @@ export function buildWorkspaceNodeCanvasProjection({
 
   const editScreenplayNodeId = editScreenplay ? `edit-screenplay:${editScreenplay.id}` : null
   const editScreenplayFallbackY = hasStory ? 430 : 180
+  const editScreenplayHeight = editScreenplay
+    ? estimateEditScreenplayNodeHeight(editScreenplay)
+    : EDIT_SCREENPLAY_NODE_HEIGHT
   if (editScreenplay) {
     const screenplayTitle = extractEditScreenplayTitle(editScreenplay.screenplayText)
     nodes.push(createNode({
@@ -886,7 +918,7 @@ export function buildWorkspaceNodeCanvasProjection({
         statusLabel: editScreenplay.status === 'ready' ? translate('status.ready') : translate('status.processing'),
         isRunning: editScreenplay.status !== 'ready',
         width: EDIT_SCREENPLAY_NODE_WIDTH,
-        height: EDIT_SCREENPLAY_NODE_HEIGHT,
+        height: editScreenplayHeight,
         indexLabel: 'S',
         editScreenplayDetails: {
           screenplayText: editScreenplay.screenplayText,
@@ -911,12 +943,12 @@ export function buildWorkspaceNodeCanvasProjection({
       ? pipelineStepRows * EDIT_PIPELINE_STEP_NODE_HEIGHT + (pipelineStepRows - 1) * EDIT_PIPELINE_STEP_GRID_GAP_Y
       : 0
     const editPipelineBaseY = editScreenplay
-      ? editScreenplayFallbackY + EDIT_SCREENPLAY_NODE_HEIGHT + EDIT_PIPELINE_STEP_LAYER_GAP_Y
+      ? editScreenplayFallbackY + editScreenplayHeight + EDIT_PIPELINE_STEP_LAYER_GAP_Y
       : hasStory ? 430 : 180
     const editScriptFallbackY = shouldShowPipelineSteps
       ? editPipelineBaseY + pipelineStepLayerHeight + EDIT_PIPELINE_TO_SCRIPT_GAP_Y
       : editScreenplay
-        ? editScreenplayFallbackY + EDIT_SCREENPLAY_NODE_HEIGHT + 170
+        ? editScreenplayFallbackY + editScreenplayHeight + 170
         : hasStory ? 430 : 180
     const editScriptHasRows = editScript.shots.length > 0
     const editScriptHeight = editScriptIsGenerating && !editScriptHasRows

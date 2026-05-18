@@ -47,14 +47,18 @@ import {
 import { workspaceNodeTypes } from './nodes/workspaceNodeTypes'
 import type { WorkspaceCanvasFlowEdge, WorkspaceCanvasFlowNode, WorkspaceCanvasNodeAction } from './node-canvas-types'
 import {
+  WORKSPACE_CANVAS_EDIT_ASSET_GRID_COLUMNS,
+  WORKSPACE_CANVAS_EDIT_ASSET_GRID_GAP_Y,
+  WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
   getWorkspaceCanvasNodePresentationProfile,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
-import { repairWorkspaceNodeOverlapsNearMovedNodes } from './layout/workspace-node-auto-layout'
+import { repairWorkspaceNodeOverlaps, repairWorkspaceNodeOverlapsNearMovedNodes } from './layout/workspace-node-auto-layout'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
 const OPTIMISTIC_NODE_RUNNING_TIMEOUT_MS = 15000
+const MEASURED_NODE_SIZE_EPSILON = 1
 
 export interface WorkspaceAssistantSelectionContext {
   selectedScopeRef?: string | null
@@ -77,6 +81,42 @@ interface CanvasViewportControlsProps {
   readonly onFitView: () => void
   readonly onZoomIn: () => void
   readonly onZoomOut: () => void
+}
+
+function numericStyleDimension(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function relayoutEditAssetsBelowScript(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
+  const editScriptNode = nodes.find((node) => node.data.kind === 'editScript')
+  if (!editScriptNode) return [...nodes]
+
+  const assetNodes = nodes.filter((node) => node.data.kind === 'editRequiredAsset')
+  if (assetNodes.length === 0) return [...nodes]
+
+  let assetRowY = editScriptNode.position.y + editScriptNode.data.height + WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y
+  let assetRowMaxHeight = 0
+  let assetIndex = 0
+  const nextPositionById = new Map<string, { readonly x: number; readonly y: number }>()
+
+  for (const assetNode of assetNodes) {
+    const column = assetIndex % WORKSPACE_CANVAS_EDIT_ASSET_GRID_COLUMNS
+    if (column === 0 && assetIndex > 0) {
+      assetRowY += assetRowMaxHeight + WORKSPACE_CANVAS_EDIT_ASSET_GRID_GAP_Y
+      assetRowMaxHeight = 0
+    }
+    assetRowMaxHeight = Math.max(assetRowMaxHeight, assetNode.data.height)
+    nextPositionById.set(assetNode.id, {
+      x: assetNode.position.x,
+      y: assetRowY,
+    })
+    assetIndex += 1
+  }
+
+  return nodes.map((node) => {
+    const position = nextPositionById.get(node.id)
+    return position ? { ...node, position } : node
+  })
 }
 
 function CanvasViewportControls({
@@ -289,6 +329,44 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       return next
     })
   }, [])
+  const handleMeasuredNodeSize = useCallback((
+    nodeId: string,
+    size: { readonly width: number; readonly height: number },
+  ) => {
+    setNodes((currentNodes) => {
+      let changed = false
+      const measuredNodes = currentNodes.map((node) => {
+        if (node.id !== nodeId) return node
+
+        const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
+        const nextHeight = Math.max(profile.collapsed.height, Math.ceil(size.height))
+        const currentStyleHeight = numericStyleDimension(node.style?.height) ?? node.data.height
+        if (
+          Math.abs(nextHeight - node.data.height) <= MEASURED_NODE_SIZE_EPSILON &&
+          Math.abs(nextHeight - currentStyleHeight) <= MEASURED_NODE_SIZE_EPSILON
+        ) {
+          return node
+        }
+
+        changed = true
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            height: nextHeight,
+          },
+          data: {
+            ...node.data,
+            height: nextHeight,
+          },
+        }
+      })
+      if (!changed) return currentNodes
+
+      const relayoutedNodes = relayoutEditAssetsBelowScript(measuredNodes)
+      return repairWorkspaceNodeOverlaps(relayoutedNodes)
+    })
+  }, [])
   const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => {
     const defaultExpandedNodeIds = new Set<string>()
     const nextNodes = inputNodes.map((node) => {
@@ -323,12 +401,13 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
           expanded,
           expandedLayout: expanded ? profile.expandedLayout : undefined,
           onToggleExpanded: toggleNodeExpanded,
+          onMeasureNodeSize: handleMeasuredNodeSize,
         },
       }
     })
     defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
     return nextNodes
-  }, [nodeExpansionOverrides, nodeRunningStatusLabel, toggleNodeExpanded])
+  }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,

@@ -3,6 +3,7 @@ import type { ProjectClip, ProjectEditScreenplay, ProjectEditScript, ProjectPane
 import {
   buildWorkspaceNodeCanvasProjection,
 } from '@/features/project-workspace/canvas/hooks/useWorkspaceNodeCanvasProjection'
+import { WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y } from '@/features/project-workspace/canvas/node-presentation-profiles'
 
 function t(key: string, values?: Record<string, string | number>): string {
   if (!values) return key
@@ -304,6 +305,42 @@ describe('workspace node canvas projection', () => {
         fields: [{ label: 'nodeFields.duration', value: '2s' }],
       },
     ])
+  })
+
+  it('keeps long edit screenplay cards from covering the edit pipeline in the default layout', () => {
+    const editScreenplay = createEditScreenplay({
+      screenplayText: [
+        '标题：《四季轮回》',
+        '故事梗概：师傅在四季更迭中教导弟子，万物皆有终始，而生命在轮回中永恒。',
+        '角色表：',
+        '师傅：年迈长者，白须垂胸，身着灰色粗布长袍，神态安详。',
+        '弟子：年轻僧人，光头，身着棕色棉麻僧袍，眼神清澈。',
+        ...Array.from({ length: 20 }, (_item, index) => (
+          `场景 ${index + 1}：山间小径上，师傅与弟子缓步前行，风吹过桃花与落叶，画面保持安静留白。`
+        )),
+      ].join('\n\n'),
+    })
+    const editScript = createSingleVideoEditScript({ videoBlocks: [] })
+
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [],
+      editScreenplay,
+      editScript,
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const screenplayNode = projection.nodes.find((node) => node.id === 'edit-screenplay:screenplay-1')
+    const timelineNode = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-video:timeline')
+
+    expect(screenplayNode?.data.height).toBeGreaterThan(380)
+    expect(timelineNode?.position.y ?? 0).toBeGreaterThanOrEqual(
+      (screenplayNode?.position.y ?? 0) + (screenplayNode?.data.height ?? 0),
+    )
+    expect(screenplayNode && timelineNode ? nodesOverlap(screenplayNode, timelineNode) : true).toBe(false)
   })
 
   it('marks final timeline as AI editing while final render task is running', () => {
@@ -1181,7 +1218,9 @@ describe('workspace node canvas projection', () => {
     expect(assetNode?.data.height).toBe(520)
     expect(assetNode?.position.y).toBe(pendingAssetNode?.position.y)
     expect(assetNode?.position.x ?? 0).toBeGreaterThan(pendingAssetNode?.position.x ?? 0)
-    expect(assetNode?.position.y ?? 0).toBeGreaterThanOrEqual((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + 240)
+    expect(assetNode?.position.y).toBe(
+      (editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
+    )
     expect(assetNode?.data.action).toBeUndefined()
     expect(assetNode?.data.previewImageUrl).toBe('https://example.com/location.png')
     expect(assetNode?.data.editAssetDetails).toMatchObject({
