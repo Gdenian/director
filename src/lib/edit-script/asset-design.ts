@@ -32,6 +32,7 @@ export function buildEditAssetDesignInstruction(input: BuildEditAssetDesignInstr
       kind: input.requirement.kind,
       name: input.requirement.name,
       extractionNotes: input.requirement.description,
+      fixedVoiceTimbreText: input.requirement.voiceTimbreText ?? null,
       linkedShotNumbers: input.requirement.shotNumbers,
     },
     linkedShots: linkedShotContext(input.requirement, input.shots).map((shot) => ({
@@ -47,6 +48,7 @@ export function buildEditAssetDesignInstruction(input: BuildEditAssetDesignInstr
       'Create one stable reusable asset description for the asset library.',
       'Use only visual facts implied by the edit table and user request.',
       'Do not describe transient shot action, facial expression, camera movement, dialogue, sound, or plot function inside the asset appearance.',
+      'For character assets, preserve fixedVoiceTimbreText exactly as a stable voice identity field. It is not part of the image prompt.',
       'For character assets, describe the character itself without background or pose.',
       'For location assets, describe the empty reusable environment with clear layout anchors and no named main characters.',
     ],
@@ -82,6 +84,7 @@ export async function designEditAssetRequirements(
     return {
       ...requirement,
       description,
+      voiceTimbreText: requirement.kind === 'character' ? requirement.voiceTimbreText?.trim() ?? null : null,
     }
   }))
 }

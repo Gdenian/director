@@ -226,14 +226,22 @@ function stringifyForPrompt(value: unknown): string {
 
 function buildVideoPromptAssetContext(requirements: readonly EditAssetRequirement[]): string {
   return stringifyForPrompt({
-    assets: requirements.map((requirement) => ({
-      kind: requirement.kind,
-      name: requirement.name,
-      description: requirement.description,
-      shotNumbers: requirement.shotNumbers,
-    })),
+    assets: requirements.map((requirement) => {
+      const voiceTimbreText = requirement.voiceTimbreText?.trim() ?? null
+      if (requirement.kind === 'character' && !voiceTimbreText) {
+        throw new Error(`EDIT_SCRIPT_CHARACTER_VOICE_TIMBRE_MISSING:${requirement.name}`)
+      }
+      return {
+        kind: requirement.kind,
+        name: requirement.name,
+        description: requirement.description,
+        voiceTimbreText: requirement.kind === 'character' ? voiceTimbreText : null,
+        shotNumbers: requirement.shotNumbers,
+      }
+    }),
     rules: [
       'Use these asset descriptions as fixed character and location identity context when writing video prompts.',
+      'For character dialogue, use voiceTimbreText as the fixed voice timbre and write dialogue in the form: character says {exact line} with the fixed voice timbre attached to the speaker.',
       'Do not invent additional reusable characters or locations beyond the screenplay and edit structure.',
       'Do not copy asset descriptions verbatim when they would overtake shot action; use them to preserve identity and scene continuity.',
     ],
@@ -513,6 +521,7 @@ async function mapPersistedEditScript(script: PersistedEditScript): Promise<Edit
       status,
       targetId: requirement.targetId,
       errorMessage: status === 'failed' ? taskFailure || requirement.errorMessage : null,
+      voiceTimbreText: null,
       previewImageUrl: resolvedAsset?.previewImageUrl ?? null,
     }
   }))

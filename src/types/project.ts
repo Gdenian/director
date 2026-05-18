@@ -259,6 +259,7 @@ export interface ProjectEditAssetRequirement {
   kind: ProjectEditAssetKind
   name: string
   description: string
+  voiceTimbreText?: string | null
   shotNumbers: number[]
   status: ProjectEditAssetStatus
   targetId: string | null

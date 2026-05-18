@@ -29,6 +29,7 @@ const requirements: readonly EditAssetRequirement[] = [
     kind: 'character',
     name: '冷静研究员',
     description: '主要出镜人物，贯穿太空舱镜头。',
+    voiceTimbreText: '成年女性声线，冷静清亮，中音区，口腔共鸣干净，鼻音弱，颗粒感少。',
     shotNumbers: [1],
     status: 'pending',
     targetId: null,
@@ -59,11 +60,12 @@ describe('edit script asset design', () => {
 
     const parsed = JSON.parse(instruction) as {
       readonly task: string
-      readonly asset: { readonly kind: string; readonly name: string }
+      readonly asset: { readonly kind: string; readonly name: string; readonly fixedVoiceTimbreText: string | null }
       readonly linkedShots: ReadonlyArray<{ readonly shotNumber: number; readonly visualAction: string }>
     }
     expect(parsed.task).toBe('design_edit_first_required_asset_for_image_generation')
     expect(parsed.asset).toMatchObject({ kind: 'character', name: '冷静研究员' })
+    expect(parsed.asset.fixedVoiceTimbreText).toBe('成年女性声线，冷静清亮，中音区，口腔共鸣干净，鼻音弱，颗粒感少。')
     expect(parsed.linkedShots).toEqual([
       expect.objectContaining({
         shotNumber: 1,
@@ -104,6 +106,7 @@ describe('edit script asset design', () => {
       userInstruction: expect.stringContaining('"name": "环形太空舱中控室"'),
     }))
     expect(designed[0]?.description).toBe('冷静研究员，约三十五岁，短发整齐，穿银灰色极简航天制服，黑色软底工作靴。')
+    expect(designed[0]?.voiceTimbreText).toBe('成年女性声线，冷静清亮，中音区，口腔共鸣干净，鼻音弱，颗粒感少。')
     expect(designed[1]?.description).toContain('「环形太空舱中控室」广角镜头展示环形墙面、中控台和远处观察窗。')
     expect(designed[1]?.description).toContain('可站位置：')
     expect(designed[1]?.description).toContain('- 中控台前方留出的站立位置')

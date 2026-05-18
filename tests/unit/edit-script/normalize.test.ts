@@ -187,6 +187,7 @@ describe('edit script normalization', () => {
           kind: 'character',
           name: 'Pilot',
           description: 'A quiet astronaut in a minimal pressure suit.',
+          voiceTimbreText: 'young adult neutral voice, clear, soft, mid pitch, low grain, light breathiness',
           shotNumbers: [2, 1, 2],
         },
         {
@@ -203,6 +204,7 @@ describe('edit script normalization', () => {
         kind: 'character',
         name: 'Pilot',
         description: 'A quiet astronaut in a minimal pressure suit.',
+        voiceTimbreText: 'young adult neutral voice, clear, soft, mid pitch, low grain, light breathiness',
         shotNumbers: [1, 2],
         status: 'pending',
         targetId: null,
@@ -212,12 +214,45 @@ describe('edit script normalization', () => {
         kind: 'location',
         name: 'Dock',
         description: 'A sterile orbital docking bay with red warning light.',
+        voiceTimbreText: null,
         shotNumbers: [1],
         status: 'pending',
         targetId: null,
         errorMessage: null,
       },
     ])
+  })
+
+  it('rejects character assets without fixed voice timbre text', () => {
+    const shots = normalizeEditScriptCore({
+      title: 'Assets',
+      durationSec: 4,
+      shots: [
+        {
+          shotNumber: 1,
+          durationSec: 4,
+          visualAction: 'Pilot enters the dock.',
+          charactersAndScene: 'Pilot / Dock',
+          camera: 'wide',
+          videoPrompt: 'pilot enters dock',
+          sound: 'door',
+        },
+      ],
+      videoBlocks: [
+        { type: 'single', shotNumbers: [1], reason: 'single beat', prompt: 'single prompt' },
+      ],
+    }).shots
+
+    expect(() => normalizeEditAssetRequirements({
+      assets: [
+        {
+          kind: 'character',
+          name: 'Pilot',
+          description: 'A quiet astronaut in a minimal pressure suit.',
+          shotNumbers: [1],
+        },
+      ],
+    }, shots)).toThrow()
   })
 
   it('splits structure normalization from final video prompt rendering', () => {

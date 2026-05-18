@@ -69,6 +69,19 @@ describe('edit script block-first prompt flow', () => {
     expect(primaryPrompt).not.toContain('3x3')
     expect(primaryPrompt).not.toContain('宫格')
 
+    const assetExtractPrompt = buildAiPrompt({
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT,
+      locale: 'zh',
+      variables: {
+        edit_script_json: JSON.stringify({ shots: [], videoBlocks: [] }),
+      },
+    })
+
+    expect(assetExtractPrompt).toContain('角色资产必须同时生成 voiceTimbreText')
+    expect(assetExtractPrompt).toContain('character 必须输出 voiceTimbreText；location 禁止输出 voiceTimbreText')
+    expect(assetExtractPrompt).toContain('只写固定声线，不写动态表演')
+    expect(assetExtractPrompt).toContain('禁止写：语速、尾音、紧张时呼吸')
+
     const videoPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
       locale: 'zh',
@@ -79,7 +92,17 @@ describe('edit script block-first prompt flow', () => {
           shots: [{ shotNumber: 1, durationSec: 3, visualAction: '人物走入房间', charactersAndScene: '人物 / 房间', camera: '中景推近', sound: '脚步声' }],
           videoBlocks: [{ kind: 'single', shotNumbers: [1], reason: '单镜头稳定' }],
         }),
-        asset_context_json: JSON.stringify({ assets: [] }),
+        asset_context_json: JSON.stringify({
+          assets: [
+            {
+              kind: 'character',
+              name: '人物',
+              description: '稳定人物视觉资产。',
+              voiceTimbreText: '年轻女性声线，清亮、柔和、略带气声，中高音区，声带闭合感轻，口腔共鸣明亮，鼻音很弱，颗粒感少。',
+              shotNumbers: [1],
+            },
+          ],
+        }),
         aspect_ratio: '9:16',
         style_context: 'cinematic',
       },
@@ -95,6 +118,9 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPrompt).toContain('有叙事目的的电影化短音效')
     expect(videoPrompt).toContain('剧本或用户需求包含对白、旁白或画外音')
     expect(videoPrompt).toContain('角色说{台词原文}')
+    expect(videoPrompt).toContain('voiceTimbreText 是角色固定音色依据')
+    expect(videoPrompt).toContain('角色名（固定音色：voiceTimbreText）说{台词原文}')
+    expect(videoPrompt).toContain('年轻女性声线，清亮、柔和、略带气声')
     expect(videoPrompt).toContain('生成配音不等于生成字幕')
     expect(videoPrompt).toContain('音效使用 <音效描述>')
     expect(videoPrompt).toContain('台词必须来自剧本或用户需求')
