@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyEditScriptVideoPrompts,
   normalizeEditAssetRequirements,
   normalizeEditScriptCore,
+  normalizeEditScriptStructure,
   resolveEditScriptDefaults,
 } from '@/lib/edit-script/normalize'
 
@@ -216,6 +218,78 @@ describe('edit script normalization', () => {
         errorMessage: null,
       },
     ])
+  })
+
+  it('splits structure normalization from final video prompt rendering', () => {
+    const structure = normalizeEditScriptStructure({
+      title: 'Prompt Later',
+      durationSec: 6,
+      shots: [
+        {
+          shotNumber: 1,
+          durationSec: 3,
+          visualAction: 'Pilot steps into the dock.',
+          charactersAndScene: 'Pilot / Dock',
+          camera: 'wide push',
+          sound: 'room tone',
+        },
+        {
+          shotNumber: 2,
+          durationSec: 3,
+          visualAction: 'Pilot reaches the console.',
+          charactersAndScene: 'Pilot / Dock',
+          camera: 'medium track',
+          sound: 'console beep continues',
+        },
+      ],
+      videoBlocks: [
+        { type: 'group', shotNumbers: [1, 2], reason: 'continuous dock movement' },
+      ],
+    })
+
+    expect(structure.shots[0]?.videoPrompt).toBe('Pending final video prompt.')
+    expect(structure.videoBlocks[0]?.prompt).toBe('Pending final video prompt.')
+
+    const completed = applyEditScriptVideoPrompts(structure, {
+      shots: [
+        { shotNumber: 1, videoPrompt: 'Pilot enters the dock, wide push.' },
+        { shotNumber: 2, videoPrompt: 'Pilot reaches the console, medium track.' },
+      ],
+      videoBlocks: [
+        { shotNumbers: [1, 2], prompt: 'Continuous dock prompt with asset identity.' },
+      ],
+    })
+
+    expect(completed.shots.map((shot) => shot.videoPrompt)).toEqual([
+      'Pilot enters the dock, wide push.',
+      'Pilot reaches the console, medium track.',
+    ])
+    expect(completed.videoBlocks[0]?.prompt).toBe('Continuous dock prompt with asset identity.')
+  })
+
+  it('rejects video prompt output that changes locked block coverage', () => {
+    const structure = normalizeEditScriptStructure({
+      title: 'Locked',
+      durationSec: 3,
+      shots: [
+        {
+          shotNumber: 1,
+          durationSec: 3,
+          visualAction: 'Pilot waits.',
+          charactersAndScene: 'Pilot / Dock',
+          camera: 'wide',
+          sound: 'hum',
+        },
+      ],
+      videoBlocks: [
+        { type: 'single', shotNumbers: [1], reason: 'isolated beat' },
+      ],
+    })
+
+    expect(() => applyEditScriptVideoPrompts(structure, {
+      shots: [{ shotNumber: 1, videoPrompt: 'Pilot waits.' }],
+      videoBlocks: [{ shotNumbers: [2], prompt: 'Wrong block.' }],
+    })).toThrow('EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_MISSING:1')
   })
 
   it('defaults short-film requests to 60 seconds without prescribing shot count', () => {

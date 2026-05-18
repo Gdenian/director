@@ -74,6 +74,8 @@ export const editScriptShotSchema = z.object({
   sound: z.string().trim().min(1),
 })
 
+export const editScriptStructureShotSchema = editScriptShotSchema.omit({ videoPrompt: true })
+
 export const editScriptCoreSchema = z.object({
   title: z.string().trim().min(1),
   logline: z.string().trim().optional().nullable(),
@@ -85,6 +87,31 @@ export const editScriptCoreSchema = z.object({
     shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
     gridMode: z.enum(['2x2', '3x3']).optional(),
     reason: z.string().trim().min(1),
+    prompt: z.string().trim().min(1),
+  })).min(1).max(60),
+})
+
+export const editScriptStructureSchema = z.object({
+  title: z.string().trim().min(1),
+  logline: z.string().trim().optional().nullable(),
+  durationSec: z.number().int().positive(),
+  shots: z.array(editScriptStructureShotSchema).min(1).max(60),
+  videoBlocks: z.array(z.object({
+    type: z.enum(['single', 'group']).optional(),
+    kind: z.enum(['single', 'group']).optional(),
+    shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
+    gridMode: z.enum(['2x2', '3x3']).optional(),
+    reason: z.string().trim().min(1),
+  })).min(1).max(60),
+})
+
+export const editScriptVideoPromptSchema = z.object({
+  shots: z.array(z.object({
+    shotNumber: z.number().int().positive(),
+    videoPrompt: z.string().trim().min(1),
+  })).min(1).max(60),
+  videoBlocks: z.array(z.object({
+    shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
     prompt: z.string().trim().min(1),
   })).min(1).max(60),
 })

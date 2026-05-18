@@ -7,6 +7,8 @@ import { normalizeVideoBlockPlanResponse } from '@/lib/video-groups/planner'
 import {
   editAssetExtractionSchema,
   editScriptCoreSchema,
+  editScriptStructureSchema,
+  editScriptVideoPromptSchema,
 } from './types'
 
 function uniquePositiveNumbers(values: readonly number[]): number[] {
@@ -55,6 +57,104 @@ export function normalizeEditScriptCore(raw: unknown): Omit<EditScriptPayload, '
     shotCount: shots.length,
     shots,
     videoBlocks,
+  }
+}
+
+export function normalizeEditScriptStructure(raw: unknown): Omit<EditScriptPayload, 'requirements'> {
+  const parsed = editScriptStructureSchema.parse(raw)
+
+  const shots: EditScriptShot[] = parsed.shots
+    .map((shot) => ({
+      shotNumber: shot.shotNumber,
+      durationSec: shot.durationSec,
+      visualAction: shot.visualAction.trim(),
+      charactersAndScene: shot.charactersAndScene.trim(),
+      camera: shot.camera.trim(),
+      videoPrompt: 'Pending final video prompt.',
+      sound: shot.sound.trim(),
+    }))
+    .sort((left, right) => left.shotNumber - right.shotNumber)
+
+  shots.forEach((shot, index) => {
+    const expectedNumber = index + 1
+    if (shot.shotNumber !== expectedNumber) {
+      throw new Error(`EDIT_SCRIPT_SHOT_NUMBER_NOT_CONTINUOUS:${shot.shotNumber}:${expectedNumber}`)
+    }
+  })
+
+  const durationSec = shots.reduce((total, shot) => total + shot.durationSec, 0)
+  const videoBlocks = normalizeVideoBlockPlanResponse({
+    response: {
+      items: parsed.videoBlocks.map((block) => ({
+        ...block,
+        prompt: 'Pending final video prompt.',
+      })),
+    },
+    allShotNumbers: shots.map((shot) => shot.shotNumber),
+    shots,
+  }).items
+
+  return {
+    title: parsed.title.trim(),
+    logline: parsed.logline?.trim() || null,
+    durationSec,
+    shotCount: shots.length,
+    shots,
+    videoBlocks,
+  }
+}
+
+function sameShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((shotNumber, index) => shotNumber === right[index])
+}
+
+export function applyEditScriptVideoPrompts(
+  structure: Omit<EditScriptPayload, 'requirements'>,
+  raw: unknown,
+): Omit<EditScriptPayload, 'requirements'> {
+  const parsed = editScriptVideoPromptSchema.parse(raw)
+  const promptByShotNumber = new Map(parsed.shots.map((shot) => [shot.shotNumber, shot.videoPrompt.trim()]))
+  const expectedShotNumbers = structure.shots.map((shot) => shot.shotNumber)
+  const providedShotNumbers = parsed.shots.map((shot) => shot.shotNumber).sort((left, right) => left - right)
+  if (!sameShotNumbers(providedShotNumbers, expectedShotNumbers)) {
+    throw new Error('EDIT_SCRIPT_VIDEO_PROMPT_SHOT_COVERAGE_INVALID')
+  }
+  if (parsed.videoBlocks.length !== structure.videoBlocks.length) {
+    throw new Error('EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_COUNT_INVALID')
+  }
+
+  const remainingBlockIndexes = new Set(structure.videoBlocks.map((_, index) => index))
+  const nextBlocks = structure.videoBlocks.map((block) => {
+    const matchIndex = parsed.videoBlocks.findIndex((candidate, index) =>
+      remainingBlockIndexes.has(index) && sameShotNumbers(candidate.shotNumbers, block.shotNumbers),
+    )
+    if (matchIndex < 0) {
+      throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_MISSING:${block.shotNumbers.join(',')}`)
+    }
+    remainingBlockIndexes.delete(matchIndex)
+    const matched = parsed.videoBlocks[matchIndex]
+    if (!matched) throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_MISSING:${block.shotNumbers.join(',')}`)
+    return {
+      ...block,
+      prompt: matched.prompt.trim(),
+    }
+  })
+  if (remainingBlockIndexes.size > 0) {
+    throw new Error('EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_COUNT_INVALID')
+  }
+
+  return {
+    ...structure,
+    shots: structure.shots.map((shot) => {
+      const videoPrompt = promptByShotNumber.get(shot.shotNumber)
+      if (!videoPrompt) throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_SHOT_MISSING:${shot.shotNumber}`)
+      return {
+        ...shot,
+        videoPrompt,
+      }
+    }),
+    videoBlocks: nextBlocks,
   }
 }
 

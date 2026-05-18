@@ -153,6 +153,7 @@
     "editScriptAudio": "Generate sound design",
     "editScriptPrimary": "Generate core edit table",
     "editScriptAssetExtract": "Extract required assets",
+    "editScriptVideoPrompt": "Generate video prompts",
     "editScriptPersist": "Persist edit-first table"
   },
   "streamStep": {

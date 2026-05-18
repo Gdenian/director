@@ -225,6 +225,17 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
     pathStem: 'edit-script/asset-extract',
     variableKeys: ['edit_script_json'],
   },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT]: {
+    pathStem: 'edit-script/video-prompt',
+    variableKeys: [
+      'user_request',
+      'screenplay_text',
+      'edit_script_structure_json',
+      'asset_context_json',
+      'aspect_ratio',
+      'style_context',
+    ],
+  },
   [AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_PANEL]: {
     pathStem: 'edit-script/storyboard-panel',
     variableKeys: [

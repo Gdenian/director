@@ -96,7 +96,6 @@ function mockSuccessfulAiSteps() {
             visualAction: 'A station corridor flickers awake.',
             charactersAndScene: 'Station corridor',
             camera: 'slow push in',
-            videoPrompt: 'A cinematic station corridor flickers awake.',
             sound: 'low electrical hum',
           },
         ],
@@ -105,7 +104,6 @@ function mockSuccessfulAiSteps() {
             type: 'single',
             shotNumbers: [1],
             reason: 'Single establishing shot.',
-            prompt: 'A cinematic station corridor flickers awake, slow push in.',
           },
         ],
       }),
@@ -118,6 +116,22 @@ function mockSuccessfulAiSteps() {
             name: 'Station Corridor',
             description: 'A cold sci-fi corridor.',
             shotNumbers: [1],
+          },
+        ],
+      }),
+    })
+    .mockResolvedValueOnce({
+      text: JSON.stringify({
+        shots: [
+          {
+            shotNumber: 1,
+            videoPrompt: 'A cinematic station corridor flickers awake.',
+          },
+        ],
+        videoBlocks: [
+          {
+            shotNumbers: [1],
+            prompt: 'A cinematic station corridor flickers awake, slow push in.',
           },
         ],
       }),
@@ -257,13 +271,13 @@ describe('edit script generation status persistence', () => {
     expect(prismaMock.projectEditScript.upsert.mock.invocationCallOrder[0]).toBeLessThan(
       aiExecMock.executeAiTextStep.mock.invocationCallOrder[0],
     )
-    expect(aiExecMock.executeAiTextStep).toHaveBeenCalledTimes(2)
+    expect(aiExecMock.executeAiTextStep).toHaveBeenCalledTimes(3)
     expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(1, expect.objectContaining({
       action: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
       meta: expect.objectContaining({
         stepId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
         stepIndex: 1,
-        stepTotal: 2,
+        stepTotal: 3,
       }),
     }))
     expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(2, expect.objectContaining({
@@ -271,7 +285,15 @@ describe('edit script generation status persistence', () => {
       meta: expect.objectContaining({
         stepId: AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT,
         stepIndex: 2,
-        stepTotal: 2,
+        stepTotal: 3,
+      }),
+    }))
+    expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      action: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
+      meta: expect.objectContaining({
+        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
+        stepIndex: 3,
+        stepTotal: 3,
       }),
     }))
     expect(txMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({

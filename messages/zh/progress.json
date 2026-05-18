@@ -153,6 +153,7 @@
     "editScriptAudio": "生成声音设计",
     "editScriptPrimary": "生成核心剪辑表",
     "editScriptAssetExtract": "提取需求资产",
+    "editScriptVideoPrompt": "生成视频提示词",
     "editScriptPersist": "保存剪辑先行表"
   },
   "streamStep": {

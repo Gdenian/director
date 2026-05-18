@@ -40,6 +40,7 @@ export const AI_PROMPT_IDS = {
   EDIT_SCRIPT_AUDIO: 'edit-script-audio',
   EDIT_SCRIPT_PRIMARY: 'edit-script-primary',
   EDIT_SCRIPT_ASSET_EXTRACT: 'edit-script-asset-extract',
+  EDIT_SCRIPT_VIDEO_PROMPT: 'edit-script-video-prompt',
   EDIT_SCRIPT_STORYBOARD_PANEL: 'edit-script-storyboard-panel',
   CONSISTENCY_LAB_STRUCTURED_TEXT_PANEL: 'consistency-lab-structured-text-panel',
   CONSISTENCY_LAB_GRID_COORDINATES_PANEL: 'consistency-lab-grid-coordinates-panel',

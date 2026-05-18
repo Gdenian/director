@@ -102,6 +102,7 @@ const STAGE_LABELS: Record<string, string> = {
   edit_script_audio: 'progress.stage.editScriptAudio',
   edit_script_primary: 'progress.stage.editScriptPrimary',
   edit_script_asset_extract: 'progress.stage.editScriptAssetExtract',
+  edit_script_video_prompt: 'progress.stage.editScriptVideoPrompt',
   edit_script_persist: 'progress.stage.editScriptPersist',
 }
 

@@ -15,8 +15,9 @@ import { executeProjectAgentOperationFromApi } from '@/lib/adapters/api/execute-
 import { normalizeVideoBlockPlanResponse } from '@/lib/video-groups/planner'
 import type { Locale } from '@/i18n/routing'
 import {
+  applyEditScriptVideoPrompts,
   normalizeEditAssetRequirements,
-  normalizeEditScriptCore,
+  normalizeEditScriptStructure,
   resolveEditScriptDefaults,
 } from './normalize'
 import type {
@@ -96,6 +97,7 @@ type PromptStepId =
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_AUDIO
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT
+  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT
 
 type EditScriptGenerationStage =
   | 'edit_script_prepare'
@@ -105,6 +107,7 @@ type EditScriptGenerationStage =
   | 'edit_script_audio'
   | 'edit_script_primary'
   | 'edit_script_asset_extract'
+  | 'edit_script_video_prompt'
 
 interface EditScriptGenerationStep {
   readonly stage: EditScriptGenerationStage
@@ -219,6 +222,22 @@ interface EditStoryboardVideoBlockBinding {
 
 function stringifyForPrompt(value: unknown): string {
   return JSON.stringify(value, null, 2)
+}
+
+function buildVideoPromptAssetContext(requirements: readonly EditAssetRequirement[]): string {
+  return stringifyForPrompt({
+    assets: requirements.map((requirement) => ({
+      kind: requirement.kind,
+      name: requirement.name,
+      description: requirement.description,
+      shotNumbers: requirement.shotNumbers,
+    })),
+    rules: [
+      'Use these asset descriptions as fixed character and location identity context when writing video prompts.',
+      'Do not invent additional reusable characters or locations beyond the screenplay and edit structure.',
+      'Do not copy asset descriptions verbatim when they would overtake shot action; use them to preserve identity and scene continuity.',
+    ],
+  })
 }
 
 function assertLocale(value: Locale): Locale {
@@ -901,7 +920,7 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       directorStyleDoc: project.directorStyleDoc,
       videoRatio: effectiveVideoRatio,
     })
-    const primary = await runPromptStep({
+    const structureRaw = await runPromptStep({
       userId: input.userId,
       projectId: input.projectId,
       model,
@@ -916,19 +935,19 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       },
       stepTitle: 'Edit core table',
       stepIndex: 1,
-      stepTotal: 2,
+      stepTotal: 3,
     })
-    const core = normalizeEditScriptCore(primary)
+    const structure = normalizeEditScriptStructure(structureRaw)
     await persistEditScriptGenerationStep({
       projectId: input.projectId,
       episodeId: input.episodeId,
       userPrompt,
       screenplayText,
-      title: core.title,
-      logline: core.logline ?? null,
-      durationSec: core.durationSec,
-      shots: core.shots,
-      videoBlocks: core.videoBlocks,
+      title: structure.title,
+      logline: structure.logline ?? null,
+      durationSec: structure.durationSec,
+      shots: structure.shots,
+      videoBlocks: structure.videoBlocks,
     })
     await notifyGenerationStep(input.onGenerationStepPersisted, {
       stage: 'edit_script_primary',
@@ -942,11 +961,11 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       locale,
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT,
       variables: {
-        edit_script_json: stringifyForPrompt(core),
+        edit_script_json: stringifyForPrompt(structure),
       },
       stepTitle: 'Edit required assets',
       stepIndex: 2,
-      stepTotal: 2,
+      stepTotal: 3,
     })
     const requirements = await designEditAssetRequirements({
       userId: input.userId,
@@ -954,9 +973,35 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       locale,
       analysisModel: model,
       userPrompt,
-      shots: core.shots,
-      requirements: normalizeEditAssetRequirements(assetRaw, core.shots),
+      shots: structure.shots,
+      requirements: normalizeEditAssetRequirements(assetRaw, structure.shots),
     })
+
+    await notifyGenerationStep(input.onGenerationStepPersisted, {
+      stage: 'edit_script_asset_extract',
+      stageLabel: 'progress.stage.editScriptAssetExtract',
+      progress: 72,
+    })
+
+    const videoPromptRaw = await runPromptStep({
+      userId: input.userId,
+      projectId: input.projectId,
+      model,
+      locale,
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
+      variables: {
+        user_request: userPrompt,
+        screenplay_text: screenplayText,
+        edit_script_structure_json: stringifyForPrompt(structure),
+        asset_context_json: buildVideoPromptAssetContext(requirements),
+        aspect_ratio: effectiveVideoRatio,
+        style_context: styleContext,
+      },
+      stepTitle: 'Edit video prompts',
+      stepIndex: 3,
+      stepTotal: 3,
+    })
+    const core = applyEditScriptVideoPrompts(structure, videoPromptRaw)
 
     const assetByRequirementKey = new Map<string, ExistingAssetRef>()
     const saved = await prisma.$transaction(async (tx) => {
@@ -1038,8 +1083,8 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       return nextScript
     })
     await notifyGenerationStep(input.onGenerationStepPersisted, {
-      stage: 'edit_script_asset_extract',
-      stageLabel: 'progress.stage.editScriptAssetExtract',
+      stage: 'edit_script_video_prompt',
+      stageLabel: 'progress.stage.editScriptVideoPrompt',
       progress: 92,
     })
 
