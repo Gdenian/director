@@ -41,8 +41,8 @@ const resolveAiProviderAdapterMock = vi.hoisted(() => vi.fn(() => ({
   completeVision: visionCompletionMock,
 })))
 
-const normalizeToOriginalMediaUrlMock = vi.hoisted(() => vi.fn(async (input: string) => {
-  if (input === '/m/overlay') return 'https://cdn.example.com/overlay.png?token=signed'
+const normalizeToBase64ForGenerationMock = vi.hoisted(() => vi.fn(async (input: string) => {
+  if (input === '/m/overlay') return 'data:image/png;base64,b3ZlcmxheQ=='
   return input
 }))
 
@@ -56,7 +56,7 @@ vi.mock('@/lib/ai-providers', () => ({
 }))
 
 vi.mock('@/lib/media/outbound-image', () => ({
-  normalizeToOriginalMediaUrl: normalizeToOriginalMediaUrlMock,
+  normalizeToBase64ForGeneration: normalizeToBase64ForGenerationMock,
 }))
 
 import { runChatCompletionWithVision } from '@/lib/ai-exec/llm/vision-runner'
@@ -82,10 +82,10 @@ describe('vision provider support', () => {
       imageUrls: ['https://example.com/image.png'],
       providerKey: 'openrouter',
     }))
-    expect(normalizeToOriginalMediaUrlMock).toHaveBeenCalledWith('https://example.com/image.png')
+    expect(normalizeToBase64ForGenerationMock).toHaveBeenCalledWith('https://example.com/image.png')
   })
 
-  it('normalizes media route image URLs before dispatching to provider vision adapters', async () => {
+  it('normalizes media route image URLs to data URLs before dispatching to provider vision adapters', async () => {
     await runChatCompletionWithVision(
       'user-1',
       'openrouter::vision-model',
@@ -94,8 +94,8 @@ describe('vision provider support', () => {
     )
 
     expect(visionCompletionMock).toHaveBeenCalledWith(expect.objectContaining({
-      imageUrls: ['https://cdn.example.com/overlay.png?token=signed'],
+      imageUrls: ['data:image/png;base64,b3ZlcmxheQ=='],
     }))
-    expect(normalizeToOriginalMediaUrlMock).toHaveBeenCalledWith('/m/overlay')
+    expect(normalizeToBase64ForGenerationMock).toHaveBeenCalledWith('/m/overlay')
   })
 })

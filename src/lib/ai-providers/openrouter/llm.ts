@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { runOpenAIBaseUrlLlmCompletion, runOpenAIBaseUrlLlmStream } from '@/lib/ai-providers/shared/openai-base-llm'
 import { getCompletionParts } from '@/lib/ai-providers/shared/completion-parts'
 import { buildAiProviderLlmResult } from '@/lib/ai-providers/shared/llm-result'
-import { normalizeToOriginalMediaUrl } from '@/lib/media/outbound-image'
+import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import type {
   AiProviderLlmResult,
   AiProviderLlmStreamContext,
@@ -62,7 +62,7 @@ export async function runOpenRouterVisionCompletion(input: AiProviderVisionExecu
     content.push({ type: 'text', text: input.textPrompt })
   }
   for (const imageUrl of input.imageUrls) {
-    const normalizedImageUrl = await normalizeToOriginalMediaUrl(imageUrl)
+    const normalizedImageUrl = await normalizeToBase64ForGeneration(imageUrl)
     content.push({ type: 'image_url', image_url: { url: normalizedImageUrl } })
   }
 

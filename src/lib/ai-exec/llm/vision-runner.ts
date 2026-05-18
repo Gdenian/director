@@ -18,7 +18,7 @@ import { waitForRetryDelay } from '@/lib/ai-exec/governance'
 import { describeLlmVariantBase } from '@/lib/ai-exec/llm-descriptor'
 import { validateAiOptions } from '@/lib/ai-exec/normalize'
 import { resolveAiProviderAdapter } from '@/lib/ai-providers'
-import { normalizeToOriginalMediaUrl } from '@/lib/media/outbound-image'
+import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import type { AiProviderVisionExecutionContext } from '@/lib/ai-providers/runtime-types'
 
 ensureAiCatalogsRegistered()
@@ -58,7 +58,7 @@ async function normalizeVisionImageUrls(imageUrls: readonly string[]): Promise<s
   for (const imageUrl of imageUrls) {
     const trimmed = typeof imageUrl === 'string' ? imageUrl.trim() : ''
     if (!trimmed) continue
-    normalized.push(await normalizeToOriginalMediaUrl(trimmed))
+    normalized.push(await normalizeToBase64ForGeneration(trimmed))
   }
   return normalized
 }
