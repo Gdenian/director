@@ -45,6 +45,9 @@ export type TaskLifecycleEventType = (typeof TASK_LIFECYCLE_EVENT_TYPES)[number]
 
 export const TASK_TYPE = {
   IMAGE_PANEL: 'image_panel',
+  CONSISTENCY_EXPERIMENT_PREPARE: 'consistency_experiment_prepare',
+  CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE: 'consistency_experiment_floor_plan_image',
+  CONSISTENCY_EXPERIMENT_GRID_ANALYZE: 'consistency_experiment_grid_analyze',
   CONSISTENCY_EXPERIMENT_IMAGE: 'consistency_experiment_image',
   IMAGE_CHARACTER: 'image_character',
   IMAGE_LOCATION: 'image_location',

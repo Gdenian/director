@@ -2,6 +2,9 @@ import { TASK_EVENT_TYPE, TASK_TYPE } from './types'
 
 const TASK_TYPE_LABELS: Record<string, string> = {
   [TASK_TYPE.IMAGE_PANEL]: 'progress.taskType.imagePanel',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_PREPARE]: 'progress.taskType.consistencyExperimentPrepare',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE]: 'progress.taskType.consistencyExperimentFloorPlanImage',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_GRID_ANALYZE]: 'progress.taskType.consistencyExperimentGridAnalyze',
   [TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE]: 'progress.taskType.consistencyExperimentImage',
   [TASK_TYPE.IMAGE_CHARACTER]: 'progress.taskType.imageCharacter',
   [TASK_TYPE.IMAGE_LOCATION]: 'progress.taskType.imageLocation',
@@ -51,6 +54,10 @@ const STAGE_LABELS: Record<string, string> = {
   generate_character_image: 'progress.stage.generateCharacterImage',
   generate_location_image: 'progress.stage.generateLocationImage',
   generate_panel_candidate: 'progress.stage.generatePanelCandidate',
+  consistency_experiment_prepare: 'progress.stage.consistencyExperimentPrepare',
+  consistency_experiment_floor_plan: 'progress.stage.consistencyExperimentFloorPlan',
+  consistency_experiment_floor_plan_overlay: 'progress.stage.consistencyExperimentFloorPlanOverlay',
+  consistency_experiment_grid_analyze: 'progress.stage.consistencyExperimentGridAnalyze',
   generate_consistency_experiment_panel: 'progress.stage.generateConsistencyExperimentPanel',
   generate_consistency_experiment_contact_sheet: 'progress.stage.generateConsistencyExperimentContactSheet',
   crop_consistency_experiment_contact_sheet: 'progress.stage.cropConsistencyExperimentContactSheet',

@@ -245,6 +245,38 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
       'location_assets_json',
     ],
   },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_STRUCTURED_TEXT_PLAN]: {
+    pathStem: 'consistency-lab/structured-text-plan',
+    variableKeys: [
+      'source_snapshot_json',
+      'block_classification_draft_json',
+      'panel_contract_json',
+    ],
+  },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_GRID_FLOOR_PLAN]: {
+    pathStem: 'consistency-lab/grid-floor-plan',
+    variableKeys: [
+      'source_snapshot_json',
+      'block_classification_draft_json',
+      'grid_density_json',
+    ],
+  },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_GRID_COORDINATE_VISION]: {
+    pathStem: 'consistency-lab/grid-coordinate-vision',
+    variableKeys: [
+      'source_snapshot_json',
+      'floor_plan_artifacts_json',
+      'panel_contract_json',
+    ],
+  },
+  [AI_PROMPT_IDS.CONSISTENCY_LAB_CONTACT_SHEET_PLAN]: {
+    pathStem: 'consistency-lab/contact-sheet-plan',
+    variableKeys: [
+      'source_snapshot_json',
+      'contact_sheet_group_draft_json',
+      'panel_contract_json',
+    ],
+  },
   [AI_PROMPT_IDS.CONSISTENCY_LAB_STRUCTURED_TEXT_PANEL]: {
     pathStem: 'consistency-lab/structured-text-panel',
     variableKeys: [

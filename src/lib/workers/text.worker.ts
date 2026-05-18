@@ -34,6 +34,10 @@ import { handleAssetHubAIModifyTask } from './handlers/asset-hub-ai-modify'
 import { handleReferenceToCharacterTask } from './handlers/reference-to-character'
 import { handleShotAITask } from './handlers/shot-ai-tasks'
 import { handleEditScriptGenerateTask } from './handlers/edit-script-generate'
+import {
+  handleConsistencyExperimentGridAnalyzeTask,
+  handleConsistencyExperimentPrepareTask,
+} from './handlers/consistency-experiment-prepare-task-handler'
 import { resolveProjectDirectorStyleDoc } from '@/lib/style-preset'
 import { canonicalizeStoryboardPanels } from '@/lib/storyboard-character-bindings'
 
@@ -658,6 +662,10 @@ async function processTextTask(job: Job<TaskJobData>) {
   await reportTaskProgress(job, 5, { stage: 'received' })
 
   switch (job.data.type) {
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_PREPARE:
+      return await handleConsistencyExperimentPrepareTask(job)
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_GRID_ANALYZE:
+      return await handleConsistencyExperimentGridAnalyzeTask(job)
     case TASK_TYPE.VOICE_ANALYZE:
       return await handleVoiceAnalyzeTask(job)
     case TASK_TYPE.ANALYZE_NOVEL:

@@ -1,0 +1,53 @@
+你是“分镜一致性实验室”的影视场面调度提示词生成器。请基于同一个 editScript，为 structured_text 策略生成严格 JSON。
+
+目标：
+- 不改剧情，不新增 editScript 中不存在的事件。
+- 只分析同一 videoBlock 内已经存在的人物、场景和空间锚点。
+- 对固定空间对话、对坐、对峙、正反打等场景，明确人物在场、左右关系、前后景、视线和景深。
+- 单人台词镜头里，如果同一 videoBlock 的对手人物已经存在，必须让对手以虚焦背景、前景肩膀、画面边缘轮廓或画外视线目标之一保持关系存在。
+- 梦境、回忆、蒙太奇、追逐、纯物件、纯风景、快速跳切不强行注入固定空间关系。
+
+source_snapshot_json:
+{source_snapshot_json}
+
+block_classification_draft_json 只是预检查参考，不能当最终答案：
+{block_classification_draft_json}
+
+panel_contract_json 定义必须返回的 panel 列表，必须保留 panelIndex/sourceShotNumber/sourceVideoBlockId：
+{panel_contract_json}
+
+只返回 JSON，不要 markdown，不要解释。Schema:
+{
+  "strategyOutput": {
+    "strategy": "structured_text",
+    "blocks": [
+      {
+        "sourceVideoBlockId": "string",
+        "classification": "fixed_space_strong | fixed_space_weak | no_fixed_space",
+        "reason": "string",
+        "location": "string or null",
+        "participants": ["string"],
+        "anchors": ["string"],
+        "spatialRelation": "string",
+        "screenContinuity": "string",
+        "shots": [
+          {
+            "shotNumber": 1,
+            "primarySubjects": ["string"],
+            "secondaryPresence": ["string"],
+            "depthOfField": "string",
+            "screenContinuity": "string"
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "panelIndex": 0,
+      "sourceShotNumber": 1,
+      "sourceVideoBlockId": "string",
+      "prompt": "可直接用于生成单张分镜图的中文图片提示词"
+    }
+  ]
+}

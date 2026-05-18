@@ -10,6 +10,9 @@ export type TaskTypeCoverageEntry = {
 
 const TASK_TYPE_OWNER_MAP = {
   [TASK_TYPE.IMAGE_PANEL]: 'tests/unit/worker/panel-image-task-handler.test.ts',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_PREPARE]: 'tests/unit/worker/consistency-experiment-prepare-worker.test.ts',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE]: 'tests/unit/worker/consistency-experiment-floor-plan-worker.test.ts',
+  [TASK_TYPE.CONSISTENCY_EXPERIMENT_GRID_ANALYZE]: 'tests/unit/worker/consistency-experiment-grid-analyze-worker.test.ts',
   [TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE]: 'tests/unit/worker/consistency-experiment-image-task-handler.test.ts',
   [TASK_TYPE.IMAGE_CHARACTER]: 'tests/unit/worker/character-image-task-handler.test.ts',
   [TASK_TYPE.IMAGE_LOCATION]: 'tests/unit/worker/location-image-task-handler.test.ts',

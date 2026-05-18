@@ -9,6 +9,7 @@ import {
   handleAssetHubImageTask,
   handleAssetHubModifyTask,
   handleCharacterImageTask,
+  handleConsistencyExperimentFloorPlanImageTask,
   handleConsistencyExperimentImageTask,
   handleLocationImageTask,
   handleModifyAssetImageTask,
@@ -41,6 +42,8 @@ async function processImageTask(job: Job<TaskJobData>) {
       return await handleAssetHubModifyTask(job)
     case TASK_TYPE.IMAGE_PANEL:
       return await handlePanelImageTask(job)
+    case TASK_TYPE.CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE:
+      return await handleConsistencyExperimentFloorPlanImageTask(job)
     case TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE:
       return await handleConsistencyExperimentImageTask(job)
     case TASK_TYPE.PANEL_VARIANT:

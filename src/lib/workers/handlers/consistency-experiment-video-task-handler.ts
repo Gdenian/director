@@ -221,7 +221,7 @@ export async function handleConsistencyExperimentVideoTask(job: Job<TaskJobData>
   try {
     await prisma.consistencyExperimentRun.update({
       where: { id: run.id },
-      data: { status: 'generating', errorMessage: null },
+      data: { status: 'generating', currentStage: 'videos_generating', errorMessage: null },
     })
     for (const [index, video] of run.videos.entries()) {
       await reportTaskProgress(job, 12 + Math.floor(index / Math.max(run.videos.length, 1) * 78), {
@@ -237,7 +237,7 @@ export async function handleConsistencyExperimentVideoTask(job: Job<TaskJobData>
     await assertTaskActive(job, 'persist_consistency_experiment_video_complete')
     await prisma.consistencyExperimentRun.update({
       where: { id: run.id },
-      data: { status: 'ready', errorMessage: null },
+      data: { status: 'ready', currentStage: 'videos_ready', errorMessage: null },
     })
     return {
       runId: run.id,
@@ -247,7 +247,7 @@ export async function handleConsistencyExperimentVideoTask(job: Job<TaskJobData>
     const message = error instanceof Error ? error.message : String(error)
     await prisma.consistencyExperimentRun.update({
       where: { id: run.id },
-      data: { status: 'failed', errorMessage: message },
+      data: { status: 'failed', currentStage: 'failed', errorMessage: message },
     }).catch(() => undefined)
     await prisma.consistencyExperimentVideo.updateMany({
       where: { runId: run.id, status: 'generating' },

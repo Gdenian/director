@@ -6,22 +6,20 @@ import { TASK_TYPE } from '@/lib/task/types'
 import { submitTask } from '@/lib/task/submitter'
 import { buildConsistencyLabSource } from './source-snapshot'
 import {
-  buildContactSheet9GridStrategyOutput,
-  buildGridCoordinatesStrategyOutput,
-  buildStructuredTextStrategyOutput,
-} from './strategies'
-import { buildConsistencyLabPanelDrafts } from './prompt-builder'
-import {
   CONSISTENCY_LAB_ARTIFACT_STATUSES,
+  CONSISTENCY_LAB_ARTIFACT_KINDS,
+  CONSISTENCY_LAB_RUN_STAGES,
   CONSISTENCY_LAB_RUN_STATUSES,
   CONSISTENCY_LAB_STRATEGIES,
   type ConsistencyLabArtifactStatus,
+  type ConsistencyLabArtifactDto,
+  type ConsistencyLabArtifactKind,
   type ConsistencyLabPanelDto,
   type ConsistencyLabRunDto,
+  type ConsistencyLabRunStage,
   type ConsistencyLabRunStatus,
   type ConsistencyLabSourceSnapshot,
   type ConsistencyLabStrategy,
-  type ConsistencyLabStrategyOutput,
   type ConsistencyLabVideoDto,
   consistencyLabSourceSnapshotSchema,
 } from './types'
@@ -54,16 +52,34 @@ interface SubmitRunTaskInput {
   readonly requestId?: string | null
 }
 
+function isRunStage(value: string): value is ConsistencyLabRunStage {
+  return CONSISTENCY_LAB_RUN_STAGES.includes(value as ConsistencyLabRunStage)
+}
+
 function isRunStatus(value: string): value is ConsistencyLabRunStatus {
   return CONSISTENCY_LAB_RUN_STATUSES.includes(value as ConsistencyLabRunStatus)
+}
+
+function isArtifactKind(value: string): value is ConsistencyLabArtifactKind {
+  return CONSISTENCY_LAB_ARTIFACT_KINDS.includes(value as ConsistencyLabArtifactKind)
 }
 
 function isArtifactStatus(value: string): value is ConsistencyLabArtifactStatus {
   return CONSISTENCY_LAB_ARTIFACT_STATUSES.includes(value as ConsistencyLabArtifactStatus)
 }
 
+function assertRunStage(value: string): ConsistencyLabRunStage {
+  if (!isRunStage(value)) throw new Error(`CONSISTENCY_LAB_RUN_STAGE_INVALID:${value}`)
+  return value
+}
+
 function assertRunStatus(value: string): ConsistencyLabRunStatus {
   if (!isRunStatus(value)) throw new Error(`CONSISTENCY_LAB_RUN_STATUS_INVALID:${value}`)
+  return value
+}
+
+function assertArtifactKind(value: string): ConsistencyLabArtifactKind {
+  if (!isArtifactKind(value)) throw new Error(`CONSISTENCY_LAB_ARTIFACT_KIND_INVALID:${value}`)
   return value
 }
 
@@ -78,15 +94,6 @@ function assertStrategy(value: string): ConsistencyLabStrategy {
   return strategy
 }
 
-function buildStrategyOutput(
-  strategy: ConsistencyLabStrategy,
-  snapshot: ConsistencyLabSourceSnapshot,
-): ConsistencyLabStrategyOutput {
-  if (strategy === 'structured_text') return buildStructuredTextStrategyOutput(snapshot)
-  if (strategy === 'grid_coordinates') return buildGridCoordinatesStrategyOutput(snapshot)
-  return buildContactSheet9GridStrategyOutput(snapshot)
-}
-
 function readRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return value as Record<string, unknown>
@@ -99,11 +106,13 @@ function readString(value: unknown): string | null {
 }
 
 function readModelConfigSnapshot(value: unknown): {
+  readonly analysisModel: string | null
   readonly storyboardModel: string | null
   readonly videoModel: string | null
 } {
   const snapshot = readRecord(value)
   return {
+    analysisModel: readString(snapshot.analysisModel),
     storyboardModel: readString(snapshot.storyboardModel),
     videoModel: readString(snapshot.videoModel),
   }
@@ -147,6 +156,36 @@ function mapPanel(panel: {
   }
 }
 
+function mapArtifact(artifact: {
+  readonly id: string
+  readonly runId: string
+  readonly kind: string
+  readonly sourceVideoBlockId: string | null
+  readonly groupIndex: number | null
+  readonly prompt: string | null
+  readonly imageUrl: string | null
+  readonly imageMediaId: string | null
+  readonly candidateImages: string | null
+  readonly metadataJson: Prisma.JsonValue | null
+  readonly status: string
+  readonly errorMessage: string | null
+}): ConsistencyLabArtifactDto {
+  return {
+    id: artifact.id,
+    runId: artifact.runId,
+    kind: assertArtifactKind(artifact.kind),
+    sourceVideoBlockId: artifact.sourceVideoBlockId,
+    groupIndex: artifact.groupIndex,
+    prompt: artifact.prompt,
+    imageUrl: artifact.imageUrl,
+    imageMediaId: artifact.imageMediaId,
+    candidateImages: artifact.candidateImages,
+    metadataJson: artifact.metadataJson,
+    status: assertArtifactStatus(artifact.status),
+    errorMessage: artifact.errorMessage,
+  }
+}
+
 function mapVideo(video: {
   readonly id: string
   readonly runId: string
@@ -182,6 +221,7 @@ function mapRun(run: {
   readonly sourceEditScriptId: string
   readonly strategy: string
   readonly status: string
+  readonly currentStage: string
   readonly modelConfigSnapshot: Prisma.JsonValue
   readonly sourceSnapshotJson: Prisma.JsonValue
   readonly strategyInputJson: Prisma.JsonValue
@@ -189,6 +229,7 @@ function mapRun(run: {
   readonly errorMessage: string | null
   readonly createdAt: Date
   readonly updatedAt: Date
+  readonly artifacts: readonly Parameters<typeof mapArtifact>[0][]
   readonly panels: readonly Parameters<typeof mapPanel>[0][]
   readonly videos: readonly Parameters<typeof mapVideo>[0][]
 }): ConsistencyLabRunDto {
@@ -199,6 +240,7 @@ function mapRun(run: {
     sourceEditScriptId: run.sourceEditScriptId,
     strategy: assertStrategy(run.strategy),
     status: assertRunStatus(run.status),
+    currentStage: assertRunStage(run.currentStage),
     modelConfigSnapshot: run.modelConfigSnapshot,
     sourceSnapshotJson: run.sourceSnapshotJson,
     strategyInputJson: run.strategyInputJson,
@@ -206,6 +248,7 @@ function mapRun(run: {
     errorMessage: run.errorMessage,
     createdAt: run.createdAt.toISOString(),
     updatedAt: run.updatedAt.toISOString(),
+    artifacts: run.artifacts.map(mapArtifact),
     panels: run.panels.map(mapPanel),
     videos: run.videos.map(mapVideo),
   }
@@ -220,6 +263,7 @@ export async function listConsistencyExperimentRuns(input: ListRunsInput): Promi
     },
     orderBy: { createdAt: 'desc' },
     include: {
+      artifacts: { orderBy: [{ createdAt: 'asc' }, { groupIndex: 'asc' }] },
       panels: { orderBy: { panelIndex: 'asc' } },
       videos: { orderBy: { createdAt: 'asc' } },
     },
@@ -234,44 +278,53 @@ export async function createConsistencyExperimentRun(input: CreateRunInput): Pro
     editScriptId: input.editScriptId,
     userId: input.userId,
   })
-  const strategyOutput = buildStrategyOutput(input.strategy, sourceSnapshot)
-  const panelDrafts = buildConsistencyLabPanelDrafts({
-    snapshot: sourceSnapshot,
-    strategy: input.strategy,
-    strategyOutput,
-    locale: input.locale,
-  })
   const run = await prisma.consistencyExperimentRun.create({
     data: {
       projectId: input.projectId,
       episodeId: input.episodeId,
       sourceEditScriptId: input.editScriptId,
       strategy: input.strategy,
-      status: 'ready',
+      status: 'generating',
+      currentStage: 'preparing',
       modelConfigSnapshot: modelConfigSnapshot as unknown as Prisma.InputJsonValue,
       sourceSnapshotJson: sourceSnapshot as unknown as Prisma.InputJsonValue,
       strategyInputJson: {
         strategy: input.strategy,
         sourceEditScriptId: input.editScriptId,
         episodeId: input.episodeId,
+        generationMode: 'llm_task',
+        analysisModel: modelConfigSnapshot.analysisModel,
       } as Prisma.InputJsonValue,
-      strategyOutputJson: strategyOutput as unknown as Prisma.InputJsonValue,
-      panels: {
-        create: panelDrafts.map((draft) => ({
-          sourceShotNumber: draft.sourceShotNumber,
-          sourceVideoBlockId: draft.sourceVideoBlockId,
-          panelIndex: draft.panelIndex,
-          prompt: draft.prompt,
-          metadataJson: draft.metadata as Prisma.InputJsonValue,
-          status: 'ready',
-        })),
-      },
+      strategyOutputJson: {} as Prisma.InputJsonValue,
     },
     include: {
+      artifacts: { orderBy: [{ createdAt: 'asc' }, { groupIndex: 'asc' }] },
       panels: { orderBy: { panelIndex: 'asc' } },
       videos: { orderBy: { createdAt: 'asc' } },
     },
   })
+  try {
+    await submitTask({
+      userId: input.userId,
+      locale: input.locale,
+      projectId: input.projectId,
+      episodeId: input.episodeId,
+      type: TASK_TYPE.CONSISTENCY_EXPERIMENT_PREPARE,
+      targetType: 'ConsistencyExperimentRun',
+      targetId: run.id,
+      operationId: 'consistency_lab_prepare',
+      operationSource: 'project-ui',
+      payload: {
+        runId: run.id,
+        analysisModel: modelConfigSnapshot.analysisModel,
+        maxInputTokens: Math.max(3000, JSON.stringify(sourceSnapshot).length),
+      },
+      dedupeKey: `consistency_lab_prepare:${run.id}`,
+    })
+  } catch (error) {
+    await prisma.consistencyExperimentRun.delete({ where: { id: run.id } }).catch(() => undefined)
+    throw error
+  }
   return mapRun(run)
 }
 
@@ -296,6 +349,7 @@ export async function submitConsistencyExperimentImageGeneration(input: SubmitRu
     },
     include: {
       panels: true,
+      artifacts: true,
     },
   })
   if (!run) throw new ApiError('NOT_FOUND')
@@ -303,6 +357,12 @@ export async function submitConsistencyExperimentImageGeneration(input: SubmitRu
     throw new ApiError('CONFLICT', {
       code: 'CONSISTENCY_LAB_RUN_EMPTY',
       message: 'Consistency lab run has no panels to generate',
+    })
+  }
+  if (run.strategy === 'grid_coordinates' && run.currentStage !== 'panel_prompts_ready' && run.currentStage !== 'images_ready') {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_ANALYSIS_REQUIRED',
+      message: 'Grid coordinate analysis must complete before generating experiment images',
     })
   }
   const modelConfig = readModelConfigSnapshot(run.modelConfigSnapshot)
@@ -315,7 +375,7 @@ export async function submitConsistencyExperimentImageGeneration(input: SubmitRu
   await prisma.$transaction([
     prisma.consistencyExperimentRun.update({
       where: { id: run.id },
-      data: { status: 'generating', errorMessage: null },
+      data: { status: 'generating', currentStage: 'images_generating', errorMessage: null },
     }),
     prisma.consistencyExperimentPanel.updateMany({
       where: { runId: run.id },
@@ -337,7 +397,9 @@ export async function submitConsistencyExperimentImageGeneration(input: SubmitRu
       payload: {
         runId: run.id,
         imageModel: modelConfig.storyboardModel,
-        count: run.strategy === 'contact_sheet_9grid' ? 1 : run.panels.length,
+        count: run.strategy === 'contact_sheet_9grid'
+          ? Math.max(1, run.artifacts.filter((artifact) => artifact.kind === 'contact_sheet_full').length)
+          : run.panels.length,
       },
       dedupeKey: `consistency_lab_images:${run.id}`,
     })
@@ -345,13 +407,149 @@ export async function submitConsistencyExperimentImageGeneration(input: SubmitRu
     await prisma.$transaction([
       prisma.consistencyExperimentRun.update({
         where: { id: run.id },
-        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+        data: { status: 'failed', currentStage: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
       }),
       prisma.consistencyExperimentPanel.updateMany({
         where: { runId: run.id },
         data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
       }),
     ]).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function submitConsistencyExperimentFloorPlanGeneration(input: SubmitRunTaskInput) {
+  const run = await prisma.consistencyExperimentRun.findFirst({
+    where: {
+      id: input.runId,
+      projectId: input.projectId,
+    },
+    include: {
+      artifacts: true,
+    },
+  })
+  if (!run) throw new ApiError('NOT_FOUND')
+  if (run.strategy !== 'grid_coordinates') {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_STRATEGY_REQUIRED',
+      message: 'Floor plan generation is only available for grid coordinate runs',
+    })
+  }
+  const floorPlans = run.artifacts.filter((artifact) => artifact.kind === 'grid_floor_plan')
+  if (floorPlans.length === 0) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_FLOOR_PLAN_PROMPTS_REQUIRED',
+      message: 'Grid floor plan prompts are required before generating floor plan images',
+    })
+  }
+  const activeFloorPlans = floorPlans.filter((artifact) => readRecord(artifact.metadataJson).skipped !== true)
+  if (activeFloorPlans.length === 0) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_FLOOR_PLAN_ACTIVE_REQUIRED',
+      message: 'At least one non-skipped floor plan is required before grid image generation',
+    })
+  }
+  const modelConfig = readModelConfigSnapshot(run.modelConfigSnapshot)
+  if (!modelConfig.storyboardModel) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_STORYBOARD_MODEL_REQUIRED',
+      message: 'Storyboard model is required before generating floor plan images',
+    })
+  }
+  await prisma.consistencyExperimentRun.update({
+    where: { id: run.id },
+    data: { status: 'generating', currentStage: 'floor_plans_generating', errorMessage: null },
+  })
+  try {
+    return await submitTask({
+      userId: input.userId,
+      locale: input.locale,
+      projectId: input.projectId,
+      episodeId: run.episodeId,
+      type: TASK_TYPE.CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE,
+      targetType: 'ConsistencyExperimentRun',
+      targetId: run.id,
+      operationId: 'consistency_lab_generate_floor_plans',
+      operationSource: 'project-ui',
+      requestId: input.requestId || null,
+      payload: {
+        runId: run.id,
+        imageModel: modelConfig.storyboardModel,
+        count: activeFloorPlans.length,
+      },
+      dedupeKey: `consistency_lab_floor_plans:${run.id}`,
+    })
+  } catch (error) {
+    await prisma.consistencyExperimentRun.update({
+      where: { id: run.id },
+      data: { status: 'failed', currentStage: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+    }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function submitConsistencyExperimentGridAnalysis(input: SubmitRunTaskInput) {
+  const run = await prisma.consistencyExperimentRun.findFirst({
+    where: {
+      id: input.runId,
+      projectId: input.projectId,
+    },
+    include: {
+      artifacts: true,
+    },
+  })
+  if (!run) throw new ApiError('NOT_FOUND')
+  if (run.strategy !== 'grid_coordinates') {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_STRATEGY_REQUIRED',
+      message: 'Grid analysis is only available for grid coordinate runs',
+    })
+  }
+  const overlays = run.artifacts.filter((artifact) => artifact.kind === 'grid_coordinate_overlay' && artifact.status === 'ready' && artifact.imageUrl)
+  if (overlays.length === 0) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_GRID_OVERLAY_REQUIRED',
+      message: 'Ready grid coordinate overlay images are required before grid analysis',
+    })
+  }
+  const modelConfig = readModelConfigSnapshot(run.modelConfigSnapshot)
+  if (!modelConfig.analysisModel) {
+    throw new ApiError('CONFLICT', {
+      code: 'CONSISTENCY_LAB_ANALYSIS_MODEL_REQUIRED',
+      message: 'Analysis model is required before grid analysis',
+    })
+  }
+  await prisma.$transaction([
+    prisma.consistencyExperimentPanel.deleteMany({ where: { runId: run.id } }),
+    prisma.consistencyExperimentRun.update({
+      where: { id: run.id },
+      data: { status: 'generating', currentStage: 'grid_analyzing', errorMessage: null },
+    }),
+  ])
+  try {
+    return await submitTask({
+      userId: input.userId,
+      locale: input.locale,
+      projectId: input.projectId,
+      episodeId: run.episodeId,
+      type: TASK_TYPE.CONSISTENCY_EXPERIMENT_GRID_ANALYZE,
+      targetType: 'ConsistencyExperimentRun',
+      targetId: run.id,
+      operationId: 'consistency_lab_grid_analyze',
+      operationSource: 'project-ui',
+      requestId: input.requestId || null,
+      payload: {
+        runId: run.id,
+        analysisModel: modelConfig.analysisModel,
+        maxInputTokens: Math.max(3000, JSON.stringify(run.sourceSnapshotJson).length),
+      },
+      dedupeKey: `consistency_lab_grid_analyze:${run.id}`,
+    })
+  } catch (error) {
+    await prisma.consistencyExperimentRun.update({
+      where: { id: run.id },
+      data: { status: 'failed', currentStage: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+    }).catch(() => undefined)
     throw error
   }
 }
@@ -411,7 +609,7 @@ export async function submitConsistencyExperimentVideoGeneration(input: SubmitRu
     })
     await tx.consistencyExperimentRun.update({
       where: { id: run.id },
-      data: { status: 'generating', errorMessage: null },
+      data: { status: 'generating', currentStage: 'videos_generating', errorMessage: null },
     })
   })
   try {
@@ -437,7 +635,7 @@ export async function submitConsistencyExperimentVideoGeneration(input: SubmitRu
     await prisma.$transaction([
       prisma.consistencyExperimentRun.update({
         where: { id: run.id },
-        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+        data: { status: 'failed', currentStage: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
       }),
       prisma.consistencyExperimentVideo.updateMany({
         where: { runId: run.id },

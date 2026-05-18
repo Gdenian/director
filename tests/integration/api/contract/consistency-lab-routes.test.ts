@@ -9,6 +9,8 @@ const serviceMock = vi.hoisted(() => ({
   listConsistencyExperimentRuns: vi.fn(),
   createConsistencyExperimentRun: vi.fn(),
   deleteConsistencyExperimentRun: vi.fn(),
+  submitConsistencyExperimentFloorPlanGeneration: vi.fn(),
+  submitConsistencyExperimentGridAnalysis: vi.fn(),
 }))
 
 const adoptMock = vi.hoisted(() => ({
@@ -48,6 +50,8 @@ import {
 } from '@/app/api/projects/[projectId]/consistency-lab/runs/route'
 import { DELETE as runDelete } from '@/app/api/projects/[projectId]/consistency-lab/runs/[runId]/route'
 import { POST as adoptPost } from '@/app/api/projects/[projectId]/consistency-lab/runs/[runId]/adopt/route'
+import { POST as floorPlansPost } from '@/app/api/projects/[projectId]/consistency-lab/runs/[runId]/floor-plans/route'
+import { POST as gridAnalysisPost } from '@/app/api/projects/[projectId]/consistency-lab/runs/[runId]/grid-analysis/route'
 
 describe('api contract - consistency lab routes', () => {
   beforeEach(() => {
@@ -61,6 +65,8 @@ describe('api contract - consistency lab routes', () => {
       videos: [],
     })
     serviceMock.deleteConsistencyExperimentRun.mockResolvedValue({ success: true })
+    serviceMock.submitConsistencyExperimentFloorPlanGeneration.mockResolvedValue({ taskId: 'task-floor-plan' })
+    serviceMock.submitConsistencyExperimentGridAnalysis.mockResolvedValue({ taskId: 'task-grid-analysis' })
     adoptMock.adoptConsistencyExperimentRun.mockResolvedValue({
       storyboardId: 'storyboard-1',
       panelCount: 2,
@@ -176,5 +182,45 @@ describe('api contract - consistency lab routes', () => {
 
     expect(response.status).toBe(400)
     expect(serviceMock.createConsistencyExperimentRun).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/projects/[projectId]/consistency-lab/runs/[runId]/floor-plans -> submits grid floor plan image task', async () => {
+    const response = await floorPlansPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/consistency-lab/runs/run-1/floor-plans',
+        method: 'POST',
+        body: { meta: { locale: 'zh' } },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1', runId: 'run-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(serviceMock.submitConsistencyExperimentFloorPlanGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      runId: 'run-1',
+      userId: 'user-1',
+      locale: 'zh',
+    }))
+    await expect(response.json()).resolves.toEqual({ taskId: 'task-floor-plan' })
+  })
+
+  it('POST /api/projects/[projectId]/consistency-lab/runs/[runId]/grid-analysis -> submits grid vision analysis task', async () => {
+    const response = await gridAnalysisPost(
+      buildMockRequest({
+        path: '/api/projects/project-1/consistency-lab/runs/run-1/grid-analysis',
+        method: 'POST',
+        body: { meta: { locale: 'zh' } },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1', runId: 'run-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(serviceMock.submitConsistencyExperimentGridAnalysis).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      runId: 'run-1',
+      userId: 'user-1',
+      locale: 'zh',
+    }))
+    await expect(response.json()).resolves.toEqual({ taskId: 'task-grid-analysis' })
   })
 })

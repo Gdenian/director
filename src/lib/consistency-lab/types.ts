@@ -15,6 +15,30 @@ export type ConsistencyLabRunStatus = (typeof CONSISTENCY_LAB_RUN_STATUSES)[numb
 export const CONSISTENCY_LAB_ARTIFACT_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
 export type ConsistencyLabArtifactStatus = (typeof CONSISTENCY_LAB_ARTIFACT_STATUSES)[number]
 
+export const CONSISTENCY_LAB_ARTIFACT_KINDS = [
+  'structured_text_plan',
+  'grid_floor_plan',
+  'grid_coordinate_overlay',
+  'contact_sheet_full',
+] as const
+export type ConsistencyLabArtifactKind = (typeof CONSISTENCY_LAB_ARTIFACT_KINDS)[number]
+
+export const CONSISTENCY_LAB_RUN_STAGES = [
+  'created',
+  'preparing',
+  'floor_plan_prompts_ready',
+  'floor_plans_generating',
+  'floor_plans_ready',
+  'grid_analyzing',
+  'panel_prompts_ready',
+  'images_generating',
+  'images_ready',
+  'videos_generating',
+  'videos_ready',
+  'failed',
+] as const
+export type ConsistencyLabRunStage = (typeof CONSISTENCY_LAB_RUN_STAGES)[number]
+
 export type FixedSpaceClassification = 'fixed_space_strong' | 'fixed_space_weak' | 'no_fixed_space'
 
 export interface ConsistencyLabModelConfigSnapshot {
@@ -165,6 +189,7 @@ export interface ConsistencyLabRunDto {
   readonly sourceEditScriptId: string
   readonly strategy: ConsistencyLabStrategy
   readonly status: ConsistencyLabRunStatus
+  readonly currentStage: ConsistencyLabRunStage
   readonly modelConfigSnapshot: unknown
   readonly sourceSnapshotJson: unknown
   readonly strategyInputJson: unknown
@@ -172,8 +197,24 @@ export interface ConsistencyLabRunDto {
   readonly errorMessage: string | null
   readonly createdAt: string
   readonly updatedAt: string
+  readonly artifacts: readonly ConsistencyLabArtifactDto[]
   readonly panels: readonly ConsistencyLabPanelDto[]
   readonly videos: readonly ConsistencyLabVideoDto[]
+}
+
+export interface ConsistencyLabArtifactDto {
+  readonly id: string
+  readonly runId: string
+  readonly kind: ConsistencyLabArtifactKind
+  readonly sourceVideoBlockId: string | null
+  readonly groupIndex: number | null
+  readonly prompt: string | null
+  readonly imageUrl: string | null
+  readonly imageMediaId: string | null
+  readonly candidateImages: string | null
+  readonly metadataJson: unknown
+  readonly status: ConsistencyLabArtifactStatus
+  readonly errorMessage: string | null
 }
 
 export interface ConsistencyLabPanelDto {
@@ -215,6 +256,10 @@ export const listConsistencyExperimentRunsRequestSchema = z.object({
   episodeId: z.string().trim().min(1),
   editScriptId: z.string().trim().min(1),
 })
+
+export const consistencyExperimentRunTaskRequestSchema = z.object({
+  meta: z.record(z.string(), z.unknown()).optional(),
+}).optional()
 
 const sourceShotSchema = z.object({
   shotNumber: z.number().int().positive(),
