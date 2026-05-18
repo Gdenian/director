@@ -1,8 +1,16 @@
+import OpenAI from 'openai'
 import { runOpenAIBaseUrlLlmCompletion, runOpenAIBaseUrlLlmStream } from '@/lib/ai-providers/shared/openai-base-llm'
+import { getCompletionParts } from '@/lib/ai-providers/shared/completion-parts'
+import { buildAiProviderLlmResult } from '@/lib/ai-providers/shared/llm-result'
 import type {
   AiProviderLlmResult,
   AiProviderLlmStreamContext,
+  AiProviderVisionExecutionContext,
 } from '@/lib/ai-providers/runtime-types'
+
+type OpenRouterVisionContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
 
 export async function runOpenRouterLlmCompletion(input: {
   modelId: string
@@ -40,5 +48,45 @@ export async function runOpenRouterLlmStream(input: AiProviderLlmStreamContext):
     providerName: 'openrouter',
     providerKey: 'openrouter',
     isOpenRouter: true,
+  })
+}
+
+export async function runOpenRouterVisionCompletion(input: AiProviderVisionExecutionContext): Promise<AiProviderLlmResult> {
+  if (!input.providerConfig.baseUrl) {
+    throw new Error('PROVIDER_BASE_URL_MISSING: openrouter (vision)')
+  }
+
+  const content: OpenRouterVisionContentPart[] = []
+  if (input.textPrompt.trim()) {
+    content.push({ type: 'text', text: input.textPrompt })
+  }
+  for (const imageUrl of input.imageUrls) {
+    content.push({ type: 'image_url', image_url: { url: imageUrl } })
+  }
+
+  if (content.length === 0) {
+    throw new Error('OPENROUTER_VISION_INPUT_EMPTY')
+  }
+
+  const client = new OpenAI({
+    baseURL: input.providerConfig.baseUrl,
+    apiKey: input.providerConfig.apiKey,
+  })
+  const completion = await client.chat.completions.create({
+    model: input.selection.modelId,
+    messages: [{
+      role: 'user',
+      content,
+    }],
+    temperature: input.temperature,
+  })
+  const normalizedCompletion = completion as OpenAI.Chat.Completions.ChatCompletion
+  const completionParts = getCompletionParts(normalizedCompletion)
+  return buildAiProviderLlmResult({
+    completion: normalizedCompletion,
+    logProvider: 'openrouter',
+    text: completionParts.text,
+    reasoning: completionParts.reasoning,
+    successDetails: { engine: 'openai_sdk_vision' },
   })
 }

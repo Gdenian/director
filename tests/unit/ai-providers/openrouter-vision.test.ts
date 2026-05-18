@@ -1,0 +1,104 @@
+import type OpenAI from 'openai'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const completionCreateMock = vi.hoisted(() => vi.fn(async () => ({
+  id: 'chatcmpl-openrouter-vision',
+  object: 'chat.completion',
+  created: 0,
+  model: 'anthropic/claude-sonnet-4',
+  choices: [{
+    index: 0,
+    finish_reason: 'stop',
+    logprobs: null,
+    message: { role: 'assistant', content: 'coordinate analysis', refusal: null },
+  }],
+  usage: { prompt_tokens: 20, completion_tokens: 4, total_tokens: 24 },
+} as OpenAI.Chat.Completions.ChatCompletion)))
+
+const openAiConstructorMock = vi.hoisted(() => vi.fn(() => ({
+  chat: {
+    completions: {
+      create: completionCreateMock,
+    },
+  },
+})))
+
+vi.mock('openai', () => ({
+  default: openAiConstructorMock,
+}))
+
+import { openRouterAdapter } from '@/lib/ai-providers/openrouter/adapter'
+import { runOpenRouterVisionCompletion } from '@/lib/ai-providers/openrouter/llm'
+
+describe('OpenRouter vision adapter', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('registers OpenRouter as a vision-capable provider', () => {
+    expect(openRouterAdapter.completeVision).toBe(runOpenRouterVisionCompletion)
+  })
+
+  it('sends image URLs through OpenRouter chat completions instead of blocking modality support', async () => {
+    const result = await runOpenRouterVisionCompletion({
+      userId: 'user-1',
+      providerKey: 'openrouter',
+      selection: {
+        provider: 'openrouter',
+        modelId: 'anthropic/claude-sonnet-4',
+        modelKey: 'openrouter::anthropic/claude-sonnet-4',
+        variantSubKind: 'official',
+      },
+      providerConfig: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        apiKey: 'sk-openrouter',
+        baseUrl: 'https://openrouter.example/v1',
+      },
+      textPrompt: 'Analyze this coordinate overlay.',
+      imageUrls: ['https://example.com/overlay.png'],
+      temperature: 0.2,
+      reasoning: true,
+    })
+
+    expect(openAiConstructorMock).toHaveBeenCalledWith({
+      baseURL: 'https://openrouter.example/v1',
+      apiKey: 'sk-openrouter',
+    })
+    expect(completionCreateMock).toHaveBeenCalledWith({
+      model: 'anthropic/claude-sonnet-4',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Analyze this coordinate overlay.' },
+          { type: 'image_url', image_url: { url: 'https://example.com/overlay.png' } },
+        ],
+      }],
+      temperature: 0.2,
+    })
+    expect(result.text).toBe('coordinate analysis')
+    expect(result.logProvider).toBe('openrouter')
+  })
+
+  it('fails explicitly when OpenRouter vision is missing a base URL', async () => {
+    await expect(runOpenRouterVisionCompletion({
+      userId: 'user-1',
+      providerKey: 'openrouter',
+      selection: {
+        provider: 'openrouter',
+        modelId: 'anthropic/claude-sonnet-4',
+        modelKey: 'openrouter::anthropic/claude-sonnet-4',
+        variantSubKind: 'official',
+      },
+      providerConfig: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        apiKey: 'sk-openrouter',
+      },
+      textPrompt: 'Analyze this coordinate overlay.',
+      imageUrls: ['https://example.com/overlay.png'],
+      temperature: 0.2,
+      reasoning: true,
+    })).rejects.toThrow('PROVIDER_BASE_URL_MISSING: openrouter (vision)')
+  })
+})

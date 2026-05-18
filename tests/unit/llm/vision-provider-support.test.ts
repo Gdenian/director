@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type OpenAI from 'openai'
 
 const resolveModelSelectionMock = vi.hoisted(() => vi.fn(async () => ({
   provider: 'openrouter',
-  modelId: 'text-only',
-  modelKey: 'openrouter::text-only',
+  modelId: 'vision-model',
+  modelKey: 'openrouter::vision-model',
   mediaType: 'llm',
   variantSubKind: 'official',
 })))
@@ -15,8 +16,29 @@ const getProviderConfigMock = vi.hoisted(() => vi.fn(async () => ({
   baseUrl: 'https://openrouter.example/v1',
 })))
 
+const visionCompletionMock = vi.hoisted(() => vi.fn(async () => ({
+  completion: {
+    id: 'chatcmpl-test',
+    object: 'chat.completion',
+    created: 0,
+    model: 'vision-model',
+    choices: [{
+      index: 0,
+      finish_reason: 'stop',
+      logprobs: null,
+      message: { role: 'assistant', content: 'vision ok', refusal: null },
+    }],
+    usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+  } as OpenAI.Chat.Completions.ChatCompletion,
+  logProvider: 'openrouter',
+  text: 'vision ok',
+  reasoning: '',
+  usage: { promptTokens: 10, completionTokens: 2 },
+})))
+
 const resolveAiProviderAdapterMock = vi.hoisted(() => vi.fn(() => ({
   providerKey: 'openrouter',
+  completeVision: visionCompletionMock,
 })))
 
 vi.mock('@/lib/user-api/runtime-config', () => ({
@@ -35,15 +57,21 @@ describe('vision provider support', () => {
     vi.clearAllMocks()
   })
 
-  it('fails explicitly when provider has no vision adapter instead of falling back to OpenAI vision', async () => {
-    await expect(runChatCompletionWithVision(
+  it('routes OpenRouter vision calls through the provider adapter', async () => {
+    const completion = await runChatCompletionWithVision(
       'user-1',
-      'openrouter::text-only',
+      'openrouter::vision-model',
       'describe image',
       ['https://example.com/image.png'],
-    )).rejects.toThrow('AI_PROVIDER_MODALITY_UNSUPPORTED:openrouter:vision')
+    )
 
+    expect(completion.choices[0]?.message.content).toBe('vision ok')
     expect(resolveAiProviderAdapterMock).toHaveBeenCalledWith('openrouter')
     expect(getProviderConfigMock).toHaveBeenCalledWith('user-1', 'openrouter')
+    expect(visionCompletionMock).toHaveBeenCalledWith(expect.objectContaining({
+      textPrompt: 'describe image',
+      imageUrls: ['https://example.com/image.png'],
+      providerKey: 'openrouter',
+    }))
   })
 })

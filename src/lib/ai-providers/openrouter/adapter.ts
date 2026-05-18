@@ -1,6 +1,6 @@
 import type { AiProviderAdapter } from '@/lib/ai-providers/runtime-types'
 import { createOpenAiSdkLanguageModel } from '@/lib/ai-providers/shared/language-model'
-import { runOpenRouterLlmCompletion, runOpenRouterLlmStream } from './llm'
+import { runOpenRouterLlmCompletion, runOpenRouterLlmStream, runOpenRouterVisionCompletion } from './llm'
 
 export const openRouterAdapter: AiProviderAdapter = {
   providerKey: 'openrouter',
@@ -16,5 +16,6 @@ export const openRouterAdapter: AiProviderAdapter = {
   languageModel: {
     create: createOpenAiSdkLanguageModel,
   },
+  completeVision: runOpenRouterVisionCompletion,
   streamLlm: runOpenRouterLlmStream,
 }
