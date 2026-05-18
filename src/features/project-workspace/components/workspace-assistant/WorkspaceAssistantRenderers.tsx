@@ -47,6 +47,14 @@ type MessagePartComponents = NonNullable<ComponentProps<typeof MessagePrimitive.
 
 export const WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS = 'w-fit rounded-2xl bg-neutral-100 px-3 py-2.5 text-sm leading-6 text-[var(--glass-text-primary)]'
 
+export function resolveProgressStageLabel(raw: string | null, progressT: ReturnType<typeof useTranslations<'progress'>>): string | null {
+  if (!raw) return null
+  if (!raw.startsWith('progress.')) return raw
+  const key = raw.slice('progress.'.length)
+  if (progressT.has(key)) return progressT(key)
+  return `MISSING_MESSAGE:${raw}`
+}
+
 function ProjectPhaseDataCard({ data }: DataMessagePartProps<ProjectPhasePartData>) {
   const t = useTranslations('assistantAgent')
   return (
@@ -261,9 +269,7 @@ function TaskSubmittedDataCard({ data }: DataMessagePartProps<TaskSubmittedPartD
   const liveStatus = taskState && taskState.phase !== 'idle' ? taskState.phase : data.status
   const liveStageLabel = useMemo(() => {
     const raw = taskState?.stageLabel || taskState?.stage || null
-    if (!raw) return null
-    if (raw.startsWith('progress.')) return progressT(raw.slice('progress.'.length))
-    return raw
+    return resolveProgressStageLabel(raw, progressT)
   }, [progressT, taskState?.stage, taskState?.stageLabel])
 
   const handleUndo = async () => {

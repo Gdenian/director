@@ -3,10 +3,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { createTranslator } from 'use-intl/core'
 import { WorkspaceAssistantPanelHeader } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantPanelHeader'
 import { WorkspaceAssistantPanelRail } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantPanelRail'
 import { WORKSPACE_ASSISTANT_VIEWPORT_FADE_STYLE } from '@/features/project-workspace/components/WorkspaceAssistantPanel'
-import { WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS } from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantRenderers'
+import {
+  resolveProgressStageLabel,
+  WORKSPACE_ASSISTANT_USER_MESSAGE_CLASS,
+} from '@/features/project-workspace/components/workspace-assistant/WorkspaceAssistantRenderers'
 import {
   buildWorkspaceAssistantPanelLayout,
   clampWorkspaceAssistantPanelWidth,
@@ -15,6 +19,20 @@ import {
   WORKSPACE_ASSISTANT_PANEL_WIDTH_PX,
   WORKSPACE_ASSISTANT_RAIL_WIDTH_PX,
 } from '@/features/project-workspace/components/workspace-assistant/panel-layout'
+
+type ProgressTranslator = Parameters<typeof resolveProgressStageLabel>[1]
+
+function createProgressTranslator(messages: {
+  stage?: Record<string, string>
+}): ProgressTranslator {
+  return createTranslator({
+    locale: 'zh',
+    namespace: 'progress',
+    messages: {
+      progress: messages,
+    },
+  }) as ProgressTranslator
+}
 
 describe('workspace assistant panel layout', () => {
   it('returns expanded width when panel is visible', () => {
@@ -110,5 +128,25 @@ describe('workspace assistant panel layout', () => {
     expect(panelSource).not.toContain('pendingConfirmationChip')
     expect(rendererSource).toContain("'confirmation-request'")
     expect(rendererSource).toContain('InlineConfirmationRequestDataCard')
+  })
+
+  it('resolves progress stage labels without crashing on missing translations', () => {
+    const progressT = createProgressTranslator({
+      stage: {
+        editScriptVideoPrompt: '生成视频提示词',
+      },
+    })
+
+    expect(resolveProgressStageLabel('progress.stage.editScriptVideoPrompt', progressT)).toBe('生成视频提示词')
+    expect(resolveProgressStageLabel('progress.stage.missingStage', progressT)).toBe('MISSING_MESSAGE:progress.stage.missingStage')
+    expect(resolveProgressStageLabel('外部阶段', progressT)).toBe('外部阶段')
+  })
+
+  it('keeps edit script video prompt stage translated in supported locales', () => {
+    const zhProgressSource = readFileSync(join(process.cwd(), 'messages/zh/progress.json'), 'utf8')
+    const enProgressSource = readFileSync(join(process.cwd(), 'messages/en/progress.json'), 'utf8')
+
+    expect(zhProgressSource).toContain('"editScriptVideoPrompt"')
+    expect(enProgressSource).toContain('"editScriptVideoPrompt"')
   })
 })
