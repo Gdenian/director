@@ -53,6 +53,22 @@ function readSourceVideoRatio(value: unknown): string | null {
   return typeof videoRatio === 'string' && videoRatio.trim() ? videoRatio : null
 }
 
+function readObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function readBoolean(value: unknown): boolean {
+  return value === true
+}
+
 function JsonBlock({ value }: { readonly value: unknown }) {
   return (
     <pre className="max-h-72 overflow-auto rounded-md bg-slate-950 p-3 text-[11px] leading-5 text-slate-100">
@@ -74,6 +90,114 @@ function PromptList({ run }: { readonly run: ConsistencyLabRunDto }) {
             {panel.prompt}
           </pre>
         </details>
+      ))}
+    </div>
+  )
+}
+
+interface GridAnalysisCoordinate {
+  readonly name: string
+  readonly kind: string
+  readonly x: number | null
+  readonly y: number | null
+  readonly facing: string
+}
+
+interface GridAnalysisBlock {
+  readonly sourceVideoBlockId: string
+  readonly classification: string
+  readonly skipped: boolean
+  readonly reason: string
+  readonly cinematicTranslation: string
+  readonly coordinates: readonly GridAnalysisCoordinate[]
+}
+
+function readGridAnalysisBlocks(value: unknown): readonly GridAnalysisBlock[] {
+  const output = readObject(value)
+  const blocks = Array.isArray(output?.blocks) ? output.blocks : []
+  return blocks.flatMap((item): GridAnalysisBlock[] => {
+    const block = readObject(item)
+    if (!block) return []
+    const coordinates = Array.isArray(block.coordinates) ? block.coordinates : []
+    return [{
+      sourceVideoBlockId: readString(block.sourceVideoBlockId),
+      classification: readString(block.classification),
+      skipped: readBoolean(block.skipped),
+      reason: readString(block.reason),
+      cinematicTranslation: readString(block.cinematicTranslation),
+      coordinates: coordinates.flatMap((coordinate): GridAnalysisCoordinate[] => {
+        const parsed = readObject(coordinate)
+        if (!parsed) return []
+        return [{
+          name: readString(parsed.name),
+          kind: readString(parsed.kind),
+          x: readNumber(parsed.x),
+          y: readNumber(parsed.y),
+          facing: readString(parsed.facing),
+        }]
+      }),
+    }]
+  })
+}
+
+function GridAnalysisResult(props: {
+  readonly run: ConsistencyLabRunDto
+  readonly emptyLabel: string
+  readonly skippedLabel: string
+  readonly coordinatesLabel: string
+  readonly translationLabel: string
+  readonly reasonLabel: string
+}) {
+  const blocks = readGridAnalysisBlocks(props.run.strategyOutputJson)
+  if (blocks.length === 0) return <p className="text-xs text-slate-500">{props.emptyLabel}</p>
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, index) => (
+        <div key={`${block.sourceVideoBlockId || 'block'}:${index}`} className="rounded-md border border-indigo-100 bg-indigo-50/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-[11px] font-semibold text-slate-700">
+              {block.sourceVideoBlockId || `videoBlock:${index + 1}`}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full border border-indigo-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                {block.classification || '-'}
+              </span>
+              {block.skipped ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  {props.skippedLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          {block.reason ? (
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              <span className="font-semibold text-slate-700">{props.reasonLabel}: </span>{block.reason}
+            </p>
+          ) : null}
+          {block.cinematicTranslation ? (
+            <p className="mt-2 text-xs leading-5 text-slate-700">
+              <span className="font-semibold">{props.translationLabel}: </span>{block.cinematicTranslation}
+            </p>
+          ) : null}
+          <div className="mt-3">
+            <p className="mb-1 text-[11px] font-semibold uppercase text-slate-500">{props.coordinatesLabel}</p>
+            {block.coordinates.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {block.coordinates.map((coordinate, coordinateIndex) => (
+                  <span
+                    key={`${coordinate.name || 'coordinate'}:${coordinateIndex}`}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-700"
+                  >
+                    {coordinate.name || '-'} · {coordinate.kind || '-'} · [{coordinate.x ?? '-'}, {coordinate.y ?? '-'}]
+                    {coordinate.facing ? ` · ${coordinate.facing}` : ''}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">{props.emptyLabel}</p>
+            )}
+          </div>
+        </div>
       ))}
     </div>
   )
@@ -620,6 +744,17 @@ export default function ConsistencyLabPage() {
                           <h3 className="text-xs font-semibold uppercase text-slate-500">{t('coordinateOverlays')}</h3>
                           <ArtifactList artifacts={overlayArtifacts} title={t('coordinateOverlay')} emptyLabel={t('emptyArtifacts')} />
                           <ArtifactImages artifacts={overlayArtifacts} emptyLabel={t('emptyMedia')} />
+                        </section>
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase text-slate-500">{t('gridAnalysisResult')}</h3>
+                          <GridAnalysisResult
+                            run={run}
+                            emptyLabel={t('emptyGridAnalysis')}
+                            skippedLabel={t('skipped')}
+                            coordinatesLabel={t('coordinates')}
+                            translationLabel={t('cinematicTranslation')}
+                            reasonLabel={t('reason')}
+                          />
                         </section>
                       </>
                     ) : null}
