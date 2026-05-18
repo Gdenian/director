@@ -8,18 +8,17 @@ import { ensureAiCatalogsRegistered } from '@/lib/ai-exec/catalog-bootstrap'
 import { getCompletionParts } from '@/lib/ai-exec/llm-helpers'
 import {
   _ulogError,
-  _ulogInfo,
   _ulogWarn,
   isRetryableError,
   llmLogger,
   recordCompletionUsage,
   resolveLlmRuntimeModel,
-  completionUsageSummary,
 } from '@/lib/ai-exec/llm-runtime'
 import { waitForRetryDelay } from '@/lib/ai-exec/governance'
 import { describeLlmVariantBase } from '@/lib/ai-exec/llm-descriptor'
 import { validateAiOptions } from '@/lib/ai-exec/normalize'
 import { resolveAiProviderAdapter } from '@/lib/ai-providers'
+import { normalizeToOriginalMediaUrl } from '@/lib/media/outbound-image'
 import type { AiProviderVisionExecutionContext } from '@/lib/ai-providers/runtime-types'
 
 ensureAiCatalogsRegistered()
@@ -52,6 +51,16 @@ async function executeVisionCompletionViaAdapter(
   }
 
   throw new Error(`AI_PROVIDER_MODALITY_UNSUPPORTED:${input.selection.provider}:vision`)
+}
+
+async function normalizeVisionImageUrls(imageUrls: readonly string[]): Promise<string[]> {
+  const normalized: string[] = []
+  for (const imageUrl of imageUrls) {
+    const trimmed = typeof imageUrl === 'string' ? imageUrl.trim() : ''
+    if (!trimmed) continue
+    normalized.push(await normalizeToOriginalMediaUrl(trimmed))
+  }
+  return normalized
 }
 
 export async function runChatCompletionWithVision(
@@ -90,6 +99,7 @@ export async function runChatCompletionWithVision(
   })
 
   const { temperature = 0.7, maxRetries = 2, reasoning = true } = options
+  const normalizedImageUrls = await normalizeVisionImageUrls(imageUrls)
 
   let lastError: Error | null = null
 
@@ -103,7 +113,7 @@ export async function runChatCompletionWithVision(
         selection,
         providerConfig,
         textPrompt,
-        imageUrls,
+        imageUrls: normalizedImageUrls,
         temperature,
         reasoning,
       })
@@ -117,7 +127,7 @@ export async function runChatCompletionWithVision(
           model: resolvedModelId,
           attempt,
           maxRetries,
-          imageCount: imageUrls.length,
+          imageCount: normalizedImageUrls.length,
         },
       })
       return result.completion
@@ -133,7 +143,7 @@ export async function runChatCompletionWithVision(
           model: resolvedModelId,
           attempt,
           maxRetries,
-          imageCount: imageUrls.length,
+          imageCount: normalizedImageUrls.length,
         },
       })
       const errorBody = getErrorBody(error)
