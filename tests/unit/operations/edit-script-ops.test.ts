@@ -40,14 +40,22 @@ const serviceMock = vi.hoisted(() => ({
     ],
     videoBlocks: [],
   })),
-  generateProjectEditScriptStoryboard: vi.fn(async () => ({
-    storyboardId: 'storyboard-1',
-    panelCount: 6,
-    submittedImageTasks: 6,
-  })),
 }))
 
 vi.mock('@/lib/edit-script/service', () => serviceMock)
+
+const storyboardConsistencyServiceMock = vi.hoisted(() => ({
+  submitEditScriptCoordinateStoryboard: vi.fn(async () => ({
+    success: true,
+    async: true,
+    taskId: 'task-storyboard-1',
+    runId: null,
+    status: 'queued',
+    deduped: false,
+  })),
+}))
+
+vi.mock('@/lib/edit-script/storyboard-consistency/service', () => storyboardConsistencyServiceMock)
 
 const submitOperationTaskMock = vi.hoisted(() => ({
   submitOperationTask: vi.fn(async () => ({
@@ -140,6 +148,29 @@ describe('edit-script operations', () => {
       payload: expect.not.objectContaining({
         prompt: expect.anything(),
       }),
+    }))
+  })
+
+  it('submits coordinate storyboard generation as an async production task', async () => {
+    const operations = createEditScriptOperations()
+    const result = await operations.generate_edit_script_storyboard.execute(buildContext(), {
+      editScriptId: 'edit-1',
+      confirmed: true,
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      success: true,
+      async: true,
+      taskId: 'task-storyboard-1',
+      episodeId: 'episode-1',
+      taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE,
+    }))
+    expect(storyboardConsistencyServiceMock.submitEditScriptCoordinateStoryboard).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      userId: 'user-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      locale: 'zh',
     }))
   })
 })

@@ -2,8 +2,8 @@ import { z } from 'zod'
 import {
   generateProjectEditScreenplay,
   generateProjectEditScriptAssets,
-  generateProjectEditScriptStoryboard,
 } from '@/lib/edit-script/service'
+import { submitEditScriptCoordinateStoryboard } from '@/lib/edit-script/storyboard-consistency/service'
 import type { EditScriptPayload } from '@/lib/edit-script/types'
 import { TASK_TYPE } from '@/lib/task/types'
 import type { TaskSubmittedPartData } from '@/lib/project-agent/types'
@@ -83,12 +83,6 @@ const editScriptSummaryOutputSchema = z.object({
     kind: z.enum(['single', 'group']),
     shotNumbers: z.array(z.number().int().positive()),
   }).passthrough()),
-}).passthrough()
-
-const editStoryboardOutputSchema = z.object({
-  storyboardId: z.string().min(1),
-  panelCount: z.number().int().min(0),
-  submittedImageTasks: z.number().int().min(0),
 }).passthrough()
 
 type EditScriptSummaryOutput = z.infer<typeof editScriptSummaryOutputSchema>
@@ -271,15 +265,37 @@ export function createEditScriptOperations(): ProjectAgentOperationRegistryDraft
         summary: '将根据剪辑先行表和已完成资产生成分镜面板并提交面板图任务（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
       },
       inputSchema: generateEditScriptStoryboardInputSchema,
-      outputSchema: editStoryboardOutputSchema,
-      execute: async (ctx, input: GenerateEditScriptStoryboardInput) => generateProjectEditScriptStoryboard({
-        request: ctx.request,
-        projectId: ctx.projectId,
-        userId: ctx.userId,
-        episodeId: resolveEpisodeId(input, ctx.context.episodeId),
-        locale: resolveLocale(ctx.context.locale),
-        ...(input.editScriptId ? { editScriptId: input.editScriptId } : {}),
-      }),
+      outputSchema: editScriptTaskSubmitOutputSchema,
+      execute: async (ctx, input: GenerateEditScriptStoryboardInput) => {
+        const episodeId = resolveEpisodeId(input, ctx.context.episodeId)
+        const result = await submitEditScriptCoordinateStoryboard({
+          projectId: ctx.projectId,
+          userId: ctx.userId,
+          episodeId,
+          locale: resolveLocale(ctx.context.locale),
+          ...(input.editScriptId ? { editScriptId: input.editScriptId } : {}),
+          requestId: ctx.request.headers.get('x-request-id'),
+        })
+
+        writeOperationDataPart<TaskSubmittedPartData>(ctx.writer, 'data-task-submitted', {
+          operationId: 'generate_edit_script_storyboard',
+          taskId: result.taskId,
+          status: result.status,
+          runId: result.runId || null,
+          deduped: result.deduped,
+          projectId: ctx.projectId,
+          episodeId,
+          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE,
+          targetType: 'ProjectEditScript',
+          ...(input.editScriptId ? { targetId: input.editScriptId } : {}),
+        })
+
+        return {
+          ...result,
+          episodeId,
+          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE,
+        }
+      },
     }),
   }
 }

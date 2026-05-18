@@ -143,7 +143,6 @@ model ProjectEpisode {
   editScript              ProjectEditScript?
   editAssetRequirements   ProjectEditAssetRequirement[]
   videoGroups             ProjectVideoGroup[]
-  consistencyExperimentRuns ConsistencyExperimentRun[]
 
   @@unique([projectId, episodeNumber])
   @@index([projectId])
@@ -186,7 +185,6 @@ model ProjectEditScript {
   project        Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   episode        ProjectEpisode                 @relation(fields: [episodeId], references: [id], onDelete: Cascade)
   requirements   ProjectEditAssetRequirement[]
-  consistencyExperimentRuns ConsistencyExperimentRun[]
 
   @@index([projectId])
   @@index([episodeId])
@@ -216,105 +214,6 @@ model ProjectEditAssetRequirement {
   @@index([episodeId])
   @@index([targetId])
   @@map("project_edit_asset_requirements")
-}
-
-model ConsistencyExperimentRun {
-  id                 String                       @id @default(uuid())
-  projectId          String
-  episodeId          String
-  sourceEditScriptId String
-  strategy           String
-  status             String                       @default("ready")
-  currentStage       String                       @default("created")
-  modelConfigSnapshot Json
-  sourceSnapshotJson  Json
-  strategyInputJson   Json
-  strategyOutputJson  Json
-  errorMessage       String?                      @db.LongText
-  createdAt          DateTime                     @default(now())
-  updatedAt          DateTime                     @default(now()) @updatedAt
-  project            Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  episode            ProjectEpisode               @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  sourceEditScript   ProjectEditScript            @relation(fields: [sourceEditScriptId], references: [id], onDelete: Cascade)
-  artifacts          ConsistencyExperimentArtifact[]
-  panels             ConsistencyExperimentPanel[]
-  videos             ConsistencyExperimentVideo[]
-
-  @@index([projectId])
-  @@index([episodeId])
-  @@index([sourceEditScriptId])
-  @@index([projectId, episodeId, sourceEditScriptId])
-  @@map("consistency_experiment_runs")
-}
-
-model ConsistencyExperimentArtifact {
-  id                 String                   @id @default(uuid())
-  runId              String
-  kind               String
-  sourceVideoBlockId String?
-  groupIndex         Int?
-  prompt             String?                  @db.LongText
-  imageUrl           String?                  @db.Text
-  imageMediaId       String?
-  imageMedia         MediaObject?             @relation("ConsistencyExperimentArtifactImageMedia", fields: [imageMediaId], references: [id], onDelete: SetNull)
-  candidateImages    String?                  @db.Text
-  metadataJson       Json?
-  status             String                   @default("pending")
-  errorMessage       String?                  @db.LongText
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @default(now()) @updatedAt
-  run                ConsistencyExperimentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@index([runId])
-  @@index([kind])
-  @@index([imageMediaId])
-  @@map("consistency_experiment_artifacts")
-}
-
-model ConsistencyExperimentPanel {
-  id                 String                   @id @default(uuid())
-  runId              String
-  sourceShotNumber   Int
-  sourceVideoBlockId String
-  panelIndex         Int
-  prompt             String                   @db.LongText
-  imageUrl           String?                  @db.Text
-  imageMediaId       String?
-  imageMedia         MediaObject?             @relation("ConsistencyExperimentPanelImageMedia", fields: [imageMediaId], references: [id], onDelete: SetNull)
-  candidateImages    String?                  @db.Text
-  metadataJson       Json?
-  status             String                   @default("ready")
-  errorMessage       String?                  @db.LongText
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @default(now()) @updatedAt
-  run                ConsistencyExperimentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@unique([runId, panelIndex])
-  @@index([runId])
-  @@index([imageMediaId])
-  @@map("consistency_experiment_panels")
-}
-
-model ConsistencyExperimentVideo {
-  id                    String                   @id @default(uuid())
-  runId                 String
-  sourceVideoBlockId    String
-  sourceShotNumbers     Json
-  prompt                String                   @db.LongText
-  referencePanelImageIds Json
-  videoUrl              String?                  @db.Text
-  videoMediaId          String?
-  videoMedia            MediaObject?             @relation("ConsistencyExperimentVideoMedia", fields: [videoMediaId], references: [id], onDelete: SetNull)
-  metadataJson          Json?
-  status                String                   @default("pending")
-  errorMessage          String?                  @db.LongText
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @default(now()) @updatedAt
-  run                   ConsistencyExperimentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@index([runId])
-  @@index([videoMediaId])
-  @@map("consistency_experiment_videos")
 }
 
 // 视频编辑器项目 - 存储剪辑数据
@@ -721,6 +620,7 @@ model ProjectStoryboard {
   lastError           String?
   photographyPlan     String?               @db.Text
   panels              ProjectPanel[]
+  blockingArtifacts   ProjectStoryboardBlockingArtifact[]
   clip                ProjectClip    @relation(fields: [clipId], references: [id], onDelete: Cascade)
   episode             ProjectEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
   supplementaryPanels SupplementaryPanel[]
@@ -728,6 +628,31 @@ model ProjectStoryboard {
   @@index([clipId])
   @@index([episodeId])
   @@map("project_storyboards")
+}
+
+model ProjectStoryboardBlockingArtifact {
+  id                 String            @id @default(uuid())
+  storyboardId       String
+  kind               String
+  sourceVideoBlockId String?
+  groupIndex         Int?
+  prompt             String?           @db.LongText
+  imageUrl           String?           @db.Text
+  imageMediaId       String?
+  imageMedia         MediaObject?      @relation("ProjectStoryboardBlockingArtifactImageMedia", fields: [imageMediaId], references: [id], onDelete: SetNull)
+  candidateImages    String?           @db.Text
+  metadataJson       Json?
+  status             String            @default("pending")
+  errorMessage       String?           @db.LongText
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @default(now()) @updatedAt
+  storyboard         ProjectStoryboard @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+
+  @@index([storyboardId])
+  @@index([kind])
+  @@index([sourceVideoBlockId])
+  @@index([imageMediaId])
+  @@map("project_storyboard_blocking_artifacts")
 }
 
 model SupplementaryPanel {
@@ -798,7 +723,6 @@ model Project {
   editScreenplays    ProjectEditScreenplay[]
   editScripts        ProjectEditScript[]
   editAssetRequirements ProjectEditAssetRequirement[]
-  consistencyExperimentRuns ConsistencyExperimentRun[]
   planRuns           PlanRun[]
   characters         ProjectCharacter[]
   locations          ProjectLocation[]
@@ -1444,9 +1368,7 @@ model MediaObject {
   projectPanelPreviousImages     ProjectPanel[]       @relation("ProjectPanelPreviousImageMedia")
   projectVideoGroupReferenceImages ProjectVideoGroup[] @relation("ProjectVideoGroupReferenceImageMedia")
   projectVideoGroupVideos          ProjectVideoGroup[] @relation("ProjectVideoGroupVideoMedia")
-  consistencyExperimentPanelImages ConsistencyExperimentPanel[] @relation("ConsistencyExperimentPanelImageMedia")
-  consistencyExperimentArtifactImages ConsistencyExperimentArtifact[] @relation("ConsistencyExperimentArtifactImageMedia")
-  consistencyExperimentVideos      ConsistencyExperimentVideo[] @relation("ConsistencyExperimentVideoMedia")
+  projectStoryboardBlockingArtifactImages ProjectStoryboardBlockingArtifact[] @relation("ProjectStoryboardBlockingArtifactImageMedia")
   projectShotImages              ProjectShot[]        @relation("ProjectShotImageMedia")
   supplementaryPanelImages              SupplementaryPanel[]        @relation("SupplementaryPanelImageMedia")
   projectVoiceLineAudios         ProjectVoiceLine[]   @relation("ProjectVoiceLineAudioMedia")

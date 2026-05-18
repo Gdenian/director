@@ -42,9 +42,9 @@ interface GenerateEditScriptStoryboardInput {
 }
 
 interface GenerateEditScriptStoryboardResponse {
-  storyboardId: string
-  panelCount: number
-  submittedImageTasks: number
+  taskId?: string
+  status?: string
+  deduped?: boolean
 }
 
 interface UpdateEditScriptVideoBlockPromptInput {

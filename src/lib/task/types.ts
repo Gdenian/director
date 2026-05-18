@@ -45,10 +45,9 @@ export type TaskLifecycleEventType = (typeof TASK_LIFECYCLE_EVENT_TYPES)[number]
 
 export const TASK_TYPE = {
   IMAGE_PANEL: 'image_panel',
-  CONSISTENCY_EXPERIMENT_PREPARE: 'consistency_experiment_prepare',
-  CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE: 'consistency_experiment_floor_plan_image',
-  CONSISTENCY_EXPERIMENT_GRID_ANALYZE: 'consistency_experiment_grid_analyze',
-  CONSISTENCY_EXPERIMENT_IMAGE: 'consistency_experiment_image',
+  EDIT_SCRIPT_STORYBOARD_PREPARE: 'edit_script_storyboard_prepare',
+  EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_IMAGE: 'edit_script_storyboard_floor_plan_image',
+  EDIT_SCRIPT_STORYBOARD_GRID_ANALYZE: 'edit_script_storyboard_grid_analyze',
   IMAGE_CHARACTER: 'image_character',
   IMAGE_LOCATION: 'image_location',
   MUSIC_GENERATE: 'music_generate',
@@ -56,7 +55,6 @@ export const TASK_TYPE = {
   FINAL_VIDEO_RENDER: 'final_video_render',
   VIDEO_PANEL: 'video_panel',
   VIDEO_GROUP: 'video_group',
-  CONSISTENCY_EXPERIMENT_VIDEO: 'consistency_experiment_video',
   LIP_SYNC: 'lip_sync',
   VOICE_LINE: 'voice_line',
   VOICE_DESIGN: 'voice_design',

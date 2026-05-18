@@ -253,8 +253,7 @@
         "renderFinalVideo": "AI剪辑",
         "aiEditing": "AI剪辑中",
         "generateEditAssets": "全部生成",
-        "generateEditAsset": "生成图片",
-        "openConsistencyLab": "分镜一致性实验"
+        "generateEditAsset": "生成图片"
       },
       "status": {
         "empty": "待输入",
@@ -666,92 +665,6 @@
         "editAsset": {
           "meta": "关联镜头：{shots}"
         }
-      }
-    }
-  },
-  "consistencyLab": {
-    "title": "分镜一致性实验",
-    "subtitle": "同一剪辑表下比较三种分镜提示词策略，实验结果不会覆盖主链路。",
-    "back": "返回画布",
-    "source": "固定源数据",
-    "editScriptId": "剪辑表",
-    "episode": "剧集",
-    "videoRatio": "画面比例",
-    "modelConfig": "模型配置",
-    "shots": "镜头",
-    "videoBlocks": "视频段",
-    "assets": "资产",
-    "loadFailed": "加载实验失败",
-    "missingParams": "缺少 episode 或 editScriptId",
-    "refresh": "刷新",
-    "ready": "已配置",
-    "notCreated": "未创建",
-    "createFailed": "创建实验失败",
-    "submittingTask": "正在提交任务...",
-    "runCreated": "实验 run 已创建，后台任务已提交。",
-    "taskSubmitted": "任务已提交：{taskId}",
-    "taskAlreadyRunning": "已有任务正在执行：{taskId}",
-    "imageFailed": "生成实验分镜图失败",
-    "floorPlanFailed": "生成 2D 平面图失败",
-    "gridAnalysisFailed": "坐标图分析失败",
-    "videoFailed": "生成实验视频失败",
-    "deleteFailed": "删除实验失败",
-    "adoptFailed": "采纳失败",
-    "empty": "还没有实验 run。请选择策略创建。",
-    "create": "创建 run",
-    "regenerate": "重新创建",
-    "delete": "删除 run",
-    "adopt": "采纳为主分镜",
-    "adopted": "已采纳",
-    "loading": "加载中",
-    "creating": "创建中",
-    "generating": "生成中",
-    "generateImages": "生成分镜图",
-    "generatingImages": "生成分镜图中",
-    "generateFloorPlans": "生成 2D 平面图",
-    "generatingFloorPlans": "生成平面图中",
-    "analyzeGrid": "分析坐标图",
-    "analyzingGrid": "分析坐标中",
-    "generateVideos": "生成视频",
-    "generatingVideos": "生成视频中",
-    "deleting": "删除中",
-    "adopting": "采纳中",
-    "strategyInput": "策略输入",
-    "strategyOutput": "策略输出",
-    "structuredTextPlan": "LLM 场面调度说明书",
-    "floorPlanArtifacts": "2D 平面图",
-    "floorPlan": "平面图",
-    "coordinateOverlays": "坐标覆盖图",
-    "coordinateOverlay": "坐标图",
-    "gridAnalysisResult": "坐标分析结果",
-    "emptyGridAnalysis": "暂无坐标分析结果",
-    "coordinates": "坐标",
-    "cinematicTranslation": "镜头语言",
-    "reason": "原因",
-    "skipped": "跳过",
-    "contactSheetArtifacts": "九宫格整图",
-    "contactSheet": "九宫格",
-    "emptyArtifacts": "暂无阶段产物",
-    "panelPrompts": "Panel 提示词",
-    "panelImages": "分镜图",
-    "videos": "视频",
-    "emptyMedia": "暂无结果",
-    "shot": "镜头",
-    "status": "状态",
-    "stage": "阶段",
-    "panels": "{count} 个 panel",
-    "strategies": {
-      "structured_text": {
-        "title": "结构化空间关系",
-        "description": "用电影场面调度语言保持人物在场、左右关系、视线和前后景。"
-      },
-      "grid_coordinates": {
-        "title": "平面坐标",
-        "description": "按画面比例生成自适应俯视坐标，再转译成镜头语言。"
-      },
-      "contact_sheet_9grid": {
-        "title": "九宫格分镜",
-        "description": "按 videoBlock 生成 3x3 contact sheet 提示词，利用同图生成的一致性。"
       }
     }
   }

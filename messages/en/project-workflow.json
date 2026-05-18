@@ -253,8 +253,7 @@
         "renderFinalVideo": "AI Edit",
         "aiEditing": "AI Editing",
         "generateEditAssets": "Generate All",
-        "generateEditAsset": "Generate Image",
-        "openConsistencyLab": "Consistency Lab"
+        "generateEditAsset": "Generate Image"
       },
       "status": {
         "empty": "Empty",
@@ -666,92 +665,6 @@
         "editAsset": {
           "meta": "Linked shots: {shots}"
         }
-      }
-    }
-  },
-  "consistencyLab": {
-    "title": "Storyboard Consistency Lab",
-    "subtitle": "Compare three storyboard prompt strategies under the same edit table. Experiment results do not overwrite the main chain.",
-    "back": "Back to Canvas",
-    "source": "Fixed Source Data",
-    "editScriptId": "Edit Table",
-    "episode": "Episode",
-    "videoRatio": "Video Ratio",
-    "modelConfig": "Model Config",
-    "shots": "Shots",
-    "videoBlocks": "Video Blocks",
-    "assets": "Assets",
-    "loadFailed": "Failed to load experiments",
-    "missingParams": "Missing episode or editScriptId",
-    "refresh": "Refresh",
-    "ready": "Configured",
-    "notCreated": "Not created",
-    "createFailed": "Failed to create experiment",
-    "submittingTask": "Submitting task...",
-    "runCreated": "Experiment run created and background task submitted.",
-    "taskSubmitted": "Task submitted: {taskId}",
-    "taskAlreadyRunning": "A task is already running: {taskId}",
-    "imageFailed": "Failed to generate experiment panel images",
-    "floorPlanFailed": "Failed to generate 2D floor plans",
-    "gridAnalysisFailed": "Failed to analyze coordinate overlays",
-    "videoFailed": "Failed to generate experiment videos",
-    "deleteFailed": "Failed to delete experiment",
-    "adoptFailed": "Failed to adopt run",
-    "empty": "No experiment run yet. Choose a strategy to create one.",
-    "create": "Create Run",
-    "regenerate": "Create Again",
-    "delete": "Delete Run",
-    "adopt": "Adopt as Main Storyboard",
-    "adopted": "Adopted",
-    "loading": "Loading",
-    "creating": "Creating",
-    "generating": "Generating",
-    "generateImages": "Generate Images",
-    "generatingImages": "Generating Images",
-    "generateFloorPlans": "Generate 2D Plans",
-    "generatingFloorPlans": "Generating Plans",
-    "analyzeGrid": "Analyze Grid",
-    "analyzingGrid": "Analyzing Grid",
-    "generateVideos": "Generate Videos",
-    "generatingVideos": "Generating Videos",
-    "deleting": "Deleting",
-    "adopting": "Adopting",
-    "strategyInput": "Strategy Input",
-    "strategyOutput": "Strategy Output",
-    "structuredTextPlan": "LLM Staging Bible",
-    "floorPlanArtifacts": "2D Floor Plans",
-    "floorPlan": "Floor Plan",
-    "coordinateOverlays": "Coordinate Overlays",
-    "coordinateOverlay": "Coordinate Overlay",
-    "gridAnalysisResult": "Grid Analysis Result",
-    "emptyGridAnalysis": "No grid analysis result yet",
-    "coordinates": "Coordinates",
-    "cinematicTranslation": "Cinematic Translation",
-    "reason": "Reason",
-    "skipped": "Skipped",
-    "contactSheetArtifacts": "Contact Sheet Images",
-    "contactSheet": "Contact Sheet",
-    "emptyArtifacts": "No stage artifact yet",
-    "panelPrompts": "Panel Prompts",
-    "panelImages": "Panel Images",
-    "videos": "Videos",
-    "emptyMedia": "No result yet",
-    "shot": "Shot",
-    "status": "Status",
-    "stage": "Stage",
-    "panels": "{count} panel(s)",
-    "strategies": {
-      "structured_text": {
-        "title": "Structured Spatial Text",
-        "description": "Use cinematic blocking language to preserve presence, left/right relation, eyelines, and depth."
-      },
-      "grid_coordinates": {
-        "title": "Plane Coordinates",
-        "description": "Generate ratio-aware top-down coordinates, then translate them into cinematic language."
-      },
-      "contact_sheet_9grid": {
-        "title": "9-Grid Contact Sheet",
-        "description": "Generate 3x3 contact sheet prompts by videoBlock to test same-image consistency."
       }
     }
   }

@@ -67,11 +67,6 @@ const serviceMock = vi.hoisted(() => ({
       },
     ],
   })),
-  generateProjectEditScriptStoryboard: vi.fn(async () => ({
-    storyboardId: 'storyboard-1',
-    panelCount: 8,
-    submittedImageTasks: 8,
-  })),
   updateProjectEditScriptVideoBlockPrompt: vi.fn(async () => ({
     id: 'edit-1',
     projectId: 'project-1',
@@ -121,6 +116,17 @@ const serviceMock = vi.hoisted(() => ({
   })),
 }))
 
+const storyboardConsistencyServiceMock = vi.hoisted(() => ({
+  submitEditScriptCoordinateStoryboard: vi.fn(async () => ({
+    success: true,
+    async: true,
+    taskId: 'task-storyboard-1',
+    runId: null,
+    status: 'queued',
+    deduped: false,
+  })),
+}))
+
 vi.mock('@/lib/api-auth', () => {
   const unauthorized = () => new Response(
     JSON.stringify({ error: { code: 'UNAUTHORIZED' } }),
@@ -143,6 +149,7 @@ vi.mock('@/lib/api-auth', () => {
 })
 
 vi.mock('@/lib/edit-script/service', () => serviceMock)
+vi.mock('@/lib/edit-script/storyboard-consistency/service', () => storyboardConsistencyServiceMock)
 
 import {
   GET as editScriptGet,
@@ -169,7 +176,7 @@ describe('project edit script route', () => {
       headers: { 'accept-language': 'zh' },
       body: {
         episodeId: 'episode-1',
-        prompt: '给我一个一分钟科幻短片',
+        screenplayId: 'screenplay-1',
         videoRatio: '16:9',
       },
     })
@@ -185,7 +192,7 @@ describe('project edit script route', () => {
       episodeId: 'episode-1',
       userId: 'user-1',
       locale: 'zh',
-      prompt: '给我一个一分钟科幻短片',
+      screenplayId: 'screenplay-1',
       videoRatio: '16:9',
     }))
   })
@@ -234,7 +241,7 @@ describe('project edit script route', () => {
     }))
   })
 
-  it('POST /api/projects/[projectId]/edit-script/storyboard/generate -> creates storyboard panels from the edit table', async () => {
+  it('POST /api/projects/[projectId]/edit-script/storyboard/generate -> submits coordinate storyboard preparation', async () => {
     const request = buildMockRequest({
       path: '/api/projects/project-1/edit-script/storyboard/generate',
       method: 'POST',
@@ -250,11 +257,14 @@ describe('project edit script route', () => {
 
     expect(response.status).toBe(200)
     expect(payload).toEqual({
-      storyboardId: 'storyboard-1',
-      panelCount: 8,
-      submittedImageTasks: 8,
+      success: true,
+      async: true,
+      taskId: 'task-storyboard-1',
+      runId: null,
+      status: 'queued',
+      deduped: false,
     })
-    expect(serviceMock.generateProjectEditScriptStoryboard).toHaveBeenCalledWith(expect.objectContaining({
+    expect(storyboardConsistencyServiceMock.submitEditScriptCoordinateStoryboard).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
       episodeId: 'episode-1',
       editScriptId: 'edit-1',

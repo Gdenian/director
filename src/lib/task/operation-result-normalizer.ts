@@ -70,11 +70,10 @@ function inferMediaType(taskType: string, result: Record<string, unknown> | null
   if (
     taskType === TASK_TYPE.VIDEO_PANEL
     || taskType === TASK_TYPE.VIDEO_GROUP
-    || taskType === TASK_TYPE.CONSISTENCY_EXPERIMENT_VIDEO
     || taskType === TASK_TYPE.LIP_SYNC
     || taskType === TASK_TYPE.FINAL_VIDEO_RENDER
   ) return 'video'
-  if (taskType === TASK_TYPE.CONSISTENCY_EXPERIMENT_IMAGE || taskType === TASK_TYPE.CONSISTENCY_EXPERIMENT_FLOOR_PLAN_IMAGE) return 'image'
+  if (taskType === TASK_TYPE.EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_IMAGE) return 'image'
   if (readString(result, 'audioUrl')) return 'audio'
   if (readString(result, 'videoUrl') || readString(result, 'lipSyncVideoUrl')) return 'video'
   if (readString(result, 'imageUrl')) return 'image'

@@ -42,13 +42,8 @@ export const AI_PROMPT_IDS = {
   EDIT_SCRIPT_ASSET_EXTRACT: 'edit-script-asset-extract',
   EDIT_SCRIPT_VIDEO_PROMPT: 'edit-script-video-prompt',
   EDIT_SCRIPT_STORYBOARD_PANEL: 'edit-script-storyboard-panel',
-  CONSISTENCY_LAB_STRUCTURED_TEXT_PLAN: 'consistency-lab-structured-text-plan',
-  CONSISTENCY_LAB_GRID_FLOOR_PLAN: 'consistency-lab-grid-floor-plan',
-  CONSISTENCY_LAB_GRID_COORDINATE_VISION: 'consistency-lab-grid-coordinate-vision',
-  CONSISTENCY_LAB_CONTACT_SHEET_PLAN: 'consistency-lab-contact-sheet-plan',
-  CONSISTENCY_LAB_STRUCTURED_TEXT_PANEL: 'consistency-lab-structured-text-panel',
-  CONSISTENCY_LAB_GRID_COORDINATES_PANEL: 'consistency-lab-grid-coordinates-panel',
-  CONSISTENCY_LAB_CONTACT_SHEET_9GRID_PANEL: 'consistency-lab-contact-sheet-9grid-panel',
+  EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN: 'edit-script-storyboard-grid-floor-plan',
+  EDIT_SCRIPT_STORYBOARD_GRID_VISION: 'edit-script-storyboard-grid-vision',
 } as const
 
 export type AiPromptId = (typeof AI_PROMPT_IDS)[keyof typeof AI_PROMPT_IDS]

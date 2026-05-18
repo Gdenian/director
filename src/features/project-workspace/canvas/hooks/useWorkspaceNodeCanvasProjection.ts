@@ -1063,10 +1063,6 @@ export function buildWorkspaceNodeCanvasProjection({
         } : undefined,
         actionLabel: editScriptAction?.label,
         action: editScriptAction?.action,
-        secondaryActionLabel: editScriptIsReady && editScriptHasRows ? translate('actions.openConsistencyLab') : undefined,
-        secondaryAction: editScriptIsReady && editScriptHasRows
-          ? { type: 'open_consistency_lab', editScriptId: editScript.id } as const
-          : undefined,
         onAction,
       },
     }))
