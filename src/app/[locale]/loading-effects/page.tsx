@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server'
+import { LoadingBorderFlow } from '@/components/ui/icons'
 import styles from './page.module.css'
 
 type LoadingEffectVariant = {
@@ -96,16 +97,13 @@ export default async function LoadingEffectsPage() {
 
 function BorderFlow() {
   return (
-    <div className={styles.borderFlow} aria-hidden="true">
-      <span className={`${styles.flowTrace} ${styles.flowTop} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowRight} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowBottom} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowLeft} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowTop} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowRight} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowBottom} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowTrace} ${styles.flowLeft} ${styles.flowSecondary}`} />
-    </div>
+    <LoadingBorderFlow
+      className={styles.borderFlow}
+      trackClassName={styles.flowTrack}
+      traceClassName={styles.flowTrace}
+      primaryClassName={styles.flowPrimary}
+      secondaryClassName={styles.flowSecondary}
+    />
   )
 }
 
