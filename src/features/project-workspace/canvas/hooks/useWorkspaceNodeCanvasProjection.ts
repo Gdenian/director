@@ -109,7 +109,10 @@ interface TranslateValues {
 type Translate = (key: string, values?: TranslateValues) => string
 type EditPipelineStepKey = 'timeline' | 'visualAction' | 'camera' | 'audio' | 'primaryTable' | 'assetExtract'
 type EditPipelineStepState = 'pending' | 'processing' | 'ready' | 'failed'
-type SpaceConsistencyCoordinates = NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>['blocks'][number]['coordinates']
+type SpaceConsistencyDetails = NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>
+type SpaceConsistencyBlock = SpaceConsistencyDetails['blocks'][number]
+type SpaceConsistencyCoordinates = SpaceConsistencyBlock['coordinates']
+type SpaceConsistencyShotCoordinates = SpaceConsistencyDetails['shotCoordinates'][number]
 
 export interface BuildWorkspaceNodeCanvasProjectionInput {
   readonly projectId?: string
@@ -635,7 +638,7 @@ function coordinatesFromValue(value: unknown): SpaceConsistencyCoordinates {
   })
 }
 
-function blocksFromStrategyOutput(strategyOutput: unknown): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>['blocks'] {
+function blocksFromStrategyOutput(strategyOutput: unknown): readonly SpaceConsistencyBlock[] {
   const output = readJsonRecord(strategyOutput)
   const blocks = output.blocks
   if (!Array.isArray(blocks)) return []
@@ -649,6 +652,64 @@ function blocksFromStrategyOutput(strategyOutput: unknown): NonNullable<Workspac
       cinematicTranslation: stringValue(block.cinematicTranslation),
       coordinates: coordinatesFromValue(block.coordinates),
     }]
+  })
+}
+
+function sourceShotRefsFromPlan(plan: JsonRecord): readonly {
+  readonly shotNumber: number
+  readonly sourceVideoBlockId: string | null
+}[] {
+  const sourceSnapshot = readJsonRecord(plan.sourceSnapshot)
+  const shots = sourceSnapshot.shots
+  if (!Array.isArray(shots)) return []
+  const sourceVideoBlockIdByShotNumber = new Map<number, string>()
+  const videoBlocks = sourceSnapshot.videoBlocks
+  if (Array.isArray(videoBlocks)) {
+    videoBlocks.forEach((videoBlock) => {
+      if (!isRecord(videoBlock)) return
+      const sourceVideoBlockId = stringValue(videoBlock.sourceVideoBlockId)
+      const shotNumbers = videoBlock.shotNumbers
+      if (!sourceVideoBlockId || !Array.isArray(shotNumbers)) return
+      shotNumbers.forEach((shotNumberValue) => {
+        const shotNumber = numberValue(shotNumberValue)
+        if (shotNumber === null) return
+        sourceVideoBlockIdByShotNumber.set(shotNumber, sourceVideoBlockId)
+      })
+    })
+  }
+  return shots.flatMap((shot) => {
+    if (!isRecord(shot)) return []
+    const shotNumber = numberValue(shot.shotNumber)
+    if (shotNumber === null) return []
+    return [{
+      shotNumber,
+      sourceVideoBlockId: sourceVideoBlockIdByShotNumber.get(shotNumber) ?? null,
+    }]
+  }).sort((left, right) => left.shotNumber - right.shotNumber)
+}
+
+function shotCoordinatesFromPlan(
+  plan: JsonRecord,
+  blocks: readonly SpaceConsistencyBlock[],
+): readonly SpaceConsistencyShotCoordinates[] {
+  const blockBySourceVideoBlockId = new Map<string, SpaceConsistencyBlock>()
+  blocks.forEach((block) => {
+    if (!block.sourceVideoBlockId) return
+    blockBySourceVideoBlockId.set(block.sourceVideoBlockId, block)
+  })
+  return sourceShotRefsFromPlan(plan).map((shot) => {
+    const block = shot.sourceVideoBlockId
+      ? blockBySourceVideoBlockId.get(shot.sourceVideoBlockId)
+      : undefined
+    return {
+      shotNumber: shot.shotNumber,
+      sourceVideoBlockId: shot.sourceVideoBlockId,
+      classification: block?.classification ?? null,
+      skipped: block?.skipped ?? null,
+      reason: block?.reason ?? null,
+      cinematicTranslation: block?.cinematicTranslation ?? null,
+      coordinates: block?.coordinates ?? [],
+    }
   })
 }
 
@@ -690,6 +751,7 @@ function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullab
   }))
   const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
   const cameraPlans = cameraPlansFromValue(plan.cameraPlanOutput)
+  const blocks = blocksFromStrategyOutput(plan.strategyOutput)
   return {
     storyboardId: storyboard.id,
     stage: stringValue(plan.currentStage),
@@ -697,7 +759,8 @@ function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullab
     overlayCount: artifacts.filter((artifact) => artifact.kind === 'grid_coordinate_overlay').length,
     cameraPlanCount: cameraPlans.length,
     artifacts,
-    blocks: blocksFromStrategyOutput(plan.strategyOutput),
+    blocks,
+    shotCoordinates: shotCoordinatesFromPlan(plan, blocks),
     cameraPlans,
   }
 }
@@ -1408,7 +1471,7 @@ export function buildWorkspaceNodeCanvasProjection({
         meta: translate('nodes.spaceConsistency.meta', {
           floorPlans: details.floorPlanCount,
           overlays: details.overlayCount,
-          blocks: details.blocks.length,
+          shots: details.shotCoordinates.length,
         }),
         statusLabel: isRunning
           ? translate('status.processing')
@@ -1464,7 +1527,7 @@ export function buildWorkspaceNodeCanvasProjection({
         meta: translate('nodes.spaceConsistency.meta', {
           floorPlans: 0,
           overlays: 0,
-          blocks: 0,
+          shots: 0,
         }),
         statusLabel: assetsGenerating ? translate('status.processing') : translate('status.pending'),
         isRunning: assetsGenerating,

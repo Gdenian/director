@@ -347,32 +347,6 @@ async function createGridOverlayArtifact(params: {
   })
 }
 
-async function submitPanelImageTasks(params: {
-  readonly job: Job<TaskJobData>
-  readonly panels: readonly { readonly id: string; readonly panelIndex: number }[]
-}) {
-  await runStoryboardConsistencyItemsInParallel(params.panels, async (panel) => {
-    await submitTask({
-      userId: params.job.data.userId,
-      locale: params.job.data.locale,
-      projectId: params.job.data.projectId,
-      episodeId: params.job.data.episodeId,
-      type: TASK_TYPE.IMAGE_PANEL,
-      targetType: 'ProjectPanel',
-      targetId: panel.id,
-      operationId: 'regenerate_panel_image',
-      operationSource: 'edit-script-storyboard-grid',
-      requestId: params.job.data.trace?.requestId || null,
-      payload: {
-        panelId: panel.id,
-        panelIndex: panel.panelIndex,
-        count: 1,
-      },
-      dedupeKey: `edit_script_storyboard_panel_image:${panel.id}`,
-    })
-  })
-}
-
 async function submitCameraPlanTask(params: {
   readonly job: Job<TaskJobData>
   readonly storyboardId: string
@@ -396,7 +370,7 @@ async function submitCameraPlanTask(params: {
 }
 
 async function persistGeneratedPanels(params: {
-  readonly job: Job<TaskJobData>
+  readonly locale: TaskJobData['locale']
   readonly storyboardId: string
   readonly snapshot: StoryboardConsistencySourceSnapshot
   readonly generatedPanels: readonly StoryboardPanelPromptDraft[]
@@ -405,9 +379,8 @@ async function persistGeneratedPanels(params: {
     storyboardId: params.storyboardId,
     snapshot: params.snapshot,
     generatedPanels: params.generatedPanels,
-    locale: params.job.data.locale,
+    locale: params.locale,
   })
-  await submitPanelImageTasks({ job: params.job, panels })
   return panels
 }
 
@@ -719,7 +692,7 @@ export async function handleEditScriptStoryboardCameraPlanTask(job: Job<TaskJobD
       coordinateStrategyOutput: strategyOutput,
     })
     const panels = await persistGeneratedPanels({
-      job,
+      locale: job.data.locale,
       storyboardId: storyboard.id,
       snapshot,
       generatedPanels: generated.panels,

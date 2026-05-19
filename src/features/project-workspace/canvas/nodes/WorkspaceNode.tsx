@@ -1300,6 +1300,7 @@ function SpaceConsistencyContent({
   const details = data.spaceConsistencyDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
   const imageArtifacts = details.artifacts.filter((artifact) => artifact.imageUrl)
+  const visibleShotCoordinates = expanded ? details.shotCoordinates : details.shotCoordinates.slice(0, 6)
   const visibleBlocks = expanded ? details.blocks : details.blocks.slice(0, 2)
   return (
     <div className="nodrag nowheel space-y-3">
@@ -1309,7 +1310,7 @@ function SpaceConsistencyContent({
           {renderValue(labels('status'), details.stage ?? data.statusLabel)}
           {renderValue(labels('floorPlanCount'), details.floorPlanCount)}
           {renderValue(labels('coordinateOverlayCount'), details.overlayCount)}
-          {renderValue(labels('blockingBlockCount'), details.blocks.length)}
+          {renderValue(labels('shotCoordinateCount'), details.shotCoordinates.length)}
           {renderValue(labels('cameraPlanCount'), details.cameraPlanCount)}
         </div>
       ))}
@@ -1331,7 +1332,44 @@ function SpaceConsistencyContent({
           })}
         </div>
       )) : null}
-      {visibleBlocks.length > 0 ? (
+      {visibleShotCoordinates.length > 0 ? (
+        <div className="space-y-2">
+          {visibleShotCoordinates.map((shot) => (
+            <section key={`shot-coordinate:${shot.shotNumber}`} className="space-y-2 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between gap-2">
+                <p className={`${SELECTABLE_TEXT_CLASS} truncate text-xs font-semibold text-[var(--glass-text-primary)]`}>
+                  {labels('shotCoordinate', { shot: shot.shotNumber })}
+                </p>
+                <span className={`${SELECTABLE_TEXT_CLASS} shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200`}>
+                  {shot.classification ?? labels('emptyCoordinates')}
+                </span>
+              </div>
+              {shot.sourceVideoBlockId ? renderTextBlock(shot.sourceVideoBlockId) : null}
+              {shot.cinematicTranslation ? renderTextBlock(shot.cinematicTranslation) : null}
+              {shot.coordinates.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {shot.coordinates.slice(0, expanded ? shot.coordinates.length : 6).map((coordinate, coordinateIndex) => (
+                    <span key={`${shot.shotNumber}:${coordinate.name ?? coordinate.kind ?? 'coordinate'}:${coordinateIndex}`} className={`${SELECTABLE_TEXT_CLASS} inline-flex rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200`}>
+                      {coordinate.name ?? coordinate.kind ?? labels('coordinate')}
+                      {typeof coordinate.x === 'number' && typeof coordinate.y === 'number' ? ` [${coordinate.x}, ${coordinate.y}]` : ''}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className={`${SELECTABLE_TEXT_CLASS} text-xs text-[var(--glass-text-tertiary)]`}>
+                  {labels('emptyCoordinates')}
+                </p>
+              )}
+              {expanded && shot.reason ? renderTextBlock(shot.reason) : null}
+            </section>
+          ))}
+          {!expanded && details.shotCoordinates.length > visibleShotCoordinates.length ? (
+            <p className={`${SELECTABLE_TEXT_CLASS} text-xs text-[var(--glass-text-tertiary)]`}>
+              {labels('moreItems', { count: details.shotCoordinates.length - visibleShotCoordinates.length })}
+            </p>
+          ) : null}
+        </div>
+      ) : visibleBlocks.length > 0 ? (
         <div className="space-y-2">
           {visibleBlocks.map((block, index) => (
             <section key={`${block.sourceVideoBlockId ?? 'block'}:${index}`} className="space-y-2 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100">

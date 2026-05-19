@@ -346,11 +346,14 @@
         "floorPlanCount": "Floor Plans",
         "coordinateOverlayCount": "Coordinate Maps",
         "blockingBlockCount": "Blocks",
+        "shotCoordinateCount": "Shot Coordinates",
         "cameraPlanCount": "Camera Plans",
         "cameraPlans": "Camera Language",
         "coordinateMaps": "Coordinate Maps",
         "blockingBlock": "Blocking Block",
+        "shotCoordinate": "Shot #{shot}",
         "coordinate": "Coordinate",
+        "emptyCoordinates": "No coordinates",
         "unknown": "Unknown",
         "floorPlanPrompt": "Floor Plan Prompt",
         "cameraPlan": "Camera Plan",
@@ -687,7 +690,7 @@
           "title": "Space Consistency",
           "eyebrow": "Coordinate Blocking",
           "body": "2D floor plans, coordinate overlays, and Vision blocking used by the production storyboard prompts.",
-          "meta": "{floorPlans} floor plan(s) · {overlays} coordinate map(s) · {blocks} block(s)"
+          "meta": "{floorPlans} floor plan(s) · {overlays} coordinate map(s) · {shots} shot(s)"
         },
         "editAsset": {
           "meta": "Linked shots: {shots}"

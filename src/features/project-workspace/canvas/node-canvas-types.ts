@@ -355,6 +355,21 @@ export interface WorkspaceCanvasSpaceConsistencyDetails {
       readonly facing?: string | null
     }[]
   }[]
+  readonly shotCoordinates: readonly {
+    readonly shotNumber: number
+    readonly sourceVideoBlockId?: string | null
+    readonly classification?: string | null
+    readonly skipped?: boolean | null
+    readonly reason?: string | null
+    readonly cinematicTranslation?: string | null
+    readonly coordinates: readonly {
+      readonly name?: string | null
+      readonly kind?: string | null
+      readonly x?: number | null
+      readonly y?: number | null
+      readonly facing?: string | null
+    }[]
+  }[]
   readonly cameraPlans: readonly {
     readonly panelIndex?: number | null
     readonly sourceShotNumber?: number | null

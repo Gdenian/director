@@ -1583,6 +1583,44 @@ describe('workspace node canvas projection', () => {
           photographyPlan: JSON.stringify({
             consistencyMode: 'grid_coordinates',
             currentStage: 'panel_prompts_ready',
+            sourceSnapshot: {
+              schemaVersion: 1,
+              projectId: 'project-1',
+              episodeId: 'episode-1',
+              sourceEditScriptId: 'edit-grid',
+              project: {
+                videoRatio: '16:9',
+                artStyle: null,
+                directorStyleDoc: null,
+              },
+              editScript: {
+                id: 'edit-grid',
+                title: 'Temple Lesson',
+                logline: null,
+                durationSec: 8,
+                shotCount: 1,
+                userPrompt: 'temple lesson',
+                screenplayText: null,
+              },
+              shots: [{
+                shotNumber: 1,
+                durationSec: 8,
+                visualAction: 'Old monk teaches the young disciple.',
+                charactersAndScene: 'Temple courtyard',
+                camera: 'medium shot',
+                videoPrompt: 'Temple lesson.',
+                sound: 'wind',
+              }],
+              videoBlocks: [{
+                kind: 'single',
+                shotNumbers: [1],
+                reason: 'Fixed courtyard blocking.',
+                prompt: 'Temple lesson.',
+                blockIndex: 0,
+                sourceVideoBlockId: 'edit-grid:videoBlock:1',
+              }],
+              assets: [],
+            },
             strategyOutput: {
               blocks: [{
                 sourceVideoBlockId: 'edit-grid:videoBlock:1',
@@ -1726,8 +1764,148 @@ describe('workspace node canvas projection', () => {
           ],
         },
       ],
+      shotCoordinates: [
+        {
+          shotNumber: 1,
+          sourceVideoBlockId: 'edit-grid:videoBlock:1',
+          cinematicTranslation: 'Old monk screen left, young disciple screen right, flower bed between them.',
+          coordinates: [
+            { name: 'Old monk', x: 6.5, y: 6.5 },
+            { name: 'Young disciple', x: 8.5, y: 6.5 },
+          ],
+        },
+      ],
     })
     expect(projection.edges.some((edge) => edge.id === 'edge:space-consistency-source:storyboard-grid')).toBe(true)
     expect(projection.edges.some((edge) => edge.id === 'edge:space-consistency-shot:storyboard-grid')).toBe(true)
+  })
+
+  it('projects space consistency coordinates by shot and preserves empty shot rows', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-grid-empty',
+          clipId: 'clip-grid',
+          panels: [
+            createPanel({ id: 'panel-grid-empty-1', storyboardId: 'storyboard-grid-empty', panelIndex: 0, panelNumber: 1 }),
+            createPanel({ id: 'panel-grid-empty-2', storyboardId: 'storyboard-grid-empty', panelIndex: 1, panelNumber: 2 }),
+            createPanel({ id: 'panel-grid-empty-3', storyboardId: 'storyboard-grid-empty', panelIndex: 2, panelNumber: 3 }),
+          ],
+          photographyPlan: JSON.stringify({
+            consistencyMode: 'grid_coordinates',
+            currentStage: 'panel_prompts_ready',
+            sourceSnapshot: {
+              schemaVersion: 1,
+              projectId: 'project-1',
+              episodeId: 'episode-1',
+              sourceEditScriptId: 'edit-grid-empty',
+              project: {
+                videoRatio: '16:9',
+                artStyle: null,
+                directorStyleDoc: null,
+              },
+              editScript: {
+                id: 'edit-grid-empty',
+                title: 'Temple Lesson',
+                logline: null,
+                durationSec: 12,
+                shotCount: 3,
+                userPrompt: 'temple lesson',
+                screenplayText: null,
+              },
+              shots: [
+                {
+                  shotNumber: 1,
+                  durationSec: 4,
+                  visualAction: 'Old monk enters.',
+                  charactersAndScene: 'Temple courtyard',
+                  camera: 'wide shot',
+                  videoPrompt: 'Monk enters.',
+                  sound: 'wind',
+                },
+                {
+                  shotNumber: 2,
+                  durationSec: 4,
+                  visualAction: 'Young disciple listens.',
+                  charactersAndScene: 'Temple courtyard',
+                  camera: 'medium shot',
+                  videoPrompt: 'Disciple listens.',
+                  sound: 'wind',
+                },
+                {
+                  shotNumber: 3,
+                  durationSec: 4,
+                  visualAction: 'Cut to incense smoke.',
+                  charactersAndScene: 'Incense detail',
+                  camera: 'close-up',
+                  videoPrompt: 'Incense smoke.',
+                  sound: 'bell',
+                },
+              ],
+              videoBlocks: [
+                {
+                  kind: 'group',
+                  shotNumbers: [1, 2],
+                  reason: 'Shared courtyard blocking.',
+                  prompt: 'Temple dialogue.',
+                  blockIndex: 0,
+                  sourceVideoBlockId: 'edit-grid-empty:videoBlock:1',
+                },
+                {
+                  kind: 'single',
+                  shotNumbers: [3],
+                  reason: 'Insert detail has no shared floor blocking.',
+                  prompt: 'Incense insert.',
+                  blockIndex: 1,
+                  sourceVideoBlockId: 'edit-grid-empty:videoBlock:2',
+                },
+              ],
+              assets: [],
+            },
+            strategyOutput: {
+              blocks: [{
+                sourceVideoBlockId: 'edit-grid-empty:videoBlock:1',
+                classification: 'fixed_space_strong',
+                skipped: false,
+                reason: 'Two shots share a courtyard layout.',
+                cinematicTranslation: 'Old monk screen left, young disciple screen right.',
+                coordinates: [
+                  { name: 'Old monk', kind: 'character', x: 6.5, y: 6.5, facing: 'east' },
+                ],
+              }],
+            },
+          }),
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const spaceNode = projection.nodes.find((node) => node.id === 'space-consistency:storyboard-grid-empty')
+    expect(spaceNode?.data.meta).toBe('nodes.spaceConsistency.meta:{"floorPlans":0,"overlays":0,"shots":3}')
+    expect(spaceNode?.data.spaceConsistencyDetails?.shotCoordinates).toEqual([
+      expect.objectContaining({
+        shotNumber: 1,
+        sourceVideoBlockId: 'edit-grid-empty:videoBlock:1',
+        coordinates: [
+          { name: 'Old monk', kind: 'character', x: 6.5, y: 6.5, facing: 'east' },
+        ],
+      }),
+      expect.objectContaining({
+        shotNumber: 2,
+        sourceVideoBlockId: 'edit-grid-empty:videoBlock:1',
+        coordinates: [
+          { name: 'Old monk', kind: 'character', x: 6.5, y: 6.5, facing: 'east' },
+        ],
+      }),
+      expect.objectContaining({
+        shotNumber: 3,
+        sourceVideoBlockId: 'edit-grid-empty:videoBlock:2',
+        coordinates: [],
+      }),
+    ])
   })
 })
