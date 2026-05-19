@@ -131,6 +131,20 @@ function applyWorkspaceNodeDynamicLayout(nodes: readonly WorkspaceCanvasFlowNode
   return repairWorkspaceNodeOverlaps(avoidExpandedSpaceConsistencyLaneOverlaps(nodes))
 }
 
+function taskStateMapSignature(map: ReadonlyMap<string, TaskTargetState>): string {
+  return Array.from(map.entries())
+    .map(([key, state]) => [
+      key,
+      state.phase,
+      state.runningTaskId ?? '',
+      state.runningTaskType ?? '',
+      state.lastError?.code ?? '',
+      state.lastError?.message ?? '',
+    ].join(':'))
+    .sort()
+    .join('|')
+}
+
 function relayoutEditAssetsBelowScript(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
   const editScriptNode = nodes.find((node) => node.data.kind === 'editScript')
   if (!editScriptNode) return [...nodes]
@@ -567,6 +581,21 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     enabled: Boolean(projectId && editScriptConsistencyTargets.length > 0),
     staleTime: 1000,
   })
+  const panelImageTaskStateSignature = useMemo(
+    () => taskStateMapSignature(panelImageTaskStateMap.byKey),
+    [panelImageTaskStateMap.byKey],
+  )
+  const storyboardConsistencyTaskStateSignature = useMemo(
+    () => taskStateMapSignature(storyboardConsistencyTaskStateMap.byKey),
+    [storyboardConsistencyTaskStateMap.byKey],
+  )
+  const editScriptConsistencyTaskStateSignature = useMemo(
+    () => taskStateMapSignature(editScriptConsistencyTaskStateMap.byKey),
+    [editScriptConsistencyTaskStateMap.byKey],
+  )
+  panelImageTaskStateByKeyRef.current = panelImageTaskStateMap.byKey
+  storyboardConsistencyTaskStateByKeyRef.current = storyboardConsistencyTaskStateMap.byKey
+  editScriptConsistencyTaskStateByKeyRef.current = editScriptConsistencyTaskStateMap.byKey
 
   const projectionNodeSignature = useMemo(
     () => buildWorkspaceCanvasNodeSignature(projection.nodes),
@@ -591,15 +620,16 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   }, [attachNodeUiState, projection.nodes, projectionNodeSignature])
 
   useEffect(() => {
-    panelImageTaskStateByKeyRef.current = panelImageTaskStateMap.byKey
     setNodes((currentNodes) => attachNodeUiState(currentNodes))
-  }, [attachNodeUiState, panelImageTaskStateMap.byKey])
+  }, [attachNodeUiState, panelImageTaskStateSignature])
 
   useEffect(() => {
-    storyboardConsistencyTaskStateByKeyRef.current = storyboardConsistencyTaskStateMap.byKey
-    editScriptConsistencyTaskStateByKeyRef.current = editScriptConsistencyTaskStateMap.byKey
     setNodes((currentNodes) => attachNodeUiState(currentNodes))
-  }, [attachNodeUiState, editScriptConsistencyTaskStateMap.byKey, storyboardConsistencyTaskStateMap.byKey])
+  }, [
+    attachNodeUiState,
+    editScriptConsistencyTaskStateSignature,
+    storyboardConsistencyTaskStateSignature,
+  ])
 
   useEffect(() => {
     const projectionByNodeId = new Map(projection.nodes.map((node) => [node.id, node]))
