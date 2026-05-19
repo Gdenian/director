@@ -75,7 +75,7 @@ describe('fal image generation', () => {
     })
   })
 
-  it('submits GPT Image 2 edits to the edit endpoint with normalized image urls and auto image size', async () => {
+  it('uses the requested project aspect ratio for GPT Image 2 edits even when resolution is auto', async () => {
     await executeFalImageGeneration({
       userId: 'user-1',
       selection: {
@@ -87,6 +87,7 @@ describe('fal image generation', () => {
       prompt: 'change the jacket color',
       options: {
         referenceImages: ['https://example.com/input.png'],
+        aspectRatio: '16:9',
         resolution: 'auto',
       },
     })
@@ -99,7 +100,7 @@ describe('fal image generation', () => {
       prompt: 'change the jacket color',
       num_images: 1,
       output_format: 'png',
-      image_size: 'auto',
+      image_size: 'landscape_16_9',
       image_urls: ['data:image/png;base64,normalized-aHR0cHM6Ly9leGFtcGxlLmNvbS9pbnB1dC5wbmc='],
     })
   })

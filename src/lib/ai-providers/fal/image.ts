@@ -150,12 +150,12 @@ function imageSizeFromAspectRatio(aspectRatio: string): FalGptImage2ImageSize {
 
 function resolveFalGptImage2ImageSize(options: FalImageOptions, hasReferenceImages: boolean): FalGptImage2ImageSize | undefined {
   const rawSize = resolveFalGptImage2RawSize(options)
-  if (hasReferenceImages) {
-    return rawSize && rawSize !== 'auto' ? normalizeFalGptImage2ImageSize(rawSize) : 'auto'
-  }
   const aspectRatio = readOptionalStringOption(options.aspectRatio, 'aspectRatio')
   if (rawSize && rawSize !== 'auto') return normalizeFalGptImage2ImageSize(rawSize)
   if (aspectRatio) return imageSizeFromAspectRatio(aspectRatio)
+  if (hasReferenceImages) {
+    return rawSize === 'auto' ? 'auto' : undefined
+  }
   return rawSize === 'auto' ? 'auto' : undefined
 }
 
