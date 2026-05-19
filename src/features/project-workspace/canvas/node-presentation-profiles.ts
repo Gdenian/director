@@ -157,3 +157,13 @@ export function resolveWorkspaceCanvasNodeSize(input: {
   if (input.expanded && profile.expanded) return profile.expanded
   return input.collapsedSize
 }
+
+export function resolveWorkspaceCanvasMeasuredNodeHeight(input: {
+  readonly kind: WorkspaceCanvasNodeKind
+  readonly measuredHeight: number
+}): number {
+  const measuredHeight = Math.ceil(input.measuredHeight)
+  if (input.kind === 'videoPlan') return measuredHeight
+  const profile = getWorkspaceCanvasNodePresentationProfile(input.kind)
+  return Math.max(profile.collapsed.height, measuredHeight)
+}

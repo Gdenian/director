@@ -2,7 +2,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { NodeProps } from '@xyflow/react'
-import WorkspaceNode from '@/features/project-workspace/canvas/nodes/WorkspaceNode'
+import WorkspaceNode, { nodeNeedsActualHeightMeasurement } from '@/features/project-workspace/canvas/nodes/WorkspaceNode'
 import type { WorkspaceCanvasFlowNode, WorkspaceCanvasNodeData } from '@/features/project-workspace/canvas/node-canvas-types'
 
 vi.mock('@xyflow/react', () => ({
@@ -45,6 +45,11 @@ function renderNode(data: WorkspaceCanvasNodeData): string {
 }
 
 describe('workspace node rendering', () => {
+  it('measures video plan nodes so their canvas shell can match actual content height', () => {
+    expect(nodeNeedsActualHeightMeasurement('videoPlan')).toBe(true)
+    expect(nodeNeedsActualHeightMeasurement('shot')).toBe(false)
+  })
+
   it('renders story input controls inline without opening a detail action', () => {
     const html = renderNode({
       kind: 'storyInput',

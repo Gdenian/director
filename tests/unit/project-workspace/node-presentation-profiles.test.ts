@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getWorkspaceCanvasNodePresentationProfile,
+  resolveWorkspaceCanvasMeasuredNodeHeight,
   resolveWorkspaceCanvasNodeSize,
 } from '@/features/project-workspace/canvas/node-presentation-profiles'
 
@@ -29,5 +30,19 @@ describe('workspace canvas node presentation profiles', () => {
       expanded: true,
       collapsedSize: { width: 320, height: 560 },
     })).toEqual({ width: 320, height: 560 })
+  })
+
+  it('allows measured video plan nodes to shrink to actual content height', () => {
+    expect(resolveWorkspaceCanvasMeasuredNodeHeight({
+      kind: 'videoPlan',
+      measuredHeight: 472.2,
+    })).toBe(473)
+  })
+
+  it('keeps measured non-video-plan nodes at least their collapsed height', () => {
+    expect(resolveWorkspaceCanvasMeasuredNodeHeight({
+      kind: 'editScreenplay',
+      measuredHeight: 260,
+    })).toBe(380)
   })
 })

@@ -255,8 +255,8 @@ function nodeShowsMetaFooter(kind: WorkspaceCanvasFlowNode['data']['kind']): boo
   return kind !== 'editRequiredAsset' && kind !== 'editScript'
 }
 
-function nodeNeedsActualHeightMeasurement(kind: WorkspaceCanvasFlowNode['data']['kind']): boolean {
-  return kind === 'editScreenplay' || kind === 'editScript'
+export function nodeNeedsActualHeightMeasurement(kind: WorkspaceCanvasFlowNode['data']['kind']): boolean {
+  return kind === 'editScreenplay' || kind === 'editScript' || kind === 'videoPlan'
 }
 
 async function dispatchNodeAction(data: WorkspaceCanvasFlowNode['data'], action: WorkspaceCanvasNodeAction) {

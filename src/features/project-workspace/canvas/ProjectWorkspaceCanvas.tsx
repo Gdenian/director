@@ -50,6 +50,7 @@ import {
   WORKSPACE_CANVAS_EDIT_ASSET_GRID_GAP_Y,
   WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
   getWorkspaceCanvasNodePresentationProfile,
+  resolveWorkspaceCanvasMeasuredNodeHeight,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
 import {
@@ -369,8 +370,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       const measuredNodes = currentNodes.map((node) => {
         if (node.id !== nodeId) return node
 
-        const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
-        const nextHeight = Math.max(profile.collapsed.height, Math.ceil(size.height))
+        const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
+          kind: node.data.kind,
+          measuredHeight: size.height,
+        })
         const currentStyleHeight = numericStyleDimension(node.style?.height) ?? node.data.height
         if (
           Math.abs(nextHeight - node.data.height) <= MEASURED_NODE_SIZE_EPSILON &&
