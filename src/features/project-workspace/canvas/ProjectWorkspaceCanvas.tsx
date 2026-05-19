@@ -25,6 +25,7 @@ import {
   taskTargetPairKey,
   TASK_RUNTIME_TARGETS,
 } from '@/lib/task/runtime-targets'
+import { useTaskTargetTerminalInvalidation } from '@/lib/query/hooks/useTaskTargetTerminalInvalidation'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
 import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
 import { useProjectEditScreenplay, useProjectEditScript } from '@/lib/query/hooks'
@@ -579,6 +580,12 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const panelImageTaskStateMap = useTaskTargetStateMap(projectId, panelImageTargets, {
     enabled: Boolean(projectId && panelImageTargets.length > 0),
     staleTime: 1000,
+  })
+  useTaskTargetTerminalInvalidation({
+    projectId,
+    episodeId,
+    states: panelImageTaskStateMap.data,
+    enabled: panelImageTargets.length > 0,
   })
   const storyboardConsistencyTargets = useMemo(() => (
     projection.nodes.flatMap((node) => (

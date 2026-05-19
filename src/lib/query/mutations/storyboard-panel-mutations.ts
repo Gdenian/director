@@ -3,6 +3,7 @@ import { queryKeys } from '../keys'
 import { resolveTaskResponse } from '@/lib/task/client'
 import { resolveTaskErrorMessage } from '@/lib/task/error-message'
 import { apiFetch } from '@/lib/api-fetch'
+import { TASK_TYPE } from '@/lib/task/types'
 import {
     clearTaskTargetOverlay,
     upsertTaskTargetOverlay,
@@ -78,7 +79,28 @@ export function useRegenerateProjectPanelImage(projectId: string, episodeId?: st
                 projectId,
                 targetType: 'ProjectPanel',
                 targetId: panelId,
+                runningTaskType: TASK_TYPE.IMAGE_PANEL,
                 intent: 'regenerate',
+            })
+        },
+        onSuccess: (payload, { panelId }) => {
+            const record = payload && typeof payload === 'object' && !Array.isArray(payload)
+                ? payload as Record<string, unknown>
+                : {}
+            const taskId = typeof record.taskId === 'string' ? record.taskId : null
+            if (taskId) {
+                upsertTaskTargetOverlay(queryClient, {
+                    projectId,
+                    targetType: 'ProjectPanel',
+                    targetId: panelId,
+                    runningTaskId: taskId,
+                    runningTaskType: TASK_TYPE.IMAGE_PANEL,
+                    intent: 'regenerate',
+                })
+            }
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.tasks.targetStatesAll(projectId),
+                exact: false,
             })
         },
         onError: (_error, { panelId }) => {
@@ -89,6 +111,10 @@ export function useRegenerateProjectPanelImage(projectId: string, episodeId?: st
             })
         },
         onSettled: () => {
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.tasks.targetStatesAll(projectId),
+                exact: false,
+            })
             return invalidateStoryboardMutationCaches(queryClient, projectId, episodeId)
         },
     })
