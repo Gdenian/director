@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canvas/node-canvas-types'
 import {
   alignSpaceConsistencyNodesToMeasuredEditScript,
+  avoidExpandedSpaceConsistencyLaneOverlaps,
   repairWorkspaceNodeOverlapsNearMovedNodes,
   workspaceCanvasNodesOverlap,
 } from '@/features/project-workspace/canvas/layout/workspace-node-auto-layout'
 
-type TestNodeKind = 'shot' | 'editScript' | 'spaceConsistency'
+type TestNodeKind = 'shot' | 'editScript' | 'spaceConsistency' | 'videoPlan' | 'bgmScore' | 'finalTimeline'
 
 function createNode(input: {
   readonly id: string
@@ -15,6 +16,7 @@ function createNode(input: {
   readonly width?: number
   readonly height?: number
   readonly kind?: TestNodeKind
+  readonly expanded?: boolean
 }): WorkspaceCanvasFlowNode {
   const kind = input.kind ?? 'shot'
   const width = input.width ?? 100
@@ -36,6 +38,7 @@ function createNode(input: {
       statusLabel: 'ready',
       width,
       height,
+      expanded: input.expanded,
     },
   }
 }
@@ -131,5 +134,81 @@ describe('workspace node auto layout', () => {
     expect(alignedSpaceConsistency?.position.x).toBe(1112)
     expect(alignedSpaceConsistency?.position.y).toBe(1060)
     expect(shot.position).toEqual({ x: 2000, y: 600 })
+  })
+
+  it('moves the right content lane as one group when space consistency expands into it', () => {
+    const spaceConsistency = createNode({
+      id: 'space-consistency:expanded',
+      kind: 'spaceConsistency',
+      x: 100,
+      y: 80,
+      width: 760,
+      height: 820,
+      expanded: true,
+    })
+    const videoPlan = createNode({
+      id: 'video-plan:1',
+      kind: 'videoPlan',
+      x: 620,
+      y: 120,
+      width: 420,
+      height: 560,
+    })
+    const nextVideoPlan = createNode({
+      id: 'video-plan:2',
+      kind: 'videoPlan',
+      x: 1084,
+      y: 120,
+      width: 420,
+      height: 560,
+    })
+    const bgmScore = createNode({
+      id: 'bgm-score:episode',
+      kind: 'bgmScore',
+      x: 620,
+      y: 720,
+      width: 420,
+      height: 320,
+    })
+
+    const repaired = avoidExpandedSpaceConsistencyLaneOverlaps([
+      spaceConsistency,
+      videoPlan,
+      nextVideoPlan,
+      bgmScore,
+    ])
+    const repairedVideoPlan = repaired.find((node) => node.id === videoPlan.id)
+    const repairedNextVideoPlan = repaired.find((node) => node.id === nextVideoPlan.id)
+    const repairedBgmScore = repaired.find((node) => node.id === bgmScore.id)
+
+    expect(repairedVideoPlan?.position.x).toBe(948)
+    expect(repairedNextVideoPlan?.position.x).toBe(1412)
+    expect(repairedBgmScore?.position.x).toBe(948)
+    expect(repairedVideoPlan && workspaceCanvasNodesOverlap(spaceConsistency, repairedVideoPlan)).toBe(false)
+  })
+
+  it('does not move the content lane when space consistency is collapsed', () => {
+    const spaceConsistency = createNode({
+      id: 'space-consistency:collapsed',
+      kind: 'spaceConsistency',
+      x: 100,
+      y: 80,
+      width: 460,
+      height: 620,
+      expanded: false,
+    })
+    const videoPlan = createNode({
+      id: 'video-plan:1',
+      kind: 'videoPlan',
+      x: 620,
+      y: 120,
+      width: 420,
+      height: 560,
+    })
+
+    const repaired = avoidExpandedSpaceConsistencyLaneOverlaps([spaceConsistency, videoPlan])
+    const repairedVideoPlan = repaired.find((node) => node.id === videoPlan.id)
+
+    expect(repairedVideoPlan?.position).toEqual({ x: 620, y: 120 })
   })
 })

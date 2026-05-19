@@ -54,6 +54,7 @@ import {
 } from './node-presentation-profiles'
 import {
   alignSpaceConsistencyNodesToMeasuredEditScript,
+  avoidExpandedSpaceConsistencyLaneOverlaps,
   repairWorkspaceNodeOverlaps,
   repairWorkspaceNodeOverlapsNearMovedNodes,
 } from './layout/workspace-node-auto-layout'
@@ -88,6 +89,45 @@ interface CanvasViewportControlsProps {
 
 function numericStyleDimension(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function finiteCanvasPosition(
+  value: unknown,
+): { readonly x: number; readonly y: number } | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as { readonly x?: unknown; readonly y?: unknown }
+  return typeof record.x === 'number' && Number.isFinite(record.x)
+    && typeof record.y === 'number' && Number.isFinite(record.y)
+    ? { x: record.x, y: record.y }
+    : null
+}
+
+function normalizeNodesToLayoutBasePositions(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
+  return nodes.map((node) => {
+    const basePosition = finiteCanvasPosition(node.data.layoutBasePosition) ?? node.position
+    return {
+      ...node,
+      position: basePosition,
+      data: {
+        ...node.data,
+        layoutBasePosition: basePosition,
+      },
+    }
+  })
+}
+
+function captureLayoutBasePositions(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      layoutBasePosition: node.position,
+    },
+  }))
+}
+
+function applyWorkspaceNodeDynamicLayout(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
+  return repairWorkspaceNodeOverlaps(avoidExpandedSpaceConsistencyLaneOverlaps(nodes))
 }
 
 function relayoutEditAssetsBelowScript(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
@@ -354,14 +394,16 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       })
       if (!changed) return currentNodes
 
-      const relayoutedNodes = relayoutEditAssetsBelowScript(measuredNodes)
-      const repairedNodes = repairWorkspaceNodeOverlaps(relayoutedNodes)
-      return alignSpaceConsistencyNodesToMeasuredEditScript(repairedNodes)
+      const normalizedNodes = normalizeNodesToLayoutBasePositions(measuredNodes)
+      const relayoutedNodes = relayoutEditAssetsBelowScript(normalizedNodes)
+      const alignedNodes = alignSpaceConsistencyNodesToMeasuredEditScript(relayoutedNodes)
+      return applyWorkspaceNodeDynamicLayout(alignedNodes)
     })
   }, [])
   const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => {
     const defaultExpandedNodeIds = new Set<string>()
-    const nextNodes = inputNodes.map((node) => {
+    const baseNodes = normalizeNodesToLayoutBasePositions(inputNodes)
+    const nextNodes = baseNodes.map((node) => {
       const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
       const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
       const defaultExpanded = node.data.defaultExpanded ?? profile.defaultExpanded
@@ -398,7 +440,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       }
     })
     defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
-    return nextNodes
+    return applyWorkspaceNodeDynamicLayout(nextNodes)
   }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
@@ -538,9 +580,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     )
     const movedNodeIds = new Set(movedNodesById.keys())
     const currentNodes = reactFlow.getNodes().map((currentNode) => movedNodesById.get(currentNode.id) ?? currentNode)
-    const repairedNodes = attachNodeUiState(
+    const repairedLayoutNodes = captureLayoutBasePositions(
       repairWorkspaceNodeOverlapsNearMovedNodes(currentNodes, movedNodeIds),
     )
+    const repairedNodes = attachNodeUiState(repairedLayoutNodes)
     setNodes(repairedNodes)
     persistCurrentLayoutSafely(repairedNodes)
   }, [attachNodeUiState, persistCurrentLayoutSafely, reactFlow])

@@ -4,7 +4,14 @@ const DEFAULT_NODE_GAP = 72
 const DRAG_NODE_GAP = 24
 const SPACE_CONSISTENCY_TO_EDIT_SCRIPT_GAP = 72
 const SPACE_CONSISTENCY_STACK_GAP = 56
+const SPACE_CONSISTENCY_TO_CONTENT_LANE_GAP = 88
 const POSITION_EPSILON = 0.5
+const SPACE_CONSISTENCY_CONTENT_LANE_NODE_KINDS = new Set<WorkspaceCanvasFlowNode['data']['kind']>([
+  'shot',
+  'videoPlan',
+  'bgmScore',
+  'finalTimeline',
+])
 
 interface NodeRect {
   readonly id: string
@@ -183,6 +190,51 @@ export function alignSpaceConsistencyNodesToMeasuredEditScript(
     return {
       ...node,
       position,
+    }
+  })
+}
+
+export function avoidExpandedSpaceConsistencyLaneOverlaps(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+  options?: {
+    readonly gap?: number
+  },
+): WorkspaceCanvasFlowNode[] {
+  const expandedSpaceConsistencyRects = nodes
+    .filter((node) => node.data.kind === 'spaceConsistency' && node.data.expanded === true)
+    .map(nodeRect)
+
+  if (expandedSpaceConsistencyRects.length === 0) return [...nodes]
+
+  const gap = options?.gap ?? SPACE_CONSISTENCY_TO_CONTENT_LANE_GAP
+  const leftAnchorX = Math.min(...expandedSpaceConsistencyRects.map((rect) => rect.x))
+  const requiredContentLaneX = Math.max(...expandedSpaceConsistencyRects.map((rect) => rect.x + rect.width + gap))
+  const contentLaneRects = nodes
+    .map(nodeRect)
+    .filter((rect) => {
+      const node = nodes[rect.order]
+      return Boolean(
+        node
+        && SPACE_CONSISTENCY_CONTENT_LANE_NODE_KINDS.has(node.data.kind)
+        && rect.x > leftAnchorX,
+      )
+    })
+
+  if (contentLaneRects.length === 0) return [...nodes]
+
+  const currentContentLaneX = Math.min(...contentLaneRects.map((rect) => rect.x))
+  const deltaX = requiredContentLaneX - currentContentLaneX
+  if (deltaX <= POSITION_EPSILON) return [...nodes]
+
+  const contentLaneNodeIds = new Set(contentLaneRects.map((rect) => rect.id))
+  return nodes.map((node) => {
+    if (!contentLaneNodeIds.has(node.id)) return node
+    return {
+      ...node,
+      position: {
+        ...node.position,
+        x: node.position.x + deltaX,
+      },
     }
   })
 }
