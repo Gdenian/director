@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import {
   ProjectStoryboard,
   ProjectClip,
@@ -36,10 +36,6 @@ export function useStoryboardStageController({
   clips,
   isTransitioning,
 }: UseStoryboardStageControllerProps) {
-  const isRunningPhase = useCallback((phase: string | null | undefined) => {
-    return phase === 'queued' || phase === 'processing'
-  }, [])
-
   const { data: assets } = useProjectAssets(projectId)
   const characters: Character[] = useMemo(() => assets?.characters ?? [], [assets?.characters])
   const locations: Location[] = useMemo(() => assets?.locations ?? [], [assets?.locations])
@@ -47,7 +43,6 @@ export function useStoryboardStageController({
   const { taskAwareStoryboards } = useStoryboardTaskAwareStoryboards({
     projectId,
     initialStoryboards,
-    isRunningPhase,
   })
 
   const storyboardState = useStoryboardState({

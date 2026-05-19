@@ -7,11 +7,16 @@ import type { TaskIntent } from '@/lib/task/intent'
 import type { TaskTargetOverlayMap } from '../task-target-overlay'
 import { createScopedLogger } from '@/lib/logging/core'
 import { apiFetch } from '@/lib/api-fetch'
+import {
+  taskRuntimeTargetQueryKey,
+  taskTargetPairKey,
+  type TaskRuntimeTarget,
+} from '@/lib/task/runtime-targets'
 
 export type TaskTargetStateQuery = {
   targetType: string
   targetId: string
-  types?: string[]
+  types?: readonly string[]
 }
 
 export type TaskTargetState = {
@@ -57,15 +62,6 @@ function traceFrontend(event: string, details: Record<string, unknown>) {
   console.info(`[FE_TASK_TRACE] ${event}`, details)
 }
 
-function stateKey(targetType: string, targetId: string) {
-  return `${targetType}:${targetId}`
-}
-
-function targetQueryKey(target: TaskTargetStateQuery) {
-  const types = (target.types || []).filter(Boolean).sort()
-  return `${target.targetType}:${target.targetId}:${types.join(',')}`
-}
-
 function normalizeTargets(targets: TaskTargetStateQuery[]) {
   const deduped = new Map<string, TaskTargetStateQuery>()
   for (const target of targets) {
@@ -105,7 +101,7 @@ function buildIdleState(target: TaskTargetStateQuery): TaskTargetState {
 }
 
 function matchesTaskTypeWhitelist(
-  whitelist: string[] | undefined,
+  whitelist: readonly string[] | undefined,
   runningTaskType: string | null,
 ): boolean {
   if (!whitelist || whitelist.length === 0) return true
@@ -131,7 +127,7 @@ function logMergeDecision(params: {
   runtimeTaskId: string | null
   runtimeTaskType: string | null
   currentPhase: string | null
-  whitelist: string[]
+  whitelist: readonly string[]
 }) {
   const signature = [
     params.decision,
@@ -212,21 +208,21 @@ async function flushTaskTargetStateBatch(projectId: string) {
     )
 
     // 合并所有分片的结果到统一索引
-    // 用 targetQueryKey（含 types）做精确索引，避免同一 (targetType, targetId)
+    // 用 taskRuntimeTargetQueryKey（含 types）做精确索引，避免同一 (targetType, targetId)
     // 的不同 types 的状态互相覆盖（例如 image 的 processing 被 lip_sync 的 idle 覆盖）
     const byTargetQueryKey = new Map<string, TaskTargetState>()
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
       const chunkTargets = chunks[chunkIdx]
       const chunkStates = chunkResults[chunkIdx]
       for (let i = 0; i < chunkTargets.length && i < chunkStates.length; i++) {
-        byTargetQueryKey.set(targetQueryKey(chunkTargets[i]), chunkStates[i])
+        byTargetQueryKey.set(taskRuntimeTargetQueryKey(chunkTargets[i]), chunkStates[i])
       }
     }
 
     for (const subscriber of subscribers) {
       const subset: TaskTargetState[] = []
       for (const target of subscriber.targets) {
-        const state = byTargetQueryKey.get(targetQueryKey(target))
+        const state = byTargetQueryKey.get(taskRuntimeTargetQueryKey(target))
         if (state) subset.push(state)
       }
       subscriber.resolve(subset)
@@ -255,7 +251,7 @@ function fetchTaskTargetStatesBatched(
     }
 
     for (const target of targets) {
-      batch.targetsByKey.set(targetQueryKey(target), target)
+      batch.targetsByKey.set(taskRuntimeTargetQueryKey(target), target)
     }
     batch.subscribers.push({
       targets,
@@ -312,14 +308,17 @@ export function useTaskTargetStateMap(
 
   const mergedByKey = useMemo(() => {
     const map = new Map<string, TaskTargetState>()
-    for (const state of query.data || []) {
-      map.set(stateKey(state.targetType, state.targetId), state)
+    const queryData = query.data || []
+    for (let i = 0; i < normalizedTargets.length; i++) {
+      const target = normalizedTargets[i]
+      map.set(taskRuntimeTargetQueryKey(target), queryData[i] || buildIdleState(target))
     }
 
     const overlay = overlayQuery.data || {}
     const now = Date.now()
     for (const target of normalizedTargets) {
-      const key = stateKey(target.targetType, target.targetId)
+      const key = taskTargetPairKey(target.targetType, target.targetId)
+      const queryKey = taskRuntimeTargetQueryKey(target)
       const runtime = overlay[key]
       if (!runtime) continue
       if (runtime.expiresAt && runtime.expiresAt <= now) {
@@ -331,7 +330,7 @@ export function useTaskTargetStateMap(
             runtimePhase: runtime.phase,
             runtimeTaskId: runtime.runningTaskId,
             runtimeTaskType: runtime.runningTaskType,
-            currentPhase: map.get(key)?.phase || null,
+            currentPhase: map.get(queryKey)?.phase || null,
             whitelist: target.types || [],
           })
         }
@@ -346,7 +345,7 @@ export function useTaskTargetStateMap(
             runtimePhase: runtime.phase,
             runtimeTaskId: runtime.runningTaskId,
             runtimeTaskType: runtime.runningTaskType,
-            currentPhase: map.get(key)?.phase || null,
+            currentPhase: map.get(queryKey)?.phase || null,
             whitelist: target.types || [],
           })
         }
@@ -362,14 +361,14 @@ export function useTaskTargetStateMap(
             runtimePhase: runtime.phase,
             runtimeTaskId: runtime.runningTaskId,
             runtimeTaskType: runtime.runningTaskType,
-            currentPhase: map.get(key)?.phase || null,
+            currentPhase: map.get(queryKey)?.phase || null,
             whitelist: target.types || [],
           })
         }
         continue
       }
 
-      const current = map.get(key)
+      const current = map.get(queryKey)
       if (current) {
         // Server-side processing state is authoritative.
         if (current.phase === 'processing') {
@@ -388,7 +387,7 @@ export function useTaskTargetStateMap(
           continue
         }
       }
-      map.set(key, {
+      map.set(queryKey, {
         ...(current || buildIdleState(target)),
         ...runtime,
         phase: runtime.phase,
@@ -410,31 +409,47 @@ export function useTaskTargetStateMap(
       }
     }
     return map
-  }, [normalizedTargets, overlayQuery.data, query.data])
+  }, [normalizedTargets, overlayQuery.data, projectId, query.data])
 
   const mergedData = useMemo(() => {
     return normalizedTargets.map((target) =>
-      mergedByKey.get(stateKey(target.targetType, target.targetId)) || buildIdleState(target),
+      mergedByKey.get(taskRuntimeTargetQueryKey(target)) || buildIdleState(target),
     )
   }, [mergedByKey, normalizedTargets])
+
+  const byQueryKey = useMemo(() => {
+    const map = new Map<string, TaskTargetState>()
+    for (let i = 0; i < normalizedTargets.length; i++) {
+      const target = normalizedTargets[i]
+      map.set(taskRuntimeTargetQueryKey(target), mergedData[i] || buildIdleState(target))
+    }
+    return map
+  }, [mergedData, normalizedTargets])
 
   const byKey = useMemo(() => {
     const map = new Map<string, TaskTargetState>()
     for (const state of mergedData) {
-      map.set(stateKey(state.targetType, state.targetId), state)
+      map.set(taskTargetPairKey(state.targetType, state.targetId), state)
     }
     return map
   }, [mergedData])
 
   const getState = useMemo(() => {
     return (targetType: string, targetId: string) =>
-      byKey.get(stateKey(targetType, targetId)) || null
+      byKey.get(taskTargetPairKey(targetType, targetId)) || null
   }, [byKey])
+
+  const getQueryState = useMemo(() => {
+    return (target: TaskRuntimeTarget) =>
+      byQueryKey.get(taskRuntimeTargetQueryKey(target)) || null
+  }, [byQueryKey])
 
   return {
     ...query,
     data: mergedData,
+    byQueryKey,
     byKey,
     getState,
+    getQueryState,
   }
 }

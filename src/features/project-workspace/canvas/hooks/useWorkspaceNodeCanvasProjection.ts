@@ -1503,7 +1503,6 @@ export function buildWorkspaceNodeCanvasProjection({
     }
   })
   if (shouldShowPendingSpaceConsistencyLayer) {
-    const assetsGenerating = editScript.requirements.some((asset) => asset.status === 'generating')
     const assetsReady = editScript.requirements.length > 0
       && editScript.requirements.every((asset) => asset.status === 'completed' && Boolean(asset.targetId))
     const action = assetsReady
@@ -1532,8 +1531,8 @@ export function buildWorkspaceNodeCanvasProjection({
           overlays: 0,
           shots: 0,
         }),
-        statusLabel: assetsGenerating ? translate('status.processing') : translate('status.pending'),
-        isRunning: assetsGenerating,
+        statusLabel: translate('status.pending'),
+        isRunning: false,
         width: SPACE_CONSISTENCY_NODE_WIDTH,
         height: SPACE_CONSISTENCY_NODE_HEIGHT,
         indexLabel: 'G',
@@ -1541,7 +1540,7 @@ export function buildWorkspaceNodeCanvasProjection({
         previewAspectRatio: 16 / 9,
         actionLabel: action.label,
         action: action.action,
-        actionDisabled: assetsGenerating,
+        actionDisabled: false,
         onAction,
       },
     }))
@@ -1789,7 +1788,7 @@ export function buildWorkspaceNodeCanvasProjection({
     const isFinalRenderRunning = finalRenderPhase === 'queued' || finalRenderPhase === 'processing'
     const isFinalRenderFailed = finalRenderPhase === 'failed'
     const bgmScore = finalVideo?.bgmScore ?? null
-    const isBgmScoreRunning = bgmScorePhase === 'queued' || bgmScorePhase === 'processing' || bgmScore?.status === 'generating'
+    const isBgmScoreRunning = bgmScorePhase === 'queued' || bgmScorePhase === 'processing'
     const isBgmScoreFailed = bgmScorePhase === 'failed' || bgmScore?.status === 'failed'
     const hasBgmScore = bgmScore?.status === 'completed' && Boolean(bgmScore.mix?.url)
     const bgmScorePlan = bgmScore?.plan ?? null

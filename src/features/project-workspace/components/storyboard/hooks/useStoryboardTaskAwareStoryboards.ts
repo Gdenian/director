@@ -3,12 +3,16 @@
 import { useMemo } from 'react'
 import { ProjectStoryboard } from '@/types/project'
 import { useStoryboardTaskPresentation } from '@/lib/query/hooks/useTaskPresentation'
+import {
+  isTaskRuntimeRunningPhase,
+  TASK_RUNTIME_TARGETS,
+} from '@/lib/task/runtime-targets'
 
 interface TaskTarget {
   key: string
   targetType: string
   targetId: string
-  types: string[]
+  types?: readonly string[]
   resource: 'text' | 'image' | 'video'
   hasOutput: boolean
 }
@@ -16,27 +20,24 @@ interface TaskTarget {
 interface UseStoryboardTaskAwareStoryboardsProps {
   projectId: string
   initialStoryboards: ProjectStoryboard[]
-  isRunningPhase: (phase: string | null | undefined) => boolean
 }
 
 function buildStoryboardTextTargets(storyboards: ProjectStoryboard[]): TaskTarget[] {
   const targets: TaskTarget[] = []
 
   for (const storyboard of storyboards) {
-    targets.push({
+    const storyboardTarget = TASK_RUNTIME_TARGETS.projectStoryboardText(storyboard.id)
+    if (storyboardTarget) targets.push({
       key: `storyboard:${storyboard.id}`,
-      targetType: 'ProjectStoryboard',
-      targetId: storyboard.id,
-      types: ['regenerate_storyboard_text', 'insert_panel'],
+      ...storyboardTarget,
       resource: 'text',
       hasOutput: !!(storyboard.panels || []).length,
     })
     if (storyboard.episodeId) {
-      targets.push({
+      const episodeTarget = TASK_RUNTIME_TARGETS.projectEpisodeStoryboardText(storyboard.episodeId)
+      if (episodeTarget) targets.push({
         key: `episode:${storyboard.episodeId}`,
-        targetType: 'ProjectEpisode',
-        targetId: storyboard.episodeId,
-        types: ['regenerate_storyboard_text', 'insert_panel'],
+        ...episodeTarget,
         resource: 'text',
         hasOutput: !!(storyboard.panels || []).length,
       })
@@ -52,29 +53,26 @@ function buildPanelTargets(storyboards: ProjectStoryboard[], type: 'image' | 'vi
   for (const storyboard of storyboards) {
     for (const panel of storyboard.panels || []) {
       if (type === 'image') {
-        targets.push({
+        const panelTarget = TASK_RUNTIME_TARGETS.projectPanelImageOperations(panel.id)
+        if (panelTarget) targets.push({
           key: `panel-image:${panel.id}`,
-          targetType: 'ProjectPanel',
-          targetId: panel.id,
-          types: ['image_panel', 'panel_variant', 'modify_asset_image'],
+          ...panelTarget,
           resource: 'image',
           hasOutput: !!panel.imageUrl,
         })
       } else if (type === 'video') {
-        targets.push({
+        const panelTarget = TASK_RUNTIME_TARGETS.projectPanelVideo(panel.id)
+        if (panelTarget) targets.push({
           key: `panel-video:${panel.id}`,
-          targetType: 'ProjectPanel',
-          targetId: panel.id,
-          types: ['video_panel'],
+          ...panelTarget,
           resource: 'video',
           hasOutput: !!panel.videoUrl,
         })
       } else {
-        targets.push({
+        const panelTarget = TASK_RUNTIME_TARGETS.projectPanelLipSync(panel.id)
+        if (panelTarget) targets.push({
           key: `panel-lip:${panel.id}`,
-          targetType: 'ProjectPanel',
-          targetId: panel.id,
-          types: ['lip_sync'],
+          ...panelTarget,
           resource: 'video',
           hasOutput: !!panel.lipSyncVideoUrl,
         })
@@ -88,7 +86,6 @@ function buildPanelTargets(storyboards: ProjectStoryboard[], type: 'image' | 'vi
 export function useStoryboardTaskAwareStoryboards({
   projectId,
   initialStoryboards,
-  isRunningPhase,
 }: UseStoryboardTaskAwareStoryboardsProps) {
   const storyboardTextTargets = useMemo(
     () => buildStoryboardTextTargets(initialStoryboards),
@@ -132,23 +129,22 @@ export function useStoryboardTaskAwareStoryboards({
     return initialStoryboards.map((storyboard) => ({
       ...storyboard,
       storyboardTaskRunning:
-        isRunningPhase(storyboardTextStates.getTaskState(`storyboard:${storyboard.id}`)?.phase) ||
-        isRunningPhase(storyboardTextStates.getTaskState(`episode:${storyboard.episodeId}`)?.phase),
+        isTaskRuntimeRunningPhase(storyboardTextStates.getTaskState(`storyboard:${storyboard.id}`)?.phase) ||
+        isTaskRuntimeRunningPhase(storyboardTextStates.getTaskState(`episode:${storyboard.episodeId}`)?.phase),
       panels: (storyboard.panels || []).map((panel) => {
         const panelImageTaskState = panelImageStates.getTaskState(`panel-image:${panel.id}`)
-        const panelImageRunning = isRunningPhase(panelImageTaskState?.phase)
+        const panelImageRunning = isTaskRuntimeRunningPhase(panelImageTaskState?.phase)
         return {
           ...panel,
           imageTaskRunning: panelImageRunning,
           imageTaskIntent: panelImageTaskState?.intent,
-          videoTaskRunning: isRunningPhase(panelVideoStates.getTaskState(`panel-video:${panel.id}`)?.phase),
-          lipSyncTaskRunning: isRunningPhase(panelLipSyncStates.getTaskState(`panel-lip:${panel.id}`)?.phase),
+          videoTaskRunning: isTaskRuntimeRunningPhase(panelVideoStates.getTaskState(`panel-video:${panel.id}`)?.phase),
+          lipSyncTaskRunning: isTaskRuntimeRunningPhase(panelLipSyncStates.getTaskState(`panel-lip:${panel.id}`)?.phase),
         }
       }),
     }))
   }, [
     initialStoryboards,
-    isRunningPhase,
     panelImageStates,
     panelLipSyncStates,
     panelVideoStates,

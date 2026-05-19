@@ -10,6 +10,7 @@ import {
   clearTaskTargetOverlay,
   upsertTaskTargetOverlay,
 } from '@/lib/query/task-target-overlay'
+import { isTaskRuntimeRunningPhase, taskRuntimeTargetQueryKey } from '@/lib/task/runtime-targets'
 import { invalidateByTarget } from '@/lib/query/invalidation/invalidate-by-target'
 import type {
   AssetKind,
@@ -54,9 +55,9 @@ function resolveTaskState(refs: AssetTaskRef[], byKey: Map<string, { phase: stri
   let isRunning = false
   let lastError: { code: string; message: string } | null = null
   for (const ref of refs) {
-    const state = byKey.get(`${ref.targetType}:${ref.targetId}`)
+    const state = byKey.get(taskRuntimeTargetQueryKey(ref))
     if (!state) continue
-    if (state.phase === 'queued' || state.phase === 'processing') {
+    if (isTaskRuntimeRunningPhase(state.phase)) {
       isRunning = true
     }
     if (!lastError && state.lastError) {
@@ -161,8 +162,8 @@ export function useAssets(input: AssetQueryInput) {
 
   const data = useMemo(() => {
     const assets = assetsQuery.data ?? []
-    return assets.map((asset) => withTaskStateAsset(asset, taskStatesQuery.byKey))
-  }, [assetsQuery.data, taskStatesQuery.byKey])
+    return assets.map((asset) => withTaskStateAsset(asset, taskStatesQuery.byQueryKey))
+  }, [assetsQuery.data, taskStatesQuery.byQueryKey])
 
   return {
     ...assetsQuery,

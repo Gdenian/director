@@ -19,7 +19,12 @@ import {
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import { logWarn as _ulogWarn } from '@/lib/logging/core'
-import { TASK_TYPE } from '@/lib/task/types'
+import {
+  isTaskRuntimeRunningPhase,
+  taskRuntimeStateMapSignature,
+  taskTargetPairKey,
+  TASK_RUNTIME_TARGETS,
+} from '@/lib/task/runtime-targets'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
 import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
 import { useProjectEditScreenplay, useProjectEditScript } from '@/lib/query/hooks'
@@ -138,20 +143,6 @@ function applyWorkspaceNodeDynamicLayout(
   return repairWorkspaceNodeOverlaps(avoidExpandedSpaceConsistencyLaneOverlaps(nodes), {
     preservedNodeIds: options?.preservedNodeIds,
   })
-}
-
-function taskStateMapSignature(map: ReadonlyMap<string, TaskTargetState>): string {
-  return Array.from(map.entries())
-    .map(([key, state]) => [
-      key,
-      state.phase,
-      state.runningTaskId ?? '',
-      state.runningTaskType ?? '',
-      state.lastError?.code ?? '',
-      state.lastError?.message ?? '',
-    ].join(':'))
-    .sort()
-    .join('|')
 }
 
 function relayoutEditAssetsBelowScript(nodes: readonly WorkspaceCanvasFlowNode[]): WorkspaceCanvasFlowNode[] {
@@ -277,37 +268,46 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
 
   const savedNodeLayouts = layout?.nodeLayouts ?? EMPTY_SAVED_NODE_LAYOUTS
   const finalRenderTargets = useMemo(
-    () => episodeId
-      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.FINAL_VIDEO_RENDER] }]
-      : [],
+    () => {
+      const target = TASK_RUNTIME_TARGETS.projectEpisodeFinalRender(episodeId)
+      return target ? [target] : []
+    },
     [episodeId],
   )
   const bgmScoreTargets = useMemo(
-    () => episodeId
-      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.BGM_SCORE_GENERATE] }]
-      : [],
+    () => {
+      const target = TASK_RUNTIME_TARGETS.projectEpisodeBgmScore(episodeId)
+      return target ? [target] : []
+    },
     [episodeId],
   )
   const editScriptGenerationTargets = useMemo(
-    () => episodeId
-      ? [{ targetType: 'ProjectEpisode', targetId: episodeId, types: [TASK_TYPE.EDIT_SCRIPT_GENERATE] }]
-      : [],
+    () => {
+      const target = TASK_RUNTIME_TARGETS.projectEpisodeEditScriptGeneration(episodeId)
+      return target ? [target] : []
+    },
     [episodeId],
   )
   const finalRenderTaskState = useTaskTargetStateMap(projectId, finalRenderTargets, {
     enabled: Boolean(projectId && episodeId),
-  }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
+  }).getQueryState(finalRenderTargets[0] ?? { targetType: '', targetId: '' })
   const bgmScoreTaskState = useTaskTargetStateMap(projectId, bgmScoreTargets, {
     enabled: Boolean(projectId && episodeId),
-  }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
+  }).getQueryState(bgmScoreTargets[0] ?? { targetType: '', targetId: '' })
   const editScriptGenerationTaskState = useTaskTargetStateMap(projectId, editScriptGenerationTargets, {
     enabled: Boolean(projectId && episodeId),
-  }).byKey.get(episodeId ? `ProjectEpisode:${episodeId}` : '')
-  const editScriptGenerationActive =
-    editScriptGenerationTaskState?.phase === 'queued' || editScriptGenerationTaskState?.phase === 'processing'
+  }).getQueryState(editScriptGenerationTargets[0] ?? { targetType: '', targetId: '' })
+  const editScriptGenerationActive = isTaskRuntimeRunningPhase(editScriptGenerationTaskState?.phase)
   const projectedEditScript = useMemo(() => (
-    editScriptGenerationActive && editScript
-      ? { ...editScript, status: 'generating' }
+    editScript
+      ? {
+          ...editScript,
+          status: editScriptGenerationActive
+            ? 'generating'
+            : editScript.status === 'generating'
+              ? 'ready'
+              : editScript.status,
+        }
       : editScript
   ), [editScript, editScriptGenerationActive])
   const effectiveEditScriptPending = editScriptPending || (editScriptGenerationActive && !editScript)
@@ -447,19 +447,19 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
         ? node.data.action.editScriptId
         : null
       const panelImageTaskState = node.data.kind === 'shot' && node.data.targetType === 'panel'
-        ? panelImageTaskStateByKeyRef.current.get(`ProjectPanel:${node.data.targetId}`) ?? null
+        ? panelImageTaskStateByKeyRef.current.get(taskTargetPairKey('ProjectPanel', node.data.targetId)) ?? null
         : null
       const storyboardConsistencyTaskState = node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
-        ? storyboardConsistencyTaskStateByKeyRef.current.get(`ProjectStoryboard:${node.data.targetId}`) ?? null
+        ? storyboardConsistencyTaskStateByKeyRef.current.get(taskTargetPairKey('ProjectStoryboard', node.data.targetId)) ?? null
         : null
       const editScriptConsistencyTaskState = node.data.kind === 'spaceConsistency' && editScriptId
-        ? editScriptConsistencyTaskStateByKeyRef.current.get(`ProjectEditScript:${editScriptId}`) ?? null
+        ? editScriptConsistencyTaskStateByKeyRef.current.get(taskTargetPairKey('ProjectEditScript', editScriptId)) ?? null
         : null
-      const panelImageTaskRunning = panelImageTaskState?.phase === 'queued' || panelImageTaskState?.phase === 'processing'
+      const panelImageTaskRunning = isTaskRuntimeRunningPhase(panelImageTaskState?.phase)
       const panelImageTaskFailed = panelImageTaskState?.phase === 'failed'
       const isPanelShotNode = node.data.kind === 'shot' && node.data.targetType === 'panel'
-      const storyboardConsistencyTaskRunning = storyboardConsistencyTaskState?.phase === 'queued' || storyboardConsistencyTaskState?.phase === 'processing'
-      const editScriptConsistencyTaskRunning = editScriptConsistencyTaskState?.phase === 'queued' || editScriptConsistencyTaskState?.phase === 'processing'
+      const storyboardConsistencyTaskRunning = isTaskRuntimeRunningPhase(storyboardConsistencyTaskState?.phase)
+      const editScriptConsistencyTaskRunning = isTaskRuntimeRunningPhase(editScriptConsistencyTaskState?.phase)
       const consistencyTaskFailed = storyboardConsistencyTaskState?.phase === 'failed' || editScriptConsistencyTaskState?.phase === 'failed'
       const isSpaceConsistencyNode = node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
       const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
@@ -552,11 +552,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const panelImageTargets = useMemo(() => (
     projection.nodes.flatMap((node) => (
       node.data.kind === 'shot' && node.data.targetType === 'panel'
-        ? [{
-            targetType: 'ProjectPanel',
-            targetId: node.data.targetId,
-            types: [TASK_TYPE.IMAGE_PANEL],
-          }]
+        ? [TASK_RUNTIME_TARGETS.projectPanelImage(node.data.targetId)].filter((target) => target !== null)
         : []
     ))
   ), [projection.nodes])
@@ -567,15 +563,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const storyboardConsistencyTargets = useMemo(() => (
     projection.nodes.flatMap((node) => (
       node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
-        ? [{
-            targetType: 'ProjectStoryboard',
-            targetId: node.data.targetId,
-            types: [
-              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_IMAGE,
-              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_GRID_ANALYZE,
-              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
-            ],
-          }]
+        ? [TASK_RUNTIME_TARGETS.projectStoryboardConsistency(node.data.targetId)].filter((target) => target !== null)
         : []
     ))
   ), [projection.nodes])
@@ -583,11 +571,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     projection.nodes.flatMap((node) => {
       const action = node.data.action
       return node.data.kind === 'spaceConsistency' && action?.type === 'generate_edit_storyboard'
-        ? [{
-            targetType: 'ProjectEditScript',
-            targetId: action.editScriptId,
-            types: [TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE],
-          }]
+        ? [TASK_RUNTIME_TARGETS.projectEditScriptStoryboardPrepare(action.editScriptId)].filter((target) => target !== null)
         : []
     })
   ), [projection.nodes])
@@ -600,15 +584,15 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     staleTime: 1000,
   })
   const panelImageTaskStateSignature = useMemo(
-    () => taskStateMapSignature(panelImageTaskStateMap.byKey),
+    () => taskRuntimeStateMapSignature(panelImageTaskStateMap.byKey),
     [panelImageTaskStateMap.byKey],
   )
   const storyboardConsistencyTaskStateSignature = useMemo(
-    () => taskStateMapSignature(storyboardConsistencyTaskStateMap.byKey),
+    () => taskRuntimeStateMapSignature(storyboardConsistencyTaskStateMap.byKey),
     [storyboardConsistencyTaskStateMap.byKey],
   )
   const editScriptConsistencyTaskStateSignature = useMemo(
-    () => taskStateMapSignature(editScriptConsistencyTaskStateMap.byKey),
+    () => taskRuntimeStateMapSignature(editScriptConsistencyTaskStateMap.byKey),
     [editScriptConsistencyTaskStateMap.byKey],
   )
   panelImageTaskStateByKeyRef.current = panelImageTaskStateMap.byKey

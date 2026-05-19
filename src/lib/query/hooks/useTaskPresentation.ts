@@ -16,7 +16,7 @@ export type TaskPresentationTarget = {
   key: string
   targetType: string
   targetId: string
-  types?: string[]
+  types?: readonly string[]
   resource: TaskPresentationResource
   hasOutput: boolean
 }
@@ -62,15 +62,17 @@ function useTaskPresentationInternal(
     staleTime: resolvedOptions.staleTime,
   })
 
+  const getQueryState = taskStates.getQueryState
+
   const taskStatesByKey = useMemo(() => {
     const map = new Map<string, TaskTargetState>()
     for (const target of targets) {
-      const state = taskStates.byKey.get(`${target.targetType}:${target.targetId}`) || null
+      const state = getQueryState(target) || null
       if (!state) continue
       map.set(target.key, state)
     }
     return map
-  }, [targets, taskStates.byKey])
+  }, [getQueryState, targets])
 
   const statesByKey = useMemo(() => {
     const map = new Map<string, TaskPresentationState>()
