@@ -490,6 +490,45 @@ describe('workspace node rendering', () => {
     expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('overflow-y-auto')
   })
 
+  it('renders candidate image controls on shot nodes after regeneration creates candidates', () => {
+    const html = renderNode({
+      kind: 'shot',
+      layoutNodeType: 'shot',
+      targetType: 'panel',
+      targetId: 'panel-1',
+      title: 'Shot candidate node',
+      eyebrow: 'Shot',
+      body: 'shot description',
+      meta: 'location',
+      statusLabel: 'Ready',
+      width: 320,
+      height: 440,
+      previewImageUrl: 'https://example.com/current.png',
+      imageDetails: {
+        imagePrompt: 'image prompt',
+        candidateImages: [
+          'PENDING:queued',
+          'https://example.com/candidate-1.png',
+          'https://example.com/candidate-2.png',
+        ],
+      },
+      shotDetails: {
+        characters: [],
+        location: 'Street',
+        props: [],
+      },
+      onAction: vi.fn(),
+    })
+
+    expect(html).toContain('https://example.com/current.png')
+    expect(html).toContain('https://example.com/candidate-1.png')
+    expect(html).toContain('https://example.com/candidate-2.png')
+    expect(html).not.toContain('PENDING:queued')
+    expect(html).toContain('candidateImages')
+    expect(html).toContain('selectCandidate')
+    expect(html).toContain('cancelCandidate')
+  })
+
   it('keeps shot node text non-selectable and removes the redundant large shot title', () => {
     const html = renderNode({
       kind: 'shot',

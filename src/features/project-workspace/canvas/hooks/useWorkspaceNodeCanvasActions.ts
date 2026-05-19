@@ -59,11 +59,13 @@ export function useWorkspaceNodeCanvasActions() {
     }
 
     if (action.type === 'select_candidate') {
-      throw new Error('select_candidate must be handled by the canvas detail command bridge')
+      await runtime.onSelectPanelCandidate(action.panelId, action.imageUrl)
+      return
     }
 
     if (action.type === 'cancel_candidate') {
-      throw new Error('cancel_candidate must be handled by the canvas detail command bridge')
+      await runtime.onCancelPanelCandidate(action.panelId)
+      return
     }
 
     if (action.type === 'modify_image') {

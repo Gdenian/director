@@ -41,6 +41,8 @@ export interface WorkspaceRuntimeValue {
   onClipUpdate: (clipId: string, data: unknown) => Promise<void>
   onOpenAssetLibrary: () => void
   onGeneratePanelImage: (panelId: string, count?: number) => Promise<void>
+  onSelectPanelCandidate: (panelId: string, imageUrl: string) => Promise<void>
+  onCancelPanelCandidate: (panelId: string) => Promise<void>
   onGenerateVideo: (
     storyboardId: string,
     panelIndex: number,

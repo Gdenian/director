@@ -332,6 +332,8 @@
         "error": "错误",
         "candidateImages": "候选图",
         "candidateImageAlt": "候选图 {index}",
+        "selectCandidate": "采纳",
+        "cancelCandidate": "取消候选",
         "imageHistory": "图片历史",
         "sketchImage": "草图",
         "previousImage": "参考图",

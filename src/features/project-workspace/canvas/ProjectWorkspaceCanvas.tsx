@@ -23,7 +23,7 @@ import { TASK_TYPE } from '@/lib/task/types'
 import type { UpsertCanvasLayoutInput } from '@/lib/project-canvas/layout/canvas-layout-contract'
 import type { CanvasNodeLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
 import { useProjectEditScreenplay, useProjectEditScript } from '@/lib/query/hooks'
-import { useTaskTargetStateMap } from '@/lib/query/hooks/useTaskTargetStateMap'
+import { useTaskTargetStateMap, type TaskTargetState } from '@/lib/query/hooks/useTaskTargetStateMap'
 import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageData'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
 import { useWorkspaceRuntime } from '../WorkspaceRuntimeContext'
@@ -233,6 +233,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const defaultExpandedNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningClearTimersRef = useRef<Map<string, number>>(new Map())
+  const panelImageTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
@@ -412,7 +413,14 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     const defaultExpandedNodeIds = new Set<string>()
     const baseNodes = normalizeNodesToLayoutBasePositions(inputNodes)
     const nextNodes = baseNodes.map((node) => {
+      const panelImageTaskState = node.data.kind === 'shot' && node.data.targetType === 'panel'
+        ? panelImageTaskStateByKeyRef.current.get(`ProjectPanel:${node.data.targetId}`) ?? null
+        : null
+      const panelImageTaskRunning = panelImageTaskState?.phase === 'queued' || panelImageTaskState?.phase === 'processing'
+      const panelImageTaskFailed = panelImageTaskState?.phase === 'failed'
+      const isPanelShotNode = node.data.kind === 'shot' && node.data.targetType === 'panel'
       const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
+      const shouldShowRunning = panelImageTaskRunning || isOptimisticallyRunning || node.data.isRunning === true
       const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
       const defaultExpanded = node.data.defaultExpanded ?? profile.defaultExpanded
       if (defaultExpanded) defaultExpandedNodeIds.add(node.id)
@@ -434,7 +442,16 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
         },
         data: {
           ...node.data,
-          ...(isOptimisticallyRunning
+          ...(isPanelShotNode
+            ? {
+                isRunning: shouldShowRunning,
+                statusLabel: shouldShowRunning
+                  ? nodeRunningStatusLabel(node)
+                  : panelImageTaskFailed
+                    ? t('status.failed')
+                    : t('status.ready'),
+              }
+            : isOptimisticallyRunning
             ? {
                 isRunning: true,
                 statusLabel: nodeRunningStatusLabel(node),
@@ -449,7 +466,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     })
     defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
     return applyWorkspaceNodeDynamicLayout(nextNodes)
-  }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, toggleNodeExpanded])
+  }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, t, toggleNodeExpanded])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -475,6 +492,21 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     onAction: onNodeAction,
   })
   const projectionEdges = projection.edges
+  const panelImageTargets = useMemo(() => (
+    projection.nodes.flatMap((node) => (
+      node.data.kind === 'shot' && node.data.targetType === 'panel'
+        ? [{
+            targetType: 'ProjectPanel',
+            targetId: node.data.targetId,
+            types: [TASK_TYPE.IMAGE_PANEL],
+          }]
+        : []
+    ))
+  ), [projection.nodes])
+  const panelImageTaskStateMap = useTaskTargetStateMap(projectId, panelImageTargets, {
+    enabled: Boolean(projectId && panelImageTargets.length > 0),
+    staleTime: 1000,
+  })
 
   const projectionNodeSignature = useMemo(
     () => buildWorkspaceCanvasNodeSignature(projection.nodes),
@@ -497,6 +529,11 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     appliedProjectionNodeSignatureRef.current = projectionNodeSignature
     setNodes(attachNodeUiState(projection.nodes))
   }, [attachNodeUiState, projection.nodes, projectionNodeSignature])
+
+  useEffect(() => {
+    panelImageTaskStateByKeyRef.current = panelImageTaskStateMap.byKey
+    setNodes((currentNodes) => attachNodeUiState(currentNodes))
+  }, [attachNodeUiState, panelImageTaskStateMap.byKey])
 
   useEffect(() => {
     const projectionByNodeId = new Map(projection.nodes.map((node) => [node.id, node]))

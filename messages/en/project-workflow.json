@@ -332,6 +332,8 @@
         "error": "Error",
         "candidateImages": "Candidate Images",
         "candidateImageAlt": "Candidate Image {index}",
+        "selectCandidate": "Adopt",
+        "cancelCandidate": "Cancel Candidates",
         "imageHistory": "Image History",
         "sketchImage": "Sketch",
         "previousImage": "Reference Image",

@@ -344,6 +344,11 @@ function MediaSkeleton({ height }: { readonly height: number }) {
   )
 }
 
+function validCandidateImages(data: WorkspaceCanvasFlowNode['data']): string[] {
+  if (data.kind !== 'shot') return []
+  return (data.imageDetails?.candidateImages ?? []).filter((url) => !url.startsWith('PENDING:'))
+}
+
 function renderChips(label: string, values: readonly string[]) {
   if (values.length === 0) return null
   return renderSection(label, (
@@ -564,10 +569,13 @@ function ShotContent({
 }
 
 function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data'] }) {
+  const labels = useTranslations('projectWorkflow.canvas.workspace.nodeFields')
   const displayVideoUrl = data.kind === 'videoClip' ? toDisplayImageUrl(data.videoDetails?.videoUrl) : null
   const displayImageUrl = toDisplayImageUrl(data.previewImageUrl)
   const isEditAsset = data.kind === 'editRequiredAsset'
   const isShotPreview = data.kind === 'shot'
+  const candidateUrls = validCandidateImages(data)
+  const panelId = data.kind === 'shot' && data.targetType === 'panel' ? data.targetId : null
   const aspectRatio = typeof data.previewAspectRatio === 'number' && Number.isFinite(data.previewAspectRatio) && data.previewAspectRatio > 0
     ? data.previewAspectRatio
     : null
@@ -582,13 +590,73 @@ function MediaPreview({ data }: { readonly data: WorkspaceCanvasFlowNode['data']
   }
   if (isShotPreview && displayImageUrl) {
     return (
-      <div className={`relative overflow-hidden bg-transparent ${running ? 'workspace-node-loading-surface' : ''}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={displayImageUrl}
-          alt={data.title}
-          className="block h-auto w-full object-contain"
-        />
+      <div className="space-y-2">
+        <div className={`relative overflow-hidden bg-transparent ${running ? 'workspace-node-loading-surface' : ''}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={displayImageUrl}
+            alt={data.title}
+            className="block h-auto w-full object-contain"
+          />
+        </div>
+        {!running && panelId && candidateUrls.length > 0 ? (
+          <div className="nodrag nowheel rounded-[16px] border border-sky-100 bg-sky-50/80 p-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold uppercase text-sky-700`}>
+                {labels('candidateImages')}
+              </p>
+              <button
+                type="button"
+                className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void dispatchNodeAction(data, { type: 'cancel_candidate', panelId })
+                }}
+              >
+                {labels('cancelCandidate')}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {candidateUrls.slice(0, 4).map((url, index) => {
+                const candidateImageUrl = toDisplayImageUrl(url) ?? url
+                return (
+                  <div key={url} className="overflow-hidden rounded-[12px] bg-white ring-1 ring-slate-200">
+                    <button
+                      type="button"
+                      className="block w-full"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void dispatchNodeAction(data, { type: 'select_candidate', panelId, imageUrl: url })
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={candidateImageUrl}
+                        alt={labels('candidateImageAlt', { index: index + 1 })}
+                        className="h-24 w-full object-cover"
+                      />
+                    </button>
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-2 py-1.5">
+                      <span className={`${SELECTABLE_TEXT_CLASS} text-[10px] font-semibold text-[var(--glass-text-tertiary)]`}>
+                        {labels('candidateImageAlt', { index: index + 1 })}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-full bg-slate-950 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-slate-800"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void dispatchNodeAction(data, { type: 'select_candidate', panelId, imageUrl: url })
+                        }}
+                      >
+                        {labels('selectCandidate')}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     )
   }
