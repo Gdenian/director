@@ -87,6 +87,7 @@ const PANEL_GRID_GAP_X = 44
 const SHOT_NODE_HEIGHT = 560
 const SHOT_GRID_ROW_GAP = 632
 const PANEL_GRID_BASE_X = STORY_COLUMN_X + COLUMN_GAP * 2
+const SPACE_CONSISTENCY_TO_CONTENT_GAP_X = 88
 const NODE_CONTENT_INLINE_PADDING = 40
 const DEFAULT_MEDIA_PREVIEW_HEIGHT = 118
 const MAX_MEDIA_PREVIEW_HEIGHT = 220
@@ -448,7 +449,7 @@ function estimateVideoPlanAssetReferenceSectionHeight(assetReferenceCount: numbe
   const imageRows = assetReferenceCount > 0 ? Math.ceil(assetReferenceCount / 3) : 1
   const imageHeight = imageRows * VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT
   const hintHeight = showsModelHint ? VIDEO_PLAN_TEXT_LINE_HEIGHT + 8 : 0
-  return VIDEO_PLAN_SECTION_BASE_HEIGHT + imageHeight + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT + hintHeight + 20
+  return VIDEO_PLAN_SECTION_BASE_HEIGHT + imageHeight + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT + hintHeight + 76
 }
 
 function estimateVideoPlanNodeHeight(input: {
@@ -465,7 +466,7 @@ function estimateVideoPlanNodeHeight(input: {
   const sections = [
     estimateVideoPlanPreviewHeight(input),
     VIDEO_PLAN_SECTION_BASE_HEIGHT + VIDEO_PLAN_TEXT_LINE_HEIGHT * 2,
-    estimateVideoPlanAssetReferenceSectionHeight(input.assetReferenceCount, input.showsModelHint),
+    estimateVideoPlanAssetReferenceSectionHeight(Math.max(input.assetReferenceCount, input.shotCount), input.showsModelHint),
     estimateVideoPlanTextSectionHeight(input.prompt, 54, 3),
     estimateVideoPlanTextSectionHeight(input.errorMessage, 54, 5),
     estimateVideoPlanTextSectionHeight(input.validationMessage, 54, 4),
@@ -1203,6 +1204,12 @@ export function buildWorkspaceNodeCanvasProjection({
     if (editScriptIsReady) editScript.requirements.forEach((asset, index) => {
       const nodeId = `edit-asset:${asset.id}`
       const canGenerateAsset = asset.status === 'pending' || asset.status === 'failed'
+      const canRegenerateAsset = asset.status === 'completed' && Boolean(asset.targetId)
+      const assetAction: WorkspaceCanvasNodeAction | undefined = canGenerateAsset
+        ? { type: 'generate_edit_asset', editScriptId: editScript.id, requirementId: asset.id }
+        : canRegenerateAsset && asset.targetId
+          ? { type: 'regenerate_edit_asset_image', assetId: asset.targetId, kind: asset.kind }
+          : undefined
       const nodeHeight = estimateEditAssetNodeHeight(asset)
       const column = index % EDIT_ASSET_GRID_COLUMNS
       if (column === 0 && index > 0) {
@@ -1241,8 +1248,10 @@ export function buildWorkspaceNodeCanvasProjection({
             targetId: asset.targetId,
             errorMessage: asset.errorMessage,
           },
-          actionLabel: canGenerateAsset ? translate('actions.generateEditAsset') : undefined,
-          action: canGenerateAsset ? { type: 'generate_edit_asset', editScriptId: editScript.id, requirementId: asset.id } : undefined,
+          actionLabel: assetAction
+            ? canGenerateAsset ? translate('actions.generateEditAsset') : translate('actions.regenerateImage')
+            : undefined,
+          action: assetAction,
           onAction,
         },
       }))
@@ -1319,6 +1328,7 @@ export function buildWorkspaceNodeCanvasProjection({
     sortPanels(storyboard.panels ?? []).map((panel) => ({ storyboard, panel }))
   ))
   const hasStoryboardPanels = panelsWithStoryboard.length > 0
+  const hasExistingSpaceConsistencyLayer = storyboards.some(storyboardUsesGridConsistency)
   const panelByShotNumberForVideoPlan = new Map<number, ProjectPanel>()
   panelsWithStoryboard.forEach(({ panel }) => {
     const shotNumber = panel.panelNumber ?? panel.panelIndex + 1
@@ -1326,6 +1336,20 @@ export function buildWorkspaceNodeCanvasProjection({
   })
   const hasVideoBlocks = editScript?.status === 'ready' && Boolean(editScript.videoBlocks?.length)
   const canShowVideoPlanLayer = hasVideoBlocks && hasStoryboardPanels
+  const shouldShowPendingSpaceConsistencyLayer = editScript?.status === 'ready'
+    && hasVideoBlocks
+    && !hasStoryboardPanels
+    && !hasExistingSpaceConsistencyLayer
+  const shouldRouteThroughSpaceConsistency = Boolean(editScript && (hasExistingSpaceConsistencyLayer || shouldShowPendingSpaceConsistencyLayer))
+  const spaceConsistencyBaseX = editScriptCanvasRightX !== null
+    ? editScriptCanvasRightX + 72
+    : PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90
+  const storyboardFlowBaseX = shouldRouteThroughSpaceConsistency
+    ? Math.max(
+        PANEL_GRID_BASE_X,
+        spaceConsistencyBaseX + SPACE_CONSISTENCY_NODE_WIDTH + SPACE_CONSISTENCY_TO_CONTENT_GAP_X,
+      )
+    : PANEL_GRID_BASE_X
   const panelGridRows = Math.max(1, Math.ceil(panelsWithStoryboard.length / PANEL_GRID_COLUMNS))
   const shotPreviewByPanelId = new Map<string, { aspectRatio: number | null; height: number; nodeHeight: number }>()
   panelsWithStoryboard.forEach(({ panel }) => {
@@ -1365,14 +1389,13 @@ export function buildWorkspaceNodeCanvasProjection({
       || details.stage === 'floor_plans_ready'
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: editScriptCanvasRightX !== null
-        ? editScriptCanvasRightX + 72
-        : PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackX: spaceConsistencyBaseX,
       fallbackY: (editScriptCanvasCenterY !== null
         ? editScriptCanvasCenterY - SPACE_CONSISTENCY_NODE_HEIGHT / 2
         : shotGridBaseY) + index * (SPACE_CONSISTENCY_NODE_HEIGHT + 92),
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: true,
       data: {
         kind: 'spaceConsistency',
         layoutNodeType: 'spaceConsistency',
@@ -1399,6 +1422,10 @@ export function buildWorkspaceNodeCanvasProjection({
         previewImageUrl,
         previewAspectRatio: 16 / 9,
         spaceConsistencyDetails: details,
+        actionLabel: editScript?.status === 'ready' ? translate('actions.regenerateImage') : undefined,
+        action: editScript?.status === 'ready'
+          ? { type: 'generate_edit_storyboard', editScriptId: editScript.id }
+          : undefined,
         onAction,
       },
     }))
@@ -1409,7 +1436,7 @@ export function buildWorkspaceNodeCanvasProjection({
       edges.push(createEdge(`edge:space-consistency-source:${storyboard.id}`, sourceNodeId, nodeId))
     }
   })
-  if (editScript?.status === 'ready' && hasVideoBlocks && !hasStoryboardPanels && !storyboards.some(storyboardUsesGridConsistency)) {
+  if (shouldShowPendingSpaceConsistencyLayer) {
     const assetsGenerating = editScript.requirements.some((asset) => asset.status === 'generating')
     const assetsReady = editScript.requirements.length > 0
       && editScript.requirements.every((asset) => asset.status === 'completed' && Boolean(asset.targetId))
@@ -1419,14 +1446,13 @@ export function buildWorkspaceNodeCanvasProjection({
     const nodeId = `space-consistency:edit-script:${editScript.id}`
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: editScriptCanvasRightX !== null
-        ? editScriptCanvasRightX + 72
-        : PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackX: spaceConsistencyBaseX,
       fallbackY: editScriptCanvasCenterY !== null
         ? editScriptCanvasCenterY - SPACE_CONSISTENCY_NODE_HEIGHT / 2
         : shotGridBaseY,
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: true,
       data: {
         kind: 'spaceConsistency',
         layoutNodeType: 'spaceConsistency',
@@ -1460,7 +1486,7 @@ export function buildWorkspaceNodeCanvasProjection({
     shotNodeIds.set(panel.id, nodeId)
     const position = gridPosition({
       index,
-      baseX: PANEL_GRID_BASE_X,
+      baseX: storyboardFlowBaseX,
       baseY: shotGridBaseY,
       width: DEFAULT_NODE_WIDTH,
       rowGap: shotGridRowGap,
@@ -1472,6 +1498,7 @@ export function buildWorkspaceNodeCanvasProjection({
       fallbackY: position.y,
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: shouldRouteThroughSpaceConsistency,
       data: {
         kind: 'shot',
         layoutNodeType: 'shot',
@@ -1595,7 +1622,7 @@ export function buildWorkspaceNodeCanvasProjection({
       })
       const position = gridPosition({
         index,
-        baseX: PANEL_GRID_BASE_X,
+        baseX: storyboardFlowBaseX,
         baseY: videoPlanBaseY,
         width: VIDEO_PLAN_NODE_WIDTH,
         rowGap: VIDEO_PLAN_GRID_ROW_GAP,
@@ -1606,6 +1633,7 @@ export function buildWorkspaceNodeCanvasProjection({
         fallbackY: position.y,
         zIndex: zIndex++,
         savedLayoutByKey,
+        ignoreSavedLayout: shouldRouteThroughSpaceConsistency,
         data: {
           kind: 'videoPlan',
           layoutNodeType: 'videoPlan',
@@ -1642,6 +1670,9 @@ export function buildWorkspaceNodeCanvasProjection({
             sourceImages: block.shotNumbers.map((shotNumber) => {
               const panel = panelByShotNumberForVideoPlan.get(shotNumber)
               return {
+                panelId: panel?.id ?? null,
+                storyboardId: panel?.storyboardId ?? null,
+                panelIndex: panel?.panelIndex ?? null,
                 shotNumber,
                 imageUrl: panel ? primaryPanelImageUrl(panel) : null,
                 aspectRatio: panel ? panelImageAspectRatio(panel) : null,
@@ -1701,10 +1732,11 @@ export function buildWorkspaceNodeCanvasProjection({
     const hasFinalOutput = Boolean(finalVideo?.outputUrl && finalVideo.renderStatus === 'completed')
     nodes.push(createNode({
       id: bgmScoreNodeId,
-      fallbackX: PANEL_GRID_BASE_X,
+      fallbackX: storyboardFlowBaseX,
       fallbackY: bgmScoreBaseY + 180,
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: shouldRouteThroughSpaceConsistency,
       data: {
         kind: 'bgmScore',
         layoutNodeType: 'bgmScore',
@@ -1776,10 +1808,11 @@ export function buildWorkspaceNodeCanvasProjection({
     }))
     nodes.push(createNode({
       id: finalNodeId,
-      fallbackX: PANEL_GRID_BASE_X,
+      fallbackX: storyboardFlowBaseX,
       fallbackY: finalGridBaseY + 180,
       zIndex: zIndex++,
       savedLayoutByKey,
+      ignoreSavedLayout: shouldRouteThroughSpaceConsistency,
       data: {
         kind: 'finalTimeline',
         layoutNodeType: 'finalTimeline',

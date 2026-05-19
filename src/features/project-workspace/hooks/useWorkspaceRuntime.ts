@@ -53,6 +53,7 @@ interface UseWorkspaceRuntimeParams {
   handleGenerateBgmScore: () => Promise<void>
   handleRenderFinalVideo: () => Promise<void>
   handleGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
+  handleRegenerateProjectAssetImage: (assetId: string, kind: 'character' | 'location') => Promise<void>
   handleGenerateEditStoryboard: (editScriptId: string) => Promise<void>
   handleUpdateVideoPrompt: (
     storyboardId: string,
@@ -93,6 +94,7 @@ export function useWorkspaceRuntime({
   handleGenerateBgmScore,
   handleRenderFinalVideo,
   handleGenerateEditAssets,
+  handleRegenerateProjectAssetImage,
   handleGenerateEditStoryboard,
   handleUpdateVideoPrompt,
   handleUpdateVideoPlanPrompt,
@@ -141,6 +143,7 @@ export function useWorkspaceRuntime({
     onGenerateBgmScore: handleGenerateBgmScore,
     onRenderFinalVideo: handleRenderFinalVideo,
     onGenerateEditAssets: handleGenerateEditAssets,
+    onRegenerateProjectAssetImage: handleRegenerateProjectAssetImage,
     onGenerateEditStoryboard: handleGenerateEditStoryboard,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
     onUpdateVideoPlanPrompt: handleUpdateVideoPlanPrompt,
@@ -158,6 +161,7 @@ export function useWorkspaceRuntime({
     handleGenerateBgmScore,
     handleRenderFinalVideo,
     handleGenerateEditAssets,
+    handleRegenerateProjectAssetImage,
     handleGenerateEditStoryboard,
     handleGeneratePanelImage,
     handleGenerateVideo,

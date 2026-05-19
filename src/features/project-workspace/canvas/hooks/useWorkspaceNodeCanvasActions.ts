@@ -160,6 +160,11 @@ export function useWorkspaceNodeCanvasActions() {
       return
     }
 
+    if (action.type === 'regenerate_edit_asset_image') {
+      await runtime.onRegenerateProjectAssetImage(action.assetId, action.kind)
+      return
+    }
+
     if (action.type === 'generate_edit_storyboard') {
       await runtime.onGenerateEditStoryboard(action.editScriptId)
     }

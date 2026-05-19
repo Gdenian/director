@@ -58,6 +58,7 @@ export interface WorkspaceRuntimeValue {
   onGenerateBgmScore: () => Promise<void>
   onRenderFinalVideo: () => Promise<void>
   onGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
+  onRegenerateProjectAssetImage: (assetId: string, kind: 'character' | 'location') => Promise<void>
   onGenerateEditStoryboard: (editScriptId: string) => Promise<void>
   onUpdateVideoPrompt: (
     storyboardId: string,

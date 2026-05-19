@@ -19,6 +19,7 @@ import { buildWorkspaceControllerViewModel } from './workspace-controller-view-m
 import type { ProjectWorkspaceProps } from '../types'
 import { useRouter } from '@/i18n/navigation'
 import {
+  useAssetActions,
   useGenerateProjectEditScriptAssets,
   useGenerateProjectEditScriptStoryboard,
   useUpdateProjectEditScriptAssetRequirementDescription,
@@ -114,11 +115,18 @@ export function useProjectWorkspaceController({
   })
   const generateEditAssets = useGenerateProjectEditScriptAssets(projectId)
   const generateEditStoryboard = useGenerateProjectEditScriptStoryboard(projectId)
+  const characterAssetActions = useAssetActions({ scope: 'project', projectId, kind: 'character' })
+  const locationAssetActions = useAssetActions({ scope: 'project', projectId, kind: 'location' })
   const updateVideoPlanPrompt = useUpdateProjectEditScriptVideoBlockPrompt(projectId)
   const updateEditAssetRequirementDescription = useUpdateProjectEditScriptAssetRequirementDescription(projectId)
   const handleGenerateEditAssets = async (editScriptId: string, requirementId?: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await generateEditAssets.mutateAsync({ episodeId, editScriptId, requirementId })
+    await onRefresh({ mode: 'full' })
+  }
+  const handleRegenerateProjectAssetImage = async (assetId: string, kind: 'character' | 'location') => {
+    const actions = kind === 'character' ? characterAssetActions : locationAssetActions
+    await actions.generate({ id: assetId })
     await onRefresh({ mode: 'full' })
   }
   const handleGenerateEditStoryboard = async (editScriptId: string) => {
@@ -165,6 +173,7 @@ export function useProjectWorkspaceController({
     handleGenerateBgmScore: videoActions.handleGenerateBgmScore,
     handleRenderFinalVideo: videoActions.handleRenderFinalVideo,
     handleGenerateEditAssets,
+    handleRegenerateProjectAssetImage,
     handleGenerateEditStoryboard,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
     handleUpdateVideoPlanPrompt,

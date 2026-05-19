@@ -1210,7 +1210,11 @@ describe('workspace node canvas projection', () => {
       (assetNode?.position.y ?? 0)
       - ((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y),
     )).toBeLessThanOrEqual(16)
-    expect(assetNode?.data.action).toBeUndefined()
+    expect(assetNode?.data.action).toEqual({
+      type: 'regenerate_edit_asset_image',
+      assetId: 'location-1',
+      kind: 'location',
+    })
     expect(assetNode?.data.previewImageUrl).toBe('https://example.com/location.png')
     expect(assetNode?.data.editAssetDetails).toMatchObject({
       kind: 'location',
@@ -1682,8 +1686,24 @@ describe('workspace node canvas projection', () => {
     })
 
     const spaceNode = projection.nodes.find((node) => node.id === 'space-consistency:storyboard-grid')
+    const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-grid')
+    const shotNode = projection.nodes.find((node) => node.id === 'shot:panel-grid-1')
     expect(spaceNode?.data.kind).toBe('spaceConsistency')
     expect(spaceNode?.data.previewImageUrl).toBe('https://example.com/overlay.png')
+    expect(spaceNode?.data.action).toEqual({
+      type: 'generate_edit_storyboard',
+      editScriptId: 'edit-grid',
+    })
+    expect(spaceNode && editNode ? spaceNode.position.x : 0).toBeGreaterThan(
+      editNode ? editNode.position.x + editNode.data.width : 0,
+    )
+    expect(spaceNode && editNode ? Math.abs(
+      (spaceNode.position.y + spaceNode.data.height / 2)
+      - (editNode.position.y + editNode.data.height / 2),
+    ) : Number.MAX_SAFE_INTEGER).toBeLessThanOrEqual(1)
+    expect(shotNode && spaceNode ? shotNode.position.x : 0).toBeGreaterThan(
+      spaceNode ? spaceNode.position.x + spaceNode.data.width : 0,
+    )
     expect(spaceNode?.data.spaceConsistencyDetails).toMatchObject({
       floorPlanCount: 1,
       overlayCount: 1,

@@ -1084,6 +1084,7 @@ function VideoPlanContent({
   const details = data.videoPlanDetails
   const displayOutputUrl = toDisplayImageUrl(details?.outputUrl) ?? details?.outputUrl ?? null
   const [previewMode, setPreviewMode] = useState<'reference' | 'video'>(displayOutputUrl ? 'video' : 'reference')
+  const [generationMode, setGenerationMode] = useState<'storyboard' | 'asset-reference'>('storyboard')
   useEffect(() => {
     setPreviewMode(displayOutputUrl ? 'video' : 'reference')
   }, [displayOutputUrl])
@@ -1099,29 +1100,90 @@ function VideoPlanContent({
   const shouldShowVideo = Boolean(displayOutputUrl && previewMode === 'video')
   const assetReferences = details.assetReferences ?? []
   const assetReferenceImageUrls = assetReferences.map((asset) => asset.imageUrl)
+  const storyboardReferences = details.sourceImages
+  const storyboardReferenceImageUrls = storyboardReferences
+    .map((image) => image.imageUrl)
+    .filter((imageUrl): imageUrl is string => hasText(imageUrl))
   const assetReferenceVideoModel = videoPlanModel(data)
+  const firstStoryboardReference = storyboardReferences[0] ?? null
+  const canGenerateStoryboard = assetReferenceVideoModel.length > 0
+    && storyboardReferenceImageUrls.length === storyboardReferences.length
+    && storyboardReferenceImageUrls.length > 0
+    && !running
+    && (
+      details.kind === 'group'
+      || (
+        hasText(firstStoryboardReference?.panelId)
+        && hasText(firstStoryboardReference?.storyboardId)
+        && typeof firstStoryboardReference?.panelIndex === 'number'
+      )
+    )
   const canGenerateAssetReference = assetReferenceImageUrls.length > 0 && assetReferenceVideoModel.length > 0 && !running
-  const shouldShowVideoModelHint = assetReferenceImageUrls.length > 0 && assetReferenceVideoModel.length === 0
+  const canGenerateSelectedMode = generationMode === 'storyboard' ? canGenerateStoryboard : canGenerateAssetReference
+  const shouldShowVideoModelHint = (storyboardReferenceImageUrls.length > 0 || assetReferenceImageUrls.length > 0) && assetReferenceVideoModel.length === 0
+  const shouldShowAssetReferences = previewMode === 'reference' && generationMode === 'asset-reference'
+  const missingReferenceLabel = shouldShowAssetReferences ? labels('assetReferenceImagesMissing') : labels('storyboardReferenceImagesMissing')
+  const generateLabel = generationMode === 'storyboard'
+    ? labels('generateStoryboardReferenceVideo')
+    : labels('generateAssetReferenceVideo')
+  const handleGenerateSelectedMode = () => {
+    if (!canGenerateSelectedMode) return
+    if (generationMode === 'asset-reference') {
+      void dispatchNodeAction(data, {
+        type: 'generate_asset_reference_video',
+        videoModel: assetReferenceVideoModel,
+        blockIndex: details.blockIndex,
+        referenceImageUrls: assetReferenceImageUrls,
+        generationOptions: videoPlanGenerationOptions(data),
+      })
+      return
+    }
+    if (details.kind === 'group') {
+      void dispatchNodeAction(data, {
+        type: 'generate_video_group',
+        videoModel: assetReferenceVideoModel,
+        gridMode: details.gridMode === '3x3' ? '3x3' : '2x2',
+        shotNumbers: details.shotNumbers,
+        generationOptions: videoPlanGenerationOptions(data),
+      })
+      return
+    }
+    if (
+      hasText(firstStoryboardReference?.panelId)
+      && hasText(firstStoryboardReference?.storyboardId)
+      && typeof firstStoryboardReference.panelIndex === 'number'
+    ) {
+      void dispatchNodeAction(data, {
+        type: 'generate_video',
+        storyboardId: firstStoryboardReference.storyboardId,
+        panelIndex: firstStoryboardReference.panelIndex,
+        panelId: firstStoryboardReference.panelId,
+        videoModel: assetReferenceVideoModel,
+        generationOptions: videoPlanGenerationOptions(data),
+      })
+    }
+  }
   return (
     <div className="nodrag nowheel space-y-3">
-      {displayOutputUrl ? (
-        <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
-          <button
-            type="button"
-            className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'reference' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setPreviewMode('reference')}
-          >
-            {labels('videoPlanReference')}
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'video' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setPreviewMode('video')}
-          >
-            {labels('videoPlanOutput')}
-          </button>
-        </div>
-      ) : null}
+      <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+        <button
+          type="button"
+          className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'reference' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setPreviewMode('reference')}
+        >
+          {labels('videoPlanReference')}
+        </button>
+        <button
+          type="button"
+          disabled={!displayOutputUrl}
+          className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${previewMode === 'video' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => {
+            if (displayOutputUrl) setPreviewMode('video')
+          }}
+        >
+          {labels('videoPlanOutput')}
+        </button>
+      </div>
       {shouldShowVideo && displayOutputUrl ? (
         <div className="relative flex w-full items-center justify-center overflow-hidden rounded-[16px] bg-black" style={outputStyle}>
           <video
@@ -1133,72 +1195,73 @@ function VideoPlanContent({
         </div>
       ) : (
         <div className={`space-y-2 rounded-[18px] bg-white p-3 ring-1 ring-slate-200 ${running ? 'workspace-node-loading-surface' : ''}`}>
-          <div className="flex w-full items-center justify-center rounded-[14px] bg-white text-slate-400 ring-1 ring-slate-200" style={outputStyle}>
-            <div className="flex flex-col items-center gap-1 py-8">
-              <AppIcon name="video" className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">{labels('videoPlanPendingVideo')}</span>
-            </div>
-          </div>
-          {details.shotNumbers.length > 0 ? (
-            <div className="rounded-[14px] bg-slate-50 p-2 ring-1 ring-slate-200">
-              <p className={`${SELECTABLE_TEXT_CLASS} mb-2 text-[10px] font-semibold text-[var(--glass-text-tertiary)]`}>{labels('linkedShots')}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {details.shotNumbers.map((shotNumber) => (
-                  <span
-                    key={shotNumber}
-                    className={`${SELECTABLE_TEXT_CLASS} inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200`}
-                  >
-                    {shotNumber}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-      {renderSection(labels('videoPlanMeta'), (
-        <div className="space-y-1">
-          {renderValue(labels('generationMode'), details.kind === 'group' ? labels('videoPlanGroup') : labels('videoPlanSingle'))}
-          {renderValue(labels('duration'), `${details.durationSec}s`)}
-        </div>
-      ))}
-      {renderSection(labels('assetReferenceImages'), (
-        <div className="space-y-2">
-          {assetReferences.length > 0 ? (
+          {(shouldShowAssetReferences ? assetReferences : storyboardReferences).length > 0 ? (
             <div className="grid grid-cols-3 gap-1.5">
-              {assetReferences.map((asset) => (
-                <div key={asset.id} className="overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={toDisplayImageUrl(asset.imageUrl) ?? asset.imageUrl} alt={asset.name} className="h-14 w-full object-contain" />
-                </div>
-              ))}
+              {(shouldShowAssetReferences ? assetReferences : storyboardReferences).map((item) => {
+                const imageUrl = item.imageUrl
+                if (!imageUrl) return null
+                const displayImageUrl = toDisplayImageUrl(imageUrl) ?? imageUrl
+                const key = 'id' in item ? item.id : `shot:${item.shotNumber}`
+                const alt = 'name' in item ? item.name : labels('videoPlanShotAlt', { shot: item.shotNumber })
+                return (
+                  <div key={key} className="overflow-hidden rounded-[10px] bg-slate-50 ring-1 ring-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={displayImageUrl} alt={alt} className="h-16 w-full object-contain" />
+                  </div>
+                )
+              })}
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-[12px] bg-slate-50 px-3 py-2 text-xs leading-5 text-[var(--glass-text-tertiary)] ring-1 ring-slate-200">
-              <AppIcon name="image" className="h-4 w-4 shrink-0" />
-              <span className={SELECTABLE_TEXT_CLASS}>{labels('assetReferenceImagesMissing')}</span>
+            <div className="flex w-full items-center justify-center rounded-[14px] bg-white text-slate-400 ring-1 ring-slate-200" style={outputStyle}>
+              <div className="flex flex-col items-center gap-1 py-8">
+                <AppIcon name="image" className="h-5 w-5" />
+                <span className="text-[10px] font-semibold">{missingReferenceLabel}</span>
+              </div>
             </div>
           )}
+        </div>
+      )}
+      {renderSection(labels('generationMode'), (
+        <div className="space-y-2">
+          <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+            <button
+              type="button"
+              className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${generationMode === 'storyboard' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => {
+                setGenerationMode('storyboard')
+                setPreviewMode('reference')
+              }}
+            >
+              {labels('storyboardReferenceVideoMode')}
+            </button>
+            <button
+              type="button"
+              className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${generationMode === 'asset-reference' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => {
+                setGenerationMode('asset-reference')
+                setPreviewMode('reference')
+              }}
+            >
+              {labels('assetReferenceVideoMode')}
+            </button>
+          </div>
           <button
             type="button"
-            disabled={!canGenerateAssetReference}
-            onClick={() => {
-              if (!canGenerateAssetReference) return
-              void dispatchNodeAction(data, {
-                type: 'generate_asset_reference_video',
-                videoModel: assetReferenceVideoModel,
-                blockIndex: details.blockIndex,
-                referenceImageUrls: assetReferenceImageUrls,
-                generationOptions: videoPlanGenerationOptions(data),
-              })
-            }}
+            disabled={!canGenerateSelectedMode}
+            onClick={handleGenerateSelectedMode}
             className="w-full rounded-md bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {labels('generateAssetReferenceVideo')}
+            {generateLabel}
           </button>
           {shouldShowVideoModelHint ? (
             <p className="text-xs leading-5 text-[var(--glass-tone-danger-fg)]">{labels('videoPlanModelMissing')}</p>
           ) : null}
+        </div>
+      ))}
+      {renderSection(labels('videoPlanMeta'), (
+        <div className="space-y-1">
+          {renderValue(labels('generationMode'), details.kind === 'group' ? labels('videoPlanGroup') : labels('videoPlanSingle'))}
+          {renderValue(labels('duration'), `${details.durationSec}s`)}
         </div>
       ))}
       {details.prompt ? (
@@ -1400,9 +1463,10 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
   const secondaryAction = data.secondaryAction
   const nodeId = data.nodeId
   const onMeasureNodeSize = data.onMeasureNodeSize
+  const showHeaderAction = Boolean(action && data.actionLabel && (data.kind === 'spaceConsistency' || data.kind === 'editRequiredAsset'))
   const shouldShowFooter = !isRunning && (
     canToggleDetails ||
-    Boolean(action && data.actionLabel) ||
+    Boolean(action && data.actionLabel && !showHeaderAction) ||
     Boolean(secondaryAction && data.secondaryActionLabel) ||
     nodeShowsMetaFooter(data.kind)
   )
@@ -1455,10 +1519,25 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
               </div>
               <h2 className={`${SELECTABLE_TEXT_CLASS} mt-2 truncate text-xl font-semibold tracking-tight text-[var(--glass-text-primary)]`}>{data.title}</h2>
             </div>
-            <span className={`${SELECTABLE_TEXT_CLASS} inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium ${isRunning ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-[var(--glass-text-secondary)]'}`}>
-              {isRunning ? <LoadingSpinner /> : null}
-              {data.statusLabel}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {showHeaderAction && action && data.actionLabel ? (
+                <button
+                  type="button"
+                  className="nodrag inline-flex items-center gap-1.5 rounded-[14px] bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  disabled={data.actionDisabled === true || isRunning}
+                  onClick={() => {
+                    if (!isRunning) data.onAction?.(action, data.nodeId)
+                  }}
+                >
+                  <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                  {data.actionLabel}
+                </button>
+              ) : null}
+              <span className={`${SELECTABLE_TEXT_CLASS} inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium ${isRunning ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-[var(--glass-text-secondary)]'}`}>
+                {isRunning ? <LoadingSpinner /> : null}
+                {data.statusLabel}
+              </span>
+            </div>
           </header>
 
           <div className={`space-y-4 px-5 py-5 ${isRunning ? 'opacity-90' : ''}`}>
@@ -1479,7 +1558,7 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
                       {expanded ? labels('collapseDetails') : labels('expandDetails')}
                     </button>
                   ) : null}
-                  {action && data.actionLabel ? (
+                  {action && data.actionLabel && !showHeaderAction ? (
                     <button
                       type="button"
                       className="nodrag inline-flex items-center gap-1.5 rounded-[14px] bg-slate-950 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"

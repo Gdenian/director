@@ -118,6 +118,7 @@ export type WorkspaceCanvasNodeAction =
   | { readonly type: 'generate_bgm_score' }
   | { readonly type: 'generate_edit_assets'; readonly editScriptId: string }
   | { readonly type: 'generate_edit_asset'; readonly editScriptId: string; readonly requirementId: string }
+  | { readonly type: 'regenerate_edit_asset_image'; readonly assetId: string; readonly kind: 'character' | 'location' }
   | { readonly type: 'generate_edit_storyboard'; readonly editScriptId: string }
 
 export type WorkspaceCanvasNodeActionHandler = (
@@ -297,6 +298,9 @@ export interface WorkspaceCanvasVideoPlanDetails {
   readonly outputAspectRatio?: number | null
   readonly errorMessage?: string | null
   readonly sourceImages: readonly {
+    readonly panelId?: string | null
+    readonly storyboardId?: string | null
+    readonly panelIndex?: number | null
     readonly shotNumber: number
     readonly imageUrl?: string | null
     readonly aspectRatio?: number | null
