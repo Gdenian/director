@@ -3,12 +3,13 @@
 优先级：
 1. Camera Style Bible 中的 userDirectedCameraStyle 来自用户明确要求，最高优先级。
 2. 如果用户没有明确要求，遵守 inferredCameraStyle、项目风格和当前 block 的剧情空间需要。
-3. 坐标 blocking 只决定人物、锚点、机位和空间关系；你必须进一步设计景别、机位高度、镜头角度、构图、运镜、焦段和景深。
+3. 坐标 blocking 只决定人物、锚点、朝向和空间关系；你必须进一步设计景别、机位位置、机位高度、镜头角度、构图、运镜、焦段和景深。
 4. 不改剧情，不补人物，不改变资产身份。
 
 finalPanelPrompt 必须包含：
 - 原 shot 的 visualAction、camera、videoPrompt 核心意图。
-- 坐标 blocking / cinematicTranslation 的空间关系。
+- 如果 coordinate_strategy_output_json.blocks 非空，使用其中的坐标 blocking / spatial translation 空间关系。
+- 如果 coordinate_strategy_output_json.blocks 为空，说明当前 block 没有适用坐标；不要想象或补写坐标，只基于原 shot、videoBlock 和 Camera Style Bible 设计镜头语言。
 - 景别、机位位置、高度、角度、构图、运镜动机、镜头与景深。
 - 前景/背景、虚实、视线、左右关系、轴线连续性。
 - 用户明确风格优先；没有用户风格时使用 Camera Style Bible 的自动识别风格。

@@ -281,6 +281,38 @@ function readStrategyOutput(raw: Record<string, unknown>): unknown {
   return output
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function coordinateBlocks(value: unknown): Record<string, unknown>[] {
+  if (!isRecord(value) || !Array.isArray(value.blocks)) return []
+  return value.blocks.filter(isRecord)
+}
+
+function hasUsableCoordinates(block: Record<string, unknown>): boolean {
+  return block.skipped !== true
+    && block.classification !== 'no_fixed_space'
+    && Array.isArray(block.coordinates)
+    && block.coordinates.length > 0
+}
+
+function coordinateStrategyOutputForCameraPlan(
+  coordinateStrategyOutput: unknown,
+  sourceVideoBlockId: string | null,
+): Record<string, unknown> {
+  const base = isRecord(coordinateStrategyOutput) ? coordinateStrategyOutput : {}
+  const blocks = coordinateBlocks(coordinateStrategyOutput).filter((block) => (
+    hasUsableCoordinates(block)
+    && (sourceVideoBlockId === null || block.sourceVideoBlockId === sourceVideoBlockId)
+  ))
+  return {
+    ...base,
+    strategy: typeof base.strategy === 'string' ? base.strategy : 'grid_coordinates',
+    blocks,
+  }
+}
+
 export async function analyzeGridCoordinates(input: GenerationContext & {
   readonly snapshot: StoryboardConsistencySourceSnapshot
   readonly floorPlanArtifacts: readonly Record<string, unknown>[]
@@ -316,12 +348,13 @@ export async function generateCameraPlan(input: GenerationContext & {
   readonly cameraStyleBible: CameraStyleBibleModelOutput['cameraStyleBible']
   readonly blockOutputs: readonly CameraPlanBlockModelOutput['cameraPlanBlockOutput'][]
 }> {
+  const cameraPlanCoordinateOutput = coordinateStrategyOutputForCameraPlan(input.coordinateStrategyOutput, null)
   const bibleRaw = await runTextJsonStep({
     ...input,
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_STYLE_BIBLE,
     variables: {
       source_snapshot_json: stringifyForPrompt(input.snapshot),
-      coordinate_strategy_output_json: stringifyForPrompt(input.coordinateStrategyOutput),
+      coordinate_strategy_output_json: stringifyForPrompt(cameraPlanCoordinateOutput),
     },
     stepTitle: 'Generate edit-script storyboard camera style bible',
     stepIndex: 1,
@@ -330,13 +363,14 @@ export async function generateCameraPlan(input: GenerationContext & {
   const bible = cameraStyleBibleModelOutputSchema.parse(bibleRaw)
   const blockOutputs = await Promise.all(input.snapshot.videoBlocks.map(async (block) => {
     const contract = panelContractForBlock(input.snapshot, block)
+    const blockCoordinateOutput = coordinateStrategyOutputForCameraPlan(input.coordinateStrategyOutput, block.sourceVideoBlockId)
     const raw = await runTextJsonStep({
       ...input,
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK,
       variables: {
         source_snapshot_json: stringifyForPrompt(input.snapshot),
         camera_style_bible_json: stringifyForPrompt(bible.cameraStyleBible),
-        coordinate_strategy_output_json: stringifyForPrompt(input.coordinateStrategyOutput),
+        coordinate_strategy_output_json: stringifyForPrompt(blockCoordinateOutput),
         video_block_json: stringifyForPrompt(block),
         block_shots_json: stringifyForPrompt(shotsForBlock(input.snapshot, block)),
         adjacent_blocks_json: stringifyForPrompt(adjacentBlocks(input.snapshot, block.blockIndex)),

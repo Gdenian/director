@@ -11,8 +11,8 @@
 
 任务：
 - 为 panel_contract_json 中每个 panel 生成一个 camera plan 和 finalPanelPrompt。
-- finalPanelPrompt 必须合并：原 shot visualAction/camera/videoPrompt、坐标 blocking/cinematicTranslation、景别、机位位置、高度、角度、构图、运动、镜头与景深、视线和左右连续性。
-- 如果某 block 标记 skipped/no_fixed_space，不要强行加入坐标；仍然根据原 shot 设计合适镜头语言。
+- finalPanelPrompt 必须合并：原 shot visualAction/camera/videoPrompt、可用坐标 blocking / spatial translation、景别、机位位置、高度、角度、构图、运动、镜头与景深、视线和左右连续性。
+- 如果 coordinate_strategy_output_json.blocks 为空，说明当前内容没有适用坐标；不要想象或补写坐标，仍然根据原 shot 设计合适镜头语言。
 - 不改剧情，不补新人物，不改变资产身份。
 - finalPanelPrompt 要像给图像模型的可执行画面提示词，不要写分析报告。
 - 禁止文字、编号、水印、字幕。

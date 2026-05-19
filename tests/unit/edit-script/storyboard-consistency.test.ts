@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildAiPrompt } from '@/lib/ai-prompts'
 import { executeAiTextStep, executeAiVisionStep } from '@/lib/ai-exec/engine'
 import {
   analyzeGridCoordinates,
@@ -30,6 +31,7 @@ vi.mock('@/lib/ai-exec/engine', () => ({
 
 const textStepMock = vi.mocked(executeAiTextStep)
 const visionStepMock = vi.mocked(executeAiVisionStep)
+const buildAiPromptMock = vi.mocked(buildAiPrompt)
 
 function mockTextCompletion(text: string): Awaited<ReturnType<typeof executeAiTextStep>> {
   return {
@@ -419,10 +421,31 @@ describe('edit-script storyboard coordinate consistency', () => {
       snapshot: buildSnapshot(),
       coordinateStrategyOutput: {
         strategy: 'grid_coordinates',
-        blocks: [{
-          sourceVideoBlockId: 'edit-1:videoBlock:1',
-          cinematicTranslation: 'Old monk stays screen left, disciple stays screen right.',
-        }],
+        blocks: [
+          {
+            sourceVideoBlockId: 'edit-1:videoBlock:1',
+            classification: 'fixed_space_strong',
+            coordinates: [
+              { name: 'Old monk', kind: 'character', x: 6, y: 5, facing: 'east' },
+            ],
+            cinematicTranslation: 'Old monk stays screen left, disciple stays screen right.',
+            skipped: false,
+          },
+          {
+            sourceVideoBlockId: 'edit-1:videoBlock:2',
+            classification: 'no_fixed_space',
+            coordinates: [],
+            cinematicTranslation: 'No fixed-space blocking.',
+            skipped: true,
+          },
+          {
+            sourceVideoBlockId: 'edit-1:videoBlock:1',
+            classification: 'fixed_space_weak',
+            coordinates: [],
+            cinematicTranslation: 'Empty coordinate result for the same block.',
+            skipped: false,
+          },
+        ],
       },
     })
 
@@ -432,6 +455,17 @@ describe('edit-script storyboard coordinate consistency', () => {
     expect(textStepMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       action: 'edit-script-storyboard-camera-plan-block',
     }))
+    const biblePromptInput = buildAiPromptMock.mock.calls[0]?.[0]
+    const blockPromptInput = buildAiPromptMock.mock.calls[1]?.[0]
+    if (!biblePromptInput?.variables || !blockPromptInput?.variables) throw new Error('PROMPT_INPUT_MISSING')
+    const bibleCoordinateInput = JSON.parse(
+      biblePromptInput.variables.coordinate_strategy_output_json,
+    ) as { readonly blocks?: readonly { readonly sourceVideoBlockId?: string }[] }
+    const blockCoordinateInput = JSON.parse(
+      blockPromptInput.variables.coordinate_strategy_output_json,
+    ) as { readonly blocks?: readonly { readonly sourceVideoBlockId?: string }[] }
+    expect(bibleCoordinateInput.blocks?.map((block) => block.sourceVideoBlockId)).toEqual(['edit-1:videoBlock:1'])
+    expect(blockCoordinateInput.blocks?.map((block) => block.sourceVideoBlockId)).toEqual(['edit-1:videoBlock:1'])
     expect(result.cameraStyleBible.userDirectedCameraStyle).toBe('quiet restrained temple camera')
     expect(result.cameraPlanOutput.panels[0]?.shotScale).toBe('medium close-up')
     expect(result.cameraPlanOutput.cameraStyleBible).toMatchObject({

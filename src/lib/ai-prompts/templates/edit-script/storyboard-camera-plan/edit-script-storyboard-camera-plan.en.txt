@@ -11,8 +11,8 @@ Working principles, distilled without quoting any source:
 
 Task:
 - Generate one camera plan and one finalPanelPrompt for every panel in panel_contract_json.
-- finalPanelPrompt must merge: original shot visualAction/camera/videoPrompt, coordinate blocking/cinematicTranslation, shot scale, camera position, camera height, camera angle, composition, movement, lens/depth, eyeline, and left/right continuity.
-- If a block is skipped/no_fixed_space, do not force coordinates; still design suitable camera language from the original shot.
+- finalPanelPrompt must merge: original shot visualAction/camera/videoPrompt, usable coordinate blocking / spatial translation, shot scale, camera position, camera height, camera angle, composition, movement, lens/depth, eyeline, and left/right continuity.
+- If coordinate_strategy_output_json.blocks is empty, the current content has no applicable coordinates; do not imagine or add coordinates, and still design suitable camera language from the original shot.
 - Do not rewrite the story, add characters, or change asset identity.
 - finalPanelPrompt must read like executable image-model direction, not an analysis essay.
 - No text, no numbers, no watermarks, no subtitles.
