@@ -744,5 +744,33 @@
         "description": "Thick black, white, and yellow markers with X/Y labels. Less pretty, but designed as a recognition fallback."
       }
     }
+  },
+  "edgeRulerVisionLab": {
+    "eyebrow": "Vision Ruler Test",
+    "title": "Edge Axis Ruler Recognition Lab",
+    "description": "Upload any image. The page overlays top column labels and left row labels, then sends the composed test image to the selected Vision model so it can describe what appears in different coordinate cells.",
+    "run": "Run Recognition",
+    "running": "Running...",
+    "setupTitle": "Test Setup",
+    "model": "Vision Model",
+    "loadingModels": "Loading models",
+    "noModels": "No models available",
+    "columns": "Columns",
+    "rows": "Rows",
+    "upload": "Upload Test Image",
+    "promptTitle": "Recognition Prompt",
+    "resetPrompt": "Reset Default",
+    "previewTitle": "Overlay Preview",
+    "uploadHint": "Upload an image first. The page will compose a test image with an edge axis ruler.",
+    "resultTitle": "Model Output",
+    "emptyResult": "No result yet. Upload an image, choose a model, then run recognition.",
+    "errors": {
+      "requestFailed": "Edge ruler recognition failed"
+    },
+    "usage": {
+      "prompt": "Prompt {count}",
+      "completion": "Completion {count}",
+      "total": "Total {count}"
+    }
   }
 }

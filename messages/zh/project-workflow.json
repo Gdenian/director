@@ -744,5 +744,33 @@
         "description": "粗黑白黄三层线、中心点和 X/Y 标签，牺牲美观换取模型识别率。适合生产调试兜底。"
       }
     }
+  },
+  "edgeRulerVisionLab": {
+    "eyebrow": "Vision 坐标尺测试",
+    "title": "边缘坐标尺识别实验",
+    "description": "上传任意图片，系统会在图上叠加顶部列号和左侧行号，再让你选择的 Vision 模型读取坐标尺并描述不同格子里的内容，用来判断边缘坐标尺是否足够可靠。",
+    "run": "运行识别",
+    "running": "识别中...",
+    "setupTitle": "测试设置",
+    "model": "Vision 模型",
+    "loadingModels": "正在加载模型",
+    "noModels": "暂无可用模型",
+    "columns": "列数",
+    "rows": "行数",
+    "upload": "上传测试图片",
+    "promptTitle": "识别提示词",
+    "resetPrompt": "恢复默认",
+    "previewTitle": "叠加预览",
+    "uploadHint": "先上传一张图片，页面会生成带边缘坐标尺的测试图。",
+    "resultTitle": "模型输出",
+    "emptyResult": "暂无结果。上传图片、选择模型后运行识别。",
+    "errors": {
+      "requestFailed": "边缘坐标尺识别失败"
+    },
+    "usage": {
+      "prompt": "输入 {count}",
+      "completion": "输出 {count}",
+      "total": "总计 {count}"
+    }
   }
 }
