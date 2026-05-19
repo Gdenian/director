@@ -52,7 +52,11 @@ import {
   getWorkspaceCanvasNodePresentationProfile,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
-import { repairWorkspaceNodeOverlaps, repairWorkspaceNodeOverlapsNearMovedNodes } from './layout/workspace-node-auto-layout'
+import {
+  alignSpaceConsistencyNodesToMeasuredEditScript,
+  repairWorkspaceNodeOverlaps,
+  repairWorkspaceNodeOverlapsNearMovedNodes,
+} from './layout/workspace-node-auto-layout'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
@@ -351,7 +355,8 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       if (!changed) return currentNodes
 
       const relayoutedNodes = relayoutEditAssetsBelowScript(measuredNodes)
-      return repairWorkspaceNodeOverlaps(relayoutedNodes)
+      const repairedNodes = repairWorkspaceNodeOverlaps(relayoutedNodes)
+      return alignSpaceConsistencyNodesToMeasuredEditScript(repairedNodes)
     })
   }, [])
   const attachNodeUiState = useCallback((inputNodes: readonly WorkspaceCanvasFlowNode[]) => {

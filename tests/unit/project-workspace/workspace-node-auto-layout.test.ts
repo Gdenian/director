@@ -1,23 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canvas/node-canvas-types'
 import {
+  alignSpaceConsistencyNodesToMeasuredEditScript,
   repairWorkspaceNodeOverlapsNearMovedNodes,
   workspaceCanvasNodesOverlap,
 } from '@/features/project-workspace/canvas/layout/workspace-node-auto-layout'
+
+type TestNodeKind = 'shot' | 'editScript' | 'spaceConsistency'
 
 function createNode(input: {
   readonly id: string
   readonly x: number
   readonly y: number
+  readonly width?: number
+  readonly height?: number
+  readonly kind?: TestNodeKind
 }): WorkspaceCanvasFlowNode {
+  const kind = input.kind ?? 'shot'
+  const width = input.width ?? 100
+  const height = input.height ?? 100
   return {
     id: input.id,
     type: 'workspaceNode',
     position: { x: input.x, y: input.y },
-    style: { width: 100, height: 100 },
+    style: { width, height },
     data: {
-      kind: 'shot',
-      layoutNodeType: 'shot',
+      kind,
+      layoutNodeType: kind,
       targetType: 'panel',
       targetId: input.id,
       title: input.id,
@@ -25,8 +34,8 @@ function createNode(input: {
       body: 'body',
       meta: 'meta',
       statusLabel: 'ready',
-      width: 100,
-      height: 100,
+      width,
+      height,
     },
   }
 }
@@ -95,5 +104,32 @@ describe('workspace node auto layout', () => {
     expect(repairedSecond?.position).toEqual({ x: 348, y: 100 })
     expect(repairedFar?.position).toEqual({ x: 700, y: 100 })
     expect(repairedFirst && repairedSecond ? workspaceCanvasNodesOverlap(repairedFirst, repairedSecond) : true).toBe(false)
+  })
+
+  it('centers the space consistency node against the measured edit script height', () => {
+    const editScript = createNode({
+      id: 'edit-script:long',
+      kind: 'editScript',
+      x: 320,
+      y: 600,
+      width: 720,
+      height: 1440,
+    })
+    const spaceConsistency = createNode({
+      id: 'space-consistency:storyboard',
+      kind: 'spaceConsistency',
+      x: 1200,
+      y: 1800,
+      width: 640,
+      height: 520,
+    })
+    const shot = createNode({ id: 'shot:1', kind: 'shot', x: 2000, y: 600 })
+
+    const aligned = alignSpaceConsistencyNodesToMeasuredEditScript([editScript, spaceConsistency, shot])
+    const alignedSpaceConsistency = aligned.find((node) => node.id === spaceConsistency.id)
+
+    expect(alignedSpaceConsistency?.position.x).toBe(1112)
+    expect(alignedSpaceConsistency?.position.y).toBe(1060)
+    expect(shot.position).toEqual({ x: 2000, y: 600 })
   })
 })

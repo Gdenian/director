@@ -2,6 +2,8 @@ import type { WorkspaceCanvasFlowNode } from '../node-canvas-types'
 
 const DEFAULT_NODE_GAP = 72
 const DRAG_NODE_GAP = 24
+const SPACE_CONSISTENCY_TO_EDIT_SCRIPT_GAP = 72
+const SPACE_CONSISTENCY_STACK_GAP = 56
 const POSITION_EPSILON = 0.5
 
 interface NodeRect {
@@ -136,6 +138,51 @@ export function repairWorkspaceNodeOverlaps(
         ...node.position,
         y,
       },
+    }
+  })
+}
+
+export function alignSpaceConsistencyNodesToMeasuredEditScript(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+): WorkspaceCanvasFlowNode[] {
+  const editScriptNode = nodes.find((node) => node.data.kind === 'editScript')
+  if (!editScriptNode) return [...nodes]
+
+  const spaceNodes = nodes.filter((node) => node.data.kind === 'spaceConsistency')
+  if (spaceNodes.length === 0) return [...nodes]
+
+  const editScriptSize = nodeSize(editScriptNode)
+  const editScriptCenterY = editScriptNode.position.y + editScriptSize.height / 2
+  const spaceNodeRects = spaceNodes.map((node, index) => ({
+    id: node.id,
+    height: nodeSize(node).height,
+    order: index,
+  }))
+  const totalSpaceHeight = spaceNodeRects.reduce((total, rect) => total + rect.height, 0)
+    + Math.max(0, spaceNodeRects.length - 1) * SPACE_CONSISTENCY_STACK_GAP
+  let nextY = editScriptCenterY - totalSpaceHeight / 2
+  const nextPositionById = new Map<string, { readonly x: number; readonly y: number }>()
+
+  for (const rect of spaceNodeRects) {
+    nextPositionById.set(rect.id, {
+      x: editScriptNode.position.x + editScriptSize.width + SPACE_CONSISTENCY_TO_EDIT_SCRIPT_GAP,
+      y: nextY,
+    })
+    nextY += rect.height + SPACE_CONSISTENCY_STACK_GAP
+  }
+
+  return nodes.map((node) => {
+    const position = nextPositionById.get(node.id)
+    if (!position) return node
+    if (
+      Math.abs(position.x - node.position.x) <= POSITION_EPSILON &&
+      Math.abs(position.y - node.position.y) <= POSITION_EPSILON
+    ) {
+      return node
+    }
+    return {
+      ...node,
+      position,
     }
   })
 }
