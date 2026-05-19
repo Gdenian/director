@@ -1908,7 +1908,7 @@ describe('workspace node canvas projection', () => {
     ])
   })
 
-  it('keeps a grid analyzed storyboard in processing state until panel prompts are ready', () => {
+  it('does not treat persisted space consistency stages as live running task state', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: '',
@@ -1932,7 +1932,7 @@ describe('workspace node canvas projection', () => {
     })
 
     const spaceNode = projection.nodes.find((node) => node.id === 'space-consistency:storyboard-grid-processing')
-    expect(spaceNode?.data.isRunning).toBe(true)
-    expect(spaceNode?.data.statusLabel).toBe('status.processing')
+    expect(spaceNode?.data.isRunning).toBe(false)
+    expect(spaceNode?.data.statusLabel).toBe('status.ready')
   })
 })

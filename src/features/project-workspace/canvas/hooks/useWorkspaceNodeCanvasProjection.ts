@@ -750,18 +750,6 @@ function cameraPlansFromValue(cameraPlanOutput: unknown): NonNullable<WorkspaceC
   })
 }
 
-function isSpaceConsistencyRunningStage(stage: string | null): boolean {
-  switch (stage) {
-    case 'preparing':
-    case 'floor_plan_prompts_ready':
-    case 'floor_plans_ready':
-    case 'grid_analyze_ready':
-      return true
-    default:
-      return false
-  }
-}
-
 function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']> {
   const artifacts = (storyboard.blockingArtifacts ?? []).map((artifact) => ({
     id: artifact.id,
@@ -1467,8 +1455,6 @@ export function buildWorkspaceNodeCanvasProjection({
     spaceConsistencyNodeIds.set(storyboard.id, nodeId)
     const previewImageUrl = primarySpaceConsistencyImageUrl(storyboard)
     const hasFailedArtifact = details.artifacts.some((artifact) => artifact.status === 'failed' || artifact.errorMessage)
-    const isRunning = details.artifacts.some((artifact) => artifact.status === 'pending' || artifact.status === 'generating')
-      || isSpaceConsistencyRunningStage(details.stage ?? null)
     nodes.push(createNode({
       id: nodeId,
       fallbackX: spaceConsistencyBaseX,
@@ -1492,12 +1478,10 @@ export function buildWorkspaceNodeCanvasProjection({
           overlays: details.overlayCount,
           shots: details.shotCoordinates.length,
         }),
-        statusLabel: isRunning
-          ? translate('status.processing')
-          : hasFailedArtifact || storyboard.lastError
-            ? translate('status.failed')
-            : translate('status.ready'),
-        isRunning,
+        statusLabel: hasFailedArtifact || storyboard.lastError
+          ? translate('status.failed')
+          : translate('status.ready'),
+        isRunning: false,
         width: SPACE_CONSISTENCY_NODE_WIDTH,
         height: SPACE_CONSISTENCY_NODE_HEIGHT,
         indexLabel: 'G',

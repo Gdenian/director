@@ -234,6 +234,8 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const optimisticRunningNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningClearTimersRef = useRef<Map<string, number>>(new Map())
   const panelImageTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
+  const storyboardConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
+  const editScriptConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
@@ -413,14 +415,28 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     const defaultExpandedNodeIds = new Set<string>()
     const baseNodes = normalizeNodesToLayoutBasePositions(inputNodes)
     const nextNodes = baseNodes.map((node) => {
+      const editScriptId = node.data.action?.type === 'generate_edit_storyboard'
+        ? node.data.action.editScriptId
+        : null
       const panelImageTaskState = node.data.kind === 'shot' && node.data.targetType === 'panel'
         ? panelImageTaskStateByKeyRef.current.get(`ProjectPanel:${node.data.targetId}`) ?? null
+        : null
+      const storyboardConsistencyTaskState = node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
+        ? storyboardConsistencyTaskStateByKeyRef.current.get(`ProjectStoryboard:${node.data.targetId}`) ?? null
+        : null
+      const editScriptConsistencyTaskState = node.data.kind === 'spaceConsistency' && editScriptId
+        ? editScriptConsistencyTaskStateByKeyRef.current.get(`ProjectEditScript:${editScriptId}`) ?? null
         : null
       const panelImageTaskRunning = panelImageTaskState?.phase === 'queued' || panelImageTaskState?.phase === 'processing'
       const panelImageTaskFailed = panelImageTaskState?.phase === 'failed'
       const isPanelShotNode = node.data.kind === 'shot' && node.data.targetType === 'panel'
+      const storyboardConsistencyTaskRunning = storyboardConsistencyTaskState?.phase === 'queued' || storyboardConsistencyTaskState?.phase === 'processing'
+      const editScriptConsistencyTaskRunning = editScriptConsistencyTaskState?.phase === 'queued' || editScriptConsistencyTaskState?.phase === 'processing'
+      const consistencyTaskFailed = storyboardConsistencyTaskState?.phase === 'failed' || editScriptConsistencyTaskState?.phase === 'failed'
+      const isSpaceConsistencyNode = node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
       const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
       const shouldShowRunning = panelImageTaskRunning || isOptimisticallyRunning || node.data.isRunning === true
+      const shouldShowSpaceConsistencyRunning = storyboardConsistencyTaskRunning || editScriptConsistencyTaskRunning || isOptimisticallyRunning
       const profile = getWorkspaceCanvasNodePresentationProfile(node.data.kind)
       const defaultExpanded = node.data.defaultExpanded ?? profile.defaultExpanded
       if (defaultExpanded) defaultExpandedNodeIds.add(node.id)
@@ -451,6 +467,15 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
                     ? t('status.failed')
                     : t('status.ready'),
               }
+            : isSpaceConsistencyNode
+              ? {
+                  isRunning: shouldShowSpaceConsistencyRunning,
+                  statusLabel: shouldShowSpaceConsistencyRunning
+                    ? nodeRunningStatusLabel(node)
+                    : consistencyTaskFailed
+                      ? t('status.failed')
+                      : node.data.statusLabel,
+                }
             : isOptimisticallyRunning
             ? {
                 isRunning: true,
@@ -507,6 +532,41 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     enabled: Boolean(projectId && panelImageTargets.length > 0),
     staleTime: 1000,
   })
+  const storyboardConsistencyTargets = useMemo(() => (
+    projection.nodes.flatMap((node) => (
+      node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
+        ? [{
+            targetType: 'ProjectStoryboard',
+            targetId: node.data.targetId,
+            types: [
+              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_IMAGE,
+              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_GRID_ANALYZE,
+              TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+            ],
+          }]
+        : []
+    ))
+  ), [projection.nodes])
+  const editScriptConsistencyTargets = useMemo(() => (
+    projection.nodes.flatMap((node) => {
+      const action = node.data.action
+      return node.data.kind === 'spaceConsistency' && action?.type === 'generate_edit_storyboard'
+        ? [{
+            targetType: 'ProjectEditScript',
+            targetId: action.editScriptId,
+            types: [TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE],
+          }]
+        : []
+    })
+  ), [projection.nodes])
+  const storyboardConsistencyTaskStateMap = useTaskTargetStateMap(projectId, storyboardConsistencyTargets, {
+    enabled: Boolean(projectId && storyboardConsistencyTargets.length > 0),
+    staleTime: 1000,
+  })
+  const editScriptConsistencyTaskStateMap = useTaskTargetStateMap(projectId, editScriptConsistencyTargets, {
+    enabled: Boolean(projectId && editScriptConsistencyTargets.length > 0),
+    staleTime: 1000,
+  })
 
   const projectionNodeSignature = useMemo(
     () => buildWorkspaceCanvasNodeSignature(projection.nodes),
@@ -534,6 +594,12 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     panelImageTaskStateByKeyRef.current = panelImageTaskStateMap.byKey
     setNodes((currentNodes) => attachNodeUiState(currentNodes))
   }, [attachNodeUiState, panelImageTaskStateMap.byKey])
+
+  useEffect(() => {
+    storyboardConsistencyTaskStateByKeyRef.current = storyboardConsistencyTaskStateMap.byKey
+    editScriptConsistencyTaskStateByKeyRef.current = editScriptConsistencyTaskStateMap.byKey
+    setNodes((currentNodes) => attachNodeUiState(currentNodes))
+  }, [attachNodeUiState, editScriptConsistencyTaskStateMap.byKey, storyboardConsistencyTaskStateMap.byKey])
 
   useEffect(() => {
     const projectionByNodeId = new Map(projection.nodes.map((node) => [node.id, node]))
