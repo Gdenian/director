@@ -3,6 +3,7 @@ import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canva
 import {
   alignSpaceConsistencyNodesToMeasuredEditScript,
   avoidExpandedSpaceConsistencyLaneOverlaps,
+  preserveWorkspaceNodePositions,
   repairWorkspaceNodeOverlaps,
   repairWorkspaceNodeOverlapsNearMovedNodes,
   workspaceCanvasNodesOverlap,
@@ -203,6 +204,35 @@ describe('workspace node auto layout', () => {
 
     expect(repairedSpaceConsistency?.position).toEqual({ x: 100, y: 120 })
     expect(repairedLaterNeighbor?.position.y).toBeGreaterThan(spaceConsistency.position.y + spaceConsistency.data.height)
+  })
+
+  it('preserves the current anchor position over a stale layout base position', () => {
+    const staleBase = { x: 100, y: 1200 }
+    const actualAnchor = { x: 100, y: 480 }
+    const baseSpaceConsistency = createNode({
+      id: 'space-consistency:expanded',
+      kind: 'spaceConsistency',
+      x: staleBase.x,
+      y: staleBase.y,
+      width: 760,
+      height: 820,
+      expanded: true,
+    })
+    const spaceConsistency: WorkspaceCanvasFlowNode = {
+      ...baseSpaceConsistency,
+      data: {
+        ...baseSpaceConsistency.data,
+        layoutBasePosition: staleBase,
+      },
+    }
+
+    const preserved = preserveWorkspaceNodePositions(
+      [spaceConsistency],
+      new Map([[spaceConsistency.id, actualAnchor]]),
+    )
+
+    expect(preserved[0]?.position).toEqual(actualAnchor)
+    expect(preserved[0]?.data.layoutBasePosition).toEqual(actualAnchor)
   })
 
   it('moves the right content lane as one group when space consistency expands into it', () => {

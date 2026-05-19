@@ -61,6 +61,7 @@ import {
 import {
   alignSpaceConsistencyNodesToMeasuredEditScript,
   avoidExpandedSpaceConsistencyLaneOverlaps,
+  preserveWorkspaceNodePositions,
   repairWorkspaceNodeOverlaps,
   repairWorkspaceNodeOverlapsNearMovedNodes,
 } from './layout/workspace-node-auto-layout'
@@ -71,7 +72,7 @@ const OPTIMISTIC_NODE_RUNNING_TIMEOUT_MS = 15000
 const MEASURED_NODE_SIZE_EPSILON = 1
 
 interface WorkspaceNodeDynamicLayoutOptions {
-  readonly preservedNodeIds?: ReadonlySet<string>
+  readonly preservedNodePositions?: ReadonlyMap<string, { readonly x: number; readonly y: number }>
 }
 
 export interface WorkspaceAssistantSelectionContext {
@@ -136,12 +137,20 @@ function captureLayoutBasePositions(nodes: readonly WorkspaceCanvasFlowNode[]): 
   }))
 }
 
+function preservedNodeIds(
+  preservedNodePositions: ReadonlyMap<string, { readonly x: number; readonly y: number }> | undefined,
+): ReadonlySet<string> | undefined {
+  return preservedNodePositions && preservedNodePositions.size > 0
+    ? new Set(preservedNodePositions.keys())
+    : undefined
+}
+
 function applyWorkspaceNodeDynamicLayout(
   nodes: readonly WorkspaceCanvasFlowNode[],
   options?: WorkspaceNodeDynamicLayoutOptions,
 ): WorkspaceCanvasFlowNode[] {
   return repairWorkspaceNodeOverlaps(avoidExpandedSpaceConsistencyLaneOverlaps(nodes), {
-    preservedNodeIds: options?.preservedNodeIds,
+    preservedNodeIds: preservedNodeIds(options?.preservedNodePositions),
   })
 }
 
@@ -250,7 +259,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const panelImageTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const storyboardConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const editScriptConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
-  const expansionAnchorNodeIdRef = useRef<string | null>(null)
+  const expansionAnchorNodePositionsRef = useRef<ReadonlyMap<string, { readonly x: number; readonly y: number }> | null>(null)
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
@@ -380,7 +389,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     }
   }, [clearOptimisticRunningNode, markNodeOptimisticallyRunning, runNodeAction])
   const toggleNodeExpanded = useCallback((nodeId: string) => {
-    expansionAnchorNodeIdRef.current = nodeId
+    const anchorNode = reactFlow.getNode(nodeId)
+    expansionAnchorNodePositionsRef.current = anchorNode
+      ? new Map([[nodeId, anchorNode.position]])
+      : null
     setNodeExpansionOverrides((current) => {
       const defaultExpanded = defaultExpandedNodeIdsRef.current.has(nodeId)
       const currentExpanded = current.get(nodeId) ?? defaultExpanded
@@ -388,7 +400,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       next.set(nodeId, !currentExpanded)
       return next
     })
-  }, [])
+  }, [reactFlow])
   const handleMeasuredNodeSize = useCallback((
     nodeId: string,
     size: { readonly width: number; readonly height: number },
@@ -396,9 +408,11 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     setNodes((currentNodes) => {
       let changed = false
       let measuredKind: WorkspaceCanvasFlowNode['data']['kind'] | null = null
+      let measuredPosition: { readonly x: number; readonly y: number } | null = null
       const measuredNodes = currentNodes.map((node) => {
         if (node.id !== nodeId) return node
         measuredKind = node.data.kind
+        measuredPosition = node.position
 
         const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
           kind: node.data.kind,
@@ -429,11 +443,15 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
 
       const normalizedNodes = normalizeNodesToLayoutBasePositions(measuredNodes)
       const relayoutedNodes = relayoutEditAssetsBelowScript(normalizedNodes)
-      const alignOptions = measuredKind === 'spaceConsistency'
-        ? { preservedNodeIds: new Set([nodeId]) }
+      const preservedNodePositions = measuredKind === 'spaceConsistency' && measuredPosition
+        ? new Map([[nodeId, measuredPosition]])
         : undefined
+      const alignOptions = { preservedNodeIds: preservedNodeIds(preservedNodePositions) }
       const alignedNodes = alignSpaceConsistencyNodesToMeasuredEditScript(relayoutedNodes, alignOptions)
-      return applyWorkspaceNodeDynamicLayout(alignedNodes, alignOptions)
+      const baseAlignedNodes = measuredKind === 'editScript'
+        ? captureLayoutBasePositions(alignedNodes)
+        : alignedNodes
+      return applyWorkspaceNodeDynamicLayout(baseAlignedNodes, { preservedNodePositions })
     })
   }, [])
   const attachNodeUiState = useCallback((
@@ -441,7 +459,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     options?: WorkspaceNodeDynamicLayoutOptions,
   ) => {
     const defaultExpandedNodeIds = new Set<string>()
-    const baseNodes = normalizeNodesToLayoutBasePositions(inputNodes)
+    const baseNodes = preserveWorkspaceNodePositions(
+      normalizeNodesToLayoutBasePositions(inputNodes),
+      options?.preservedNodePositions,
+    )
     const nextNodes = baseNodes.map((node) => {
       const editScriptId = node.data.action?.type === 'generate_edit_storyboard'
         ? node.data.action.editScriptId
@@ -520,10 +541,9 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
     return applyWorkspaceNodeDynamicLayout(nextNodes, options)
   }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, t, toggleNodeExpanded])
-  const readExpansionAnchorNodeIds = useCallback((): ReadonlySet<string> | undefined => {
-    const nodeId = expansionAnchorNodeIdRef.current
-    return nodeId ? new Set([nodeId]) : undefined
-  }, [])
+  const readExpansionAnchorNodePositions = useCallback(() => (
+    expansionAnchorNodePositionsRef.current ?? undefined
+  ), [])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -619,24 +639,24 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     if (appliedProjectionNodeSignatureRef.current === projectionNodeSignature) return
     appliedProjectionNodeSignatureRef.current = projectionNodeSignature
     setNodes(attachNodeUiState(projection.nodes, {
-      preservedNodeIds: readExpansionAnchorNodeIds(),
+      preservedNodePositions: readExpansionAnchorNodePositions(),
     }))
-  }, [attachNodeUiState, projection.nodes, projectionNodeSignature, readExpansionAnchorNodeIds])
+  }, [attachNodeUiState, projection.nodes, projectionNodeSignature, readExpansionAnchorNodePositions])
 
   useEffect(() => {
     setNodes((currentNodes) => attachNodeUiState(currentNodes, {
-      preservedNodeIds: readExpansionAnchorNodeIds(),
+      preservedNodePositions: readExpansionAnchorNodePositions(),
     }))
-  }, [attachNodeUiState, panelImageTaskStateSignature, readExpansionAnchorNodeIds])
+  }, [attachNodeUiState, panelImageTaskStateSignature, readExpansionAnchorNodePositions])
 
   useEffect(() => {
     setNodes((currentNodes) => attachNodeUiState(currentNodes, {
-      preservedNodeIds: readExpansionAnchorNodeIds(),
+      preservedNodePositions: readExpansionAnchorNodePositions(),
     }))
   }, [
     attachNodeUiState,
     editScriptConsistencyTaskStateSignature,
-    readExpansionAnchorNodeIds,
+    readExpansionAnchorNodePositions,
     storyboardConsistencyTaskStateSignature,
   ])
 
@@ -667,9 +687,9 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
 
   useEffect(() => {
     setNodes((currentNodes) => attachNodeUiState(currentNodes, {
-      preservedNodeIds: readExpansionAnchorNodeIds(),
+      preservedNodePositions: readExpansionAnchorNodePositions(),
     }))
-  }, [attachNodeUiState, readExpansionAnchorNodeIds])
+  }, [attachNodeUiState, readExpansionAnchorNodePositions])
 
   useEffect(() => {
     const projectedNodeIds = new Set(projection.nodes.map((node) => node.id))
@@ -731,6 +751,9 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       [node, ...draggedNodes].map((movedNode) => [movedNode.id, movedNode]),
     )
     const movedNodeIds = new Set(movedNodesById.keys())
+    if ([...movedNodeIds].some((nodeId) => expansionAnchorNodePositionsRef.current?.has(nodeId))) {
+      expansionAnchorNodePositionsRef.current = null
+    }
     const currentNodes = reactFlow.getNodes().map((currentNode) => movedNodesById.get(currentNode.id) ?? currentNode)
     const repairedLayoutNodes = captureLayoutBasePositions(
       repairWorkspaceNodeOverlapsNearMovedNodes(currentNodes, movedNodeIds),
@@ -769,6 +792,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
 
   const resetLayout = useCallback(() => {
     if (!episodeId) return
+    expansionAnchorNodePositionsRef.current = null
     const defaultProjection = buildWorkspaceNodeCanvasProjection({
       projectId,
       episodeId,

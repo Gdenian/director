@@ -22,6 +22,30 @@ interface NodeRect {
   readonly order: number
 }
 
+interface NodePosition {
+  readonly x: number
+  readonly y: number
+}
+
+export function preserveWorkspaceNodePositions(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+  preservedNodePositions: ReadonlyMap<string, NodePosition> | undefined,
+): WorkspaceCanvasFlowNode[] {
+  if (!preservedNodePositions || preservedNodePositions.size === 0) return [...nodes]
+  return nodes.map((node) => {
+    const position = preservedNodePositions.get(node.id)
+    if (!position) return node
+    return {
+      ...node,
+      position,
+      data: {
+        ...node.data,
+        layoutBasePosition: position,
+      },
+    }
+  })
+}
+
 function numericStyleValue(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
