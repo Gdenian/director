@@ -2,26 +2,26 @@ import { getTranslations } from 'next-intl/server'
 import styles from './page.module.css'
 
 type LoadingEffectVariant = {
-  id: 'shortEdgeFlow' | 'longEdgeFlow' | 'softEdgeFlow' | 'dualEdgeFlow'
+  id: 'dualSlowBuild' | 'dualLateSurge' | 'dualSoftPulse' | 'dualQuickGlide'
   effectClassName: string
 }
 
 const variants: LoadingEffectVariant[] = [
   {
-    id: 'shortEdgeFlow',
-    effectClassName: styles.shortEdgeFlow,
+    id: 'dualSlowBuild',
+    effectClassName: styles.dualSlowBuild,
   },
   {
-    id: 'longEdgeFlow',
-    effectClassName: styles.longEdgeFlow,
+    id: 'dualLateSurge',
+    effectClassName: styles.dualLateSurge,
   },
   {
-    id: 'softEdgeFlow',
-    effectClassName: styles.softEdgeFlow,
+    id: 'dualSoftPulse',
+    effectClassName: styles.dualSoftPulse,
   },
   {
-    id: 'dualEdgeFlow',
-    effectClassName: styles.dualEdgeFlow,
+    id: 'dualQuickGlide',
+    effectClassName: styles.dualQuickGlide,
   },
 ]
 

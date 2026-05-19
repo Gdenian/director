@@ -1,36 +1,36 @@
 {
   "eyebrow": "Loading motion audit",
-  "title": "White Border Flow Effects",
-  "description": "Compare only monochrome white border-flow effects. Color, center spinners, dashed tracks, and heavy glow are removed so the choice stays minimal and unobtrusive.",
+  "title": "Dual Arc Border Flow Curves",
+  "description": "Every option uses the same white dual-arc border flow. Only the motion curve and rhythm differ.",
   "hint": "Path: /en/loading-effects",
   "fields": {
     "motion": "Motion",
     "fit": "Best for"
   },
   "variants": {
-    "shortEdgeFlow": {
-      "title": "Short Arc Border Flow",
-      "summary": "A short white highlight loops around the border with the lowest visual weight.",
-      "motion": "Short arc on border",
-      "fit": "Default recommendation"
+    "dualSlowBuild": {
+      "title": "Slow Build",
+      "summary": "Starts gently, then naturally accelerates along the border.",
+      "motion": "Slow start, faster second half",
+      "fit": "Default candidate"
     },
-    "longEdgeFlow": {
-      "title": "Long Arc Border Flow",
-      "summary": "A longer white highlight makes the loading state clearer while staying on the frame.",
-      "motion": "Long arc on border",
-      "fit": "Stronger status signal"
+    "dualLateSurge": {
+      "title": "Late Surge",
+      "summary": "Holds back longer, then noticeably speeds up near the corner.",
+      "motion": "Long slow-in, late acceleration",
+      "fit": "More energetic"
     },
-    "softEdgeFlow": {
-      "title": "Soft Border Flow",
-      "summary": "Lower brightness and slower movement for states that may remain visible longer.",
-      "motion": "Soft slow border flow",
+    "dualSoftPulse": {
+      "title": "Soft Breath",
+      "summary": "Slower and lighter overall, with a softer speed change for longer visible waits.",
+      "motion": "Soft slow acceleration",
       "fit": "Long waits"
     },
-    "dualEdgeFlow": {
-      "title": "Dual Arc Border Flow",
-      "summary": "Two symmetric white highlights create steadier rhythm, but are more visible than one arc.",
-      "motion": "Dual arcs on border",
-      "fit": "Batch processing"
+    "dualQuickGlide": {
+      "title": "Quick Glide",
+      "summary": "Starts with a lighter push, then glides smoothly through the rest of the edge.",
+      "motion": "Quick start, smooth finish",
+      "fit": "Short waits"
     }
   }
 }

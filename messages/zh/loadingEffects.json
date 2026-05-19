@@ -1,36 +1,36 @@
 {
   "eyebrow": "Loading motion audit",
-  "title": "白色边框流动动效",
-  "description": "只对比白色单色边框流动。去掉彩色、中心转圈、虚线和复杂光效，重点看哪一种最简洁、最不干扰内容。",
+  "title": "双弧边框流动曲线",
+  "description": "所有方案都使用白色双弧边框流动，只对比运动曲线和节奏差异。",
   "hint": "访问路径：/zh/loading-effects",
   "fields": {
     "motion": "动势",
     "fit": "适用"
   },
   "variants": {
-    "shortEdgeFlow": {
-      "title": "短弧边框流动",
-      "summary": "一段短白光沿边框循环，存在感最低。",
-      "motion": "短弧沿边框旋转",
-      "fit": "默认推荐"
+    "dualSlowBuild": {
+      "title": "慢入加速",
+      "summary": "先慢慢推进，再自然加速滑过边框。",
+      "motion": "慢起步，后半段加速",
+      "fit": "默认候选"
     },
-    "longEdgeFlow": {
-      "title": "长弧边框流动",
-      "summary": "白光更长，加载状态更明显，但仍然只在边框上。",
-      "motion": "长弧沿边框旋转",
-      "fit": "需要更强提示"
+    "dualLateSurge": {
+      "title": "后段冲刺",
+      "summary": "前段压得更慢，接近转角时明显快一下。",
+      "motion": "长慢入，后段提速",
+      "fit": "更有动势"
     },
-    "softEdgeFlow": {
-      "title": "柔和边框流动",
-      "summary": "亮度更低、速度更慢，适合长时间等待。",
-      "motion": "低亮度慢速旋转",
+    "dualSoftPulse": {
+      "title": "柔和呼吸",
+      "summary": "整体更慢更轻，速度变化更柔，适合停留时间长的状态。",
+      "motion": "慢速柔和加速",
       "fit": "长任务等待"
     },
-    "dualEdgeFlow": {
-      "title": "双弧边框流动",
-      "summary": "两段白光对称流动，节奏更稳定，但比单弧更显眼。",
-      "motion": "双弧沿边框旋转",
-      "fit": "批量处理中"
+    "dualQuickGlide": {
+      "title": "轻推滑行",
+      "summary": "起步更轻快，随后平滑滑过，节奏比冲刺版更利落。",
+      "motion": "轻快启动，平滑收尾",
+      "fit": "短等待反馈"
     }
   }
 }
