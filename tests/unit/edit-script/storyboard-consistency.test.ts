@@ -5,7 +5,11 @@ import {
   generateCameraPlan,
   generateGridFloorPlan,
 } from '@/lib/edit-script/storyboard-consistency/model-generation'
-import { classifyStoryboardConsistencyBlocks, resolveGridDensity } from '@/lib/edit-script/storyboard-consistency/strategies'
+import {
+  buildFloorPlanSceneGroups,
+  classifyStoryboardConsistencyBlocks,
+  resolveGridDensity,
+} from '@/lib/edit-script/storyboard-consistency/strategies'
 import type { StoryboardConsistencySourceSnapshot } from '@/lib/edit-script/storyboard-consistency/types'
 
 vi.mock('@/lib/ai-prompts', () => ({
@@ -176,7 +180,7 @@ describe('edit-script storyboard coordinate consistency', () => {
           strategy: 'grid_coordinates',
           grid: { columns: 16, rows: 9, ratio: '16:9', shortSideUnits: 9 },
           floorPlans: [{
-            sourceVideoBlockId: 'edit-1:videoBlock:1',
+            sourceVideoBlockIds: ['edit-1:videoBlock:1'],
             groupIndex: 0,
             classification: 'fixed_space_strong',
             location: 'Temple courtyard',
@@ -199,10 +203,104 @@ describe('edit-script storyboard coordinate consistency', () => {
 
     expect(textStepMock).toHaveBeenCalledTimes(1)
     expect(output.floorPlans[0]).toMatchObject({
-      sourceVideoBlockId: 'edit-1:videoBlock:1',
+      sourceVideoBlockIds: ['edit-1:videoBlock:1'],
       prompt: 'Top-down 2D floor plan of a temple courtyard with a central flower bed.',
     })
     expect('coordinates' in output.floorPlans[0]).toBe(false)
+  })
+
+  it('groups one floor plan per unique scene asset across multiple videoBlocks', async () => {
+    const snapshot = buildSnapshot({
+      videoBlocks: [
+        buildSnapshot().videoBlocks[0],
+        {
+          ...buildSnapshot().videoBlocks[0],
+          sourceVideoBlockId: 'edit-1:videoBlock:2',
+          blockIndex: 1,
+          shotNumbers: [1, 2],
+          prompt: 'The same temple courtyard later in the story.',
+        },
+      ],
+    })
+    const groups = buildFloorPlanSceneGroups(snapshot)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({
+      locationTargetId: 'location-1',
+      sourceVideoBlockIds: ['edit-1:videoBlock:1', 'edit-1:videoBlock:2'],
+      locationName: 'Temple courtyard',
+    })
+
+    textStepMock.mockResolvedValueOnce(mockTextCompletion(JSON.stringify({
+      strategyOutput: {
+        strategy: 'grid_coordinates',
+        grid: { columns: 16, rows: 9, ratio: '16:9', shortSideUnits: 9 },
+        floorPlans: [
+          {
+            sourceVideoBlockIds: ['edit-1:videoBlock:1'],
+            groupIndex: 0,
+            classification: 'fixed_space_strong',
+            location: 'Temple courtyard',
+            participants: ['Old monk', 'Young disciple'],
+            anchors: ['flower bed'],
+            skipped: false,
+            reason: 'First block in same courtyard.',
+            prompt: 'Top-down 2D floor plan of the temple courtyard.',
+          },
+          {
+            sourceVideoBlockIds: ['edit-1:videoBlock:2'],
+            groupIndex: 1,
+            classification: 'fixed_space_strong',
+            location: 'Temple courtyard',
+            participants: ['Old monk', 'Young disciple'],
+            anchors: ['flower bed'],
+            skipped: false,
+            reason: 'Second block in same courtyard.',
+            prompt: 'Duplicate top-down 2D floor plan of the temple courtyard.',
+          },
+        ],
+      },
+    })))
+
+    const output = await generateGridFloorPlan({
+      userId: 'user-1',
+      projectId: 'project-1',
+      model: 'analysis-model',
+      locale: 'zh',
+      snapshot,
+    })
+
+    expect(output.floorPlans).toHaveLength(1)
+    expect(output.floorPlans[0]).toMatchObject({
+      sourceVideoBlockIds: ['edit-1:videoBlock:1', 'edit-1:videoBlock:2'],
+      location: 'Temple courtyard',
+    })
+  })
+
+  it('returns no floor plans when no fixed-space scene groups exist', async () => {
+    const snapshot = buildSnapshot({
+      videoBlocks: [{
+        ...buildSnapshot().videoBlocks[0],
+        prompt: 'A fast chase montage through the courtyard.',
+      }],
+    })
+    expect(buildFloorPlanSceneGroups(snapshot)).toEqual([])
+    textStepMock.mockResolvedValueOnce(mockTextCompletion(JSON.stringify({
+      strategyOutput: {
+        strategy: 'grid_coordinates',
+        grid: { columns: 16, rows: 9, ratio: '16:9', shortSideUnits: 9 },
+        floorPlans: [],
+      },
+    })))
+
+    const output = await generateGridFloorPlan({
+      userId: 'user-1',
+      projectId: 'project-1',
+      model: 'analysis-model',
+      locale: 'zh',
+      snapshot,
+    })
+
+    expect(output.floorPlans).toEqual([])
   })
 
   it('requires overlay images for coordinate analysis and does not generate final panel prompts', async () => {

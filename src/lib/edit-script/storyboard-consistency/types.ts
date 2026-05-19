@@ -59,6 +59,19 @@ export interface StoryboardBlockClassification {
   readonly excludedByMotionOrAbstraction: boolean
 }
 
+export interface StoryboardFloorPlanSceneGroup {
+  readonly groupIndex: number
+  readonly locationRequirementId: string
+  readonly locationTargetId: string
+  readonly locationName: string
+  readonly locationDescription: string
+  readonly sourceVideoBlockIds: readonly string[]
+  readonly sourceShotNumbers: readonly number[]
+  readonly classification: FixedSpaceClassification
+  readonly participants: readonly string[]
+  readonly reason: string
+}
+
 export interface GridDensity {
   readonly columns: number
   readonly rows: number
@@ -137,7 +150,7 @@ export const gridFloorPlanModelOutputSchema = z.object({
     shortSideUnits: z.literal(9),
   }),
   floorPlans: z.array(z.object({
-    sourceVideoBlockId: z.string().trim().min(1),
+    sourceVideoBlockIds: z.array(z.string().trim().min(1)).min(1),
     groupIndex: z.number().int().min(0),
     classification: z.enum(['fixed_space_strong', 'fixed_space_weak', 'no_fixed_space']),
     location: z.string().nullable(),
@@ -146,7 +159,7 @@ export const gridFloorPlanModelOutputSchema = z.object({
     skipped: z.boolean(),
     reason: z.string().trim().min(1),
     prompt: z.string().nullable(),
-  })).min(1),
+  })),
 })
 
 export type GridFloorPlanModelOutput = z.infer<typeof gridFloorPlanModelOutputSchema>

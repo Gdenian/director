@@ -63,6 +63,19 @@ function readString(value: unknown): string | null {
   return trimmed || null
 }
 
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    const text = readString(item)
+    return text ? [text] : []
+  })
+}
+
+function readNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => (typeof item === 'number' && Number.isFinite(item) ? [item] : []))
+}
+
 function parsePayload(job: Job<TaskJobData>): ParsedPayload {
   const payload = readRecord(job.data.payload)
   const editScriptId = readString(payload.editScriptId) || job.data.targetId
@@ -150,6 +163,18 @@ async function loadStoryboardWithArtifacts(storyboardId: string, projectId: stri
 }
 
 function assetsForArtifact(snapshot: StoryboardConsistencySourceSnapshot, artifact: BlockingArtifactRecord): StoryboardConsistencyAssetSnapshot[] {
+  const metadata = readRecord(artifact.metadataJson)
+  const locationTargetId = readString(metadata.locationTargetId)
+  if (locationTargetId) {
+    return snapshot.assets.filter((asset) => asset.kind === 'location' && asset.targetId === locationTargetId)
+  }
+  const sourceShotNumbers = readNumberArray(metadata.sourceShotNumbers)
+  if (sourceShotNumbers.length > 0) {
+    return snapshot.assets.filter((asset) => (
+      asset.kind === 'location'
+      && asset.shotNumbers.some((shotNumber) => sourceShotNumbers.includes(shotNumber))
+    ))
+  }
   const block = snapshot.videoBlocks.find((item) => item.sourceVideoBlockId === artifact.sourceVideoBlockId)
   if (!block) throw new Error(`EDIT_SCRIPT_STORYBOARD_ARTIFACT_BLOCK_MISSING:${artifact.id}`)
   return snapshot.assets.filter((asset) => (
@@ -291,6 +316,7 @@ async function createGridOverlayArtifact(params: {
       imageMediaId: media.id,
       candidateImages: JSON.stringify([media.url]),
       metadataJson: {
+        ...readRecord(params.floorPlan.metadataJson),
         sourceFloorPlanArtifactId: params.floorPlan.id,
         sourceFloorPlanImageUrl: params.fullImageUrl,
         sourceFloorPlanImageMediaId: params.fullMediaId,
@@ -309,6 +335,7 @@ async function createGridOverlayArtifact(params: {
       imageMediaId: media.id,
       candidateImages: JSON.stringify([media.url]),
       metadataJson: {
+        ...readRecord(params.floorPlan.metadataJson),
         sourceFloorPlanArtifactId: params.floorPlan.id,
         sourceFloorPlanImageUrl: params.fullImageUrl,
         sourceFloorPlanImageMediaId: params.fullMediaId,
@@ -407,25 +434,32 @@ export async function handleEditScriptStoryboardPrepareTask(job: Job<TaskJobData
     })
     await prisma.$transaction(async (tx) => {
       await tx.projectStoryboardBlockingArtifact.deleteMany({ where: { storyboardId: storyboard.id } })
-      await tx.projectStoryboardBlockingArtifact.createMany({
-        data: strategyOutput.floorPlans.map((plan) => ({
-          storyboardId: storyboard.id,
-          kind: 'grid_floor_plan',
-          sourceVideoBlockId: plan.sourceVideoBlockId,
-          groupIndex: plan.groupIndex,
-          prompt: plan.skipped ? null : plan.prompt,
-          metadataJson: {
-            classification: plan.classification,
-            location: plan.location,
-            participants: plan.participants,
-            anchors: plan.anchors,
-            skipped: plan.skipped,
-            reason: plan.reason,
-            grid: strategyOutput.grid,
-          } as Prisma.InputJsonValue,
-          status: plan.skipped ? 'ready' : 'pending',
-        })),
-      })
+      const floorPlanRows = strategyOutput.floorPlans.map((plan) => ({
+        storyboardId: storyboard.id,
+        kind: 'grid_floor_plan',
+        sourceVideoBlockId: plan.sourceVideoBlockIds[0],
+        groupIndex: plan.groupIndex,
+        prompt: plan.skipped ? null : plan.prompt,
+        metadataJson: {
+          classification: plan.classification,
+          location: plan.location,
+          participants: plan.participants,
+          anchors: plan.anchors,
+          skipped: plan.skipped,
+          reason: plan.reason,
+          sourceVideoBlockIds: plan.sourceVideoBlockIds,
+          sourceShotNumbers: Array.from(new Set(parsed.sourceSnapshot.videoBlocks
+            .filter((block) => plan.sourceVideoBlockIds.includes(block.sourceVideoBlockId))
+            .flatMap((block) => block.shotNumbers))).sort((left, right) => left - right),
+          locationTargetId: parsed.sourceSnapshot.assets.find((asset) => asset.kind === 'location' && asset.name === plan.location)?.targetId ?? null,
+          locationRequirementId: parsed.sourceSnapshot.assets.find((asset) => asset.kind === 'location' && asset.name === plan.location)?.requirementId ?? null,
+          grid: strategyOutput.grid,
+        } as Prisma.InputJsonValue,
+        status: plan.skipped ? 'ready' : 'pending',
+      }))
+      if (floorPlanRows.length > 0) {
+        await tx.projectStoryboardBlockingArtifact.createMany({ data: floorPlanRows })
+      }
       await tx.projectStoryboard.update({
         where: { id: storyboard.id },
         data: {
@@ -624,6 +658,7 @@ export async function handleEditScriptStoryboardGridAnalyzeTask(job: Job<TaskJob
         id: artifact.id,
         kind: artifact.kind,
         sourceVideoBlockId: artifact.sourceVideoBlockId,
+        sourceVideoBlockIds: readStringArray(readRecord(artifact.metadataJson).sourceVideoBlockIds),
         groupIndex: artifact.groupIndex,
         imageUrl: artifact.imageUrl,
         metadataJson: artifact.metadataJson,

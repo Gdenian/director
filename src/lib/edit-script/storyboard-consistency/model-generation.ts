@@ -14,11 +14,12 @@ import {
   type CameraPlanPanel,
   type CameraStyleBibleModelOutput,
   type GridFloorPlanModelOutput,
+  type StoryboardFloorPlanSceneGroup,
   type StoryboardConsistencySourceVideoBlock,
   type StoryboardConsistencySourceSnapshot,
   type StoryboardPanelPromptDraft,
 } from './types'
-import { classifyStoryboardConsistencyBlocks, resolveGridDensity } from './strategies'
+import { buildFloorPlanSceneGroups, classifyStoryboardConsistencyBlocks, resolveGridDensity } from './strategies'
 
 interface GenerationContext {
   readonly userId: string
@@ -211,12 +212,15 @@ export async function generateGridFloorPlan(input: GenerationContext & {
   readonly snapshot: StoryboardConsistencySourceSnapshot
 }): Promise<GridFloorPlanModelOutput> {
   const density = resolveGridDensity(input.snapshot.project.videoRatio)
+  const classifications = classifyStoryboardConsistencyBlocks(input.snapshot)
+  const sceneGroups = buildFloorPlanSceneGroups(input.snapshot, classifications)
   const raw = await runTextJsonStep({
     ...input,
     promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN,
     variables: {
       source_snapshot_json: stringifyForPrompt(input.snapshot),
-      block_classification_draft_json: stringifyForPrompt(classifyStoryboardConsistencyBlocks(input.snapshot)),
+      block_classification_draft_json: stringifyForPrompt(classifications),
+      scene_floor_plan_groups_json: stringifyForPrompt(sceneGroups),
       grid_density_json: stringifyForPrompt(density),
     },
     stepTitle: 'Generate edit-script storyboard grid floor plan prompts',
@@ -231,7 +235,42 @@ export async function generateGridFloorPlan(input: GenerationContext & {
   ) {
     throw new Error('EDIT_SCRIPT_STORYBOARD_GRID_DENSITY_MISMATCH')
   }
-  return parsed
+  return {
+    ...parsed,
+    floorPlans: dedupeFloorPlansByScene(sceneGroups, parsed.floorPlans),
+  }
+}
+
+function dedupeFloorPlansByScene(
+  sceneGroups: readonly StoryboardFloorPlanSceneGroup[],
+  floorPlans: GridFloorPlanModelOutput['floorPlans'],
+): GridFloorPlanModelOutput['floorPlans'] {
+  if (sceneGroups.length === 0) {
+    if (floorPlans.length === 0) return floorPlans
+    throw new Error('EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_SCENE_GROUP_MISMATCH')
+  }
+  const byLocation = new Map<string, GridFloorPlanModelOutput['floorPlans'][number]>()
+  floorPlans.forEach((plan) => {
+    const matchedGroup = sceneGroups.find((group) => (
+      plan.sourceVideoBlockIds.some((sourceVideoBlockId) => group.sourceVideoBlockIds.includes(sourceVideoBlockId))
+      || (plan.location !== null && plan.location.trim() === group.locationName)
+    ))
+    if (!matchedGroup) return
+    const previous = byLocation.get(matchedGroup.locationTargetId)
+    if (!previous || previous.skipped) {
+      byLocation.set(matchedGroup.locationTargetId, {
+        ...plan,
+        groupIndex: matchedGroup.groupIndex,
+        sourceVideoBlockIds: [...matchedGroup.sourceVideoBlockIds],
+        classification: matchedGroup.classification,
+        location: matchedGroup.locationName,
+        participants: [...new Set([...matchedGroup.participants, ...plan.participants])],
+      })
+    }
+  })
+  const deduped = Array.from(byLocation.values()).sort((left, right) => left.groupIndex - right.groupIndex)
+  if (deduped.length === sceneGroups.length) return deduped
+  throw new Error('EDIT_SCRIPT_STORYBOARD_FLOOR_PLAN_SCENE_GROUP_MISMATCH')
 }
 
 function readStrategyOutput(raw: Record<string, unknown>): unknown {

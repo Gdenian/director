@@ -275,6 +275,7 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
     variableKeys: [
       'source_snapshot_json',
       'block_classification_draft_json',
+      'scene_floor_plan_groups_json',
       'grid_density_json',
     ],
   },

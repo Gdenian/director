@@ -1,6 +1,7 @@
 import type {
   FixedSpaceClassification,
   GridDensity,
+  StoryboardFloorPlanSceneGroup,
   StoryboardBlockClassification,
   StoryboardConsistencySourceSnapshot,
 } from './types'
@@ -111,6 +112,73 @@ export function classifyStoryboardConsistencyBlocks(snapshot: StoryboardConsiste
       excludedByMotionOrAbstraction,
     }
   })
+}
+
+function classificationRank(classification: FixedSpaceClassification): number {
+  if (classification === 'fixed_space_strong') return 2
+  if (classification === 'fixed_space_weak') return 1
+  return 0
+}
+
+export function buildFloorPlanSceneGroups(
+  snapshot: StoryboardConsistencySourceSnapshot,
+  classifications: readonly StoryboardBlockClassification[] = classifyStoryboardConsistencyBlocks(snapshot),
+): StoryboardFloorPlanSceneGroup[] {
+  const groupByLocationId = new Map<string, {
+    locationRequirementId: string
+    locationTargetId: string
+    locationName: string
+    locationDescription: string
+    sourceVideoBlockIds: Set<string>
+    sourceShotNumbers: Set<number>
+    classifications: FixedSpaceClassification[]
+    participants: Set<string>
+    reasons: string[]
+  }>()
+
+  for (const classification of classifications) {
+    if (classification.classification === 'no_fixed_space') continue
+    const block = snapshot.videoBlocks.find((item) => item.sourceVideoBlockId === classification.sourceVideoBlockId)
+    if (!block) continue
+    const locations = snapshot.assets.filter((asset) => (
+      asset.kind === 'location'
+      && asset.shotNumbers.some((shotNumber) => block.shotNumbers.includes(shotNumber))
+    ))
+    for (const location of locations) {
+      const existing = groupByLocationId.get(location.targetId) ?? {
+        locationRequirementId: location.requirementId,
+        locationTargetId: location.targetId,
+        locationName: location.name,
+        locationDescription: location.description,
+        sourceVideoBlockIds: new Set<string>(),
+        sourceShotNumbers: new Set<number>(),
+        classifications: [],
+        participants: new Set<string>(),
+        reasons: [],
+      }
+      existing.sourceVideoBlockIds.add(block.sourceVideoBlockId)
+      block.shotNumbers.forEach((shotNumber) => existing.sourceShotNumbers.add(shotNumber))
+      existing.classifications.push(classification.classification)
+      classification.participantNames.forEach((participant) => existing.participants.add(participant))
+      existing.reasons.push(`${classification.sourceVideoBlockId}: ${classification.reason}`)
+      groupByLocationId.set(location.targetId, existing)
+    }
+  }
+
+  return Array.from(groupByLocationId.values()).map((group, groupIndex) => ({
+    groupIndex,
+    locationRequirementId: group.locationRequirementId,
+    locationTargetId: group.locationTargetId,
+    locationName: group.locationName,
+    locationDescription: group.locationDescription,
+    sourceVideoBlockIds: Array.from(group.sourceVideoBlockIds),
+    sourceShotNumbers: Array.from(group.sourceShotNumbers).sort((left, right) => left - right),
+    classification: group.classifications.reduce<FixedSpaceClassification>((best, current) => (
+      classificationRank(current) > classificationRank(best) ? current : best
+    ), 'no_fixed_space'),
+    participants: Array.from(group.participants),
+    reason: group.reasons.join('\n'),
+  }))
 }
 
 export function resolveGridDensity(videoRatio: string): GridDensity {
