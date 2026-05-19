@@ -147,6 +147,113 @@ describe('workspace node rendering', () => {
     expect(html).not.toContain('Sound')
   })
 
+  it('renders video plan generation mode switches with storyboard references first before video exists', () => {
+    const html = renderNode({
+      kind: 'videoPlan',
+      layoutNodeType: 'videoPlan',
+      targetType: 'editScript',
+      targetId: 'edit-1:video-block:1',
+      title: 'Video plan node',
+      eyebrow: 'Video Plan',
+      body: 'reason',
+      meta: 'shots 1, 2',
+      statusLabel: 'Pending',
+      width: 360,
+      height: 620,
+      onAction: vi.fn(),
+      videoPlanDetails: {
+        editScriptId: 'edit-1',
+        blockIndex: 0,
+        kind: 'group',
+        shotNumbers: [1, 2],
+        durationSec: 6,
+        gridMode: '2x2',
+        reason: 'continuous action',
+        prompt: 'final video prompt',
+        assetReferenceVideoModel: 'video-model-1',
+        outputUrl: null,
+        outputAspectRatio: null,
+        errorMessage: null,
+        sourceImages: [
+          {
+            panelId: 'panel-1',
+            storyboardId: 'storyboard-1',
+            panelIndex: 0,
+            shotNumber: 1,
+            imageUrl: 'https://example.com/shot-1.png',
+            aspectRatio: 16 / 9,
+          },
+          {
+            panelId: 'panel-2',
+            storyboardId: 'storyboard-1',
+            panelIndex: 1,
+            shotNumber: 2,
+            imageUrl: 'https://example.com/shot-2.png',
+            aspectRatio: 16 / 9,
+          },
+        ],
+        assetReferences: [
+          {
+            id: 'asset-1',
+            name: 'Hero',
+            kind: 'character',
+            imageUrl: 'https://example.com/hero.png',
+            shotNumbers: [1, 2],
+          },
+        ],
+      },
+    })
+
+    expect(html).not.toContain('videoPlanReference')
+    expect(html).not.toContain('videoPlanOutput')
+    expect(html).toContain('storyboardReferenceVideoMode')
+    expect(html).toContain('assetReferenceVideoMode')
+    expect(html).toContain('generateStoryboardReferenceVideo')
+    expect(html).toContain('https://example.com/shot-1.png')
+    expect(html).toContain('https://example.com/shot-2.png')
+    expect(html).not.toContain('https://example.com/hero.png')
+  })
+
+  it('renders video plan storyboard image placeholders for missing panel images', () => {
+    const html = renderNode({
+      kind: 'videoPlan',
+      layoutNodeType: 'videoPlan',
+      targetType: 'editScript',
+      targetId: 'edit-1:video-block:2',
+      title: 'Video plan node',
+      eyebrow: 'Video Plan',
+      body: 'reason',
+      meta: 'shots 3, 4',
+      statusLabel: 'Pending',
+      width: 360,
+      height: 620,
+      onAction: vi.fn(),
+      videoPlanDetails: {
+        editScriptId: 'edit-1',
+        blockIndex: 1,
+        kind: 'group',
+        shotNumbers: [3, 4],
+        durationSec: 5,
+        gridMode: '2x2',
+        reason: 'missing images',
+        prompt: 'final video prompt',
+        assetReferenceVideoModel: 'video-model-1',
+        outputUrl: null,
+        outputAspectRatio: null,
+        errorMessage: null,
+        sourceImages: [
+          { panelId: 'panel-3', storyboardId: 'storyboard-1', panelIndex: 2, shotNumber: 3, imageUrl: null, aspectRatio: null },
+          { panelId: 'panel-4', storyboardId: 'storyboard-1', panelIndex: 3, shotNumber: 4, imageUrl: null, aspectRatio: null },
+        ],
+        assetReferences: [],
+      },
+    })
+
+    expect(html).toContain('>3</div>')
+    expect(html).toContain('>4</div>')
+    expect(html).toContain('disabled=""')
+  })
+
   it('renders script clip summary by default without internal scroll', () => {
     const html = renderNode({
       kind: 'scriptClip',
@@ -402,10 +509,10 @@ describe('workspace node rendering', () => {
     expect(`${shotHtml}${videoPlanHtml}`).not.toContain('<textarea')
     expect(videoPlanHtml).not.toContain('gridMode')
     expect(videoPlanHtml).toContain('videoPlanModelMissing')
-    expect(videoPlanHtml).toContain('videoPlanPendingVideo')
-    expect(videoPlanHtml).toContain('linkedShots')
-    expect(videoPlanHtml).toContain('>1</span>')
-    expect(videoPlanHtml).toContain('>2</span>')
+    expect(videoPlanHtml).toContain('https://example.com/shot-1.png')
+    expect(videoPlanHtml).toContain('https://example.com/shot-2.png')
+    expect(videoPlanHtml).not.toContain('videoPlanPendingVideo')
+    expect(videoPlanHtml).not.toContain('linkedShots')
     expect(videoPlanHtml).not.toContain('grid grid-cols-2')
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
   })
@@ -520,7 +627,7 @@ describe('workspace node rendering', () => {
     expect(html).not.toContain('virtualLayerCount')
   })
 
-  it('renders a disabled video reference action with an asset-image prerequisite hint', () => {
+  it('renders disabled storyboard generation with placeholders before panel images exist', () => {
     const html = renderNode({
       kind: 'videoPlan',
       layoutNodeType: 'videoPlan',
@@ -550,9 +657,9 @@ describe('workspace node rendering', () => {
       },
     })
 
-    expect(html).toContain('assetReferenceImages')
-    expect(html).toContain('assetReferenceImagesMissing')
-    expect(html).toContain('generateAssetReferenceVideo')
+    expect(html).toContain('>1</div>')
+    expect(html).toContain('>2</div>')
+    expect(html).toContain('generateStoryboardReferenceVideo')
     expect(html).toContain('disabled=""')
   })
 

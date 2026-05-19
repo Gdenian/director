@@ -309,7 +309,7 @@ export interface WorkspaceCanvasVideoPlanDetails {
     readonly id: string
     readonly name: string
     readonly kind: 'character' | 'location'
-    readonly imageUrl: string
+    readonly imageUrl?: string | null
     readonly shotNumbers: readonly number[]
   }[]
   readonly validationMessage?: string | null

@@ -1099,7 +1099,9 @@ function VideoPlanContent({
   const outputStyle = { aspectRatio: String(outputAspectRatio) }
   const shouldShowVideo = Boolean(displayOutputUrl && previewMode === 'video')
   const assetReferences = details.assetReferences ?? []
-  const assetReferenceImageUrls = assetReferences.map((asset) => asset.imageUrl)
+  const assetReferenceImageUrls = assetReferences
+    .map((asset) => asset.imageUrl)
+    .filter((imageUrl): imageUrl is string => hasText(imageUrl))
   const storyboardReferences = details.sourceImages
   const storyboardReferenceImageUrls = storyboardReferences
     .map((image) => image.imageUrl)
@@ -1165,25 +1167,24 @@ function VideoPlanContent({
   }
   return (
     <div className="nodrag nowheel space-y-3">
-      <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
-        <button
-          type="button"
-          className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'reference' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          onClick={() => setPreviewMode('reference')}
-        >
-          {labels('videoPlanReference')}
-        </button>
-        <button
-          type="button"
-          disabled={!displayOutputUrl}
-          className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${previewMode === 'video' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          onClick={() => {
-            if (displayOutputUrl) setPreviewMode('video')
-          }}
-        >
-          {labels('videoPlanOutput')}
-        </button>
-      </div>
+      {displayOutputUrl ? (
+        <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+          <button
+            type="button"
+            className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'reference' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setPreviewMode('reference')}
+          >
+            {labels('videoPlanReference')}
+          </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${previewMode === 'video' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setPreviewMode('video')}
+          >
+            {labels('videoPlanOutput')}
+          </button>
+        </div>
+      ) : null}
       {shouldShowVideo && displayOutputUrl ? (
         <div className="relative flex w-full items-center justify-center overflow-hidden rounded-[16px] bg-black" style={outputStyle}>
           <video
@@ -1199,10 +1200,17 @@ function VideoPlanContent({
             <div className="grid grid-cols-3 gap-1.5">
               {(shouldShowAssetReferences ? assetReferences : storyboardReferences).map((item) => {
                 const imageUrl = item.imageUrl
-                if (!imageUrl) return null
-                const displayImageUrl = toDisplayImageUrl(imageUrl) ?? imageUrl
                 const key = 'id' in item ? item.id : `shot:${item.shotNumber}`
                 const alt = 'name' in item ? item.name : labels('videoPlanShotAlt', { shot: item.shotNumber })
+                if (!imageUrl) {
+                  const label = 'name' in item ? item.name : String(item.shotNumber)
+                  return (
+                    <div key={key} className="flex h-16 items-center justify-center rounded-[10px] bg-slate-50 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">
+                      {label}
+                    </div>
+                  )
+                }
+                const displayImageUrl = toDisplayImageUrl(imageUrl) ?? imageUrl
                 return (
                   <div key={key} className="overflow-hidden rounded-[10px] bg-slate-50 ring-1 ring-slate-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}

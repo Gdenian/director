@@ -33,6 +33,13 @@ import {
   parseLocationAvailableSlots,
 } from '@/lib/location-available-slots'
 
+const EMPTY_PANEL_REFERENCE_COLLECTION = {
+  items: [],
+  diagnostics: [],
+  issues: [],
+  expectedCharacterReferenceCount: 0,
+} satisfies Awaited<ReturnType<typeof collectPanelReferenceImageItemsWithDiagnostics>>
+
 function parseJsonUnknown(raw: string | null | undefined): unknown | null {
   if (!raw) return null
   try {
@@ -196,7 +203,10 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
   if (!modelKey) throw new Error('Storyboard model not configured')
 
   const candidateCount = clampCount(payload.candidateCount ?? payload.count, 1, 4, 1)
-  const refCollection = await collectPanelReferenceImageItemsWithDiagnostics(projectData, panel, { strict: true })
+  const referenceMode = payload.referenceMode === 'storyboard' ? 'storyboard' : 'asset'
+  const refCollection = referenceMode === 'storyboard'
+    ? EMPTY_PANEL_REFERENCE_COLLECTION
+    : await collectPanelReferenceImageItemsWithDiagnostics(projectData, panel, { strict: true })
   const referenceImageItems: ReferenceImageItem[] = [...refCollection.items]
   if (Array.isArray(payload.referencePanelImageUrls)) {
     for (const [index, url] of payload.referencePanelImageUrls.entries()) {
@@ -262,6 +272,7 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
       referenceImagesNormalizedCount: referenceImages.length,
       referenceImageNotes,
       expectedCharacterReferenceCount: refCollection.expectedCharacterReferenceCount,
+      referenceMode,
       referenceImageDiagnostics: refCollection.diagnostics,
       referenceImageNormalizationIssues: normalizationIssues,
       rawUrls: referenceImageItems.map((item) => item.url.substring(0, 100)),

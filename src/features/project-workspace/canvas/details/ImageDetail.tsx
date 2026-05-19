@@ -4,7 +4,6 @@ import React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import ImagePreviewModal from '@/components/ui/ImagePreviewModal'
-import { AppIcon } from '@/components/ui/icons'
 import { useProjectAssets, useUploadProjectTempMedia } from '@/lib/query/hooks'
 import ImageEditModal from '../../components/storyboard/ImageEditModal'
 import ReferenceImageModal, {
@@ -32,6 +31,7 @@ interface ImageDetailProps {
     panelId: string,
     count?: number,
     references?: {
+      readonly referenceMode?: 'asset' | 'storyboard'
       readonly referencePanelIds?: readonly string[]
       readonly extraImageUrls?: readonly string[]
       readonly referenceImageNotes?: readonly unknown[]
@@ -74,6 +74,7 @@ export default function ImageDetail(props: ImageDetailProps) {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [selectedReferences, setSelectedReferences] = useState<ReferenceImageOption[]>([])
+  const [imageReferenceMode, setImageReferenceMode] = useState<'asset' | 'storyboard'>('asset')
   const { data: assets } = useProjectAssets(props.projectId)
   const uploadTempMedia = useUploadProjectTempMedia()
   const imageUrl = props.node.data.previewImageUrl ?? null
@@ -142,18 +143,28 @@ export default function ImageDetail(props: ImageDetailProps) {
   }, [assets])
 
   const generateWithReferences = async () => {
-    const referencePanelIds = selectedReferences
+    const activeReferences = imageReferenceMode === 'storyboard'
+      ? selectedReferences.filter((item) => Boolean(item.referencePanelId))
+      : selectedReferences
+    const referencePanelIds = activeReferences
       .map((item) => item.referencePanelId)
       .filter((value): value is string => Boolean(value))
-    const extraImageUrls = selectedReferences
+    const extraImageUrls = activeReferences
       .filter((item) => !item.referencePanelId)
       .map((item) => item.imageUrl)
     await props.onGenerateImage(panel.id, Number(count) || 1, {
+      referenceMode: imageReferenceMode,
       referencePanelIds,
       extraImageUrls,
-      referenceImageNotes: selectedReferences.map(toReferenceImageNotePayload),
+      referenceImageNotes: activeReferences.map(toReferenceImageNotePayload),
     })
   }
+
+  const selectedStoryboardReferenceCount = selectedReferences.filter((item) => Boolean(item.referencePanelId)).length
+  const activeReferenceCount = imageReferenceMode === 'storyboard'
+    ? selectedStoryboardReferenceCount
+    : selectedReferences.length
+  const canGenerateWithReferenceMode = imageReferenceMode === 'asset' || selectedStoryboardReferenceCount > 0
 
   return (
     <div className="space-y-4">
@@ -201,15 +212,35 @@ export default function ImageDetail(props: ImageDetailProps) {
       </DetailSection>
 
       <DetailSection title={t('sections.imageGeneration')}>
-        <div className="grid gap-3 md:grid-cols-[8rem_1fr]">
+        <div className="space-y-3">
+          <Field label={t('fields.imageGenerationMode')}>
+            <div className="inline-flex w-full rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+              <button
+                type="button"
+                onClick={() => setImageReferenceMode('asset')}
+                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${imageReferenceMode === 'asset' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                {t('fields.assetImageGenerationMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageReferenceMode('storyboard')}
+                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${imageReferenceMode === 'storyboard' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                {t('fields.storyboardImageGenerationMode')}
+              </button>
+            </div>
+          </Field>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-[8rem_1fr]">
           <Field label={t('fields.count')}><TextInput value={count} onChange={setCount} /></Field>
           <div className="rounded-md border border-black/5 bg-white p-3 text-xs text-[var(--glass-text-secondary)]">
-            {t('messages.referenceSelection', { count: selectedReferences.length })}
+            {t(imageReferenceMode === 'storyboard' ? 'messages.storyboardReferenceSelection' : 'messages.referenceSelection', { count: activeReferenceCount })}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <ActionButton onClick={() => setReferenceModalOpen(true)}>{t('actions.selectReferences')}</ActionButton>
-          <ActionButton onClick={() => generateWithReferences()} variant="primary">
+          <ActionButton onClick={() => generateWithReferences()} disabled={!canGenerateWithReferenceMode} variant="primary">
             {panel.imageTaskRunning ? t('actions.forceRegenerateImage') : t('actions.regenerateImage')}
           </ActionButton>
           <ActionButton onClick={() => setEditModalOpen(true)}>{t('actions.modifyImage')}</ActionButton>

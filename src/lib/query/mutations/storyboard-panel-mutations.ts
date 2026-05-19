@@ -35,12 +35,14 @@ export function useRegenerateProjectPanelImage(projectId: string, episodeId?: st
         mutationFn: async ({
             panelId,
             count,
+            referenceMode,
             referencePanelIds,
             extraImageUrls,
             referenceImageNotes,
         }: {
             panelId: string
             count?: number
+            referenceMode?: 'asset' | 'storyboard'
             referencePanelIds?: string[]
             extraImageUrls?: string[]
             referenceImageNotes?: unknown[]
@@ -51,6 +53,7 @@ export function useRegenerateProjectPanelImage(projectId: string, episodeId?: st
                 body: JSON.stringify({
                     panelId,
                     count: count ?? 1,
+                    ...(referenceMode ? { referenceMode } : {}),
                     ...(referencePanelIds && referencePanelIds.length > 0 ? { referencePanelIds } : {}),
                     ...(extraImageUrls && extraImageUrls.length > 0 ? { extraImageUrls } : {}),
                     ...(referenceImageNotes && referenceImageNotes.length > 0 ? { referenceImageNotes } : {}),

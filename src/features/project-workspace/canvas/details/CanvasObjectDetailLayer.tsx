@@ -155,6 +155,7 @@ export default function CanvasObjectDetailLayer({
     panelId: string,
     count = 1,
     references: {
+      readonly referenceMode?: 'asset' | 'storyboard'
       readonly referencePanelIds?: readonly string[]
       readonly extraImageUrls?: readonly string[]
       readonly referenceImageNotes?: readonly unknown[]
@@ -163,6 +164,7 @@ export default function CanvasObjectDetailLayer({
     await regenerateImageMutation.mutateAsync({
       panelId,
       count,
+      ...(references.referenceMode ? { referenceMode: references.referenceMode } : {}),
       ...(references.referencePanelIds && references.referencePanelIds.length > 0 ? { referencePanelIds: [...references.referencePanelIds] } : {}),
       ...(references.extraImageUrls && references.extraImageUrls.length > 0 ? { extraImageUrls: [...references.extraImageUrls] } : {}),
       ...(references.referenceImageNotes && references.referenceImageNotes.length > 0 ? { referenceImageNotes: [...references.referenceImageNotes] } : {}),

@@ -474,6 +474,9 @@
           "imagePrompt": "图片提示词",
           "candidateImage": "候选图",
           "count": "数量",
+          "imageGenerationMode": "图片生成方式",
+          "assetImageGenerationMode": "资产参考生成",
+          "storyboardImageGenerationMode": "分镜图片生成",
           "referenceUrls": "参考图 URL",
           "modifyPrompt": "图片修改要求",
           "firstLastFramePrompt": "首尾帧提示词",
@@ -570,6 +573,7 @@
         "messages": {
           "assetReferenceImageCount": "已选择 {count} 张参考图",
           "referenceSelection": "已选择 {count} 张参考图，可包含分镜、角色、场景、道具、URL、上传或粘贴图片。",
+          "storyboardReferenceSelection": "已选择 {count} 张分镜图。该模式只使用分镜图作为图片生成参考。",
           "noNextPanelForFirstLast": "当前镜头后面没有下一个镜头，无法使用首尾帧模式。",
           "finalRenderRequiresVideos": "所有镜头视频生成完成后才可 AI 剪辑成片。",
           "finalRenderRequiresBgm": "需要先生成连续 BGM，完成后才可 AI 剪辑成片。",

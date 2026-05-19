@@ -189,6 +189,7 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
         storyboardId: z.string().min(1).optional(),
         panelIndex: z.number().int().min(0).max(1000).optional(),
         count: z.number().int().positive().max(4).optional(),
+        referenceMode: z.enum(['asset', 'storyboard']).optional(),
         referencePanelIds: z.array(z.string().min(1)).max(8).optional(),
         extraImageUrls: z.array(z.unknown()).max(8).optional(),
         referenceImageNotes: z.array(z.unknown()).max(16).optional(),
@@ -277,6 +278,7 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
           )),
         ].slice(0, 16)
         const referenceSignature = createReferenceSignature({
+          referenceMode: input.referenceMode === 'storyboard' ? 'storyboard' : 'asset',
           referencePanelIds,
           referencePanelImageUrls,
           extraImageUrls: extraImageAudit.normalized,
@@ -286,6 +288,7 @@ export function createStoryboardPanelImageOperations(): ProjectAgentOperationReg
           panelId,
           candidateCount,
           count: candidateCount,
+          referenceMode: input.referenceMode === 'storyboard' ? 'storyboard' : 'asset',
           ...(referencePanelIds.length > 0 ? { referencePanelIds } : {}),
           ...(referencePanelImageUrls.length > 0 ? { referencePanelImageUrls } : {}),
           ...(extraImageAudit.normalized.length > 0 ? { extraImageUrls: extraImageAudit.normalized } : {}),

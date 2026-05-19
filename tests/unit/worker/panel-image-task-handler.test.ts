@@ -40,20 +40,23 @@ const sharedMock = vi.hoisted(() => ({
   })),
   normalizeReferenceImageItemsForGeneration: vi.fn(async (
     items: Array<{ url: string; role: string; name: string; appearance?: string | null; slot?: string | null }>,
-    _options?: { onIssue?: (issue: { index: number; input: string; code: string; stage: string; message: string }) => void },
-  ) => ({
-    referenceImages: items.map((item, index) => {
-      const defaults = ['normalized-sketch', 'normalized-hero', 'normalized-location']
-      return defaults[index] || `normalized:${item.url}`
-    }),
-    referenceImagesMap: items.map((item, index) => ({
-      image_no: `图 ${index + 1}`,
-      role: item.role,
-      name: item.role === 'sketch' ? '分镜草图' : item.name,
-      ...(item.appearance ? { appearance: item.appearance } : {}),
-      ...(item.slot ? { slot: item.slot } : {}),
-    })),
-  })),
+    options?: { onIssue?: (issue: { index: number; input: string; code: string; stage: string; message: string }) => void },
+  ) => {
+    void options
+    return {
+      referenceImages: items.map((item, index) => {
+        const defaults = ['normalized-sketch', 'normalized-hero', 'normalized-location']
+        return defaults[index] || `normalized:${item.url}`
+      }),
+      referenceImagesMap: items.map((item, index) => ({
+        image_no: `图 ${index + 1}`,
+        role: item.role,
+        name: item.role === 'sketch' ? '分镜草图' : item.name,
+        ...(item.appearance ? { appearance: item.appearance } : {}),
+        ...(item.slot ? { slot: item.slot } : {}),
+      })),
+    }
+  }),
   resolveNovelData: vi.fn(async () => ({
     videoRatio: '16:9',
     directorStyleDoc: {
@@ -298,6 +301,38 @@ describe('worker panel-image-task-handler behavior', () => {
         storyboard_text_json_input: expect.stringContaining('Use for continuity and staging'),
       }),
     }))
+  })
+
+  it('storyboard reference mode -> skips automatic character and location reference images', async () => {
+    const job = buildJob({
+      candidateCount: 1,
+      referenceMode: 'storyboard',
+      referencePanelImageUrls: ['images/previous-panel.png'],
+      extraImageUrls: ['https://example.com/manual-ref.png'],
+      referenceImageNotes: [
+        'source=storyboard; label=#1 close-up; usage=Use only this storyboard image',
+      ],
+    })
+    await handlePanelImageTask(job)
+
+    expect(sharedMock.collectPanelReferenceImageItemsWithDiagnostics).not.toHaveBeenCalled()
+    const normalizeCalls = sharedMock.normalizeReferenceImageItemsForGeneration.mock.calls as unknown as Array<[
+      Array<{ role: string; url: string; name: string }>,
+      unknown,
+    ]>
+    expect(normalizeCalls[0]?.[0].map((item) => item.role)).toEqual(['source_panel', 'extra'])
+    expect(normalizeCalls[0]?.[0]).toEqual([
+      expect.objectContaining({ url: 'images/previous-panel.png', role: 'source_panel' }),
+      expect.objectContaining({ url: 'https://example.com/manual-ref.png', role: 'extra' }),
+    ])
+    expect(utilsMock.resolveImageSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          referenceImages: ['normalized-sketch', 'normalized-hero'],
+        }),
+      }),
+    )
   })
 
   it('regeneration branch -> keeps old image in previousImageUrl and stores candidates only', async () => {

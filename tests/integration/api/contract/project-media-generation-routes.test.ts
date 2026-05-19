@@ -83,6 +83,7 @@ describe('api contract - project media generation routes (operation adapter)', (
         method: 'POST',
         body: {
           panelId: 'panel-1',
+          referenceMode: 'storyboard',
           referencePanelIds: ['panel-previous'],
           extraImageUrls: ['https://example.com/asset-ref.png'],
           referenceImageNotes: [
@@ -109,6 +110,7 @@ describe('api contract - project media generation routes (operation adapter)', (
       operationId: 'regenerate_panel_image',
       input: expect.objectContaining({
         panelId: 'panel-1',
+        referenceMode: 'storyboard',
         referencePanelIds: ['panel-previous'],
         extraImageUrls: ['https://example.com/asset-ref.png'],
         referenceImageNotes: [
@@ -127,6 +129,23 @@ describe('api contract - project media generation routes (operation adapter)', (
         ],
       }),
     }))
+  })
+
+  it('POST /api/projects/[projectId]/regenerate-panel-image -> rejects invalid reference mode', async () => {
+    const res = await regeneratePanelImagePost(
+      buildMockRequest({
+        path: '/api/projects/project-1/regenerate-panel-image',
+        method: 'POST',
+        body: {
+          panelId: 'panel-1',
+          referenceMode: 'legacy',
+        },
+      }),
+      { params: Promise.resolve({ projectId: 'project-1' }) },
+    )
+
+    expect(res.status).toBe(400)
+    expect(apiAdapterMock.executeProjectAgentOperationFromApi).not.toHaveBeenCalled()
   })
 
   it('POST /api/projects/[projectId]/voice-generate -> routes single/batch to explicit operations', async () => {

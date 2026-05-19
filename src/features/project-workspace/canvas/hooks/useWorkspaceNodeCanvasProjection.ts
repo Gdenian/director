@@ -599,12 +599,12 @@ function assetReferencesForVideoBlock(
   readonly id: string
   readonly name: string
   readonly kind: 'character' | 'location'
-  readonly imageUrl: string
+  readonly imageUrl?: string | null
   readonly shotNumbers: readonly number[]
 }> {
   return editScript.requirements.flatMap((requirement) => {
     const imageUrl = stringValue(requirement.previewImageUrl)
-    if (!imageUrl || !intersectsShotNumbers(requirement.shotNumbers, shotNumbers)) return []
+    if (!intersectsShotNumbers(requirement.shotNumbers, shotNumbers)) return []
     return [{
       id: requirement.id,
       name: requirement.name,

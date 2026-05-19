@@ -474,6 +474,9 @@
           "imagePrompt": "Image Prompt",
           "candidateImage": "Candidate Image",
           "count": "Count",
+          "imageGenerationMode": "Image Generation Mode",
+          "assetImageGenerationMode": "Asset References",
+          "storyboardImageGenerationMode": "Storyboard Images",
           "referenceUrls": "Reference Image URLs",
           "modifyPrompt": "Image Edit Request",
           "firstLastFramePrompt": "First/Last Frame Prompt",
@@ -570,6 +573,7 @@
         "messages": {
           "assetReferenceImageCount": "{count} reference image(s) selected",
           "referenceSelection": "{count} reference images selected. References can come from panels, characters, locations, props, URLs, uploads, or pasted images.",
+          "storyboardReferenceSelection": "{count} storyboard image(s) selected. This mode only uses storyboard images as generation references.",
           "noNextPanelForFirstLast": "This shot has no next shot, so first/last frame mode cannot be used.",
           "finalRenderRequiresVideos": "Generate every shot video before running the AI final edit.",
           "finalRenderRequiresBgm": "Generate the continuous BGM before running the AI final edit.",

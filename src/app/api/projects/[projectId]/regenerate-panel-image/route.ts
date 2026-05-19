@@ -17,6 +17,12 @@ export const POST = apiHandler(async (
   if (!panelId) {
     throw new ApiError('INVALID_PARAMS')
   }
+  if (body?.referenceMode !== undefined && body.referenceMode !== 'storyboard' && body.referenceMode !== 'asset') {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'IMAGE_REFERENCE_MODE_INVALID',
+      field: 'referenceMode',
+    })
+  }
 
   const result = await executeProjectAgentOperationFromApi({
     request,
@@ -26,6 +32,7 @@ export const POST = apiHandler(async (
     input: {
       panelId,
       ...(body?.count !== undefined ? { count: body.count } : {}),
+      ...(body?.referenceMode === 'storyboard' || body?.referenceMode === 'asset' ? { referenceMode: body.referenceMode } : {}),
       ...(Array.isArray(body?.referencePanelIds) ? { referencePanelIds: body.referencePanelIds } : {}),
       ...(Array.isArray(body?.extraImageUrls) ? { extraImageUrls: body.extraImageUrls } : {}),
       ...(Array.isArray(body?.referenceImageNotes) ? { referenceImageNotes: body.referenceImageNotes } : {}),
