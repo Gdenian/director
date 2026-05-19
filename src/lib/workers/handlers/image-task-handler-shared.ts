@@ -75,7 +75,7 @@ export interface PanelCharacterReference {
   slot?: string
 }
 
-export type ReferenceImageRole = 'sketch' | 'source_panel' | 'character' | 'location' | 'prop' | 'extra'
+export type ReferenceImageRole = 'sketch' | 'source_panel' | 'character' | 'location' | 'prop' | 'coordinate_overlay' | 'extra'
 
 export interface ReferenceImageItem {
   url: string
@@ -288,6 +288,7 @@ export function formatReferenceImagesMapForPrompt(
     character: { zh: '角色', en: 'character' },
     location: { zh: '场景', en: 'location' },
     prop: { zh: '道具', en: 'prop' },
+    coordinate_overlay: { zh: '坐标锚点图', en: 'coordinate anchor map' },
     extra: { zh: '额外参考', en: 'extra reference' },
   }
 

@@ -10,6 +10,9 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(async () => ({})),
   },
+  projectStoryboardBlockingArtifact: {
+    findMany: vi.fn(),
+  },
 }))
 
 const utilsMock = vi.hoisted(() => ({
@@ -167,6 +170,7 @@ describe('worker panel-image-task-handler behavior', () => {
       sketchImageUrl: null,
       imageUrl: null,
     })
+    prismaMock.projectStoryboardBlockingArtifact.findMany.mockResolvedValue([])
 
     utilsMock.resolveImageSourceFromGeneration
       .mockResolvedValueOnce('generated-source-1')
@@ -301,6 +305,91 @@ describe('worker panel-image-task-handler behavior', () => {
         storyboard_text_json_input: expect.stringContaining('Use for continuity and staging'),
       }),
     }))
+  })
+
+  it('includes matching coordinate overlay artifact as a panel generation reference', async () => {
+    prismaMock.projectPanel.findUnique.mockResolvedValueOnce({
+      id: 'panel-1',
+      storyboardId: 'storyboard-1',
+      panelIndex: 0,
+      shotType: 'close-up',
+      cameraMove: 'static',
+      description: 'hero close-up',
+      imagePrompt: 'panel anchor prompt',
+      videoPrompt: 'dramatic',
+      location: 'Old Town',
+      characters: JSON.stringify([{ name: 'Hero', appearance: 'default', slot: '街道左侧靠墙的留白位置' }]),
+      srtSegment: '台词片段',
+      photographyRules: JSON.stringify({
+        consistencyMode: 'grid_coordinates',
+        sourceVideoBlockId: 'edit-script-1:videoBlock:2',
+      }),
+      actingNotes: null,
+      sketchImageUrl: null,
+      imageUrl: null,
+    })
+    prismaMock.projectStoryboardBlockingArtifact.findMany.mockResolvedValueOnce([
+      {
+        id: 'overlay-1',
+        imageUrl: 'images/grid-overlay-1.png',
+        sourceVideoBlockId: null,
+        metadataJson: { sourceVideoBlockIds: ['edit-script-1:videoBlock:2'] },
+      },
+      {
+        id: 'overlay-2',
+        imageUrl: 'images/grid-overlay-2.png',
+        sourceVideoBlockId: 'edit-script-1:videoBlock:3',
+        metadataJson: {},
+      },
+    ])
+
+    await handlePanelImageTask(buildJob({ candidateCount: 1 }))
+
+    expect(prismaMock.projectStoryboardBlockingArtifact.findMany).toHaveBeenCalledWith({
+      where: {
+        storyboardId: 'storyboard-1',
+        kind: 'grid_coordinate_overlay',
+        status: 'ready',
+        imageUrl: { not: null },
+      },
+      orderBy: [{ groupIndex: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        imageUrl: true,
+        sourceVideoBlockId: true,
+        metadataJson: true,
+      },
+    })
+    expect(sharedMock.normalizeReferenceImageItemsForGeneration).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'images/grid-overlay-1.png',
+          role: 'coordinate_overlay',
+          name: '2D coordinate anchor map for edit-script-1:videoBlock:2',
+        }),
+      ]),
+      expect.objectContaining({ locale: 'zh' }),
+    )
+    const promptCalls = promptMock.buildPrompt.mock.calls as unknown as Array<[{
+      variables?: { storyboard_text_json_input?: string }
+    }]>
+    const contextJson = promptCalls[0]?.[0].variables?.storyboard_text_json_input || '{}'
+    const context = JSON.parse(contextJson) as {
+      context?: { reference_images?: Array<{ image_no: string; role: string; name: string }> }
+    }
+    expect(context.context?.reference_images).toContainEqual({
+      image_no: '图 4',
+      role: 'coordinate_overlay',
+      name: '2D coordinate anchor map for edit-script-1:videoBlock:2',
+    })
+    expect(utilsMock.resolveImageSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          referenceImages: expect.arrayContaining(['normalized:images/grid-overlay-1.png']),
+        }),
+      }),
+    )
   })
 
   it('storyboard reference mode -> skips automatic character and location reference images', async () => {
