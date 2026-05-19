@@ -50,6 +50,86 @@ describe('workspace node rendering', () => {
     expect(nodeNeedsActualHeightMeasurement('shot')).toBe(false)
   })
 
+  it('hides space consistency shot coordinate rows while generation is running', () => {
+    const html = renderNode({
+      kind: 'spaceConsistency',
+      layoutNodeType: 'spaceConsistency',
+      targetType: 'storyboard',
+      targetId: 'storyboard-1',
+      title: 'Space consistency',
+      eyebrow: 'Coordinate Blocking',
+      body: 'generation body',
+      meta: 'meta',
+      statusLabel: 'Processing',
+      isRunning: true,
+      width: 460,
+      height: 620,
+      spaceConsistencyDetails: {
+        storyboardId: 'storyboard-1',
+        stage: 'grid_analyze_ready',
+        floorPlanCount: 1,
+        overlayCount: 1,
+        cameraPlanCount: 0,
+        artifacts: [],
+        blocks: [],
+        shotCoordinates: [{
+          shotNumber: 1,
+          sourceVideoBlockId: 'edit-1:videoBlock:1',
+          classification: null,
+          skipped: null,
+          reason: null,
+          cinematicTranslation: null,
+          coordinates: [],
+        }],
+        cameraPlans: [],
+      },
+    })
+
+    expect(html).toContain('spaceConsistencyStats')
+    expect(html).toContain('Processing')
+    expect(html).not.toContain('emptyCoordinates')
+    expect(html).not.toContain('edit-1:videoBlock:1')
+  })
+
+  it('shows space consistency shot coordinate rows after generation succeeds', () => {
+    const html = renderNode({
+      kind: 'spaceConsistency',
+      layoutNodeType: 'spaceConsistency',
+      targetType: 'storyboard',
+      targetId: 'storyboard-1',
+      title: 'Space consistency',
+      eyebrow: 'Coordinate Blocking',
+      body: 'generation body',
+      meta: 'meta',
+      statusLabel: 'Ready',
+      isRunning: false,
+      width: 460,
+      height: 620,
+      spaceConsistencyDetails: {
+        storyboardId: 'storyboard-1',
+        stage: 'panel_prompts_ready',
+        floorPlanCount: 1,
+        overlayCount: 1,
+        cameraPlanCount: 0,
+        artifacts: [],
+        blocks: [],
+        shotCoordinates: [{
+          shotNumber: 1,
+          sourceVideoBlockId: 'edit-1:videoBlock:1',
+          classification: null,
+          skipped: null,
+          reason: null,
+          cinematicTranslation: null,
+          coordinates: [],
+        }],
+        cameraPlans: [],
+      },
+    })
+
+    expect(html).toContain('emptyCoordinates')
+    expect(html).toContain('edit-1:videoBlock:1')
+  })
+
   it('renders story input controls inline without opening a detail action', () => {
     const html = renderNode({
       kind: 'storyInput',

@@ -1907,4 +1907,32 @@ describe('workspace node canvas projection', () => {
       }),
     ])
   })
+
+  it('keeps a grid analyzed storyboard in processing state until panel prompts are ready', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [
+        createStoryboard({
+          id: 'storyboard-grid-processing',
+          clipId: 'clip-grid',
+          panels: [],
+          photographyPlan: JSON.stringify({
+            consistencyMode: 'grid_coordinates',
+            currentStage: 'grid_analyze_ready',
+            strategyOutput: {
+              blocks: [],
+            },
+          }),
+        }),
+      ],
+      savedLayouts: [],
+      translate: t,
+    })
+
+    const spaceNode = projection.nodes.find((node) => node.id === 'space-consistency:storyboard-grid-processing')
+    expect(spaceNode?.data.isRunning).toBe(true)
+    expect(spaceNode?.data.statusLabel).toBe('status.processing')
+  })
 })

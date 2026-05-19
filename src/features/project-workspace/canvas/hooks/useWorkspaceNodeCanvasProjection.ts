@@ -750,6 +750,18 @@ function cameraPlansFromValue(cameraPlanOutput: unknown): NonNullable<WorkspaceC
   })
 }
 
+function isSpaceConsistencyRunningStage(stage: string | null): boolean {
+  switch (stage) {
+    case 'preparing':
+    case 'floor_plan_prompts_ready':
+    case 'floor_plans_ready':
+    case 'grid_analyze_ready':
+      return true
+    default:
+      return false
+  }
+}
+
 function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']> {
   const artifacts = (storyboard.blockingArtifacts ?? []).map((artifact) => ({
     id: artifact.id,
@@ -1456,9 +1468,7 @@ export function buildWorkspaceNodeCanvasProjection({
     const previewImageUrl = primarySpaceConsistencyImageUrl(storyboard)
     const hasFailedArtifact = details.artifacts.some((artifact) => artifact.status === 'failed' || artifact.errorMessage)
     const isRunning = details.artifacts.some((artifact) => artifact.status === 'pending' || artifact.status === 'generating')
-      || details.stage === 'preparing'
-      || details.stage === 'floor_plan_prompts_ready'
-      || details.stage === 'floor_plans_ready'
+      || isSpaceConsistencyRunningStage(details.stage ?? null)
     nodes.push(createNode({
       id: nodeId,
       fallbackX: spaceConsistencyBaseX,

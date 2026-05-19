@@ -136,6 +136,36 @@ describe('workspace node auto layout', () => {
     expect(shot.position).toEqual({ x: 2000, y: 600 })
   })
 
+  it('preserves a measured space consistency node position while its own height changes', () => {
+    const editScript = createNode({
+      id: 'edit-script:long',
+      kind: 'editScript',
+      x: 320,
+      y: 600,
+      width: 720,
+      height: 1440,
+    })
+    const spaceConsistency = createNode({
+      id: 'space-consistency:storyboard',
+      kind: 'spaceConsistency',
+      x: 1200,
+      y: 1800,
+      width: 760,
+      height: 1180,
+      expanded: true,
+    })
+    const shot = createNode({ id: 'shot:1', kind: 'shot', x: 2200, y: 600 })
+
+    const aligned = alignSpaceConsistencyNodesToMeasuredEditScript(
+      [editScript, spaceConsistency, shot],
+      { preservedNodeIds: new Set([spaceConsistency.id]) },
+    )
+    const alignedSpaceConsistency = aligned.find((node) => node.id === spaceConsistency.id)
+
+    expect(alignedSpaceConsistency?.position).toEqual({ x: 1200, y: 1800 })
+    expect(shot.position).toEqual({ x: 2200, y: 600 })
+  })
+
   it('moves the right content lane as one group when space consistency expands into it', () => {
     const spaceConsistency = createNode({
       id: 'space-consistency:expanded',

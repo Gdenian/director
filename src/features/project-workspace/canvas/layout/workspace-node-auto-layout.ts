@@ -151,6 +151,9 @@ export function repairWorkspaceNodeOverlaps(
 
 export function alignSpaceConsistencyNodesToMeasuredEditScript(
   nodes: readonly WorkspaceCanvasFlowNode[],
+  options?: {
+    readonly preservedNodeIds?: ReadonlySet<string>
+  },
 ): WorkspaceCanvasFlowNode[] {
   const editScriptNode = nodes.find((node) => node.data.kind === 'editScript')
   if (!editScriptNode) return [...nodes]
@@ -181,6 +184,7 @@ export function alignSpaceConsistencyNodesToMeasuredEditScript(
   return nodes.map((node) => {
     const position = nextPositionById.get(node.id)
     if (!position) return node
+    if (options?.preservedNodeIds?.has(node.id)) return node
     if (
       Math.abs(position.x - node.position.x) <= POSITION_EPSILON &&
       Math.abs(position.y - node.position.y) <= POSITION_EPSILON

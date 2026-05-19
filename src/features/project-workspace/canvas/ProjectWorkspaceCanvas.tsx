@@ -367,8 +367,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   ) => {
     setNodes((currentNodes) => {
       let changed = false
+      let measuredKind: WorkspaceCanvasFlowNode['data']['kind'] | null = null
       const measuredNodes = currentNodes.map((node) => {
         if (node.id !== nodeId) return node
+        measuredKind = node.data.kind
 
         const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
           kind: node.data.kind,
@@ -399,7 +401,10 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
 
       const normalizedNodes = normalizeNodesToLayoutBasePositions(measuredNodes)
       const relayoutedNodes = relayoutEditAssetsBelowScript(normalizedNodes)
-      const alignedNodes = alignSpaceConsistencyNodesToMeasuredEditScript(relayoutedNodes)
+      const alignOptions = measuredKind === 'spaceConsistency'
+        ? { preservedNodeIds: new Set([nodeId]) }
+        : undefined
+      const alignedNodes = alignSpaceConsistencyNodesToMeasuredEditScript(relayoutedNodes, alignOptions)
       return applyWorkspaceNodeDynamicLayout(alignedNodes)
     })
   }, [])

@@ -1300,8 +1300,13 @@ function SpaceConsistencyContent({
   const details = data.spaceConsistencyDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
   const imageArtifacts = details.artifacts.filter((artifact) => artifact.imageUrl)
-  const visibleShotCoordinates = expanded ? details.shotCoordinates : details.shotCoordinates.slice(0, 6)
-  const visibleBlocks = expanded ? details.blocks : details.blocks.slice(0, 2)
+  const shouldShowGeneratedDetails = data.isRunning !== true && details.stage === 'panel_prompts_ready'
+  const visibleShotCoordinates = shouldShowGeneratedDetails
+    ? expanded ? details.shotCoordinates : details.shotCoordinates.slice(0, 6)
+    : []
+  const visibleBlocks = shouldShowGeneratedDetails
+    ? expanded ? details.blocks : details.blocks.slice(0, 2)
+    : []
   return (
     <div className="nodrag nowheel space-y-3">
       <MediaPreview data={data} />
