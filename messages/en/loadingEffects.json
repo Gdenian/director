@@ -1,0 +1,48 @@
+{
+  "eyebrow": "Loading motion study",
+  "title": "Loading Effect Test Page",
+  "description": "Compare the current sweep with several perimeter-light variants at the same size, so it is easier to choose for generation, processing, and preview placeholders.",
+  "hint": "Path: /en/loading-effects",
+  "fields": {
+    "motion": "Motion",
+    "fit": "Best for"
+  },
+  "variants": {
+    "currentSweep": {
+      "title": "Current Light Sweep",
+      "summary": "A broad highlight crosses the content area. It is clear, but it competes with the preview.",
+      "motion": "Crosses the content",
+      "fit": "Skeletons, list placeholders"
+    },
+    "singleOrbit": {
+      "title": "Single Perimeter Flow",
+      "summary": "One light travels around the frame, keeping the center stable while still feeling active.",
+      "motion": "One-way edge orbit",
+      "fit": "Image generation, task cards"
+    },
+    "dualOrbit": {
+      "title": "Dual Perimeter Flow",
+      "summary": "Two highlights orbit at once, creating a stronger active-processing signal.",
+      "motion": "Two orbiting highlights",
+      "fit": "Batch generation, long tasks"
+    },
+    "cornerFlow": {
+      "title": "Corner Relay Flow",
+      "summary": "The light focuses on corners and short edge segments, keeping movement clear without a full neon frame.",
+      "motion": "Segmented corner relay",
+      "fit": "Compact cards, thumbnails"
+    },
+    "softPulse": {
+      "title": "Soft Breathing Edge",
+      "summary": "A restrained slow perimeter flow with a light pulse, better for states that may stay visible.",
+      "motion": "Slow orbit and pulse",
+      "fit": "Background processing, queues"
+    },
+    "dashedTrack": {
+      "title": "Dashed Track Flow",
+      "summary": "A moving dashed track feels more technical and progress-oriented.",
+      "motion": "Dashed orbital track",
+      "fit": "Debug pages, task panels"
+    }
+  }
+}
