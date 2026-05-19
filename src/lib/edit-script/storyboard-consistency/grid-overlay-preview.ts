@@ -109,9 +109,9 @@ function variantBody(input: GridOverlayPreviewInput): string {
     case 'halo_dual_line':
       return [
         '<rect width="100%" height="100%" fill="rgba(2,6,23,0.14)"/>',
-        lineElements(input, '#ffffff', 7, 0.94),
-        lineElements(input, '#020617', 4, 0.9),
-        lineElements(input, '#38bdf8', 2, 1),
+        lineElements(input, '#ffffff', 4, 0.94),
+        lineElements(input, '#020617', 2.25, 0.9),
+        lineElements(input, '#38bdf8', 1, 1),
         cellLabels(input, { fill: '#ffffff', stroke: '#020617', strokeWidth: 3, fontSize: 14 }),
       ].join('')
     case 'inverse_plate_labels':

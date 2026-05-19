@@ -40,6 +40,9 @@ describe('grid overlay preview variants', () => {
 
     expect(halo).toContain('stroke="#ffffff"')
     expect(halo).toContain('stroke="#020617"')
+    expect(halo).toContain('stroke-width="4"')
+    expect(halo).toContain('stroke-width="2.25"')
+    expect(halo).toContain('stroke-width="1"')
     expect(halo).toContain('font-size="14"')
     expect(visionBlocks).toContain('X16 Y9')
     expect(visionBlocks).toContain('fill="#facc15"')
