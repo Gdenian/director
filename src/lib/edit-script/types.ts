@@ -120,6 +120,27 @@ export const editScriptVideoPromptSchema = z.object({
 export const editScriptVideoPromptBibleSchema = z.object({
   videoPromptBible: z.object({
     strategy: z.literal('video_prompt_bible'),
+    storyPremise: z.string().trim().min(1),
+    userDirectedStyle: z.string().trim().nullable(),
+    inferredSystemStyle: z.string().trim().min(1),
+    styleReferenceInterpretation: z.object({
+      rawUserStyle: z.string().trim().nullable(),
+      visualTone: z.string().trim().min(1),
+      cameraRhythm: z.string().trim().min(1),
+      composition: z.string().trim().min(1),
+      lighting: z.string().trim().min(1),
+      colorPalette: z.string().trim().min(1),
+      imageFilterPrompt: z.string().trim().min(1),
+      motionStyle: z.string().trim().min(1),
+      editingPacing: z.string().trim().min(1),
+      soundStyle: z.string().trim().min(1),
+      hardBans: z.array(z.string().trim().min(1)).min(1),
+    }),
+    characterContinuityRules: z.array(z.string().trim().min(1)),
+    locationContinuityRules: z.array(z.string().trim().min(1)),
+    soundRules: z.array(z.string().trim().min(1)),
+    videoModelRules: z.array(z.string().trim().min(1)),
+    blockContinuityRules: z.array(z.string().trim().min(1)),
   }).passthrough(),
 })
 

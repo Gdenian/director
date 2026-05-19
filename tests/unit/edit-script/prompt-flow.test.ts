@@ -149,6 +149,11 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPromptBible).toContain('必须优先遵守')
     expect(videoPromptBible).toContain('用户没有明确要求')
     expect(videoPromptBible).toContain('自动识别最合适的统一风格')
+    expect(videoPromptBible).toContain('风格转换标准')
+    expect(videoPromptBible).toContain('styleReferenceInterpretation')
+    expect(videoPromptBible).toContain('imageFilterPrompt')
+    expect(videoPromptBible).toContain('柔焦镜头，高光溢出，低对比度')
+    expect(videoPromptBible).toContain('春夏秋冬又一春')
 
     const videoPromptBlock = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
@@ -168,6 +173,14 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPromptBlock).toContain('只为当前 videoBlock 生成视频提示词')
     expect(videoPromptBlock).toContain('user_request 或 videoPromptBible.userDirectedStyle')
     expect(videoPromptBlock).toContain('最高优先级')
+    expect(videoPromptBlock).toContain('每个 shots[].videoPrompt 必须显式写入可执行风格')
+    expect(videoPromptBlock).toContain('videoPromptBible.styleReferenceInterpretation.imageFilterPrompt')
+    expect(videoPromptBlock).toContain('画面滤镜')
+    expect(videoPromptBlock).toContain('videoBlock.prompt')
+    expect(videoPromptBlock).toContain('[00:00-00:03] 镜头1')
+    expect(videoPromptBlock).toContain('sound effects only')
+    expect(videoPromptBlock).toContain('不要生成 BGM')
+    expect(videoPromptBlock).toContain('优秀 videoBlock.prompt 示例')
 
     const englishPrimaryPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
