@@ -694,5 +694,52 @@
         }
       }
     }
+  },
+  "gridOverlayLab": {
+    "eyebrow": "坐标覆盖测试",
+    "title": "网格渲染测试页",
+    "description": "对比不同坐标覆盖图样式在白底、黑底、复杂背景和上传图片上的可读性。目标是选出 Vision 模型最容易识别坐标、轴线和单元编号的样式。",
+    "currentGrid": "当前网格：{columns} × {rows}",
+    "columns": "列数",
+    "rows": "行数",
+    "upload": "上传任意测试图片",
+    "selected": "已选",
+    "select": "选择",
+    "selectedVariant": "当前候选",
+    "copySvg": "复制 SVG",
+    "backgrounds": {
+      "white": "纯白",
+      "black": "纯黑",
+      "gradient": "强明暗混合",
+      "checker": "黑白棋盘",
+      "photo": "复杂照片感",
+      "upload": "上传图片"
+    },
+    "variants": {
+      "current": {
+        "title": "当前方案",
+        "description": "蓝色细网格加深色中心坐标。用于对照，复杂或暗背景下识别风险较高。"
+      },
+      "halo_dual_line": {
+        "title": "高对比描边网格",
+        "description": "白色粗描边、黑色中线、蓝色细线叠加，坐标文字带黑色描边。黑白底和复杂图上都更稳定。"
+      },
+      "inverse_plate_labels": {
+        "title": "坐标白底徽章",
+        "description": "每个单元中心用白色底牌承载坐标，橙色网格辅助定位。适合模型准确读取坐标编号。"
+      },
+      "axis_ruler": {
+        "title": "边缘坐标尺",
+        "description": "顶部和左侧增加强对比轴标，减少画面中心文字干扰。适合让模型先读列、行再推断单元。"
+      },
+      "cell_badges": {
+        "title": "粉色网格 + 中心徽章",
+        "description": "高亮网格线和中心徽章同时存在，适合复杂照片，但会更遮挡底图内容。"
+      },
+      "vision_blocks": {
+        "title": "Vision 优先粗标记",
+        "description": "粗黑白黄三层线、中心点和 X/Y 标签，牺牲美观换取模型识别率。适合生产调试兜底。"
+      }
+    }
   }
 }

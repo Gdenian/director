@@ -694,5 +694,52 @@
         }
       }
     }
+  },
+  "gridOverlayLab": {
+    "eyebrow": "Coordinate Overlay Test",
+    "title": "Grid Overlay Lab",
+    "description": "Compare coordinate overlay styles on white, black, mixed, photo-like, and uploaded backgrounds. The goal is to pick the style that Vision models can read most reliably.",
+    "currentGrid": "Current grid: {columns} × {rows}",
+    "columns": "Columns",
+    "rows": "Rows",
+    "upload": "Upload any test image",
+    "selected": "Selected",
+    "select": "Select",
+    "selectedVariant": "Selected Candidate",
+    "copySvg": "Copy SVG",
+    "backgrounds": {
+      "white": "White",
+      "black": "Black",
+      "gradient": "Mixed contrast",
+      "checker": "Checkerboard",
+      "photo": "Photo-like",
+      "upload": "Upload"
+    },
+    "variants": {
+      "current": {
+        "title": "Current Style",
+        "description": "Thin blue grid with dark center labels. Included as a baseline; it is weaker on dark or complex images."
+      },
+      "halo_dual_line": {
+        "title": "High-Contrast Halo Grid",
+        "description": "White halo, black midline, cyan inner line, and outlined coordinate text. More robust on black, white, and complex images."
+      },
+      "inverse_plate_labels": {
+        "title": "Coordinate Plate Labels",
+        "description": "Each cell has a white coordinate plate with an orange grid. Optimized for accurate coordinate reading."
+      },
+      "axis_ruler": {
+        "title": "Edge Axis Ruler",
+        "description": "Strong top and left axis labels reduce center clutter and let the model infer cells by column and row."
+      },
+      "cell_badges": {
+        "title": "Magenta Grid With Badges",
+        "description": "Bright grid lines plus center badges. Good for complex photos, but it covers more of the floor plan."
+      },
+      "vision_blocks": {
+        "title": "Vision-First Heavy Markers",
+        "description": "Thick black, white, and yellow markers with X/Y labels. Less pretty, but designed as a recognition fallback."
+      }
+    }
   }
 }
