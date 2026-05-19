@@ -153,36 +153,58 @@ async function resolveAssetPreview(requirement: EditAssetRequirement): Promise<s
   return location?.images[0]?.imageUrl ?? null
 }
 
-async function buildAssetSnapshots(requirements: readonly EditAssetRequirement[]): Promise<StoryboardConsistencyAssetSnapshot[]> {
+export async function buildAssetSnapshots(requirements: readonly EditAssetRequirement[]): Promise<StoryboardConsistencyAssetSnapshot[]> {
   if (requirements.length === 0) {
     throw new ApiError('CONFLICT', {
       code: 'EDIT_SCRIPT_ASSETS_REQUIRED',
       message: 'Completed edit-script assets are required before coordinate storyboard generation',
     })
   }
-  const notReady = requirements.filter((requirement) => (
-    requirement.status !== 'completed' || !requirement.targetId
-  ))
+  const snapshots = await Promise.all(requirements.map(async (requirement) => {
+    if (!requirement.id || !requirement.targetId) {
+      return {
+        requirement,
+        snapshot: null,
+      }
+    }
+    const previewImageUrl = await resolveAssetPreview(requirement)
+    return {
+      requirement,
+      snapshot: previewImageUrl
+        ? {
+            requirementId: requirement.id,
+            kind: requirement.kind,
+            name: requirement.name,
+            description: requirement.description,
+            shotNumbers: requirement.shotNumbers,
+            targetId: requirement.targetId,
+            previewImageUrl,
+          }
+        : null,
+    }
+  }))
+  const notReady = snapshots
+    .filter((item) => item.snapshot === null)
+    .map((item) => item.requirement)
   if (notReady.length > 0) {
     throw new ApiError('CONFLICT', {
       code: 'EDIT_SCRIPT_ASSETS_NOT_READY',
       message: `Edit script assets must be completed before coordinate storyboard generation: ${notReady.map((item) => item.name).join(', ')}`,
     })
   }
-  return await Promise.all(requirements.map(async (requirement) => {
-    if (!requirement.id || !requirement.targetId) {
-      throw new Error(`EDIT_SCRIPT_STORYBOARD_ASSET_INVALID:${requirement.name}`)
-    }
-    return {
-      requirementId: requirement.id,
-      kind: requirement.kind,
-      name: requirement.name,
-      description: requirement.description,
-      shotNumbers: requirement.shotNumbers,
-      targetId: requirement.targetId,
-      previewImageUrl: await resolveAssetPreview(requirement),
-    }
-  }))
+  const staleRequirementIds = snapshots
+    .filter((item) => item.snapshot !== null && item.requirement.status !== 'completed')
+    .flatMap((item) => (item.requirement.id ? [item.requirement.id] : []))
+  if (staleRequirementIds.length > 0) {
+    await prisma.projectEditAssetRequirement.updateMany({
+      where: { id: { in: staleRequirementIds } },
+      data: { status: 'completed', errorMessage: null },
+    })
+  }
+  return snapshots.map((item) => {
+    if (!item.snapshot) throw new Error(`EDIT_SCRIPT_STORYBOARD_ASSET_INVALID:${item.requirement.name}`)
+    return item.snapshot
+  })
 }
 
 export async function buildStoryboardConsistencySource(input: {

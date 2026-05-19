@@ -969,6 +969,8 @@ export function buildWorkspaceNodeCanvasProjection({
   const nodes: WorkspaceCanvasFlowNode[] = []
   const edges: WorkspaceCanvasFlowEdge[] = []
   let zIndex = 0
+  let editScriptCanvasRightX: number | null = null
+  let editScriptCanvasCenterY: number | null = null
 
   const storyBody = storyText.trim()
   const hasStory = storyBody.length > 0
@@ -1063,6 +1065,8 @@ export function buildWorkspaceNodeCanvasProjection({
     const editScriptHeight = editScriptIsGenerating && !editScriptHasRows
       ? 520
       : estimateEditScriptNodeHeight(editScript)
+    editScriptCanvasRightX = STORY_COLUMN_X + EDIT_SCRIPT_TABLE_NODE_WIDTH
+    editScriptCanvasCenterY = editScriptFallbackY + editScriptHeight / 2
     const assetsToGenerate = editScript.requirements.some((asset) => asset.status !== 'completed')
     const completedAssets = editScript.requirements.filter((asset) => asset.status === 'completed').length
     const hasStoryboardPanels = storyboards.some((storyboard) => (storyboard.panels?.length ?? 0) > 0)
@@ -1361,8 +1365,12 @@ export function buildWorkspaceNodeCanvasProjection({
       || details.stage === 'floor_plans_ready'
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
-      fallbackY: shotGridBaseY + index * (SPACE_CONSISTENCY_NODE_HEIGHT + 92),
+      fallbackX: editScriptCanvasRightX !== null
+        ? editScriptCanvasRightX + 72
+        : PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackY: (editScriptCanvasCenterY !== null
+        ? editScriptCanvasCenterY - SPACE_CONSISTENCY_NODE_HEIGHT / 2
+        : shotGridBaseY) + index * (SPACE_CONSISTENCY_NODE_HEIGHT + 92),
       zIndex: zIndex++,
       savedLayoutByKey,
       data: {
@@ -1411,8 +1419,12 @@ export function buildWorkspaceNodeCanvasProjection({
     const nodeId = `space-consistency:edit-script:${editScript.id}`
     nodes.push(createNode({
       id: nodeId,
-      fallbackX: PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
-      fallbackY: shotGridBaseY,
+      fallbackX: editScriptCanvasRightX !== null
+        ? editScriptCanvasRightX + 72
+        : PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackY: editScriptCanvasCenterY !== null
+        ? editScriptCanvasCenterY - SPACE_CONSISTENCY_NODE_HEIGHT / 2
+        : shotGridBaseY,
       zIndex: zIndex++,
       savedLayoutByKey,
       data: {
