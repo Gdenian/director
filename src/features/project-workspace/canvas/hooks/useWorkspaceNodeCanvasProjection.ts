@@ -1314,13 +1314,14 @@ export function buildWorkspaceNodeCanvasProjection({
   const panelsWithStoryboard = sortedStoryboards(storyboards, clipOrder).flatMap((storyboard) => (
     sortPanels(storyboard.panels ?? []).map((panel) => ({ storyboard, panel }))
   ))
+  const hasStoryboardPanels = panelsWithStoryboard.length > 0
   const panelByShotNumberForVideoPlan = new Map<number, ProjectPanel>()
   panelsWithStoryboard.forEach(({ panel }) => {
     const shotNumber = panel.panelNumber ?? panel.panelIndex + 1
     panelByShotNumberForVideoPlan.set(shotNumber, panel)
   })
   const hasVideoBlocks = editScript?.status === 'ready' && Boolean(editScript.videoBlocks?.length)
-  const canShowVideoPlanLayer = hasVideoBlocks
+  const canShowVideoPlanLayer = hasVideoBlocks && hasStoryboardPanels
   const panelGridRows = Math.max(1, Math.ceil(panelsWithStoryboard.length / PANEL_GRID_COLUMNS))
   const shotPreviewByPanelId = new Map<string, { aspectRatio: number | null; height: number; nodeHeight: number }>()
   panelsWithStoryboard.forEach(({ panel }) => {
@@ -1400,6 +1401,48 @@ export function buildWorkspaceNodeCanvasProjection({
       edges.push(createEdge(`edge:space-consistency-source:${storyboard.id}`, sourceNodeId, nodeId))
     }
   })
+  if (editScript?.status === 'ready' && hasVideoBlocks && !hasStoryboardPanels && !storyboards.some(storyboardUsesGridConsistency)) {
+    const assetsGenerating = editScript.requirements.some((asset) => asset.status === 'generating')
+    const assetsReady = editScript.requirements.length > 0
+      && editScript.requirements.every((asset) => asset.status === 'completed' && Boolean(asset.targetId))
+    const action = assetsReady
+      ? { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
+      : { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
+    const nodeId = `space-consistency:edit-script:${editScript.id}`
+    nodes.push(createNode({
+      id: nodeId,
+      fallbackX: PANEL_GRID_BASE_X - SPACE_CONSISTENCY_NODE_WIDTH - 90,
+      fallbackY: shotGridBaseY,
+      zIndex: zIndex++,
+      savedLayoutByKey,
+      data: {
+        kind: 'spaceConsistency',
+        layoutNodeType: 'spaceConsistency',
+        targetType: 'editScript',
+        targetId: editScript.id,
+        title: translate('nodes.spaceConsistency.title'),
+        eyebrow: translate('nodes.spaceConsistency.eyebrow'),
+        body: translate('nodes.spaceConsistency.body'),
+        meta: translate('nodes.spaceConsistency.meta', {
+          floorPlans: 0,
+          overlays: 0,
+          blocks: 0,
+        }),
+        statusLabel: assetsGenerating ? translate('status.processing') : translate('status.pending'),
+        isRunning: assetsGenerating,
+        width: SPACE_CONSISTENCY_NODE_WIDTH,
+        height: SPACE_CONSISTENCY_NODE_HEIGHT,
+        indexLabel: 'G',
+        previewImageUrl: null,
+        previewAspectRatio: 16 / 9,
+        actionLabel: action.label,
+        action: action.action,
+        actionDisabled: assetsGenerating,
+        onAction,
+      },
+    }))
+    edges.push(createEdge(`edge:edit-script-space-consistency:${editScript.id}`, `edit-script:${editScript.id}`, nodeId))
+  }
   panelsWithStoryboard.forEach(({ storyboard, panel }, index) => {
     const nodeId = `shot:${panel.id}`
     shotNodeIds.set(panel.id, nodeId)

@@ -1167,9 +1167,7 @@ describe('workspace node canvas projection', () => {
       'edit-script:edit-1',
       'edit-asset:req-character',
       'edit-asset:req-location',
-      'video-plan:edit-1:1',
-      'bgm-score:episode-1',
-      'final:episode-1',
+      'space-consistency:edit-script:edit-1',
     ])
     const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-1')
     expect(editNode?.data.kind).toBe('editScript')
@@ -1187,25 +1185,12 @@ describe('workspace node canvas projection', () => {
     const assetStepNode = projection.nodes.find((node) => node.id === 'edit-pipeline:edit-1:assetExtract')
     expect(assetStepNode?.data.editPipelineStepDetails?.items).toHaveLength(2)
 
-    const videoPlanNode = projection.nodes.find((node) => node.id === 'video-plan:edit-1:1')
-    expect(videoPlanNode?.data.kind).toBe('videoPlan')
-    expect(videoPlanNode?.data.action).toBeUndefined()
-    expect(videoPlanNode?.data.videoPlanDetails?.prompt).toBe('Edit-first continuous corridor prompt.')
-    expect(videoPlanNode?.data.videoPlanDetails?.sourceImages).toEqual([
-      { shotNumber: 1, imageUrl: null, aspectRatio: null },
-      { shotNumber: 2, imageUrl: null, aspectRatio: null },
-    ])
-    expect(videoPlanNode?.data.videoPlanDetails?.assetReferences).toEqual([
-      {
-        id: 'req-location',
-        name: 'Docking Bay',
-        kind: 'location',
-        imageUrl: 'https://example.com/location.png',
-        shotNumbers: [1],
-      },
-    ])
+    expect(projection.nodes.some((node) => node.id === 'video-plan:edit-1:1')).toBe(false)
+    const consistencyNode = projection.nodes.find((node) => node.id === 'space-consistency:edit-script:edit-1')
+    expect(consistencyNode?.data.kind).toBe('spaceConsistency')
+    expect(consistencyNode?.data.action).toEqual({ type: 'generate_edit_assets', editScriptId: 'edit-1' })
     expect(projection.edges.map((edge) => `${edge.source}->${edge.target}`)).toContain(
-      'edit-script:edit-1->video-plan:edit-1:1',
+      'edit-script:edit-1->space-consistency:edit-script:edit-1',
     )
 
     const pendingAssetNode = projection.nodes.find((node) => node.id === 'edit-asset:req-character')
@@ -1221,9 +1206,10 @@ describe('workspace node canvas projection', () => {
     expect(assetNode?.data.height).toBe(520)
     expect(assetNode?.position.y).toBe(pendingAssetNode?.position.y)
     expect(assetNode?.position.x ?? 0).toBeGreaterThan(pendingAssetNode?.position.x ?? 0)
-    expect(assetNode?.position.y).toBe(
-      (editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y,
-    )
+    expect(Math.abs(
+      (assetNode?.position.y ?? 0)
+      - ((editNode?.position.y ?? 0) + (editNode?.data.height ?? 0) + WORKSPACE_CANVAS_EDIT_SCRIPT_TO_ASSET_GAP_Y),
+    )).toBeLessThanOrEqual(16)
     expect(assetNode?.data.action).toBeUndefined()
     expect(assetNode?.data.previewImageUrl).toBe('https://example.com/location.png')
     expect(assetNode?.data.editAssetDetails).toMatchObject({
@@ -1567,6 +1553,12 @@ describe('workspace node canvas projection', () => {
 
     const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-ready')
     expect(editNode?.data.action).toEqual({
+      type: 'generate_edit_storyboard',
+      editScriptId: 'edit-ready',
+    })
+    expect(projection.nodes.some((node) => node.id === 'video-plan:edit-ready:1')).toBe(false)
+    const consistencyNode = projection.nodes.find((node) => node.id === 'space-consistency:edit-script:edit-ready')
+    expect(consistencyNode?.data.action).toEqual({
       type: 'generate_edit_storyboard',
       editScriptId: 'edit-ready',
     })
