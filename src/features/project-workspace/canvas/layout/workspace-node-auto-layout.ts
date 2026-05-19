@@ -115,9 +115,11 @@ export function repairWorkspaceNodeOverlaps(
   nodes: readonly WorkspaceCanvasFlowNode[],
   options?: {
     readonly gap?: number
+    readonly preservedNodeIds?: ReadonlySet<string>
   },
 ): WorkspaceCanvasFlowNode[] {
   const gap = options?.gap ?? DEFAULT_NODE_GAP
+  const preservedNodeIds = options?.preservedNodeIds ?? new Set<string>()
   const rects = nodes
     .map(nodeRect)
     .sort((left, right) => {
@@ -130,7 +132,7 @@ export function repairWorkspaceNodeOverlaps(
   const repairedYById = new Map<string, number>()
 
   for (const rect of rects) {
-    const y = nextAvailableY(rect, placed, gap)
+    const y = preservedNodeIds.has(rect.id) ? rect.y : nextAvailableY(rect, placed, gap)
     const repaired = { ...rect, y }
     placed.push(repaired)
     repairedYById.set(rect.id, y)

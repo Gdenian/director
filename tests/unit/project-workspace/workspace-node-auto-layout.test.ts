@@ -3,6 +3,7 @@ import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canva
 import {
   alignSpaceConsistencyNodesToMeasuredEditScript,
   avoidExpandedSpaceConsistencyLaneOverlaps,
+  repairWorkspaceNodeOverlaps,
   repairWorkspaceNodeOverlapsNearMovedNodes,
   workspaceCanvasNodesOverlap,
 } from '@/features/project-workspace/canvas/layout/workspace-node-auto-layout'
@@ -164,6 +165,44 @@ describe('workspace node auto layout', () => {
 
     expect(alignedSpaceConsistency?.position).toEqual({ x: 1200, y: 1800 })
     expect(shot.position).toEqual({ x: 2200, y: 600 })
+  })
+
+  it('keeps an expanded space consistency anchor fixed during global overlap repair', () => {
+    const earlierNeighbor = createNode({
+      id: 'neighbor:earlier',
+      kind: 'shot',
+      x: 100,
+      y: 80,
+      width: 420,
+      height: 560,
+    })
+    const spaceConsistency = createNode({
+      id: 'space-consistency:expanded',
+      kind: 'spaceConsistency',
+      x: 100,
+      y: 120,
+      width: 760,
+      height: 820,
+      expanded: true,
+    })
+    const laterNeighbor = createNode({
+      id: 'neighbor:later',
+      kind: 'shot',
+      x: 100,
+      y: 160,
+      width: 420,
+      height: 560,
+    })
+
+    const repaired = repairWorkspaceNodeOverlaps(
+      [earlierNeighbor, spaceConsistency, laterNeighbor],
+      { preservedNodeIds: new Set([spaceConsistency.id]) },
+    )
+    const repairedSpaceConsistency = repaired.find((node) => node.id === spaceConsistency.id)
+    const repairedLaterNeighbor = repaired.find((node) => node.id === laterNeighbor.id)
+
+    expect(repairedSpaceConsistency?.position).toEqual({ x: 100, y: 120 })
+    expect(repairedLaterNeighbor?.position.y).toBeGreaterThan(spaceConsistency.position.y + spaceConsistency.data.height)
   })
 
   it('moves the right content lane as one group when space consistency expands into it', () => {

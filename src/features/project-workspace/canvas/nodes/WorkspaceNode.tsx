@@ -1675,7 +1675,11 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
                     <button
                       type="button"
                       className="nodrag inline-flex items-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[var(--glass-text-secondary)] transition hover:bg-slate-50"
-                      onClick={() => data.nodeId ? data.onToggleExpanded?.(data.nodeId) : undefined}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.currentTarget.blur()
+                        if (data.nodeId) data.onToggleExpanded?.(data.nodeId)
+                      }}
                     >
                       {expanded ? labels('collapseDetails') : labels('expandDetails')}
                     </button>
