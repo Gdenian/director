@@ -171,7 +171,6 @@ const ROUTE_FILES = [
   'src/app/api/user/costs/details/route.ts',
   'src/app/api/user/costs/route.ts',
   'src/app/api/user/ai-story-expand/route.ts',
-  'src/app/api/user/edge-ruler-vision-test/route.ts',
   'src/app/api/user/models/route.ts',
   'src/app/api/user/style-presets/[presetId]/route.ts',
   'src/app/api/user/style-presets/design/route.ts',

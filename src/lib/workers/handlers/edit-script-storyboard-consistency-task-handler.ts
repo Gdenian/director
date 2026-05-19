@@ -32,6 +32,7 @@ import {
   upsertEditScriptStoryboardShell,
   upsertStoryboardPanelsFromPrompts,
 } from '@/lib/edit-script/storyboard-consistency/persistence'
+import { buildCoordinateGridOverlaySvgBuffer } from '@/lib/edit-script/storyboard-consistency/grid-overlay-svg'
 
 type StoryboardWithArtifacts = NonNullable<Awaited<ReturnType<typeof loadStoryboardWithArtifacts>>>
 type BlockingArtifactRecord = StoryboardWithArtifacts['blockingArtifacts'][number]
@@ -223,37 +224,6 @@ function readGridMetadata(artifact: BlockingArtifactRecord): {
   return { columns, rows }
 }
 
-function buildGridOverlaySvg(params: {
-  readonly width: number
-  readonly height: number
-  readonly columns: number
-  readonly rows: number
-}) {
-  const vertical = Array.from({ length: params.columns + 1 }, (_, index) => {
-    const x = Math.round(index * params.width / params.columns)
-    return `<line x1="${x}" y1="0" x2="${x}" y2="${params.height}" stroke="rgba(14,165,233,0.7)" stroke-width="2"/>`
-  }).join('')
-  const horizontal = Array.from({ length: params.rows + 1 }, (_, index) => {
-    const y = Math.round(index * params.height / params.rows)
-    return `<line x1="0" y1="${y}" x2="${params.width}" y2="${y}" stroke="rgba(14,165,233,0.7)" stroke-width="2"/>`
-  }).join('')
-  const labels = Array.from({ length: params.columns }, (_, xIndex) => (
-    Array.from({ length: params.rows }, (_, yIndex) => {
-      const x = Math.round((xIndex + 0.5) * params.width / params.columns)
-      const y = Math.round((yIndex + 0.5) * params.height / params.rows)
-      return `<text x="${x}" y="${y}" fill="rgba(2,6,23,0.86)" font-size="18" font-family="Arial" text-anchor="middle" dominant-baseline="middle">${xIndex + 1},${yIndex + 1}</text>`
-    }).join('')
-  )).join('')
-  return Buffer.from([
-    `<svg width="${params.width}" height="${params.height}" viewBox="0 0 ${params.width} ${params.height}" xmlns="http://www.w3.org/2000/svg">`,
-    '<rect width="100%" height="100%" fill="rgba(255,255,255,0.08)"/>',
-    vertical,
-    horizontal,
-    labels,
-    '</svg>',
-  ].join(''))
-}
-
 async function persistArtifactImage(params: {
   readonly artifact: BlockingArtifactRecord
   readonly storageKey: string
@@ -289,7 +259,7 @@ async function createGridOverlayArtifact(params: {
   const grid = readGridMetadata(params.floorPlan)
   const overlay = await sharp(buffer)
     .composite([{
-      input: buildGridOverlaySvg({
+      input: buildCoordinateGridOverlaySvgBuffer({
         width,
         height,
         columns: grid.columns,
