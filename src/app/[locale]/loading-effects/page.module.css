@@ -92,9 +92,9 @@
   --flow-length: 76px;
   --flow-opacity: 0.88;
   --flow-speed: 1.9s;
-  --flow-thickness: 1px;
+  --flow-thickness: 2px;
   --flow-track: rgba(255, 255, 255, 0.1);
-  --flow-easing: cubic-bezier(0.55, 0, 0.25, 1);
+  --flow-easing: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .longEdgeFlow {
@@ -130,19 +130,53 @@
 
 .flowTrace {
   position: absolute;
-  left: 0;
-  top: 0;
   display: block;
   height: var(--flow-thickness);
   width: var(--flow-length);
-  opacity: var(--flow-opacity);
+  opacity: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #ffffff 46%, #ffffff 54%, transparent);
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.18));
-  offset-anchor: 50% 50%;
-  offset-path: inset(0 round 12px);
-  offset-rotate: auto;
-  animation: loadingEffectsBorderCurve var(--flow-speed) var(--flow-easing) infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.92) 46%, #ffffff 54%, transparent);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.22));
+  animation-duration: var(--flow-speed);
+  animation-iteration-count: infinite;
+  animation-timing-function: var(--flow-easing);
+}
+
+.flowTop,
+.flowBottom {
+  height: var(--flow-thickness);
+  width: var(--flow-length);
+}
+
+.flowRight,
+.flowLeft {
+  height: var(--flow-length);
+  width: var(--flow-thickness);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.92) 46%, #ffffff 54%, transparent);
+}
+
+.flowTop {
+  top: 0;
+  left: 0;
+  animation-name: loadingEffectsFlowTop;
+}
+
+.flowRight {
+  top: 0;
+  right: 0;
+  animation-name: loadingEffectsFlowRight;
+}
+
+.flowBottom {
+  right: 0;
+  bottom: 0;
+  animation-name: loadingEffectsFlowBottom;
+}
+
+.flowLeft {
+  bottom: 0;
+  left: 0;
+  animation-name: loadingEffectsFlowLeft;
 }
 
 .flowSecondary {
@@ -158,13 +192,77 @@
   animation-delay: calc(var(--flow-speed) / -2);
 }
 
-@keyframes loadingEffectsBorderCurve {
-  from {
-    offset-distance: 0%;
+@keyframes loadingEffectsFlowTop {
+  0% {
+    left: calc(var(--flow-length) * -0.28);
+    opacity: 0;
   }
 
-  to {
-    offset-distance: 100%;
+  4%,
+  27% {
+    opacity: var(--flow-opacity);
+  }
+
+  31%,
+  100% {
+    left: calc(100% - var(--flow-length) * 0.72);
+    opacity: 0;
+  }
+}
+
+@keyframes loadingEffectsFlowRight {
+  0%,
+  22% {
+    top: calc(var(--flow-length) * -0.28);
+    opacity: 0;
+  }
+
+  27%,
+  52% {
+    opacity: var(--flow-opacity);
+  }
+
+  56%,
+  100% {
+    top: calc(100% - var(--flow-length) * 0.72);
+    opacity: 0;
+  }
+}
+
+@keyframes loadingEffectsFlowBottom {
+  0%,
+  47% {
+    right: calc(var(--flow-length) * -0.28);
+    opacity: 0;
+  }
+
+  52%,
+  77% {
+    opacity: var(--flow-opacity);
+  }
+
+  81%,
+  100% {
+    right: calc(100% - var(--flow-length) * 0.72);
+    opacity: 0;
+  }
+}
+
+@keyframes loadingEffectsFlowLeft {
+  0%,
+  72% {
+    bottom: calc(var(--flow-length) * -0.28);
+    opacity: 0;
+  }
+
+  77%,
+  96% {
+    opacity: var(--flow-opacity);
+  }
+
+  100% {
+    bottom: calc(100% - var(--flow-length) * 0.72);
+    opacity: 0;
   }
 }
 
