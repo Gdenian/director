@@ -112,7 +112,7 @@ function variantBody(input: GridOverlayPreviewInput): string {
         lineElements(input, '#ffffff', 7, 0.94),
         lineElements(input, '#020617', 4, 0.9),
         lineElements(input, '#38bdf8', 2, 1),
-        cellLabels(input, { fill: '#ffffff', stroke: '#020617', strokeWidth: 5, fontSize: 20 }),
+        cellLabels(input, { fill: '#ffffff', stroke: '#020617', strokeWidth: 3, fontSize: 14 }),
       ].join('')
     case 'inverse_plate_labels':
       return [
