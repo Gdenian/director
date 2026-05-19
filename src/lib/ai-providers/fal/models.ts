@@ -18,15 +18,6 @@ export const FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID = 'alibaba/happy-horse/imag
 export const FAL_SEEDANCE_2_VIDEO_MODEL_ID = 'bytedance/seedance-2.0'
 export const FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID = 'bytedance/seedance-2.0/fast'
 export const FAL_IMAGE_RESOLUTIONS = ['1K', '2K', '4K'] as const
-export const FAL_GPT_IMAGE_2_IMAGE_SIZES = [
-  'auto',
-  'square_hd',
-  'square',
-  'portrait_4_3',
-  'portrait_16_9',
-  'landscape_4_3',
-  'landscape_16_9',
-] as const
 
 export const FAL_VIDEO_MODEL_IDS = new Set([
   'fal-wan25',
@@ -50,7 +41,7 @@ export const FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES = [
     modelType: 'image',
     provider: 'fal',
     modelId: FAL_GPT_IMAGE_2_MODEL_ID,
-    capabilities: { image: { resolutionOptions: [...FAL_GPT_IMAGE_2_IMAGE_SIZES] } },
+    capabilities: { image: { resolutionOptions: [...FAL_IMAGE_RESOLUTIONS] } },
   },
   {
     modelType: 'video',
@@ -253,7 +244,8 @@ export function resolveFalOptionSchema(modality: MediaModality, modelId: string)
     if (modelId === FAL_GPT_IMAGE_2_MODEL_ID) {
       return buildMediaOptionSchema('image', {
         validators: {
-          resolution: enumValidator(FAL_GPT_IMAGE_2_IMAGE_SIZES),
+          size: enumValidator(FAL_IMAGE_RESOLUTIONS),
+          resolution: enumValidator(FAL_IMAGE_RESOLUTIONS),
           outputFormat: enumValidator(OPENAI_IMAGE_OUTPUT_FORMATS),
           quality: enumValidator(OPENAI_OFFICIAL_IMAGE_QUALITIES),
         },

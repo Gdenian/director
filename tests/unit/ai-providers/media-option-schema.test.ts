@@ -103,16 +103,16 @@ describe('media adapter option schema', () => {
     expect(() => validateDescriptorOptions({
       schema: descriptor!.optionSchema,
       options: {
-        resolution: 'landscape_16_9',
+        resolution: '2K',
         quality: 'medium',
         outputFormat: 'webp',
       },
     })).not.toThrow()
     expect(() => validateDescriptorOptions({
       schema: descriptor!.optionSchema,
-      options: { resolution: '4K' },
+      options: { resolution: 'landscape_16_9' },
       context: 'fal-gpt-image-2',
-    })).toThrow('AI_OPTION_INVALID:fal-gpt-image-2:resolution:unsupported_value=4K')
+    })).toThrow('AI_OPTION_INVALID:fal-gpt-image-2:resolution:unsupported_value=landscape_16_9')
     expect(() => validateDescriptorOptions({
       schema: descriptor!.optionSchema,
       options: { quality: 'standard' },

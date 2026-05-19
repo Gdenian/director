@@ -63,7 +63,7 @@ describe('fal image generation', () => {
       prompt: 'draw a poster',
       num_images: 1,
       output_format: 'webp',
-      image_size: 'portrait_16_9',
+      image_size: { width: 608, height: 1088 },
       quality: 'medium',
     })
     expect(result).toMatchObject({
@@ -75,7 +75,7 @@ describe('fal image generation', () => {
     })
   })
 
-  it('uses the requested project aspect ratio for GPT Image 2 edits even when resolution is auto', async () => {
+  it('uses the requested project aspect ratio and resolution for GPT Image 2 edits', async () => {
     await executeFalImageGeneration({
       userId: 'user-1',
       selection: {
@@ -88,7 +88,7 @@ describe('fal image generation', () => {
       options: {
         referenceImages: ['https://example.com/input.png'],
         aspectRatio: '16:9',
-        resolution: 'auto',
+        resolution: '4K',
       },
     })
 
@@ -100,7 +100,7 @@ describe('fal image generation', () => {
       prompt: 'change the jacket color',
       num_images: 1,
       output_format: 'png',
-      image_size: 'landscape_16_9',
+      image_size: { width: 3840, height: 2160 },
       image_urls: ['data:image/png;base64,normalized-aHR0cHM6Ly9leGFtcGxlLmNvbS9pbnB1dC5wbmc='],
     })
   })
@@ -124,7 +124,24 @@ describe('fal image generation', () => {
       prompt: 'draw a character sheet',
       num_images: 1,
       output_format: 'png',
-      image_size: { width: 1536, height: 1024 },
+      image_size: { width: 1024, height: 688 },
     })
+  })
+
+  it('rejects legacy GPT Image 2 size presets as resolution values', async () => {
+    await expect(executeFalImageGeneration({
+      userId: 'user-1',
+      selection: {
+        provider: 'fal',
+        modelId: 'gpt-image-2',
+        modelKey: 'fal::gpt-image-2',
+        variantSubKind: 'official',
+      },
+      prompt: 'draw a poster',
+      options: {
+        aspectRatio: '16:9',
+        resolution: 'landscape_16_9',
+      },
+    })).rejects.toThrow('FAL_IMAGE_OPTION_VALUE_UNSUPPORTED: resolution=landscape_16_9')
   })
 })

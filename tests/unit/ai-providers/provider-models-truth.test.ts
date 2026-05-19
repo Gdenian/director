@@ -189,7 +189,7 @@ describe('provider models truth', () => {
     expect(ARK_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'doubao-seedance-2-0-260128')?.capabilities?.video?.resolutionOptions).toEqual(['480p', '720p'])
     expect(BAILIAN_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'wan2.7-i2v')?.capabilities?.video?.generationModeOptions).toEqual(['normal', 'firstlastframe'])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'banana-2')?.capabilities?.image?.resolutionOptions).toEqual(['1K', '2K', '4K'])
-    expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gpt-image-2')?.capabilities?.image?.resolutionOptions).toContain('landscape_16_9')
+    expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'gpt-image-2')?.capabilities?.image?.resolutionOptions).toEqual(['1K', '2K', '4K'])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'alibaba/happy-horse/image-to-video')?.capabilities?.video?.resolutionOptions).toEqual(['720p', '1080p'])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'bytedance/seedance-2.0')?.capabilities?.video?.generateAudioOptions).toEqual([true, false])
     expect(FAL_BUILTIN_CAPABILITY_CATALOG_ENTRIES.find((entry) => entry.modelId === 'bytedance/seedance-2.0/fast')?.capabilities?.video?.resolutionOptions).toEqual(['480p', '720p'])
@@ -329,7 +329,7 @@ describe('provider models truth', () => {
     }))
     expect(falGptImage).toBeDefined()
     expectValidOptions(falGptImage!.optionSchema, {
-      resolution: 'portrait_16_9',
+      resolution: '2K',
       outputFormat: 'png',
       quality: 'high',
     }, 'fal-gpt-image-2')

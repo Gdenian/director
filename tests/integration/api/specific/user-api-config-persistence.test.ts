@@ -113,7 +113,7 @@ describe('api specific - user api-config persistence', () => {
       && model.modelId === 'gpt-image-2'
       && model.type === 'image'
       && model.name === 'GPT Image 2'
-      && model.capabilities?.image?.resolutionOptions?.includes('landscape_16_9') === true
+      && model.capabilities?.image?.resolutionOptions?.includes('4K') === true
     ))).toBe(true)
     expect(json.catalog?.models?.some((model) => (
       model.provider === 'fal'

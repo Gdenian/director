@@ -4,7 +4,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { buildFalQueueUrl } from '@/lib/ai-providers/fal/base-url'
 import { requireSelectedModelId } from '@/lib/ai-providers/shared/model-selection'
 import {
-  FAL_GPT_IMAGE_2_IMAGE_SIZES,
+  FAL_IMAGE_RESOLUTIONS,
   FAL_GPT_IMAGE_2_MODEL_ID,
 } from '@/lib/ai-providers/fal/models'
 import {
@@ -14,8 +14,8 @@ import {
 import type { AiProviderImageExecutionContext, GenerateResult } from '@/lib/ai-providers/runtime-types'
 
 type FalImageOptions = NonNullable<AiProviderImageExecutionContext['options']>
-type FalGptImage2ImageSizePreset = typeof FAL_GPT_IMAGE_2_IMAGE_SIZES[number]
-type FalGptImage2ImageSize = FalGptImage2ImageSizePreset | { width: number; height: number }
+type FalGptImage2Resolution = typeof FAL_IMAGE_RESOLUTIONS[number]
+type FalGptImage2ImageSize = { width: number; height: number }
 
 type FalImageSubmitBody = {
   prompt: string
@@ -34,9 +34,17 @@ const FAL_IMAGE_ENDPOINTS: Record<string, { base: string; edit: string }> = {
   [FAL_GPT_IMAGE_2_MODEL_ID]: { base: 'openai/gpt-image-2', edit: 'openai/gpt-image-2/edit' },
 }
 
-const FAL_GPT_IMAGE_2_IMAGE_SIZE_PRESETS = new Set<string>(FAL_GPT_IMAGE_2_IMAGE_SIZES)
+const FAL_GPT_IMAGE_2_RESOLUTIONS = new Set<string>(FAL_IMAGE_RESOLUTIONS)
 const FAL_IMAGE_OUTPUT_FORMATS = new Set<string>(OPENAI_IMAGE_OUTPUT_FORMATS)
 const FAL_GPT_IMAGE_2_QUALITIES = new Set<string>(OPENAI_OFFICIAL_IMAGE_QUALITIES)
+const FAL_GPT_IMAGE_2_MIN_PIXELS = 655_360
+const FAL_GPT_IMAGE_2_MAX_PIXELS = 8_294_400
+const FAL_GPT_IMAGE_2_MAX_EDGE = 3840
+const FAL_GPT_IMAGE_2_LONG_EDGE_BY_RESOLUTION: Record<FalGptImage2Resolution, number> = {
+  '1K': 1024,
+  '2K': 2048,
+  '4K': 3840,
+}
 
 function assertAllowedFalImageOptions(options: FalImageOptions) {
   const allowedOptionKeys = new Set([
@@ -81,39 +89,40 @@ function normalizeFalGptImage2Quality(value: unknown): string | undefined {
   return quality
 }
 
-function resolveFalGptImage2RawSize(options: FalImageOptions): string | undefined {
+function resolveFalGptImage2RawResolution(options: FalImageOptions): FalGptImage2Resolution {
   const size = readOptionalStringOption(options.size, 'size')
   const resolution = readOptionalStringOption(options.resolution, 'resolution')
   if (size && resolution && size !== resolution) {
     throw new Error('FAL_IMAGE_OPTION_CONFLICT: size and resolution must match')
   }
-  return size || resolution
-}
-
-function parseDimensionSize(value: string): { width: number; height: number } | null {
-  const match = /^(\d+)x(\d+)$/.exec(value)
-  if (!match) return null
-  const width = Number(match[1])
-  const height = Number(match[2])
-  if (!Number.isInteger(width) || !Number.isInteger(height)) return null
-  if (width <= 0 || height <= 0) return null
-  if (width % 16 !== 0 || height % 16 !== 0) {
-    throw new Error(`FAL_IMAGE_OPTION_VALUE_UNSUPPORTED: image_size=${value}`)
+  const selected = size || resolution || '1K'
+  if (!FAL_GPT_IMAGE_2_RESOLUTIONS.has(selected)) {
+    throw new Error(`FAL_IMAGE_OPTION_VALUE_UNSUPPORTED: resolution=${selected}`)
   }
-  return { width, height }
-}
-
-function normalizeFalGptImage2ImageSize(value: string): FalGptImage2ImageSize {
-  if (FAL_GPT_IMAGE_2_IMAGE_SIZE_PRESETS.has(value)) {
-    return value as FalGptImage2ImageSizePreset
-  }
-  const dimensions = parseDimensionSize(value)
-  if (dimensions) return dimensions
-  throw new Error(`FAL_IMAGE_OPTION_VALUE_UNSUPPORTED: image_size=${value}`)
+  return selected as FalGptImage2Resolution
 }
 
 function roundToMultipleOf16(value: number): number {
   return Math.max(16, Math.round(value / 16) * 16)
+}
+
+function ceilToMultipleOf16(value: number): number {
+  return Math.max(16, Math.ceil(value / 16) * 16)
+}
+
+function floorToMultipleOf16(value: number): number {
+  return Math.max(16, Math.floor(value / 16) * 16)
+}
+
+function scaleImageSizeToMultipleOf16(
+  imageSize: FalGptImage2ImageSize,
+  scale: number,
+  roundDimension: (value: number) => number,
+): FalGptImage2ImageSize {
+  return {
+    width: roundDimension(imageSize.width * scale),
+    height: roundDimension(imageSize.height * scale),
+  }
 }
 
 function readAspectRatioValue(aspectRatio: string): number {
@@ -134,36 +143,52 @@ function readAspectRatioValue(aspectRatio: string): number {
   return ratio
 }
 
-function imageSizeFromAspectRatio(aspectRatio: string): FalGptImage2ImageSize {
-  const ratio = readAspectRatioValue(aspectRatio)
-  if (Math.abs(ratio - 1) < 0.001) return 'square_hd'
-  if (Math.abs(ratio - (4 / 3)) < 0.001) return 'landscape_4_3'
-  if (Math.abs(ratio - (3 / 4)) < 0.001) return 'portrait_4_3'
-  if (Math.abs(ratio - (16 / 9)) < 0.001) return 'landscape_16_9'
-  if (Math.abs(ratio - (9 / 16)) < 0.001) return 'portrait_16_9'
-
-  if (ratio >= 1) {
-    return { width: roundToMultipleOf16(1024 * ratio), height: 1024 }
+function constrainFalGptImage2ImageSize(imageSize: FalGptImage2ImageSize): FalGptImage2ImageSize {
+  let next = imageSize
+  const maxEdge = Math.max(next.width, next.height)
+  if (maxEdge > FAL_GPT_IMAGE_2_MAX_EDGE) {
+    next = scaleImageSizeToMultipleOf16(next, FAL_GPT_IMAGE_2_MAX_EDGE / maxEdge, floorToMultipleOf16)
   }
-  return { width: 1024, height: roundToMultipleOf16(1024 / ratio) }
+
+  const pixels = next.width * next.height
+  if (pixels > FAL_GPT_IMAGE_2_MAX_PIXELS) {
+    next = scaleImageSizeToMultipleOf16(next, Math.sqrt(FAL_GPT_IMAGE_2_MAX_PIXELS / pixels), floorToMultipleOf16)
+  }
+
+  const constrainedPixels = next.width * next.height
+  if (constrainedPixels < FAL_GPT_IMAGE_2_MIN_PIXELS) {
+    next = scaleImageSizeToMultipleOf16(next, Math.sqrt(FAL_GPT_IMAGE_2_MIN_PIXELS / constrainedPixels), ceilToMultipleOf16)
+  }
+
+  return next
 }
 
-function resolveFalGptImage2ImageSize(options: FalImageOptions, hasReferenceImages: boolean): FalGptImage2ImageSize | undefined {
-  const rawSize = resolveFalGptImage2RawSize(options)
+function imageSizeFromAspectRatio(input: {
+  aspectRatio: string
+  resolution: FalGptImage2Resolution
+}): FalGptImage2ImageSize {
+  const ratio = readAspectRatioValue(input.aspectRatio)
+  const longEdge = FAL_GPT_IMAGE_2_LONG_EDGE_BY_RESOLUTION[input.resolution]
+  const rawSize = ratio >= 1
+    ? { width: longEdge, height: roundToMultipleOf16(longEdge / ratio) }
+    : { width: roundToMultipleOf16(longEdge * ratio), height: longEdge }
+
+  return constrainFalGptImage2ImageSize(rawSize)
+}
+
+function resolveFalGptImage2ImageSize(options: FalImageOptions): FalGptImage2ImageSize {
+  const resolution = resolveFalGptImage2RawResolution(options)
   const aspectRatio = readOptionalStringOption(options.aspectRatio, 'aspectRatio')
-  if (rawSize && rawSize !== 'auto') return normalizeFalGptImage2ImageSize(rawSize)
-  if (aspectRatio) return imageSizeFromAspectRatio(aspectRatio)
-  if (hasReferenceImages) {
-    return rawSize === 'auto' ? 'auto' : undefined
+  if (!aspectRatio) {
+    throw new Error('FAL_IMAGE_OPTION_REQUIRED: aspectRatio')
   }
-  return rawSize === 'auto' ? 'auto' : undefined
+  return imageSizeFromAspectRatio({ aspectRatio, resolution })
 }
 
 function buildFalImageSubmitBody(input: {
   modelId: string
   prompt: string
   options: FalImageOptions
-  hasReferenceImages: boolean
   outputFormat: string
 }): FalImageSubmitBody {
   const body: FalImageSubmitBody = {
@@ -173,9 +198,9 @@ function buildFalImageSubmitBody(input: {
   }
 
   if (input.modelId === FAL_GPT_IMAGE_2_MODEL_ID) {
-    const imageSize = resolveFalGptImage2ImageSize(input.options, input.hasReferenceImages)
+    const imageSize = resolveFalGptImage2ImageSize(input.options)
     const quality = normalizeFalGptImage2Quality(input.options.quality)
-    if (imageSize) body.image_size = imageSize
+    body.image_size = imageSize
     if (quality) body.quality = quality
     return body
   }
@@ -237,7 +262,6 @@ export async function executeFalImageGeneration(input: AiProviderImageExecutionC
     modelId,
     prompt: input.prompt,
     options,
-    hasReferenceImages,
     outputFormat,
   })
 
