@@ -117,6 +117,28 @@ export const editScriptVideoPromptSchema = z.object({
   })).min(1).max(60),
 })
 
+export const editScriptVideoPromptBibleSchema = z.object({
+  videoPromptBible: z.object({
+    strategy: z.literal('video_prompt_bible'),
+  }).passthrough(),
+})
+
+export const editScriptVideoPromptBlockSchema = z.object({
+  sourceVideoBlockIndex: z.number().int().min(0).max(59),
+  shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
+  shots: z.array(z.object({
+    shotNumber: z.number().int().positive(),
+    videoPrompt: z.string().trim().min(1),
+  })).min(1).max(9),
+  videoBlock: z.object({
+    shotNumbers: z.array(z.number().int().positive()).min(1).max(9),
+    prompt: z.string().trim().min(1),
+  }),
+})
+
+export type EditScriptVideoPromptBibleOutput = z.infer<typeof editScriptVideoPromptBibleSchema>
+export type EditScriptVideoPromptBlockOutput = z.infer<typeof editScriptVideoPromptBlockSchema>
+
 export const editAssetRequirementSchema = z.object({
   kind: z.enum(EDIT_ASSET_KINDS),
   name: z.string().trim().min(1),

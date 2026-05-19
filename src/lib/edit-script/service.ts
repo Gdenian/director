@@ -25,6 +25,11 @@ import type {
   EditScreenplayPayload,
   EditScriptPayload,
   EditScriptShot,
+  EditScriptVideoBlock,
+} from './types'
+import {
+  editScriptVideoPromptBibleSchema,
+  editScriptVideoPromptBlockSchema,
 } from './types'
 import { designEditAssetRequirements } from './asset-design'
 
@@ -86,6 +91,8 @@ type PromptStepId =
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_ASSET_EXTRACT
   | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT
+  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE
+  | typeof AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK
 
 type EditScriptGenerationStage =
   | 'edit_script_prepare'
@@ -179,6 +186,114 @@ function buildVideoPromptAssetContext(requirements: readonly EditAssetRequiremen
       'Do not invent additional reusable characters or locations beyond the screenplay and edit structure.',
       'Do not copy asset descriptions verbatim when they would overtake shot action; use them to preserve identity and scene continuity.',
     ],
+  })
+}
+
+function intersectsShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  const rightSet = new Set(right)
+  return left.some((shotNumber) => rightSet.has(shotNumber))
+}
+
+function sameShotNumbers(left: readonly number[], right: readonly number[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((shotNumber, index) => shotNumber === right[index])
+}
+
+function blockShots(structure: Omit<EditScriptPayload, 'requirements'>, block: EditScriptVideoBlock): readonly EditScriptShot[] {
+  return block.shotNumbers.map((shotNumber) => {
+    const shot = structure.shots.find((item) => item.shotNumber === shotNumber)
+    if (!shot) throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_SHOT_MISSING:${shotNumber}`)
+    return shot
+  })
+}
+
+function adjacentVideoBlocks(structure: Omit<EditScriptPayload, 'requirements'>, blockIndex: number) {
+  return {
+    previous: blockIndex > 0 ? structure.videoBlocks[blockIndex - 1] ?? null : null,
+    next: blockIndex < structure.videoBlocks.length - 1 ? structure.videoBlocks[blockIndex + 1] ?? null : null,
+  }
+}
+
+function videoPromptBlockContext(input: {
+  readonly structure: Omit<EditScriptPayload, 'requirements'>
+  readonly block: EditScriptVideoBlock
+  readonly blockIndex: number
+}) {
+  return {
+    sourceVideoBlockIndex: input.blockIndex,
+    videoBlock: input.block,
+    shots: blockShots(input.structure, input.block),
+  }
+}
+
+async function generateEditScriptVideoPromptsByBlock(input: {
+  readonly userId: string
+  readonly projectId: string
+  readonly model: string
+  readonly locale: Locale
+  readonly userPrompt: string
+  readonly screenplayText: string
+  readonly structure: Omit<EditScriptPayload, 'requirements'>
+  readonly requirements: readonly EditAssetRequirement[]
+  readonly aspectRatio: string
+  readonly styleContext: string
+}): Promise<Omit<EditScriptPayload, 'requirements'>> {
+  const sharedVariables = {
+    user_request: input.userPrompt,
+    screenplay_text: input.screenplayText,
+    edit_script_structure_json: stringifyForPrompt(input.structure),
+    asset_context_json: buildVideoPromptAssetContext(input.requirements),
+    aspect_ratio: input.aspectRatio,
+    style_context: input.styleContext,
+  }
+  const bibleRaw = await runPromptStep({
+    userId: input.userId,
+    projectId: input.projectId,
+    model: input.model,
+    locale: input.locale,
+    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE,
+    variables: sharedVariables,
+    stepTitle: 'Edit video prompt bible',
+    stepIndex: 3,
+    stepTotal: 4,
+  })
+  const bible = editScriptVideoPromptBibleSchema.parse(bibleRaw)
+  const blockOutputs = await Promise.all(input.structure.videoBlocks.map(async (block, blockIndex) => {
+    const shotNumbers = block.shotNumbers
+    const blockRequirements = input.requirements.filter((requirement) => intersectsShotNumbers(requirement.shotNumbers, shotNumbers))
+    const raw = await runPromptStep({
+      userId: input.userId,
+      projectId: input.projectId,
+      model: input.model,
+      locale: input.locale,
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
+      variables: {
+        user_request: input.userPrompt,
+        screenplay_text: input.screenplayText,
+        video_prompt_bible_json: stringifyForPrompt(bible.videoPromptBible),
+        video_block_json: stringifyForPrompt(videoPromptBlockContext({ structure: input.structure, block, blockIndex })),
+        block_shots_json: stringifyForPrompt(blockShots(input.structure, block)),
+        asset_context_json: buildVideoPromptAssetContext(blockRequirements),
+        adjacent_blocks_json: stringifyForPrompt(adjacentVideoBlocks(input.structure, blockIndex)),
+        aspect_ratio: input.aspectRatio,
+        style_context: input.styleContext,
+      },
+      stepTitle: `Edit video prompts for block ${blockIndex + 1}`,
+      stepIndex: 4,
+      stepTotal: 4,
+    })
+    const parsed = editScriptVideoPromptBlockSchema.parse(raw)
+    if (parsed.sourceVideoBlockIndex !== blockIndex) {
+      throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_INDEX_MISMATCH:${blockIndex}`)
+    }
+    if (!sameShotNumbers(parsed.shotNumbers, block.shotNumbers) || !sameShotNumbers(parsed.videoBlock.shotNumbers, block.shotNumbers)) {
+      throw new Error(`EDIT_SCRIPT_VIDEO_PROMPT_BLOCK_SHOTS_MISMATCH:${block.shotNumbers.join(',')}`)
+    }
+    return parsed
+  }))
+  return applyEditScriptVideoPrompts(input.structure, {
+    shots: blockOutputs.flatMap((block) => block.shots),
+    videoBlocks: blockOutputs.map((block) => block.videoBlock),
   })
 }
 
@@ -926,25 +1041,18 @@ export async function generateProjectEditScript(input: GenerateEditScriptInput):
       progress: 72,
     })
 
-    const videoPromptRaw = await runPromptStep({
+    const core = await generateEditScriptVideoPromptsByBlock({
       userId: input.userId,
       projectId: input.projectId,
       model,
       locale,
-      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
-      variables: {
-        user_request: userPrompt,
-        screenplay_text: screenplayText,
-        edit_script_structure_json: stringifyForPrompt(structure),
-        asset_context_json: buildVideoPromptAssetContext(requirements),
-        aspect_ratio: effectiveVideoRatio,
-        style_context: styleContext,
-      },
-      stepTitle: 'Edit video prompts',
-      stepIndex: 3,
-      stepTotal: 3,
+      userPrompt,
+      screenplayText,
+      structure,
+      requirements,
+      aspectRatio: effectiveVideoRatio,
+      styleContext,
     })
-    const core = applyEditScriptVideoPrompts(structure, videoPromptRaw)
 
     const assetByRequirementKey = new Map<string, ExistingAssetRef>()
     const saved = await prisma.$transaction(async (tx) => {

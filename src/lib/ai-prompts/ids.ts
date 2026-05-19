@@ -41,10 +41,14 @@ export const AI_PROMPT_IDS = {
   EDIT_SCRIPT_PRIMARY: 'edit-script-primary',
   EDIT_SCRIPT_ASSET_EXTRACT: 'edit-script-asset-extract',
   EDIT_SCRIPT_VIDEO_PROMPT: 'edit-script-video-prompt',
+  EDIT_SCRIPT_VIDEO_PROMPT_BIBLE: 'edit-script-video-prompt-bible',
+  EDIT_SCRIPT_VIDEO_PROMPT_BLOCK: 'edit-script-video-prompt-block',
   EDIT_SCRIPT_STORYBOARD_PANEL: 'edit-script-storyboard-panel',
   EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN: 'edit-script-storyboard-grid-floor-plan',
   EDIT_SCRIPT_STORYBOARD_GRID_VISION: 'edit-script-storyboard-grid-vision',
   EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN: 'edit-script-storyboard-camera-plan',
+  EDIT_SCRIPT_STORYBOARD_CAMERA_STYLE_BIBLE: 'edit-script-storyboard-camera-style-bible',
+  EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK: 'edit-script-storyboard-camera-plan-block',
 } as const
 
 export type AiPromptId = (typeof AI_PROMPT_IDS)[keyof typeof AI_PROMPT_IDS]

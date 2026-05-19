@@ -236,6 +236,31 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
       'style_context',
     ],
   },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE]: {
+    pathStem: 'edit-script/video-prompt-bible',
+    variableKeys: [
+      'user_request',
+      'screenplay_text',
+      'edit_script_structure_json',
+      'asset_context_json',
+      'aspect_ratio',
+      'style_context',
+    ],
+  },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK]: {
+    pathStem: 'edit-script/video-prompt-block',
+    variableKeys: [
+      'user_request',
+      'screenplay_text',
+      'video_prompt_bible_json',
+      'video_block_json',
+      'block_shots_json',
+      'asset_context_json',
+      'adjacent_blocks_json',
+      'aspect_ratio',
+      'style_context',
+    ],
+  },
   [AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_PANEL]: {
     pathStem: 'edit-script/storyboard-panel',
     variableKeys: [
@@ -266,6 +291,25 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
     variableKeys: [
       'source_snapshot_json',
       'coordinate_strategy_output_json',
+      'panel_contract_json',
+    ],
+  },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_STYLE_BIBLE]: {
+    pathStem: 'edit-script/storyboard-camera-style-bible',
+    variableKeys: [
+      'source_snapshot_json',
+      'coordinate_strategy_output_json',
+    ],
+  },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK]: {
+    pathStem: 'edit-script/storyboard-camera-plan-block',
+    variableKeys: [
+      'source_snapshot_json',
+      'camera_style_bible_json',
+      'coordinate_strategy_output_json',
+      'video_block_json',
+      'block_shots_json',
+      'adjacent_blocks_json',
       'panel_contract_json',
     ],
   },

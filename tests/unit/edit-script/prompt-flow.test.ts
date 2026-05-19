@@ -133,6 +133,42 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPrompt).toContain('slowly lifts')
     expect(videoPrompt).not.toContain('slowly li  fts')
 
+    const videoPromptBible = buildAiPrompt({
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE,
+      locale: 'zh',
+      variables: {
+        user_request: '生成一条连续短片，要安静克制',
+        screenplay_text: screenplayText,
+        edit_script_structure_json: JSON.stringify({ shots: [], videoBlocks: [] }),
+        asset_context_json: JSON.stringify({ assets: [] }),
+        aspect_ratio: '9:16',
+        style_context: 'cinematic',
+      },
+    })
+    expect(videoPromptBible).toContain('如果用户原始需求里明确指定了视觉风格')
+    expect(videoPromptBible).toContain('必须优先遵守')
+    expect(videoPromptBible).toContain('用户没有明确要求')
+    expect(videoPromptBible).toContain('自动识别最合适的统一风格')
+
+    const videoPromptBlock = buildAiPrompt({
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
+      locale: 'zh',
+      variables: {
+        user_request: '生成一条连续短片，要安静克制',
+        screenplay_text: screenplayText,
+        video_prompt_bible_json: JSON.stringify({ userDirectedStyle: '安静克制' }),
+        video_block_json: JSON.stringify({ sourceVideoBlockIndex: 0, shotNumbers: [1] }),
+        block_shots_json: JSON.stringify([{ shotNumber: 1 }]),
+        asset_context_json: JSON.stringify({ assets: [] }),
+        adjacent_blocks_json: JSON.stringify({ previous: null, next: null }),
+        aspect_ratio: '9:16',
+        style_context: 'cinematic',
+      },
+    })
+    expect(videoPromptBlock).toContain('只为当前 videoBlock 生成视频提示词')
+    expect(videoPromptBlock).toContain('user_request 或 videoPromptBible.userDirectedStyle')
+    expect(videoPromptBlock).toContain('最高优先级')
+
     const englishPrimaryPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
       locale: 'en',

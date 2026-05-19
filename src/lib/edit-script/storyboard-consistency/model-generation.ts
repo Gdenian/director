@@ -3,13 +3,18 @@ import { executeAiTextStep, executeAiVisionStep } from '@/lib/ai-exec/engine'
 import { safeParseJsonObject } from '@/lib/json-repair'
 import type { Locale } from '@/i18n/routing'
 import {
+  cameraPlanBlockModelOutputSchema,
   cameraPlanModelOutputSchema,
+  cameraStyleBibleModelOutputSchema,
   generatedPanelPromptSchema,
   gridCoordinateAnalysisModelOutputSchema,
   gridFloorPlanModelOutputSchema,
+  type CameraPlanBlockModelOutput,
   type CameraPlanModelOutput,
   type CameraPlanPanel,
+  type CameraStyleBibleModelOutput,
   type GridFloorPlanModelOutput,
+  type StoryboardConsistencySourceVideoBlock,
   type StoryboardConsistencySourceSnapshot,
   type StoryboardPanelPromptDraft,
 } from './types'
@@ -39,6 +44,29 @@ function panelContract(snapshot: StoryboardConsistencySourceSnapshot) {
   })
 }
 
+function panelContractForBlock(
+  snapshot: StoryboardConsistencySourceSnapshot,
+  block: StoryboardConsistencySourceVideoBlock,
+) {
+  const shotNumbers = new Set(block.shotNumbers)
+  return panelContract(snapshot).filter((panel) => shotNumbers.has(panel.sourceShotNumber))
+}
+
+function shotsForBlock(
+  snapshot: StoryboardConsistencySourceSnapshot,
+  block: StoryboardConsistencySourceVideoBlock,
+) {
+  const shotNumbers = new Set(block.shotNumbers)
+  return snapshot.shots.filter((shot) => shotNumbers.has(shot.shotNumber))
+}
+
+function adjacentBlocks(snapshot: StoryboardConsistencySourceSnapshot, blockIndex: number) {
+  return {
+    previous: blockIndex > 0 ? snapshot.videoBlocks[blockIndex - 1] ?? null : null,
+    next: blockIndex < snapshot.videoBlocks.length - 1 ? snapshot.videoBlocks[blockIndex + 1] ?? null : null,
+  }
+}
+
 function panelKey(panel: {
   readonly panelIndex: number
   readonly sourceShotNumber: number
@@ -47,15 +75,14 @@ function panelKey(panel: {
   return `${panel.panelIndex}:${panel.sourceShotNumber}:${panel.sourceVideoBlockId}`
 }
 
-function validatePanelContract(
-  snapshot: StoryboardConsistencySourceSnapshot,
+function validatePanelContractEntries(
+  contract: readonly ReturnType<typeof panelContract>[number][],
   panels: readonly {
     readonly panelIndex: number
     readonly sourceShotNumber: number
     readonly sourceVideoBlockId: string
   }[],
 ): void {
-  const contract = panelContract(snapshot)
   const requiredKeys = new Set(contract.map(panelKey))
   const seen = new Set<string>()
   for (const panel of panels) {
@@ -67,6 +94,17 @@ function validatePanelContract(
   for (const required of requiredKeys) {
     if (!seen.has(required)) throw new Error(`EDIT_SCRIPT_STORYBOARD_LLM_PANEL_MISSING:${required}`)
   }
+}
+
+function validatePanelContract(
+  snapshot: StoryboardConsistencySourceSnapshot,
+  panels: readonly {
+    readonly panelIndex: number
+    readonly sourceShotNumber: number
+    readonly sourceVideoBlockId: string
+  }[],
+): void {
+  validatePanelContractEntries(panelContract(snapshot), panels)
 }
 
 function validatePanels(
@@ -236,20 +274,55 @@ export async function generateCameraPlan(input: GenerationContext & {
   readonly coordinateStrategyOutput: unknown
 }): Promise<CameraPlanModelOutput & {
   readonly panels: readonly StoryboardPanelPromptDraft[]
+  readonly cameraStyleBible: CameraStyleBibleModelOutput['cameraStyleBible']
+  readonly blockOutputs: readonly CameraPlanBlockModelOutput['cameraPlanBlockOutput'][]
 }> {
-  const raw = await runTextJsonStep({
+  const bibleRaw = await runTextJsonStep({
     ...input,
-    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_STYLE_BIBLE,
     variables: {
       source_snapshot_json: stringifyForPrompt(input.snapshot),
       coordinate_strategy_output_json: stringifyForPrompt(input.coordinateStrategyOutput),
-      panel_contract_json: stringifyForPrompt(panelContract(input.snapshot)),
     },
-    stepTitle: 'Generate edit-script storyboard camera language plan',
+    stepTitle: 'Generate edit-script storyboard camera style bible',
     stepIndex: 1,
-    stepTotal: 1,
+    stepTotal: 2,
   })
-  const parsed = cameraPlanModelOutputSchema.parse(raw)
+  const bible = cameraStyleBibleModelOutputSchema.parse(bibleRaw)
+  const blockOutputs = await Promise.all(input.snapshot.videoBlocks.map(async (block) => {
+    const contract = panelContractForBlock(input.snapshot, block)
+    const raw = await runTextJsonStep({
+      ...input,
+      promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK,
+      variables: {
+        source_snapshot_json: stringifyForPrompt(input.snapshot),
+        camera_style_bible_json: stringifyForPrompt(bible.cameraStyleBible),
+        coordinate_strategy_output_json: stringifyForPrompt(input.coordinateStrategyOutput),
+        video_block_json: stringifyForPrompt(block),
+        block_shots_json: stringifyForPrompt(shotsForBlock(input.snapshot, block)),
+        adjacent_blocks_json: stringifyForPrompt(adjacentBlocks(input.snapshot, block.blockIndex)),
+        panel_contract_json: stringifyForPrompt(contract),
+      },
+      stepTitle: `Generate edit-script storyboard camera plan for block ${block.blockIndex + 1}`,
+      stepIndex: 2,
+      stepTotal: 2,
+    })
+    const parsed = cameraPlanBlockModelOutputSchema.parse(raw)
+    if (parsed.cameraPlanBlockOutput.sourceVideoBlockId !== block.sourceVideoBlockId) {
+      throw new Error(`EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK_MISMATCH:${block.sourceVideoBlockId}`)
+    }
+    validatePanelContractEntries(contract, parsed.cameraPlanBlockOutput.panels)
+    return parsed.cameraPlanBlockOutput
+  }))
+  const cameraPlanPanels = blockOutputs.flatMap((block) => block.panels)
+  const parsed = cameraPlanModelOutputSchema.parse({
+    cameraPlanOutput: {
+      strategy: 'camera_plan',
+      cameraStyleBible: bible.cameraStyleBible,
+      blocks: blockOutputs,
+      panels: cameraPlanPanels,
+    },
+  })
   validatePanelContract(input.snapshot, parsed.cameraPlanOutput.panels)
   const panels = validatePanels(
     input.snapshot,
@@ -271,5 +344,7 @@ export async function generateCameraPlan(input: GenerationContext & {
   return {
     ...parsed,
     panels,
+    cameraStyleBible: bible.cameraStyleBible,
+    blockOutputs,
   }
 }

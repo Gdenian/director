@@ -122,18 +122,33 @@ function mockSuccessfulAiSteps() {
     })
     .mockResolvedValueOnce({
       text: JSON.stringify({
+        videoPromptBible: {
+          strategy: 'video_prompt_bible',
+          storyPremise: 'A quiet signal wakes a station.',
+          userDirectedStyle: '科幻短片',
+          inferredSystemStyle: 'realistic sci-fi',
+          characterContinuityRules: [],
+          locationContinuityRules: ['Keep the station corridor consistent.'],
+          soundRules: ['sound effects only, no BGM'],
+          videoModelRules: ['no subtitles'],
+          blockContinuityRules: ['preserve the slow wake-up rhythm'],
+        },
+      }),
+    })
+    .mockResolvedValueOnce({
+      text: JSON.stringify({
+        sourceVideoBlockIndex: 0,
+        shotNumbers: [1],
         shots: [
           {
             shotNumber: 1,
             videoPrompt: 'A cinematic station corridor flickers awake.',
           },
         ],
-        videoBlocks: [
-          {
-            shotNumbers: [1],
-            prompt: 'A cinematic station corridor flickers awake, slow push in.',
-          },
-        ],
+        videoBlock: {
+          shotNumbers: [1],
+          prompt: 'A cinematic station corridor flickers awake, slow push in.',
+        },
       }),
     })
 }
@@ -271,7 +286,7 @@ describe('edit script generation status persistence', () => {
     expect(prismaMock.projectEditScript.upsert.mock.invocationCallOrder[0]).toBeLessThan(
       aiExecMock.executeAiTextStep.mock.invocationCallOrder[0],
     )
-    expect(aiExecMock.executeAiTextStep).toHaveBeenCalledTimes(3)
+    expect(aiExecMock.executeAiTextStep).toHaveBeenCalledTimes(4)
     expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(1, expect.objectContaining({
       action: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
       meta: expect.objectContaining({
@@ -289,11 +304,19 @@ describe('edit script generation status persistence', () => {
       }),
     }))
     expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(3, expect.objectContaining({
-      action: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
+      action: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE,
       meta: expect.objectContaining({
-        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT,
+        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BIBLE,
         stepIndex: 3,
-        stepTotal: 3,
+        stepTotal: 4,
+      }),
+    }))
+    expect(aiExecMock.executeAiTextStep).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      action: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
+      meta: expect.objectContaining({
+        stepId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
+        stepIndex: 4,
+        stepTotal: 4,
       }),
     }))
     expect(txMock.projectEditScript.upsert).toHaveBeenCalledWith(expect.objectContaining({

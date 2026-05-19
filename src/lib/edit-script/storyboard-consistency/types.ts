@@ -187,9 +187,26 @@ export const cameraPlanPanelSchema = z.object({
 export const cameraPlanModelOutputSchema = z.object({
   cameraPlanOutput: z.object({
     strategy: z.literal('camera_plan'),
+    cameraStyleBible: z.unknown().optional(),
+    blocks: z.array(z.unknown()).optional(),
+    panels: z.array(cameraPlanPanelSchema).min(1),
+  }).passthrough(),
+})
+
+export const cameraStyleBibleModelOutputSchema = z.object({
+  cameraStyleBible: z.object({
+    strategy: z.literal('camera_style_bible'),
+  }).passthrough(),
+})
+
+export const cameraPlanBlockModelOutputSchema = z.object({
+  cameraPlanBlockOutput: z.object({
+    sourceVideoBlockId: z.string().trim().min(1),
     panels: z.array(cameraPlanPanelSchema).min(1),
   }).passthrough(),
 })
 
 export type CameraPlanPanel = z.infer<typeof cameraPlanPanelSchema>
 export type CameraPlanModelOutput = z.infer<typeof cameraPlanModelOutputSchema>
+export type CameraStyleBibleModelOutput = z.infer<typeof cameraStyleBibleModelOutputSchema>
+export type CameraPlanBlockModelOutput = z.infer<typeof cameraPlanBlockModelOutputSchema>

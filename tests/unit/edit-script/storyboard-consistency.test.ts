@@ -13,6 +13,8 @@ vi.mock('@/lib/ai-prompts', () => ({
     EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN: 'edit-script-storyboard-grid-floor-plan',
     EDIT_SCRIPT_STORYBOARD_GRID_VISION: 'edit-script-storyboard-grid-vision',
     EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN: 'edit-script-storyboard-camera-plan',
+    EDIT_SCRIPT_STORYBOARD_CAMERA_STYLE_BIBLE: 'edit-script-storyboard-camera-style-bible',
+    EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_BLOCK: 'edit-script-storyboard-camera-plan-block',
   },
   buildAiPrompt: vi.fn((input: { readonly promptId: string }) => `prompt:${input.promptId}`),
 }))
@@ -255,8 +257,23 @@ describe('edit-script storyboard coordinate consistency', () => {
 
   it('uses a separate LLM camera plan to generate film-aesthetic panel prompts', async () => {
     textStepMock.mockResolvedValueOnce(mockTextCompletion(JSON.stringify({
-      cameraPlanOutput: {
-        strategy: 'camera_plan',
+      cameraStyleBible: {
+        strategy: 'camera_style_bible',
+        userDirectedCameraStyle: 'quiet restrained temple camera',
+        inferredCameraStyle: 'observational natural light',
+        cameraPhilosophy: 'restrained and relationship-focused',
+        shotScaleProgression: 'medium close-up reverses preserve intimacy',
+        compositionRules: ['use the flower bed as anchor'],
+        movementRules: ['move only for emotional emphasis'],
+        lensAndDepthRules: ['use mild telephoto shallow depth'],
+        continuityRules: ['preserve eyeline and screen direction'],
+        aestheticTone: 'calm intimacy',
+        hardBans: ['no text'],
+      },
+    })))
+    textStepMock.mockResolvedValueOnce(mockTextCompletion(JSON.stringify({
+      cameraPlanBlockOutput: {
+        sourceVideoBlockId: 'edit-1:videoBlock:1',
         panels: [
           {
             panelIndex: 0,
@@ -311,10 +328,18 @@ describe('edit-script storyboard coordinate consistency', () => {
       },
     })
 
-    expect(textStepMock).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'edit-script-storyboard-camera-plan',
+    expect(textStepMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      action: 'edit-script-storyboard-camera-style-bible',
     }))
+    expect(textStepMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      action: 'edit-script-storyboard-camera-plan-block',
+    }))
+    expect(result.cameraStyleBible.userDirectedCameraStyle).toBe('quiet restrained temple camera')
     expect(result.cameraPlanOutput.panels[0]?.shotScale).toBe('medium close-up')
+    expect(result.cameraPlanOutput.cameraStyleBible).toMatchObject({
+      strategy: 'camera_style_bible',
+    })
+    expect(result.cameraPlanOutput.blocks).toHaveLength(1)
     expect(result.panels).toHaveLength(2)
     expect(result.panels[0]?.prompt).toContain('mild telephoto shallow depth of field')
     expect(result.panels[0]?.metadata).toMatchObject({
