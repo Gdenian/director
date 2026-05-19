@@ -62,6 +62,7 @@ export interface WorkspaceRuntimeValue {
   onGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
   onRegenerateProjectAssetImage: (assetId: string, kind: 'character' | 'location') => Promise<void>
   onGenerateEditStoryboard: (editScriptId: string) => Promise<void>
+  onGenerateEditStoryboardCoordinates: (editScriptId: string) => Promise<void>
   onUpdateVideoPrompt: (
     storyboardId: string,
     panelIndex: number,

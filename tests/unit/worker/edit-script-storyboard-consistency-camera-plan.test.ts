@@ -28,6 +28,12 @@ const submitterMock = vi.hoisted(() => ({
   submitTask: vi.fn(),
 }))
 
+const workerUtilsMock = vi.hoisted(() => ({
+  resolveImageSourceFromGeneration: vi.fn(),
+  toSignedUrlIfCos: vi.fn(),
+  uploadImageSourceToCos: vi.fn(),
+}))
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/task/submitter', () => submitterMock)
 vi.mock('@/lib/workers/shared', () => ({ reportTaskProgress: vi.fn(async () => undefined) }))
@@ -37,11 +43,7 @@ vi.mock('@/lib/storage', () => ({
   uploadObject: vi.fn(),
 }))
 vi.mock('@/lib/media/service', () => ({ ensureMediaObjectFromStorageKey: vi.fn() }))
-vi.mock('@/lib/workers/utils', () => ({
-  resolveImageSourceFromGeneration: vi.fn(),
-  toSignedUrlIfCos: vi.fn(),
-  uploadImageSourceToCos: vi.fn(),
-}))
+vi.mock('@/lib/workers/utils', () => workerUtilsMock)
 vi.mock('@/lib/workers/handlers/image-task-handler-shared', () => ({
   normalizeReferenceImageItemsForGeneration: vi.fn(),
 }))
@@ -53,6 +55,27 @@ function buildJob(): Job<TaskJobData> {
     data: {
       taskId: 'task-camera-plan-1',
       type: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+      locale: 'zh',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      targetType: 'ProjectStoryboard',
+      targetId: 'storyboard-1',
+      payload: {
+        storyboardId: 'storyboard-1',
+      },
+      userId: 'user-1',
+      trace: {
+        requestId: 'request-1',
+      },
+    },
+  } as unknown as Job<TaskJobData>
+}
+
+function buildGridAnalyzeJob(): Job<TaskJobData> {
+  return {
+    data: {
+      taskId: 'task-grid-analyze-1',
+      type: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_GRID_ANALYZE,
       locale: 'zh',
       projectId: 'project-1',
       episodeId: 'episode-1',
@@ -175,6 +198,7 @@ describe('edit script storyboard camera plan handler', () => {
     persistenceMock.upsertStoryboardPanelsFromPrompts.mockResolvedValue([
       { id: 'panel-1', panelIndex: 0 },
     ])
+    workerUtilsMock.toSignedUrlIfCos.mockReturnValue('https://cdn.example.com/overlay-signed.png')
   })
 
   it('persists panel prompts without enqueueing panel image tasks', async () => {
@@ -222,6 +246,64 @@ describe('edit script storyboard camera plan handler', () => {
     })
     expect(JSON.stringify(storedPlan.cameraPlanOutput)).not.toContain('finalPanelPrompt')
     expect(JSON.stringify(storedPlan.cameraPlanOutput)).not.toContain('blocks')
+    expect(submitterMock.submitTask).not.toHaveBeenCalled()
+  })
+
+  it('stops coordinate generation after grid analysis without enqueueing storyboard panels', async () => {
+    const sourceSnapshot = buildSourceSnapshot()
+    prismaMock.projectStoryboard.findFirst.mockResolvedValueOnce({
+      id: 'storyboard-1',
+      photographyPlan: JSON.stringify({
+        currentStage: 'floor_plans_ready',
+        sourceSnapshot,
+        modelConfigSnapshot: {
+          analysisModel: 'analysis-model-1',
+          storyboardModel: 'storyboard-model-1',
+        },
+      }),
+      blockingArtifacts: [{
+        id: 'overlay-1',
+        kind: 'grid_coordinate_overlay',
+        status: 'ready',
+        imageUrl: 'images/overlay.png',
+        sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+        groupIndex: 0,
+        metadataJson: {
+          sourceVideoBlockIds: ['edit-script-1:videoBlock:1'],
+        },
+      }],
+    })
+    modelGenerationMock.analyzeGridCoordinates.mockResolvedValueOnce({
+      strategyOutput: {
+        strategy: 'grid_coordinates',
+        blocks: [{
+          sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+          classification: 'fixed_space_weak',
+          skipped: false,
+          coordinates: [{ name: 'Old monk', kind: 'character', x: 5, y: 5 }],
+          cinematicTranslation: 'Old monk remains screen left.',
+        }],
+      },
+    })
+    const { handleEditScriptStoryboardGridAnalyzeTask } = await import(
+      '@/lib/workers/handlers/edit-script-storyboard-consistency-task-handler'
+    )
+
+    const result = await handleEditScriptStoryboardGridAnalyzeTask(buildGridAnalyzeJob())
+
+    expect(result).toEqual({ storyboardId: 'storyboard-1', nextTaskId: null })
+    expect(modelGenerationMock.analyzeGridCoordinates).toHaveBeenCalledWith(expect.objectContaining({
+      overlayImageUrls: ['https://cdn.example.com/overlay-signed.png'],
+    }))
+    const updateCalls = prismaMock.projectStoryboard.update.mock.calls as unknown as Array<[{
+      readonly data?: {
+        readonly photographyPlan?: string
+        readonly lastError?: string | null
+      }
+    }]>
+    const storedPlan = JSON.parse(String(updateCalls[0]?.[0].data?.photographyPlan))
+    expect(storedPlan.currentStage).toBe('grid_analyze_ready')
+    expect(storedPlan.strategyOutput.blocks[0].sourceVideoBlockId).toBe('edit-script-1:videoBlock:1')
     expect(submitterMock.submitTask).not.toHaveBeenCalled()
   })
 })

@@ -355,28 +355,6 @@ async function createGridOverlayArtifact(params: {
   })
 }
 
-async function submitCameraPlanTask(params: {
-  readonly job: Job<TaskJobData>
-  readonly storyboardId: string
-}) {
-  return await submitTask({
-    userId: params.job.data.userId,
-    locale: params.job.data.locale,
-    projectId: params.job.data.projectId,
-    episodeId: params.job.data.episodeId,
-    type: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
-    targetType: 'ProjectStoryboard',
-    targetId: params.storyboardId,
-    operationId: 'edit_script_storyboard_camera_plan',
-    operationSource: 'edit-script-storyboard-grid',
-    requestId: params.job.data.trace?.requestId || null,
-    payload: {
-      storyboardId: params.storyboardId,
-    },
-    dedupeKey: `edit_script_storyboard_camera_plan:${params.storyboardId}`,
-  })
-}
-
 async function persistGeneratedPanels(params: {
   readonly locale: TaskJobData['locale']
   readonly storyboardId: string
@@ -466,8 +444,7 @@ export async function handleEditScriptStoryboardPrepareTask(job: Job<TaskJobData
           })),
         },
       })
-      const submitted = await submitCameraPlanTask({ job, storyboardId: storyboard.id })
-      return { storyboardId: storyboard.id, floorPlanCount: 0, nextTaskId: submitted.taskId }
+      return { storyboardId: storyboard.id, floorPlanCount: 0, nextTaskId: null }
     }
     const submitted = await submitTask({
       userId: job.data.userId,
@@ -657,8 +634,7 @@ export async function handleEditScriptStoryboardGridAnalyzeTask(job: Job<TaskJob
         lastError: null,
       },
     })
-    const submitted = await submitCameraPlanTask({ job, storyboardId: storyboard.id })
-    return { storyboardId: storyboard.id, nextTaskId: submitted.taskId }
+    return { storyboardId: storyboard.id, nextTaskId: null }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await prisma.projectStoryboard.update({

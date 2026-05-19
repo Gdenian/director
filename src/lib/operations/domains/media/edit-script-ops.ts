@@ -3,7 +3,7 @@ import {
   generateProjectEditScreenplay,
   generateProjectEditScriptAssets,
 } from '@/lib/edit-script/service'
-import { submitEditScriptCoordinateStoryboard } from '@/lib/edit-script/storyboard-consistency/service'
+import { submitEditScriptStoryboardPanels } from '@/lib/edit-script/storyboard-consistency/service'
 import type { EditScriptPayload } from '@/lib/edit-script/types'
 import { TASK_TYPE } from '@/lib/task/types'
 import type { TaskSubmittedPartData } from '@/lib/project-agent/types'
@@ -256,19 +256,19 @@ export function createEditScriptOperations(): ProjectAgentOperationRegistryDraft
     }),
     generate_edit_script_storyboard: defineOperation({
       id: 'generate_edit_script_storyboard',
-      summary: 'Generate storyboard panels and panel images from the current completed edit-first table and required assets.',
+      summary: 'Generate storyboard panels from ready coordinate analysis, the current completed edit-first table, and required assets.',
       intent: 'act',
       prerequisites: { episodeId: 'required' },
       effects: EFFECTS_BULK_WRITE,
       confirmation: {
         required: true,
-        summary: '将根据剪辑先行表和已完成资产生成分镜面板并提交面板图任务（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
+        summary: '将根据已完成的空间坐标图、剪辑先行表和资产生成正式分镜面板提示词（可能消耗额度/产生计费）。确认继续后请重新调用并传入 confirmed=true。',
       },
       inputSchema: generateEditScriptStoryboardInputSchema,
       outputSchema: editScriptTaskSubmitOutputSchema,
       execute: async (ctx, input: GenerateEditScriptStoryboardInput) => {
         const episodeId = resolveEpisodeId(input, ctx.context.episodeId)
-        const result = await submitEditScriptCoordinateStoryboard({
+        const result = await submitEditScriptStoryboardPanels({
           projectId: ctx.projectId,
           userId: ctx.userId,
           episodeId,
@@ -285,15 +285,14 @@ export function createEditScriptOperations(): ProjectAgentOperationRegistryDraft
           deduped: result.deduped,
           projectId: ctx.projectId,
           episodeId,
-          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE,
-          targetType: 'ProjectEditScript',
-          ...(input.editScriptId ? { targetId: input.editScriptId } : {}),
+          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+          targetType: 'ProjectStoryboard',
         })
 
         return {
           ...result,
           episodeId,
-          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_PREPARE,
+          taskType: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
         }
       },
     }),

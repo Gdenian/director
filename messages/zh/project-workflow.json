@@ -256,7 +256,8 @@
         "generateEditAsset": "生成图片",
         "generateSpaceCoordinates": "生成空间坐标图",
         "regenerateSpaceCoordinates": "重新生成空间坐标图",
-        "generateSceneAssetImagesFirst": "请先生成场景资产图片"
+        "generateSceneAssetImagesFirst": "请先生成场景资产图片",
+        "generateSpaceCoordinatesFirst": "请先生成空间坐标图"
       },
       "status": {
         "empty": "待输入",

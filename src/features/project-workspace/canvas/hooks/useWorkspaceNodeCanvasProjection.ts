@@ -652,6 +652,13 @@ function storyboardUsesGridConsistency(storyboard: ProjectStoryboard): boolean {
     || (storyboard.blockingArtifacts ?? []).length > 0
 }
 
+function storyboardCoordinateAnalysisReady(storyboard: ProjectStoryboard): boolean {
+  if (!storyboardUsesGridConsistency(storyboard)) return false
+  const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
+  const stage = stringValue(plan.currentStage)
+  return stage === 'grid_analyze_ready' || stage === 'panel_prompts_ready'
+}
+
 function coordinatesFromValue(value: unknown): SpaceConsistencyCoordinates {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
@@ -1163,15 +1170,18 @@ export function buildWorkspaceNodeCanvasProjection({
     const completedAssets = editScript.requirements.filter((asset) => asset.status === 'completed').length
     const hasStoryboardPanels = storyboards.some((storyboard) => (storyboard.panels?.length ?? 0) > 0)
     const locationReferenceReady = hasReadyLocationReference(editScript)
+    const coordinatesReady = storyboards.some(storyboardCoordinateAnalysisReady)
     const editScriptAction = !editScriptIsReady
       ? null
       : assetsToGenerate
       ? { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
       : hasStoryboardPanels
         ? null
-        : locationReferenceReady
+        : coordinatesReady
           ? { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const, disabled: false }
-          : { label: translate('actions.generateSceneAssetImagesFirst'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const, disabled: true }
+          : locationReferenceReady
+            ? { label: translate('actions.generateSpaceCoordinatesFirst'), action: { type: 'generate_edit_storyboard_coordinates', editScriptId: editScript.id } as const, disabled: true }
+            : { label: translate('actions.generateSceneAssetImagesFirst'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const, disabled: true }
     const pipelineStepDefinitions = [
       { key: 'timeline', title: translate('nodeFields.editStepTimeline') },
       { key: 'visualAction', title: translate('nodeFields.editStepVisualAction') },
@@ -1510,7 +1520,7 @@ export function buildWorkspaceNodeCanvasProjection({
         spaceConsistencyDetails: details,
         actionLabel: editScript?.status === 'ready' ? translate('actions.regenerateSpaceCoordinates') : undefined,
         action: editScript?.status === 'ready'
-          ? { type: 'generate_edit_storyboard', editScriptId: editScript.id }
+          ? { type: 'generate_edit_storyboard_coordinates', editScriptId: editScript.id }
           : undefined,
         onAction,
       },
@@ -1534,7 +1544,7 @@ export function buildWorkspaceNodeCanvasProjection({
         ? translate('nodes.spaceConsistency.locationImageRequired', { assets: missingLocationNames.join(', ') })
         : translate('nodes.spaceConsistency.body')
     const action = assetsReady && locationReferenceReady
-      ? { label: translate('actions.generateSpaceCoordinates'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
+      ? { label: translate('actions.generateSpaceCoordinates'), action: { type: 'generate_edit_storyboard_coordinates', editScriptId: editScript.id } as const }
       : locationReferenceBlocked
         ? { label: translate('actions.generateSceneAssetImagesFirst'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
         : { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }

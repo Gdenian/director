@@ -214,6 +214,33 @@ export function useGenerateProjectEditScriptStoryboard(projectId: string | null)
   })
 }
 
+export function useGenerateProjectEditScriptStoryboardCoordinates(projectId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: GenerateEditScriptStoryboardInput) => {
+      if (!projectId) throw new Error('Project ID is required')
+      const response = await apiFetch(`/api/projects/${projectId}/edit-script/storyboard/coordinates/generate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) {
+        throw await readJsonError(response, 'Failed to generate storyboard coordinate maps')
+      }
+      return await response.json() as GenerateEditScriptStoryboardResponse
+    },
+    onSuccess: async (_result, variables) => {
+      if (!projectId) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.storyboards.all(variables.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.episodeData(projectId, variables.episodeId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.tasks.pending(projectId, variables.episodeId) }),
+      ])
+    },
+  })
+}
+
 export function useUpdateProjectEditScriptVideoBlockPrompt(projectId: string | null) {
   const queryClient = useQueryClient()
   return useMutation({

@@ -1568,13 +1568,14 @@ describe('workspace node canvas projection', () => {
 
     const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-ready')
     expect(editNode?.data.action).toEqual({
-      type: 'generate_edit_storyboard',
+      type: 'generate_edit_storyboard_coordinates',
       editScriptId: 'edit-ready',
     })
+    expect(editNode?.data.actionDisabled).toBe(true)
     expect(projection.nodes.some((node) => node.id === 'video-plan:edit-ready:1')).toBe(false)
     const consistencyNode = projection.nodes.find((node) => node.id === 'space-consistency:edit-script:edit-ready')
     expect(consistencyNode?.data.action).toEqual({
-      type: 'generate_edit_storyboard',
+      type: 'generate_edit_storyboard_coordinates',
       editScriptId: 'edit-ready',
     })
     expect(consistencyNode?.data.actionLabel).toBe('actions.generateSpaceCoordinates')
@@ -1792,7 +1793,7 @@ describe('workspace node canvas projection', () => {
     expect(spaceNode?.data.kind).toBe('spaceConsistency')
     expect(spaceNode?.data.previewImageUrl).toBe('https://example.com/overlay.png')
     expect(spaceNode?.data.action).toEqual({
-      type: 'generate_edit_storyboard',
+      type: 'generate_edit_storyboard_coordinates',
       editScriptId: 'edit-grid',
     })
     expect(spaceNode && editNode ? spaceNode.position.x : 0).toBeGreaterThan(

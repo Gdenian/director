@@ -169,6 +169,11 @@ export function useWorkspaceNodeCanvasActions() {
 
     if (action.type === 'generate_edit_storyboard') {
       await runtime.onGenerateEditStoryboard(action.editScriptId)
+      return
+    }
+
+    if (action.type === 'generate_edit_storyboard_coordinates') {
+      await runtime.onGenerateEditStoryboardCoordinates(action.editScriptId)
     }
   }, [runtime])
 }

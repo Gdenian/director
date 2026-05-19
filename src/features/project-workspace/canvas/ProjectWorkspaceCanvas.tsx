@@ -465,7 +465,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       options?.preservedNodePositions,
     )
     const nextNodes = baseNodes.map((node) => {
-      const editScriptId = node.data.action?.type === 'generate_edit_storyboard'
+      const editScriptId = node.data.action?.type === 'generate_edit_storyboard_coordinates'
         ? node.data.action.editScriptId
         : null
       const panelImageTaskState = node.data.kind === 'shot' && node.data.targetType === 'panel'
@@ -483,7 +483,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       const storyboardConsistencyTaskRunning = isTaskRuntimeRunningPhase(storyboardConsistencyTaskState?.phase)
       const editScriptConsistencyTaskRunning = isTaskRuntimeRunningPhase(editScriptConsistencyTaskState?.phase)
       const consistencyTaskFailed = storyboardConsistencyTaskState?.phase === 'failed' || editScriptConsistencyTaskState?.phase === 'failed'
-      const isSpaceConsistencyNode = node.data.kind === 'spaceConsistency' && node.data.targetType === 'storyboard'
+      const isSpaceConsistencyNode = node.data.kind === 'spaceConsistency'
       const isOptimisticallyRunning = optimisticRunningNodeIdsRef.current.has(node.id) && node.data.isRunning !== true
       const shouldShowRunning = panelImageTaskRunning || isOptimisticallyRunning || node.data.isRunning === true
       const shouldShowSpaceConsistencyRunning = storyboardConsistencyTaskRunning || editScriptConsistencyTaskRunning || isOptimisticallyRunning
@@ -597,7 +597,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const editScriptConsistencyTargets = useMemo(() => (
     projection.nodes.flatMap((node) => {
       const action = node.data.action
-      return node.data.kind === 'spaceConsistency' && action?.type === 'generate_edit_storyboard'
+      return node.data.kind === 'spaceConsistency' && action?.type === 'generate_edit_storyboard_coordinates'
         ? [TASK_RUNTIME_TARGETS.projectEditScriptStoryboardPrepare(action.editScriptId)].filter((target) => target !== null)
         : []
     })

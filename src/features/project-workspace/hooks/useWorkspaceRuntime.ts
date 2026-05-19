@@ -57,6 +57,7 @@ interface UseWorkspaceRuntimeParams {
   handleGenerateEditAssets: (editScriptId: string, requirementId?: string) => Promise<void>
   handleRegenerateProjectAssetImage: (assetId: string, kind: 'character' | 'location') => Promise<void>
   handleGenerateEditStoryboard: (editScriptId: string) => Promise<void>
+  handleGenerateEditStoryboardCoordinates: (editScriptId: string) => Promise<void>
   handleUpdateVideoPrompt: (
     storyboardId: string,
     panelIndex: number,
@@ -100,6 +101,7 @@ export function useWorkspaceRuntime({
   handleGenerateEditAssets,
   handleRegenerateProjectAssetImage,
   handleGenerateEditStoryboard,
+  handleGenerateEditStoryboardCoordinates,
   handleUpdateVideoPrompt,
   handleUpdateVideoPlanPrompt,
   handleUpdateEditAssetRequirementDescription,
@@ -151,6 +153,7 @@ export function useWorkspaceRuntime({
     onGenerateEditAssets: handleGenerateEditAssets,
     onRegenerateProjectAssetImage: handleRegenerateProjectAssetImage,
     onGenerateEditStoryboard: handleGenerateEditStoryboard,
+    onGenerateEditStoryboardCoordinates: handleGenerateEditStoryboardCoordinates,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
     onUpdateVideoPlanPrompt: handleUpdateVideoPlanPrompt,
     onUpdateEditAssetRequirementDescription: handleUpdateEditAssetRequirementDescription,
@@ -169,6 +172,7 @@ export function useWorkspaceRuntime({
     handleGenerateEditAssets,
     handleRegenerateProjectAssetImage,
     handleGenerateEditStoryboard,
+    handleGenerateEditStoryboardCoordinates,
     handleGeneratePanelImage,
     handleSelectPanelCandidate,
     handleCancelPanelCandidate,

@@ -125,6 +125,14 @@ const storyboardConsistencyServiceMock = vi.hoisted(() => ({
     status: 'queued',
     deduped: false,
   })),
+  submitEditScriptStoryboardPanels: vi.fn(async () => ({
+    success: true,
+    async: true,
+    taskId: 'task-panels-1',
+    runId: null,
+    status: 'queued',
+    deduped: false,
+  })),
 }))
 
 vi.mock('@/lib/api-auth', () => {
@@ -162,6 +170,9 @@ import {
 import {
   POST as editScriptStoryboardGeneratePost,
 } from '@/app/api/projects/[projectId]/edit-script/storyboard/generate/route'
+import {
+  POST as editScriptStoryboardCoordinatesGeneratePost,
+} from '@/app/api/projects/[projectId]/edit-script/storyboard/coordinates/generate/route'
 
 describe('project edit script route', () => {
   beforeEach(() => {
@@ -241,7 +252,39 @@ describe('project edit script route', () => {
     }))
   })
 
-  it('POST /api/projects/[projectId]/edit-script/storyboard/generate -> submits coordinate storyboard preparation', async () => {
+  it('POST /api/projects/[projectId]/edit-script/storyboard/coordinates/generate -> submits coordinate storyboard preparation', async () => {
+    const request = buildMockRequest({
+      path: '/api/projects/project-1/edit-script/storyboard/coordinates/generate',
+      method: 'POST',
+      headers: { 'accept-language': 'zh' },
+      body: {
+        episodeId: 'episode-1',
+        editScriptId: 'edit-1',
+      },
+    })
+
+    const response = await editScriptStoryboardCoordinatesGeneratePost(request, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      success: true,
+      async: true,
+      taskId: 'task-storyboard-1',
+      runId: null,
+      status: 'queued',
+      deduped: false,
+    })
+    expect(storyboardConsistencyServiceMock.submitEditScriptCoordinateStoryboard).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      editScriptId: 'edit-1',
+      userId: 'user-1',
+      locale: 'zh',
+    }))
+  })
+
+  it('POST /api/projects/[projectId]/edit-script/storyboard/generate -> submits storyboard panel generation', async () => {
     const request = buildMockRequest({
       path: '/api/projects/project-1/edit-script/storyboard/generate',
       method: 'POST',
@@ -259,12 +302,12 @@ describe('project edit script route', () => {
     expect(payload).toEqual({
       success: true,
       async: true,
-      taskId: 'task-storyboard-1',
+      taskId: 'task-panels-1',
       runId: null,
       status: 'queued',
       deduped: false,
     })
-    expect(storyboardConsistencyServiceMock.submitEditScriptCoordinateStoryboard).toHaveBeenCalledWith(expect.objectContaining({
+    expect(storyboardConsistencyServiceMock.submitEditScriptStoryboardPanels).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
       episodeId: 'episode-1',
       editScriptId: 'edit-1',

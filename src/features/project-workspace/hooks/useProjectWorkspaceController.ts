@@ -22,6 +22,7 @@ import {
   useAssetActions,
   useGenerateProjectEditScriptAssets,
   useGenerateProjectEditScriptStoryboard,
+  useGenerateProjectEditScriptStoryboardCoordinates,
   useUpdateProjectEditScriptAssetRequirementDescription,
   useUpdateProjectEditScriptVideoBlockPrompt,
 } from '@/lib/query/hooks'
@@ -115,6 +116,7 @@ export function useProjectWorkspaceController({
   })
   const generateEditAssets = useGenerateProjectEditScriptAssets(projectId)
   const generateEditStoryboard = useGenerateProjectEditScriptStoryboard(projectId)
+  const generateEditStoryboardCoordinates = useGenerateProjectEditScriptStoryboardCoordinates(projectId)
   const characterAssetActions = useAssetActions({ scope: 'project', projectId, kind: 'character' })
   const locationAssetActions = useAssetActions({ scope: 'project', projectId, kind: 'location' })
   const updateVideoPlanPrompt = useUpdateProjectEditScriptVideoBlockPrompt(projectId)
@@ -132,6 +134,11 @@ export function useProjectWorkspaceController({
   const handleGenerateEditStoryboard = async (editScriptId: string) => {
     if (!episodeId) throw new Error('Episode ID is required')
     await generateEditStoryboard.mutateAsync({ episodeId, editScriptId })
+    await onRefresh({ mode: 'full' })
+  }
+  const handleGenerateEditStoryboardCoordinates = async (editScriptId: string) => {
+    if (!episodeId) throw new Error('Episode ID is required')
+    await generateEditStoryboardCoordinates.mutateAsync({ episodeId, editScriptId })
     await onRefresh({ mode: 'full' })
   }
   const handleUpdateVideoPlanPrompt = async (editScriptId: string, blockIndex: number, prompt: string) => {
@@ -177,6 +184,7 @@ export function useProjectWorkspaceController({
     handleGenerateEditAssets,
     handleRegenerateProjectAssetImage,
     handleGenerateEditStoryboard,
+    handleGenerateEditStoryboardCoordinates,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
     handleUpdateVideoPlanPrompt,
     handleUpdateEditAssetRequirementDescription,
