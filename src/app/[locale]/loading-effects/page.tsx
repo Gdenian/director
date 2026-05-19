@@ -97,14 +97,8 @@ export default async function LoadingEffectsPage() {
 function BorderFlow() {
   return (
     <div className={styles.borderFlow} aria-hidden="true">
-      <span className={`${styles.flowSegment} ${styles.flowTop} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowRight} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowBottom} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowLeft} ${styles.flowPrimary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowTop} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowRight} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowBottom} ${styles.flowSecondary}`} />
-      <span className={`${styles.flowSegment} ${styles.flowLeft} ${styles.flowSecondary}`} />
+      <span className={`${styles.flowTrace} ${styles.flowPrimary}`} />
+      <span className={`${styles.flowTrace} ${styles.flowSecondary}`} />
     </div>
   )
 }
