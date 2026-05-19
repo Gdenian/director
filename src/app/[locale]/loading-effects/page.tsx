@@ -2,26 +2,26 @@ import { getTranslations } from 'next-intl/server'
 import styles from './page.module.css'
 
 type LoadingEffectVariant = {
-  id: 'dualSlowBuild' | 'dualLateSurge' | 'dualSoftPulse' | 'dualQuickGlide'
+  id: 'materialStandard' | 'materialAcceleration' | 'carbonProductive' | 'carbonExpressive'
   effectClassName: string
 }
 
 const variants: LoadingEffectVariant[] = [
   {
-    id: 'dualSlowBuild',
-    effectClassName: styles.dualSlowBuild,
+    id: 'materialStandard',
+    effectClassName: styles.materialStandard,
   },
   {
-    id: 'dualLateSurge',
-    effectClassName: styles.dualLateSurge,
+    id: 'materialAcceleration',
+    effectClassName: styles.materialAcceleration,
   },
   {
-    id: 'dualSoftPulse',
-    effectClassName: styles.dualSoftPulse,
+    id: 'carbonProductive',
+    effectClassName: styles.carbonProductive,
   },
   {
-    id: 'dualQuickGlide',
-    effectClassName: styles.dualQuickGlide,
+    id: 'carbonExpressive',
+    effectClassName: styles.carbonExpressive,
   },
 ]
 

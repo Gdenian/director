@@ -84,34 +84,34 @@
   width: 52%;
 }
 
-.dualSlowBuild,
-.dualLateSurge,
-.dualSoftPulse,
-.dualQuickGlide {
+.materialStandard,
+.materialAcceleration,
+.carbonProductive,
+.carbonExpressive {
   --flow-inset: 10px;
   --flow-length: 82px;
   --flow-opacity: 0.78;
-  --flow-speed: 2.2s;
+  --flow-speed: 2.25s;
   --flow-thickness: 2px;
   --flow-track: rgba(255, 255, 255, 0.1);
-  --flow-easing: cubic-bezier(0.72, 0, 0.28, 1);
+  --flow-easing: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dualLateSurge {
+.materialAcceleration {
+  --flow-speed: 2.15s;
+  --flow-easing: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.carbonProductive {
   --flow-speed: 2.35s;
-  --flow-easing: cubic-bezier(0.86, 0, 0.5, 1);
-}
-
-.dualSoftPulse {
-  --flow-speed: 2.8s;
-  --flow-opacity: 0.62;
+  --flow-opacity: 0.72;
   --flow-track: rgba(255, 255, 255, 0.07);
-  --flow-easing: cubic-bezier(0.64, 0, 0.22, 1);
+  --flow-easing: cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
-.dualQuickGlide {
-  --flow-speed: 2.05s;
-  --flow-easing: cubic-bezier(0.42, 0, 0.12, 1);
+.carbonExpressive {
+  --flow-speed: 2.5s;
+  --flow-easing: cubic-bezier(0.4, 0.14, 0.3, 1);
 }
 
 .borderFlow {
@@ -184,10 +184,10 @@
   display: block;
 }
 
-.dualSlowBuild .flowSecondary,
-.dualLateSurge .flowSecondary,
-.dualSoftPulse .flowSecondary,
-.dualQuickGlide .flowSecondary {
+.materialStandard .flowSecondary,
+.materialAcceleration .flowSecondary,
+.carbonProductive .flowSecondary,
+.carbonExpressive .flowSecondary {
   display: block;
   animation-delay: calc(var(--flow-speed) / -2);
 }

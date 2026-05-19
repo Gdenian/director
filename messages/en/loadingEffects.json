@@ -8,29 +8,29 @@
     "fit": "Best for"
   },
   "variants": {
-    "dualSlowBuild": {
-      "title": "Slow Build",
-      "summary": "Starts gently, then naturally accelerates along the border.",
-      "motion": "Slow start, faster second half",
-      "fit": "Default candidate"
+    "materialStandard": {
+      "title": "Material Standard",
+      "summary": "Material's common ease-in-out curve: quick acceleration followed by slow deceleration.",
+      "motion": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "fit": "General default"
     },
-    "dualLateSurge": {
-      "title": "Late Surge",
-      "summary": "Holds back longer, then noticeably speeds up near the corner.",
-      "motion": "Long slow-in, late acceleration",
-      "fit": "More energetic"
+    "materialAcceleration": {
+      "title": "Material Acceleration",
+      "summary": "Starts slower and speeds up later, matching the requested slow-then-fast rhythm.",
+      "motion": "cubic-bezier(0.4, 0, 1, 1)",
+      "fit": "Late speed-up"
     },
-    "dualSoftPulse": {
-      "title": "Soft Breath",
-      "summary": "Slower and lighter overall, with a softer speed change for longer visible waits.",
-      "motion": "Soft slow acceleration",
-      "fit": "Long waits"
+    "carbonProductive": {
+      "title": "Carbon Productive",
+      "summary": "IBM Carbon's productive curve: restrained, efficient, and less visually loud.",
+      "motion": "cubic-bezier(0.2, 0, 0.38, 0.9)",
+      "fit": "Workspace default"
     },
-    "dualQuickGlide": {
-      "title": "Quick Glide",
-      "summary": "Starts with a lighter push, then glides smoothly through the rest of the edge.",
-      "motion": "Quick start, smooth finish",
-      "fit": "Short waits"
+    "carbonExpressive": {
+      "title": "Carbon Expressive",
+      "summary": "IBM Carbon's expressive curve: more rhythmic while avoiding bounce or sudden stops.",
+      "motion": "cubic-bezier(0.4, 0.14, 0.3, 1)",
+      "fit": "Stronger feedback"
     }
   }
 }

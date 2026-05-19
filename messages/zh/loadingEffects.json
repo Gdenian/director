@@ -8,29 +8,29 @@
     "fit": "适用"
   },
   "variants": {
-    "dualSlowBuild": {
-      "title": "慢入加速",
-      "summary": "先慢慢推进，再自然加速滑过边框。",
-      "motion": "慢起步，后半段加速",
-      "fit": "默认候选"
+    "materialStandard": {
+      "title": "Material 标准曲线",
+      "summary": "Material 常用 ease-in-out：快速加速，再慢慢减速。",
+      "motion": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "fit": "通用默认"
     },
-    "dualLateSurge": {
-      "title": "后段冲刺",
-      "summary": "前段压得更慢，接近转角时明显快一下。",
-      "motion": "长慢入，后段提速",
-      "fit": "更有动势"
+    "materialAcceleration": {
+      "title": "Material 加速曲线",
+      "summary": "前段更慢，后段明显提速，符合你说的“慢慢跑然后快一下”。",
+      "motion": "cubic-bezier(0.4, 0, 1, 1)",
+      "fit": "后段提速"
     },
-    "dualSoftPulse": {
-      "title": "柔和呼吸",
-      "summary": "整体更慢更轻，速度变化更柔，适合停留时间长的状态。",
-      "motion": "慢速柔和加速",
-      "fit": "长任务等待"
+    "carbonProductive": {
+      "title": "Carbon Productive",
+      "summary": "IBM Carbon 的生产力曲线，克制、轻快，不会太抢眼。",
+      "motion": "cubic-bezier(0.2, 0, 0.38, 0.9)",
+      "fit": "工作台默认"
     },
-    "dualQuickGlide": {
-      "title": "轻推滑行",
-      "summary": "起步更轻快，随后平滑滑过，节奏比冲刺版更利落。",
-      "motion": "轻快启动，平滑收尾",
-      "fit": "短等待反馈"
+    "carbonExpressive": {
+      "title": "Carbon Expressive",
+      "summary": "IBM Carbon 的表达性曲线，节奏更有弹性，但没有反弹和突然停顿。",
+      "motion": "cubic-bezier(0.4, 0.14, 0.3, 1)",
+      "fit": "更明显反馈"
     }
   }
 }
