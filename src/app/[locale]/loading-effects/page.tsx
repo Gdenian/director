@@ -84,6 +84,7 @@ export default async function LoadingEffectsPage() {
               <div className="mt-4 overflow-hidden rounded-lg border border-[var(--glass-stroke-base)] bg-white">
                 <div className={`${styles.previewFrame} ${variant.effectClassName}`}>
                   <PreviewScene />
+                  <PerimeterTrack />
                 </div>
               </div>
 
@@ -106,6 +107,21 @@ export default async function LoadingEffectsPage() {
         </div>
       </section>
     </main>
+  )
+}
+
+function PerimeterTrack() {
+  return (
+    <div className={styles.perimeterTrack} aria-hidden="true">
+      <span className={`${styles.edgeSegment} ${styles.edgeTop} ${styles.edgePrimary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeRight} ${styles.edgePrimary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeBottom} ${styles.edgePrimary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeLeft} ${styles.edgePrimary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeTop} ${styles.edgeSecondary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeRight} ${styles.edgeSecondary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeBottom} ${styles.edgeSecondary}`} />
+      <span className={`${styles.edgeSegment} ${styles.edgeLeft} ${styles.edgeSecondary}`} />
+    </div>
   )
 }
 
