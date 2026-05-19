@@ -927,9 +927,8 @@ describe('workspace node canvas projection', () => {
     expect(videoPlanNodes).toHaveLength(6)
     expect(videoPlanNodes[0].data.height).toBeGreaterThan(560)
     expect(videoPlanNodes[5].position.x).toBe(videoPlanNodes[0].position.x)
-    expect(videoPlanNodes[5].position.y).toBeGreaterThanOrEqual(
-      videoPlanNodes[0].position.y + videoPlanNodes[0].data.height,
-    )
+    const firstRowMaxHeight = Math.max(...videoPlanNodes.slice(0, 5).map((node) => node.data.height))
+    expect(videoPlanNodes[5].position.y).toBe(videoPlanNodes[0].position.y + firstRowMaxHeight + 96)
     videoPlanNodes.forEach((node, index) => {
       videoPlanNodes.slice(index + 1).forEach((otherNode) => {
         expect(nodesOverlap(node, otherNode)).toBe(false)

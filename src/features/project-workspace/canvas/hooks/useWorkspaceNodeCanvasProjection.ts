@@ -48,10 +48,9 @@ import { repairWorkspaceNodeOverlaps } from '../layout/workspace-node-auto-layou
 const DEFAULT_NODE_WIDTH = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.width
 const DEFAULT_NODE_HEIGHT = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.height
 const VIDEO_PLAN_NODE_WIDTH = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.width
-const VIDEO_PLAN_NODE_MIN_HEIGHT = WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE.height
 const SPACE_CONSISTENCY_NODE_WIDTH = WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE.width
 const SPACE_CONSISTENCY_NODE_HEIGHT = WORKSPACE_CANVAS_SPACE_CONSISTENCY_NODE_SIZE.height
-const VIDEO_PLAN_GRID_ROW_GAP = 640
+const VIDEO_PLAN_GRID_ROW_GAP_Y = 96
 const BGM_SCORE_NODE_WIDTH = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.width
 const BGM_SCORE_NODE_HEIGHT = WORKSPACE_CANVAS_BGM_SCORE_NODE_SIZE.height
 const FINAL_NODE_WIDTH = WORKSPACE_CANVAS_FINAL_NODE_SIZE.width
@@ -95,12 +94,14 @@ const VIDEO_PLAN_HEADER_HEIGHT = 82
 const VIDEO_PLAN_CONTENT_VERTICAL_PADDING = 40
 const VIDEO_PLAN_SECTION_GAP = 12
 const VIDEO_PLAN_FOOTER_HEIGHT = 66
-const VIDEO_PLAN_PENDING_PREVIEW_EXTRA_HEIGHT = 96
 const VIDEO_PLAN_SECTION_BASE_HEIGHT = 42
 const VIDEO_PLAN_TEXT_LINE_HEIGHT = 20
 const VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT = 112
 const VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT = 34
 const VIDEO_PLAN_CONTENT_WIDTH = VIDEO_PLAN_NODE_WIDTH - NODE_CONTENT_INLINE_PADDING
+const VIDEO_PLAN_SEGMENTED_CONTROL_HEIGHT = 32
+const VIDEO_PLAN_REFERENCE_CARD_VERTICAL_PADDING = 24
+const VIDEO_PLAN_REFERENCE_GRID_GAP_Y = 8
 
 interface TranslateValues {
   readonly [key: string]: string | number
@@ -439,20 +440,29 @@ function estimateVideoPlanTextSectionHeight(text: string | null | undefined, cha
 function estimateVideoPlanPreviewHeight(input: {
   readonly outputAspectRatio: number | null
   readonly hasOutput: boolean
-  readonly shotCount: number
+  readonly referenceCount: number
 }): number {
   const aspectRatio = input.outputAspectRatio && input.outputAspectRatio > 0 ? input.outputAspectRatio : 16 / 9
   const mediaHeight = Math.round(VIDEO_PLAN_CONTENT_WIDTH / aspectRatio)
-  return input.hasOutput
-    ? mediaHeight
-    : mediaHeight + (input.shotCount > 0 ? VIDEO_PLAN_PENDING_PREVIEW_EXTRA_HEIGHT : 24)
+  if (input.hasOutput) {
+    return VIDEO_PLAN_SEGMENTED_CONTROL_HEIGHT + VIDEO_PLAN_SECTION_GAP + mediaHeight
+  }
+  if (input.referenceCount <= 0) return mediaHeight
+  const imageRows = Math.ceil(input.referenceCount / 2)
+  return VIDEO_PLAN_REFERENCE_CARD_VERTICAL_PADDING
+    + imageRows * VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT
+    + Math.max(0, imageRows - 1) * VIDEO_PLAN_REFERENCE_GRID_GAP_Y
 }
 
-function estimateVideoPlanAssetReferenceSectionHeight(assetReferenceCount: number, showsModelHint: boolean): number {
-  const imageRows = assetReferenceCount > 0 ? Math.ceil(assetReferenceCount / 2) : 1
-  const imageHeight = imageRows * VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT
+function estimateVideoPlanGenerationModeSectionHeight(showsModelHint: boolean): number {
   const hintHeight = showsModelHint ? VIDEO_PLAN_TEXT_LINE_HEIGHT + 8 : 0
-  return VIDEO_PLAN_SECTION_BASE_HEIGHT + imageHeight + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT + hintHeight + 76
+  const hintGap = showsModelHint ? VIDEO_PLAN_REFERENCE_GRID_GAP_Y : 0
+  return VIDEO_PLAN_SECTION_BASE_HEIGHT
+    + VIDEO_PLAN_SEGMENTED_CONTROL_HEIGHT
+    + VIDEO_PLAN_REFERENCE_GRID_GAP_Y
+    + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT
+    + hintGap
+    + hintHeight
 }
 
 function estimateVideoPlanNodeHeight(input: {
@@ -462,25 +472,27 @@ function estimateVideoPlanNodeHeight(input: {
   readonly assetReferenceCount: number
   readonly showsModelHint: boolean
   readonly prompt: string | null | undefined
-  readonly reason: string | null | undefined
   readonly errorMessage: string | null | undefined
   readonly validationMessage: string | null | undefined
 }): number {
   const sections = [
-    estimateVideoPlanPreviewHeight(input),
+    estimateVideoPlanPreviewHeight({
+      outputAspectRatio: input.outputAspectRatio,
+      hasOutput: input.hasOutput,
+      referenceCount: input.shotCount > 0 ? input.shotCount : input.assetReferenceCount,
+    }),
+    estimateVideoPlanGenerationModeSectionHeight(input.showsModelHint),
     VIDEO_PLAN_SECTION_BASE_HEIGHT + VIDEO_PLAN_TEXT_LINE_HEIGHT * 2,
-    estimateVideoPlanAssetReferenceSectionHeight(Math.max(input.assetReferenceCount, input.shotCount), input.showsModelHint),
     estimateVideoPlanTextSectionHeight(input.prompt, 54, 3),
     estimateVideoPlanTextSectionHeight(input.errorMessage, 54, 5),
     estimateVideoPlanTextSectionHeight(input.validationMessage, 54, 4),
-    estimateVideoPlanTextSectionHeight(input.reason, 54, 4),
   ].filter((height) => height > 0)
 
   const contentHeight = sections.reduce((total, height) => total + height, 0)
     + Math.max(0, sections.length - 1) * VIDEO_PLAN_SECTION_GAP
 
   return Math.max(
-    VIDEO_PLAN_NODE_MIN_HEIGHT,
+    0,
     VIDEO_PLAN_HEADER_HEIGHT + VIDEO_PLAN_CONTENT_VERTICAL_PADDING + contentHeight + VIDEO_PLAN_FOOTER_HEIGHT,
   )
 }
@@ -1428,11 +1440,8 @@ export function buildWorkspaceNodeCanvasProjection({
     SHOT_GRID_ROW_GAP,
     ...Array.from(shotPreviewByPanelId.values()).map((preview) => preview.nodeHeight + 72),
   )
-  const videoPlanRows = Math.max(1, Math.ceil((canShowVideoPlanLayer ? editScript?.videoBlocks?.length ?? 0 : 0) / PANEL_GRID_COLUMNS))
   const shotGridBaseY = 24
   const videoPlanBaseY = shotGridBaseY + panelGridRows * shotGridRowGap + 150
-  const bgmScoreBaseY = videoPlanBaseY + (canShowVideoPlanLayer ? videoPlanRows * VIDEO_PLAN_GRID_ROW_GAP + 130 : 0)
-  const finalGridBaseY = bgmScoreBaseY + BGM_SCORE_NODE_HEIGHT + 130
   const firstPanelIdByStoryboardId = new Map<string, string>()
   panelsWithStoryboard.forEach(({ storyboard, panel }) => {
     if (!firstPanelIdByStoryboardId.has(storyboard.id)) firstPanelIdByStoryboardId.set(storyboard.id, panel.id)
@@ -1607,9 +1616,12 @@ export function buildWorkspaceNodeCanvasProjection({
     }
   })
 
+  let videoPlanLayerHeight = 0
   if (editScript?.videoBlocks?.length && canShowVideoPlanLayer) {
     const durations = editScriptShotDurationByNumber(editScript)
     const editScriptVideoSourceNodeId = `edit-script:${editScript.id}`
+    let videoPlanRowY = videoPlanBaseY
+    let videoPlanRowMaxHeight = 0
 
     editScript.videoBlocks.forEach((block, index) => {
       const durationSec = videoBlockDuration(block.shotNumbers, durations)
@@ -1679,17 +1691,20 @@ export function buildWorkspaceNodeCanvasProjection({
         assetReferenceCount: assetReferences.length,
         showsModelHint: assetReferences.length > 0 && assetReferenceVideoModel.length === 0,
         prompt: block.prompt,
-        reason: block.reason,
         errorMessage: runtimeErrorMessage,
         validationMessage,
       })
-      const position = gridPosition({
-        index,
-        baseX: storyboardFlowBaseX,
-        baseY: videoPlanBaseY,
-        width: VIDEO_PLAN_NODE_WIDTH,
-        rowGap: VIDEO_PLAN_GRID_ROW_GAP,
-      })
+      const column = index % PANEL_GRID_COLUMNS
+      if (column === 0 && index > 0) {
+        videoPlanLayerHeight += videoPlanRowMaxHeight + VIDEO_PLAN_GRID_ROW_GAP_Y
+        videoPlanRowY = videoPlanBaseY + videoPlanLayerHeight
+        videoPlanRowMaxHeight = 0
+      }
+      const position = {
+        x: storyboardFlowBaseX + column * (VIDEO_PLAN_NODE_WIDTH + PANEL_GRID_GAP_X),
+        y: videoPlanRowY,
+      }
+      videoPlanRowMaxHeight = Math.max(videoPlanRowMaxHeight, videoPlanHeight)
       nodes.push(createNode({
         id: nodeId,
         fallbackX: position.x,
@@ -1755,8 +1770,11 @@ export function buildWorkspaceNodeCanvasProjection({
       const firstShotNodeId = firstShotPanel ? shotNodeIds.get(firstShotPanel.id) : null
       if (firstShotNodeId) edges.push(createEdge(`edge:shot-video-plan:${nodeId}`, firstShotNodeId, nodeId))
     })
+    videoPlanLayerHeight += videoPlanRowMaxHeight
   }
 
+  const bgmScoreBaseY = videoPlanBaseY + (canShowVideoPlanLayer ? videoPlanLayerHeight + 130 : 0)
+  const finalGridBaseY = bgmScoreBaseY + BGM_SCORE_NODE_HEIGHT + 130
   const videoOutputNodeIds = nodes
     .filter((node) => node.data.kind === 'videoPlan')
     .map((node) => node.id)
