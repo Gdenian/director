@@ -630,6 +630,22 @@ function assetReferencesForVideoBlock(
   })
 }
 
+function editAssetHasPreview(asset: ProjectEditAssetRequirement): boolean {
+  return asset.status === 'completed' && Boolean(asset.targetId) && Boolean(stringValue(asset.previewImageUrl))
+}
+
+function missingLocationReferenceNames(editScript: ProjectEditScript): string[] {
+  const names = editScript.requirements
+    .filter((asset) => asset.kind === 'location' && !editAssetHasPreview(asset))
+    .map((asset) => asset.name)
+    .filter((name) => stringValue(name))
+  return Array.from(new Set(names))
+}
+
+function hasReadyLocationReference(editScript: ProjectEditScript): boolean {
+  return editScript.requirements.some((asset) => asset.kind === 'location' && editAssetHasPreview(asset))
+}
+
 function storyboardUsesGridConsistency(storyboard: ProjectStoryboard): boolean {
   const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
   return stringValue(plan.consistencyMode) === 'grid_coordinates'
@@ -1143,16 +1159,19 @@ export function buildWorkspaceNodeCanvasProjection({
       : estimateEditScriptNodeHeight(editScript)
     editScriptCanvasRightX = STORY_COLUMN_X + EDIT_SCRIPT_TABLE_NODE_WIDTH
     editScriptCanvasCenterY = editScriptFallbackY + editScriptHeight / 2
-    const assetsToGenerate = editScript.requirements.some((asset) => asset.status !== 'completed')
+    const assetsToGenerate = editScript.requirements.some((asset) => !editAssetHasPreview(asset))
     const completedAssets = editScript.requirements.filter((asset) => asset.status === 'completed').length
     const hasStoryboardPanels = storyboards.some((storyboard) => (storyboard.panels?.length ?? 0) > 0)
+    const locationReferenceReady = hasReadyLocationReference(editScript)
     const editScriptAction = !editScriptIsReady
       ? null
       : assetsToGenerate
       ? { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
       : hasStoryboardPanels
         ? null
-        : { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
+        : locationReferenceReady
+          ? { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const, disabled: false }
+          : { label: translate('actions.generateSceneAssetImagesFirst'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const, disabled: true }
     const pipelineStepDefinitions = [
       { key: 'timeline', title: translate('nodeFields.editStepTimeline') },
       { key: 'visualAction', title: translate('nodeFields.editStepVisualAction') },
@@ -1252,6 +1271,7 @@ export function buildWorkspaceNodeCanvasProjection({
         } : undefined,
         actionLabel: editScriptAction?.label,
         action: editScriptAction?.action,
+        actionDisabled: editScriptAction && 'disabled' in editScriptAction ? editScriptAction.disabled : false,
         onAction,
       },
     }))
@@ -1488,7 +1508,7 @@ export function buildWorkspaceNodeCanvasProjection({
         previewImageUrl,
         previewAspectRatio: 16 / 9,
         spaceConsistencyDetails: details,
-        actionLabel: editScript?.status === 'ready' ? translate('actions.regenerateImage') : undefined,
+        actionLabel: editScript?.status === 'ready' ? translate('actions.regenerateSpaceCoordinates') : undefined,
         action: editScript?.status === 'ready'
           ? { type: 'generate_edit_storyboard', editScriptId: editScript.id }
           : undefined,
@@ -1504,10 +1524,20 @@ export function buildWorkspaceNodeCanvasProjection({
   })
   if (shouldShowPendingSpaceConsistencyLayer) {
     const assetsReady = editScript.requirements.length > 0
-      && editScript.requirements.every((asset) => asset.status === 'completed' && Boolean(asset.targetId))
-    const action = assetsReady
-      ? { label: translate('actions.generateStoryboard'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
-      : { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
+      && editScript.requirements.every(editAssetHasPreview)
+    const missingLocationNames = missingLocationReferenceNames(editScript)
+    const locationReferenceReady = hasReadyLocationReference(editScript)
+    const locationReferenceBlocked = assetsReady && !locationReferenceReady
+    const body = locationReferenceBlocked
+      ? translate('nodes.spaceConsistency.locationReferenceRequired')
+      : missingLocationNames.length > 0
+        ? translate('nodes.spaceConsistency.locationImageRequired', { assets: missingLocationNames.join(', ') })
+        : translate('nodes.spaceConsistency.body')
+    const action = assetsReady && locationReferenceReady
+      ? { label: translate('actions.generateSpaceCoordinates'), action: { type: 'generate_edit_storyboard', editScriptId: editScript.id } as const }
+      : locationReferenceBlocked
+        ? { label: translate('actions.generateSceneAssetImagesFirst'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
+        : { label: translate('actions.generateEditAssets'), action: { type: 'generate_edit_assets', editScriptId: editScript.id } as const }
     const nodeId = `space-consistency:edit-script:${editScript.id}`
     nodes.push(createNode({
       id: nodeId,
@@ -1525,7 +1555,7 @@ export function buildWorkspaceNodeCanvasProjection({
         targetId: editScript.id,
         title: translate('nodes.spaceConsistency.title'),
         eyebrow: translate('nodes.spaceConsistency.eyebrow'),
-        body: translate('nodes.spaceConsistency.body'),
+        body,
         meta: translate('nodes.spaceConsistency.meta', {
           floorPlans: 0,
           overlays: 0,
@@ -1540,7 +1570,7 @@ export function buildWorkspaceNodeCanvasProjection({
         previewAspectRatio: 16 / 9,
         actionLabel: action.label,
         action: action.action,
-        actionDisabled: false,
+        actionDisabled: locationReferenceBlocked,
         onAction,
       },
     }))

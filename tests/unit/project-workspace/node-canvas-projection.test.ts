@@ -1549,6 +1549,18 @@ describe('workspace node canvas projection', () => {
             status: 'completed',
             targetId: 'character-1',
             errorMessage: null,
+            previewImageUrl: 'https://example.com/pilot.png',
+          },
+          {
+            id: 'req-location',
+            kind: 'location',
+            name: 'Station',
+            description: 'A rotating station observation deck.',
+            shotNumbers: [1],
+            status: 'completed',
+            targetId: 'location-1',
+            errorMessage: null,
+            previewImageUrl: 'https://example.com/station.png',
           },
         ],
       },
@@ -1565,6 +1577,58 @@ describe('workspace node canvas projection', () => {
       type: 'generate_edit_storyboard',
       editScriptId: 'edit-ready',
     })
+    expect(consistencyNode?.data.actionLabel).toBe('actions.generateSpaceCoordinates')
+  })
+
+  it('blocks coordinate storyboard generation until a scene asset image is ready', () => {
+    const projection = buildWorkspaceNodeCanvasProjection({
+      episodeId: 'episode-1',
+      storyText: '',
+      clips: [],
+      storyboards: [],
+      savedLayouts: [],
+      translate: t,
+      editScript: createSingleVideoEditScript({
+        id: 'edit-missing-location-image',
+        requirements: [
+          {
+            id: 'req-character',
+            kind: 'character',
+            name: 'Pilot',
+            description: 'A quiet astronaut in a minimal suit.',
+            shotNumbers: [1],
+            status: 'completed',
+            targetId: 'character-1',
+            errorMessage: null,
+            previewImageUrl: 'https://example.com/pilot.png',
+          },
+          {
+            id: 'req-location',
+            kind: 'location',
+            name: 'Station',
+            description: 'A rotating station observation deck.',
+            shotNumbers: [1],
+            status: 'completed',
+            targetId: 'location-1',
+            errorMessage: null,
+            previewImageUrl: null,
+          },
+        ],
+      }),
+    })
+
+    const editNode = projection.nodes.find((node) => node.id === 'edit-script:edit-missing-location-image')
+    expect(editNode?.data.action).toEqual({
+      type: 'generate_edit_assets',
+      editScriptId: 'edit-missing-location-image',
+    })
+    const consistencyNode = projection.nodes.find((node) => node.id === 'space-consistency:edit-script:edit-missing-location-image')
+    expect(consistencyNode?.data.body).toBe('nodes.spaceConsistency.locationImageRequired:{"assets":"Station"}')
+    expect(consistencyNode?.data.action).toEqual({
+      type: 'generate_edit_assets',
+      editScriptId: 'edit-missing-location-image',
+    })
+    expect(consistencyNode?.data.actionDisabled).toBe(false)
   })
 
   it('projects coordinate storyboard artifacts as a space consistency node before panels', () => {

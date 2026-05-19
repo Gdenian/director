@@ -15,20 +15,28 @@ interface SubmitCoordinateStoryboardInput {
   readonly requestId?: string | null
 }
 
-function assertRequiredLocationPreviews(input: {
+export function assertRequiredLocationPreviews(input: {
   readonly sourceSnapshot: Awaited<ReturnType<typeof buildStoryboardConsistencySource>>['sourceSnapshot']
 }) {
+  const hasLocationReference = input.sourceSnapshot.assets.some((asset) => asset.kind === 'location' && Boolean(asset.previewImageUrl))
+  if (!hasLocationReference) {
+    throw new ApiError('CONFLICT', {
+      code: 'EDIT_SCRIPT_STORYBOARD_LOCATION_REFERENCE_REQUIRED',
+      message: 'Location reference images are required before coordinate storyboard generation: scene asset',
+    })
+  }
   const classifications = classifyStoryboardConsistencyBlocks(input.sourceSnapshot)
   const missing = classifications.flatMap((classification) => {
     if (classification.classification === 'no_fixed_space') return []
     const block = input.sourceSnapshot.videoBlocks.find((item) => item.sourceVideoBlockId === classification.sourceVideoBlockId)
     if (!block) throw new Error(`EDIT_SCRIPT_STORYBOARD_BLOCK_MISSING:${classification.sourceVideoBlockId}`)
-    return input.sourceSnapshot.assets
-      .filter((asset) => (
-        asset.kind === 'location'
-        && asset.shotNumbers.some((shotNumber) => block.shotNumbers.includes(shotNumber))
-        && !asset.previewImageUrl
-      ))
+    const locationAssets = input.sourceSnapshot.assets.filter((asset) => (
+      asset.kind === 'location'
+      && asset.shotNumbers.some((shotNumber) => block.shotNumbers.includes(shotNumber))
+    ))
+    if (locationAssets.length === 0) return [classification.locationNames[0] ?? classification.sourceVideoBlockId]
+    return locationAssets
+      .filter((asset) => !asset.previewImageUrl)
       .map((asset) => asset.name)
   })
   const uniqueMissing = Array.from(new Set(missing))

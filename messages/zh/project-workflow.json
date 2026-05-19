@@ -253,7 +253,10 @@
         "renderFinalVideo": "AI剪辑",
         "aiEditing": "AI剪辑中",
         "generateEditAssets": "全部生成",
-        "generateEditAsset": "生成图片"
+        "generateEditAsset": "生成图片",
+        "generateSpaceCoordinates": "生成空间坐标图",
+        "regenerateSpaceCoordinates": "重新生成空间坐标图",
+        "generateSceneAssetImagesFirst": "请先生成场景资产图片"
       },
       "status": {
         "empty": "待输入",
@@ -692,6 +695,8 @@
           "title": "空间一致性",
           "eyebrow": "坐标调度",
           "body": "正式分镜提示词使用的 2D 平面图、坐标覆盖图和 Vision 空间调度结果。",
+          "locationImageRequired": "请先生成场景资产图片：{assets}。没有场景参考图时，无法生成可定位的 2D 平面图和坐标。",
+          "locationReferenceRequired": "请先生成场景资产图片。没有场景参考图时，无法生成可定位的 2D 平面图和坐标。",
           "meta": "{floorPlans} 张平面图 · {overlays} 张坐标图 · {shots} 个镜头"
         },
         "editAsset": {
