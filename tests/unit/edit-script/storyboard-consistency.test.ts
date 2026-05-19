@@ -166,6 +166,24 @@ describe('edit-script storyboard coordinate consistency', () => {
       locationNames: ['Temple courtyard'],
     })
 
+    const [singleCharacterFixedLocation] = classifyStoryboardConsistencyBlocks(buildSnapshot({
+      assets: buildSnapshot().assets.filter((asset) => asset.name !== 'Young disciple'),
+      shots: buildSnapshot().shots.map((shot) => ({
+        ...shot,
+        charactersAndScene: 'Old monk remains in the same temple courtyard.',
+        visualAction: 'Old monk crosses the same temple courtyard.',
+      })),
+      videoBlocks: [{
+        ...buildSnapshot().videoBlocks[0],
+        prompt: 'A monk repeatedly moves through the same temple courtyard.',
+      }],
+    }))
+    expect(singleCharacterFixedLocation).toMatchObject({
+      classification: 'fixed_space_weak',
+      participantNames: ['Old monk'],
+      locationNames: ['Temple courtyard'],
+    })
+
     const [chase] = classifyStoryboardConsistencyBlocks(buildSnapshot({
       videoBlocks: [{
         ...buildSnapshot().videoBlocks[0],

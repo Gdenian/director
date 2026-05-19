@@ -137,10 +137,31 @@ describe('edit script storyboard camera plan handler', () => {
     modelGenerationMock.generateCameraPlan.mockResolvedValue({
       cameraPlanOutput: {
         strategy: 'camera_plan',
+        blocks: [{
+          sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+          panels: [{
+            panelIndex: 0,
+            sourceShotNumber: 1,
+            sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+            finalPanelPrompt: 'large prompt that belongs on ProjectPanel, not photographyPlan',
+          }],
+        }],
         panels: [{
           panelIndex: 0,
           sourceShotNumber: 1,
           sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+          shotScale: 'Medium shot',
+          cameraPosition: 'front',
+          cameraHeight: 'eye-level',
+          cameraAngle: 'straight-on',
+          composition: 'balanced',
+          cameraMovement: 'static',
+          lensAndDepth: '35mm',
+          screenDirection: 'left to right',
+          aestheticIntent: 'quiet',
+          emotionalEffect: 'calm',
+          continuityNote: 'same space',
+          finalPanelPrompt: 'large prompt that belongs on ProjectPanel, not photographyPlan',
         }],
       },
       panels: [{
@@ -174,6 +195,33 @@ describe('edit script storyboard camera plan handler', () => {
         lastError: null,
       }),
     }))
+    const updateCalls = prismaMock.projectStoryboard.update.mock.calls as unknown as Array<[{
+      readonly data?: {
+        readonly photographyPlan?: string
+      }
+    }]>
+    const storedPlan = JSON.parse(String(updateCalls[0]?.[0].data?.photographyPlan))
+    expect(storedPlan.cameraPlanOutput).toEqual({
+      strategy: 'camera_plan',
+      panels: [{
+        panelIndex: 0,
+        sourceShotNumber: 1,
+        sourceVideoBlockId: 'edit-script-1:videoBlock:1',
+        shotScale: 'Medium shot',
+        cameraPosition: 'front',
+        cameraHeight: 'eye-level',
+        cameraAngle: 'straight-on',
+        composition: 'balanced',
+        cameraMovement: 'static',
+        lensAndDepth: '35mm',
+        screenDirection: 'left to right',
+        aestheticIntent: 'quiet',
+        emotionalEffect: 'calm',
+        continuityNote: 'same space',
+      }],
+    })
+    expect(JSON.stringify(storedPlan.cameraPlanOutput)).not.toContain('finalPanelPrompt')
+    expect(JSON.stringify(storedPlan.cameraPlanOutput)).not.toContain('blocks')
     expect(submitterMock.submitTask).not.toHaveBeenCalled()
   })
 })

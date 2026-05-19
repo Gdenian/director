@@ -144,6 +144,44 @@ function buildPhotographyPlan(input: {
   }
 }
 
+function compactCameraPlanPanelForStorage(value: unknown): Record<string, unknown> | null {
+  const panel = readRecord(value)
+  const panelIndex = typeof panel.panelIndex === 'number' ? panel.panelIndex : null
+  const sourceShotNumber = typeof panel.sourceShotNumber === 'number' ? panel.sourceShotNumber : null
+  const sourceVideoBlockId = readString(panel.sourceVideoBlockId)
+  if (panelIndex === null || sourceShotNumber === null || !sourceVideoBlockId) return null
+  return {
+    panelIndex,
+    sourceShotNumber,
+    sourceVideoBlockId,
+    shotScale: readString(panel.shotScale),
+    cameraPosition: readString(panel.cameraPosition),
+    cameraHeight: readString(panel.cameraHeight),
+    cameraAngle: readString(panel.cameraAngle),
+    composition: readString(panel.composition),
+    cameraMovement: readString(panel.cameraMovement),
+    lensAndDepth: readString(panel.lensAndDepth),
+    screenDirection: readString(panel.screenDirection),
+    aestheticIntent: readString(panel.aestheticIntent),
+    emotionalEffect: readString(panel.emotionalEffect),
+    continuityNote: readString(panel.continuityNote),
+  }
+}
+
+function compactCameraPlanOutputForStorage(value: unknown): Record<string, unknown> {
+  const output = readRecord(value)
+  const panels = Array.isArray(output.panels)
+    ? output.panels.flatMap((panel) => {
+        const compact = compactCameraPlanPanelForStorage(panel)
+        return compact ? [compact] : []
+      })
+    : []
+  return {
+    strategy: 'camera_plan',
+    panels,
+  }
+}
+
 async function loadStoryboardWithArtifacts(storyboardId: string, projectId: string) {
   return await prisma.projectStoryboard.findFirst({
     where: {
@@ -673,7 +711,7 @@ export async function handleEditScriptStoryboardCameraPlanTask(job: Job<TaskJobD
         photographyPlan: JSON.stringify({
           ...plan,
           currentStage: 'panel_prompts_ready',
-          cameraPlanOutput: generated.cameraPlanOutput,
+          cameraPlanOutput: compactCameraPlanOutputForStorage(generated.cameraPlanOutput),
           errorMessage: null,
         }),
         lastError: null,

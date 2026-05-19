@@ -1368,7 +1368,10 @@ function SpaceConsistencyContent({
   const details = data.spaceConsistencyDetails
   if (!details) return <p className={`${SELECTABLE_TEXT_CLASS} text-sm leading-6 text-[var(--glass-text-secondary)]`}>{data.body}</p>
   const imageArtifacts = details.artifacts.filter((artifact) => artifact.imageUrl)
-  const shouldShowGeneratedDetails = data.isRunning !== true && details.stage === 'panel_prompts_ready'
+  const shouldShowGeneratedDetails = data.isRunning !== true
+    && details.stage !== 'preparing'
+    && details.stage !== 'floor_plan_prompts_ready'
+    && details.stage !== 'floor_plans_generating'
   const visibleShotCoordinates = shouldShowGeneratedDetails
     ? expanded ? details.shotCoordinates : details.shotCoordinates.slice(0, 6)
     : []

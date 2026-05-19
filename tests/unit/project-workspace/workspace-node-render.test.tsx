@@ -91,7 +91,7 @@ describe('workspace node rendering', () => {
     expect(html).not.toContain('edit-1:videoBlock:1')
   })
 
-  it('shows space consistency shot coordinate rows after generation succeeds', () => {
+  it('shows space consistency shot coordinate rows after grid analysis succeeds', () => {
     const html = renderNode({
       kind: 'spaceConsistency',
       layoutNodeType: 'spaceConsistency',
@@ -107,7 +107,7 @@ describe('workspace node rendering', () => {
       height: 620,
       spaceConsistencyDetails: {
         storyboardId: 'storyboard-1',
-        stage: 'panel_prompts_ready',
+        stage: 'grid_analyze_ready',
         floorPlanCount: 1,
         overlayCount: 1,
         cameraPlanCount: 0,

@@ -92,13 +92,15 @@ export function classifyStoryboardConsistencyBlocks(snapshot: StoryboardConsiste
       ? 'no_fixed_space'
       : repeatedLocation && participantNames.length >= 2
         ? 'fixed_space_strong'
-        : locationNames.length > 0 && participantNames.length >= 2
+        : repeatedLocation && participantNames.length >= 1
+          ? 'fixed_space_weak'
+          : locationNames.length > 0 && participantNames.length >= 2
           ? 'fixed_space_weak'
           : 'no_fixed_space'
     const reason = classification === 'fixed_space_strong'
       ? 'same videoBlock contains repeated location coverage and at least two core characters'
       : classification === 'fixed_space_weak'
-        ? 'same videoBlock has a shared location and at least two core characters'
+        ? 'same videoBlock has repeated or shared fixed-location coverage that benefits from coordinate blocking'
         : excludedByMotionOrAbstraction
           ? 'motion, abstraction, cutaway, object-only, or landscape-only language was detected'
           : 'fixed-space continuity signal is insufficient'
