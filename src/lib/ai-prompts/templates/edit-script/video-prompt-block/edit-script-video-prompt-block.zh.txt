@@ -14,7 +14,7 @@
 - 每个 shots[].videoPrompt 必须显式写入可执行风格，不得只写“按 Bible 风格”。
 - 每个 videoBlock.prompt 必须显式写入统一视频风格、画面滤镜、光线、色彩、镜头节奏、运动风格和画幅。
 - 必须使用 videoPromptBible.styleReferenceInterpretation.imageFilterPrompt；画面滤镜要作为视频提示词的一部分出现。
-- 如果用户给出“春夏秋冬又一春”“金基德风格”等参考，最终 prompt 中应写可执行风格特征，而不是只写参考名。
+- 如果用户给出导演名、影片名、流派名、年代感或摄影风格参考，最终 prompt 中应写可执行风格特征，而不是只写参考名。
 
 shots[].videoPrompt 写作规则：
 - 写成该单镜头可独立生成的辅助提示，包含主体、动作、场景、光线、摄影、画幅、风格、画面滤镜和必要约束。
@@ -58,10 +58,10 @@ videoBlock.prompt 写作规则：
 优秀 videoBlock.prompt 示例，仅用于学习结构、信息密度和写法；不得复制示例剧情、人物或场景：
 
 示例 1（single，含画面滤镜）：
-Restrained meditative temple-courtyard shot, 16:9, quiet natural-light cinema, low-saturation spring palette, soft-focus lens, restrained highlights, low contrast, clear air, subtle 35mm film texture. A young novice monk kneels beside a stone flower bed, both hands carefully pressing damp soil around a small seedling; his shoulders move slowly with a hesitant breath, and the old monk remains softly visible as a blurred figure near the corridor edge, preserving the same courtyard space. The camera stays eye-level and almost static with a faint slow push-in, observing the ritual action without exaggeration. Keep the movement continuous, slow, and natural, no sudden face change, no costume change. Sound effects only: soft wind through leaves, faint robe fabric, damp soil touch, distant wooden chime tail. 保持无字幕，避免任何文字或字幕，不要生成 Logo，不要生成水印。
+Quiet roadside bus-stop shot, 16:9, restrained natural-light cinema, overcast evening palette, soft-focus lens, low contrast, gentle highlight bloom, clear wet air, subtle 1990s film texture. A middle-aged woman stands under a rain shelter with one hand tightening the strap of a worn canvas bag; her thumb rubs the damp fabric twice, her shoulders lift with a small breath, and a passing bus reflection slides across the glass behind her without changing her position. The camera stays chest-height and almost static with a very slow push-in, observing the waiting gesture without melodrama. Keep movement continuous, natural, and small-scale, no sudden face change, no costume change. Sound effects only: light rain on plastic roof, distant tire hiss, faint fabric creak, one short bus-brake sigh. 保持无字幕，避免任何文字或字幕，不要生成 Logo，不要生成水印。
 
 示例 2（group，连续片段）：
-Quiet seasonal courtyard sequence, 16:9, restrained natural-light cinematography, low contrast, soft highlights, clear muted colors, subtle 35mm film texture, slow observational rhythm, the two monks remain spatially consistent around the central flower bed. [00:00-00:04] 镜头1：中景静态观察，小和尚在花坛左前侧跪下，手指慢慢拨开湿土，老僧在右后侧檐廊边缘安静注视，风轻轻吹动袖口；镜头几乎不动，只保留轻微呼吸感。<风声、衣料轻响、泥土摩擦声保持同一空间> [00:04-00:08] 镜头2：同轴缓慢推近，小和尚把种子放入土中，动作停顿半秒后轻轻覆盖，老僧的虚焦身影仍在画面边缘保持存在；光线从树叶间落在花坛上。<鸟鸣很远，土粒落下的轻声作为剪辑点> [00:08-00:12] 镜头3：切到手部近景，水滴从小木瓢落入土壤，画面柔焦高光轻微溢出，动作缓慢完整，不夸张。<水滴声、院落 room tone 自然延续> Sound effects only, no BGM, no background music, no melody, no lyrics, no sung vocals. 保持无字幕，避免任何文字或字幕，不要生成 Logo，不要生成水印。
+Quiet seaside repair-shop sequence, 16:9, restrained natural-light cinematography, low contrast, muted blue-gray palette, soft highlights, slight halation, subtle 35mm film texture, slow observational rhythm, the same workbench, radio, and open doorway remain spatial anchors. [00:00-00:04] 镜头1：中景静态观察，年长修理工坐在工作台左侧，用拇指和食指慢慢拧紧一颗小螺丝，年轻顾客在右后方门口虚焦等待；镜头几乎不动，只保留轻微呼吸感。<海风从门外进入，螺丝刀轻触金属，室内 room tone 保持同一空间> [00:04-00:08] 镜头2：同轴缓慢推近，修理工停顿半秒，侧耳听收音机里的短促杂音，顾客的模糊轮廓仍在门框边缘保持存在；窗外冷光掠过桌面。<电流杂音很短，风声自然延续到剪辑点> [00:08-00:12] 镜头3：切到手部近景，手指按下开关，指节轻微发抖，收音机指示灯亮起，画面柔焦高光轻微溢出，动作缓慢完整。<开关轻响、电流声变稳、海边 room tone 延续> Sound effects only, no BGM, no background music, no melody, no lyrics, no sung vocals. 保持无字幕，避免任何文字或字幕，不要生成 Logo，不要生成水印。
 
 user_request:
 {user_request}

@@ -6,7 +6,7 @@ Highest priority:
 3. Do not introduce new styles, characters, locations, or story events that the user did not request and the story does not require.
 
 Style conversion standard:
-- Do not merely keep names such as "Kim Ki-duk style" or "Spring, Summer, Fall, Winter... and Spring style"; convert them into executable video-model dimensions.
+- Do not merely keep user-provided director names, film titles, genre labels, or period labels; convert them into executable video-model dimensions.
 - If the user gives a director, film, genre, or period reference, extract executable traits and write them into styleReferenceInterpretation.
 - Do not ask the model to imitate a living artist/person. Convert the reference into camera rhythm, composition, lighting, color, filter texture, movement speed, sound, and editing pace.
 - The image filter must be written separately in imageFilterPrompt as a short phrase that can be directly inserted into video prompts, such as: soft-focus lens, blooming highlights, low contrast, vintage 1990s film texture, clear colors, dreamy softness, 35mm lens.
@@ -29,9 +29,9 @@ Must include:
 - blockContinuityRules: action, emotion, and sound continuity between adjacent videoBlocks.
 
 Style conversion example, for structure only. Do not copy this content:
-If the user asks for "Spring, Summer, Fall, Winter... and Spring style", convert it as:
+If the user asks for "a quiet East Asian art-house film with seasonal change, nature, ritual, and sparse dialogue", convert it as:
 {
-  "rawUserStyle": "Spring, Summer, Fall, Winter... and Spring style",
+  "rawUserStyle": "a quiet East Asian art-house film with seasonal change, nature, ritual, and sparse dialogue",
   "visualTone": "observational, restrained, meditative, prioritizing nature-character relationships",
   "cameraRhythm": "few cuts, static observation, slow push/pull only when emotion or space needs revealing",
   "composition": "negative space, stable central anchors, figures placed within natural or architectural space, solitude and ritual emphasized",

@@ -153,7 +153,10 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPromptBible).toContain('styleReferenceInterpretation')
     expect(videoPromptBible).toContain('imageFilterPrompt')
     expect(videoPromptBible).toContain('柔焦镜头，高光溢出，低对比度')
-    expect(videoPromptBible).toContain('春夏秋冬又一春')
+    expect(videoPromptBible).toContain('导演名、影片名、流派名或年代标签')
+    expect(videoPromptBible).toContain('安静的东方作者电影')
+    expect(videoPromptBible).not.toContain('春夏秋冬又一春')
+    expect(videoPromptBible).not.toContain('金基德')
 
     const videoPromptBlock = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_VIDEO_PROMPT_BLOCK,
@@ -181,6 +184,10 @@ describe('edit script block-first prompt flow', () => {
     expect(videoPromptBlock).toContain('sound effects only')
     expect(videoPromptBlock).toContain('不要生成 BGM')
     expect(videoPromptBlock).toContain('优秀 videoBlock.prompt 示例')
+    expect(videoPromptBlock).toContain('roadside bus-stop')
+    expect(videoPromptBlock).toContain('seaside repair-shop')
+    expect(videoPromptBlock).not.toContain('小和尚')
+    expect(videoPromptBlock).not.toContain('老僧')
 
     const englishPrimaryPrompt = buildAiPrompt({
       promptId: AI_PROMPT_IDS.EDIT_SCRIPT_PRIMARY,
