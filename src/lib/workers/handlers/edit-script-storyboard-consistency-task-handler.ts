@@ -18,6 +18,7 @@ import {
 } from './image-task-handler-shared'
 import {
   analyzeGridCoordinates,
+  generateCameraPlan,
   generateGridFloorPlan,
 } from '@/lib/edit-script/storyboard-consistency/model-generation'
 import {
@@ -113,6 +114,7 @@ function buildPhotographyPlan(input: {
   readonly sourceSnapshot: StoryboardConsistencySourceSnapshot
   readonly modelConfigSnapshot: StoryboardConsistencyModelConfigSnapshot
   readonly strategyOutput?: unknown
+  readonly cameraPlanOutput?: unknown
   readonly errorMessage?: string | null
 }) {
   return {
@@ -123,6 +125,7 @@ function buildPhotographyPlan(input: {
     sourceSnapshot: input.sourceSnapshot,
     modelConfigSnapshot: input.modelConfigSnapshot,
     strategyOutput: input.strategyOutput ?? null,
+    cameraPlanOutput: input.cameraPlanOutput ?? null,
     errorMessage: input.errorMessage ?? null,
   }
 }
@@ -343,6 +346,28 @@ async function submitPanelImageTasks(params: {
   })
 }
 
+async function submitCameraPlanTask(params: {
+  readonly job: Job<TaskJobData>
+  readonly storyboardId: string
+}) {
+  return await submitTask({
+    userId: params.job.data.userId,
+    locale: params.job.data.locale,
+    projectId: params.job.data.projectId,
+    episodeId: params.job.data.episodeId,
+    type: TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+    targetType: 'ProjectStoryboard',
+    targetId: params.storyboardId,
+    operationId: 'edit_script_storyboard_camera_plan',
+    operationSource: 'edit-script-storyboard-grid',
+    requestId: params.job.data.trace?.requestId || null,
+    payload: {
+      storyboardId: params.storyboardId,
+    },
+    dedupeKey: `edit_script_storyboard_camera_plan:${params.storyboardId}`,
+  })
+}
+
 async function persistGeneratedPanels(params: {
   readonly job: Job<TaskJobData>
   readonly storyboardId: string
@@ -415,24 +440,19 @@ export async function handleEditScriptStoryboardPrepareTask(job: Job<TaskJobData
     })
     const activeFloorPlanCount = strategyOutput.floorPlans.filter((plan) => !plan.skipped).length
     if (activeFloorPlanCount === 0) {
-      const panels = await persistGeneratedPanels({
-        job,
-        storyboardId: storyboard.id,
-        snapshot: parsed.sourceSnapshot,
-        generatedPanels: [],
-      })
       await prisma.projectStoryboard.update({
         where: { id: storyboard.id },
         data: {
           photographyPlan: JSON.stringify(buildPhotographyPlan({
-            stage: 'panel_prompts_ready',
+            stage: 'grid_analyze_ready',
             sourceSnapshot: parsed.sourceSnapshot,
             modelConfigSnapshot: parsed.modelConfigSnapshot,
             strategyOutput,
           })),
         },
       })
-      return { storyboardId: storyboard.id, panelCount: panels.length, floorPlanCount: 0 }
+      const submitted = await submitCameraPlanTask({ job, storyboardId: storyboard.id })
+      return { storyboardId: storyboard.id, floorPlanCount: 0, nextTaskId: submitted.taskId }
     }
     const submitted = await submitTask({
       userId: job.data.userId,
@@ -609,6 +629,60 @@ export async function handleEditScriptStoryboardGridAnalyzeTask(job: Job<TaskJob
         metadataJson: artifact.metadataJson,
       })),
     })
+    await prisma.projectStoryboard.update({
+      where: { id: storyboard.id },
+      data: {
+        photographyPlan: JSON.stringify({
+          ...readRecord(parseJson(storyboard.photographyPlan)),
+          currentStage: 'grid_analyze_ready',
+          strategyOutput: generated.strategyOutput,
+          errorMessage: null,
+        }),
+        lastError: null,
+      },
+    })
+    const submitted = await submitCameraPlanTask({ job, storyboardId: storyboard.id })
+    return { storyboardId: storyboard.id, nextTaskId: submitted.taskId }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    await prisma.projectStoryboard.update({
+      where: { id: storyboard.id },
+      data: {
+        lastError: message,
+        photographyPlan: JSON.stringify({
+          ...readRecord(parseJson(storyboard.photographyPlan)),
+          currentStage: 'failed',
+          errorMessage: message,
+        }),
+      },
+    }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function handleEditScriptStoryboardCameraPlanTask(job: Job<TaskJobData>) {
+  const payload = readRecord(job.data.payload)
+  const storyboardId = readString(payload.storyboardId) || job.data.targetId
+  if (!storyboardId) throw new Error('EDIT_SCRIPT_STORYBOARD_ID_REQUIRED')
+  const storyboard = await loadStoryboardWithArtifacts(storyboardId, job.data.projectId)
+  if (!storyboard) throw new Error('EDIT_SCRIPT_STORYBOARD_NOT_FOUND')
+  const snapshot = parseSnapshotFromStoryboard(storyboard)
+  const modelConfig = parseModelConfigFromStoryboard(storyboard)
+  const plan = readRecord(parseJson(storyboard.photographyPlan))
+  const strategyOutput = plan.strategyOutput
+  if (!strategyOutput || typeof strategyOutput !== 'object' || Array.isArray(strategyOutput)) {
+    throw new Error('EDIT_SCRIPT_STORYBOARD_COORDINATE_OUTPUT_REQUIRED')
+  }
+  await reportTaskProgress(job, 20, { stage: 'edit_script_storyboard_camera_plan' })
+  try {
+    const generated = await generateCameraPlan({
+      userId: job.data.userId,
+      projectId: job.data.projectId,
+      model: modelConfig.analysisModel,
+      locale: job.data.locale,
+      snapshot,
+      coordinateStrategyOutput: strategyOutput,
+    })
     const panels = await persistGeneratedPanels({
       job,
       storyboardId: storyboard.id,
@@ -619,9 +693,9 @@ export async function handleEditScriptStoryboardGridAnalyzeTask(job: Job<TaskJob
       where: { id: storyboard.id },
       data: {
         photographyPlan: JSON.stringify({
-          ...readRecord(parseJson(storyboard.photographyPlan)),
+          ...plan,
           currentStage: 'panel_prompts_ready',
-          strategyOutput: generated.strategyOutput,
+          cameraPlanOutput: generated.cameraPlanOutput,
           errorMessage: null,
         }),
         lastError: null,
@@ -635,7 +709,7 @@ export async function handleEditScriptStoryboardGridAnalyzeTask(job: Job<TaskJob
       data: {
         lastError: message,
         photographyPlan: JSON.stringify({
-          ...readRecord(parseJson(storyboard.photographyPlan)),
+          ...plan,
           currentStage: 'failed',
           errorMessage: message,
         }),

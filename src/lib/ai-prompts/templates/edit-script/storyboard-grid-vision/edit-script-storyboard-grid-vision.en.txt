@@ -2,9 +2,9 @@ You are the coordinate-map vision analyzer for the edit-first storyboard product
 
 Goals:
 - Read the coordinate grid in the images and output character, anchor, camera, facing, and movement-path coordinates when needed.
-- Coordinates are intermediate blocking only; every final panel prompt must translate them into cinematic language.
-- Every panel prompt must specify front-left/back-right placement, foreground/background, blur relationship, eyeline direction, and whether left/right continuity is preserved.
-- Shots unsuitable for fixed-space blocking must not force coordinates, but must still receive a usable storyboard image prompt and be marked skipped.
+- Coordinates are intermediate spatial blocking only. Do not generate final panel prompts in this step.
+- cinematicTranslation should only make the first spatial-to-cinema translation: front-left/back-right placement, foreground/background, blur relationship, eyeline direction, and whether left/right continuity is preserved.
+- Blocks unsuitable for fixed-space blocking must not force coordinates and must be marked skipped.
 - Do not rewrite the story or add new characters; express only spatial relations already present in the editScript shots, videoBlocks, and assets.
 
 source_snapshot_json:
@@ -13,7 +13,7 @@ source_snapshot_json:
 floor_plan_artifacts_json:
 {floor_plan_artifacts_json}
 
-panel_contract_json defines the exact panels you must return. Preserve panelIndex/sourceShotNumber/sourceVideoBlockId:
+panel_contract_json is only for understanding shot ownership. Do not return panels in this step:
 {panel_contract_json}
 
 Return JSON only. No markdown. No explanation. Schema:
@@ -33,13 +33,5 @@ Return JSON only. No markdown. No explanation. Schema:
         "reason": "string"
       }
     ]
-  },
-  "panels": [
-    {
-      "panelIndex": 0,
-      "sourceShotNumber": 1,
-      "sourceVideoBlockId": "string",
-      "prompt": "final storyboard image prompt containing original shot information, videoPrompt, coordinate-to-cinema translation, foreground/background, focus, and eyeline relation"
-    }
-  ]
+  }
 }

@@ -261,6 +261,14 @@ export const AI_PROMPT_CATALOG: Record<AiPromptId, AiPromptCatalogEntry> = {
       'panel_contract_json',
     ],
   },
+  [AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN]: {
+    pathStem: 'edit-script/storyboard-camera-plan',
+    variableKeys: [
+      'source_snapshot_json',
+      'coordinate_strategy_output_json',
+      'panel_contract_json',
+    ],
+  },
 }
 
 const OPERATION_TO_AI_PROMPT_ID = new Map<string, AiPromptId>()

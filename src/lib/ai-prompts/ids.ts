@@ -44,6 +44,7 @@ export const AI_PROMPT_IDS = {
   EDIT_SCRIPT_STORYBOARD_PANEL: 'edit-script-storyboard-panel',
   EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN: 'edit-script-storyboard-grid-floor-plan',
   EDIT_SCRIPT_STORYBOARD_GRID_VISION: 'edit-script-storyboard-grid-vision',
+  EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN: 'edit-script-storyboard-camera-plan',
 } as const
 
 export type AiPromptId = (typeof AI_PROMPT_IDS)[keyof typeof AI_PROMPT_IDS]

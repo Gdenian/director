@@ -1600,6 +1600,25 @@ describe('workspace node canvas projection', () => {
                 ],
               }],
             },
+            cameraPlanOutput: {
+              strategy: 'camera_plan',
+              panels: [{
+                panelIndex: 0,
+                sourceShotNumber: 1,
+                sourceVideoBlockId: 'edit-grid:videoBlock:1',
+                shotScale: 'medium shot',
+                cameraPosition: 'over the disciple shoulder',
+                cameraHeight: 'eye-level',
+                cameraAngle: 'three-quarter frontal',
+                composition: 'flower bed anchors the lower third',
+                cameraMovement: 'slow push-in',
+                lensAndDepth: 'mild telephoto shallow depth',
+                screenDirection: 'old monk screen left, disciple screen right',
+                aestheticIntent: 'quiet balanced teaching composition',
+                emotionalEffect: 'calm attention',
+                continuityNote: 'preserve eyeline',
+              }],
+            },
           }),
           blockingArtifacts: [
             {
@@ -1676,6 +1695,15 @@ describe('workspace node canvas projection', () => {
     expect(spaceNode?.data.spaceConsistencyDetails).toMatchObject({
       floorPlanCount: 1,
       overlayCount: 1,
+      cameraPlanCount: 1,
+      cameraPlans: [
+        {
+          sourceShotNumber: 1,
+          shotScale: 'medium shot',
+          cameraMovement: 'slow push-in',
+          aestheticIntent: 'quiet balanced teaching composition',
+        },
+      ],
       blocks: [
         {
           sourceVideoBlockId: 'edit-grid:videoBlock:1',

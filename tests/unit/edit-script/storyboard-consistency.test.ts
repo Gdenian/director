@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { executeAiTextStep, executeAiVisionStep } from '@/lib/ai-exec/engine'
 import {
   analyzeGridCoordinates,
+  generateCameraPlan,
   generateGridFloorPlan,
 } from '@/lib/edit-script/storyboard-consistency/model-generation'
 import { classifyStoryboardConsistencyBlocks, resolveGridDensity } from '@/lib/edit-script/storyboard-consistency/strategies'
@@ -11,6 +12,7 @@ vi.mock('@/lib/ai-prompts', () => ({
   AI_PROMPT_IDS: {
     EDIT_SCRIPT_STORYBOARD_GRID_FLOOR_PLAN: 'edit-script-storyboard-grid-floor-plan',
     EDIT_SCRIPT_STORYBOARD_GRID_VISION: 'edit-script-storyboard-grid-vision',
+    EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN: 'edit-script-storyboard-camera-plan',
   },
   buildAiPrompt: vi.fn((input: { readonly promptId: string }) => `prompt:${input.promptId}`),
 }))
@@ -201,7 +203,7 @@ describe('edit-script storyboard coordinate consistency', () => {
     expect('coordinates' in output.floorPlans[0]).toBe(false)
   })
 
-  it('requires overlay images for coordinate analysis and returns cinematic panel prompts', async () => {
+  it('requires overlay images for coordinate analysis and does not generate final panel prompts', async () => {
     await expect(analyzeGridCoordinates({
       userId: 'user-1',
       projectId: 'project-1',
@@ -217,23 +219,17 @@ describe('edit-script storyboard coordinate consistency', () => {
           strategy: 'grid_coordinates',
           blocks: [{
             sourceVideoBlockId: 'edit-1:videoBlock:1',
+            classification: 'fixed_space_strong',
+            grid: { columns: 16, rows: 9, ratio: '16:9', shortSideUnits: 9 },
+            coordinates: [
+              { name: 'Old monk', kind: 'character', x: 6, y: 5, facing: 'east' },
+              { name: 'Young disciple', kind: 'character', x: 9, y: 5, facing: 'west' },
+            ],
             cinematicTranslation: 'Old monk stays screen left, disciple stays screen right, with the flower bed between them.',
+            skipped: false,
+            reason: 'Fixed dialogue blocking.',
           }],
         },
-        panels: [
-          {
-            panelIndex: 0,
-            sourceShotNumber: 1,
-            sourceVideoBlockId: 'edit-1:videoBlock:1',
-            prompt: 'Medium close-up. Old monk foreground left speaks; young disciple remains visible as a blurred right background listener.',
-          },
-          {
-            panelIndex: 1,
-            sourceShotNumber: 2,
-            sourceVideoBlockId: 'edit-1:videoBlock:1',
-            prompt: 'Reverse medium close-up. Young disciple foreground right answers; old monk remains a soft left-edge shoulder silhouette.',
-          },
-        ],
       })))
 
     const result = await analyzeGridCoordinates({
@@ -254,7 +250,80 @@ describe('edit-script storyboard coordinate consistency', () => {
         cinematicTranslation: expect.stringContaining('screen left'),
       })],
     })
+    expect('panels' in result).toBe(false)
+  })
+
+  it('uses a separate LLM camera plan to generate film-aesthetic panel prompts', async () => {
+    textStepMock.mockResolvedValueOnce(mockTextCompletion(JSON.stringify({
+      cameraPlanOutput: {
+        strategy: 'camera_plan',
+        panels: [
+          {
+            panelIndex: 0,
+            sourceShotNumber: 1,
+            sourceVideoBlockId: 'edit-1:videoBlock:1',
+            shotScale: 'medium close-up',
+            cameraPosition: 'over the disciple shoulder toward the old monk',
+            cameraHeight: 'eye-level',
+            cameraAngle: 'three-quarter frontal',
+            composition: 'foreground shoulder frames the old monk, flower bed anchors the lower third',
+            cameraMovement: 'slow push-in motivated by the old monk speaking gently',
+            lensAndDepth: 'mild telephoto with shallow depth of field',
+            screenDirection: 'old monk remains screen left, disciple remains screen right',
+            aestheticIntent: 'quiet balanced composition emphasizes patient teaching',
+            emotionalEffect: 'calm intimacy',
+            continuityNote: 'preserve the dialogue axis and eyeline across the reverse shot',
+            finalPanelPrompt: 'Medium close-up storyboard frame. Old monk speaks beside the flower bed, over the disciple shoulder, old monk screen left and disciple blurred foreground right, eye-level three-quarter frontal camera, balanced lower-third flower bed composition, slow push-in feeling, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
+          },
+          {
+            panelIndex: 1,
+            sourceShotNumber: 2,
+            sourceVideoBlockId: 'edit-1:videoBlock:1',
+            shotScale: 'reverse medium close-up',
+            cameraPosition: 'over the old monk shoulder toward the young disciple',
+            cameraHeight: 'eye-level',
+            cameraAngle: 'three-quarter reverse',
+            composition: 'old monk shoulder soft on left edge, disciple placed right of center',
+            cameraMovement: 'static camera motivated by listening',
+            lensAndDepth: 'mild telephoto with soft foreground shoulder',
+            screenDirection: 'disciple remains screen right, old monk remains screen left',
+            aestheticIntent: 'reverse composition keeps the teaching relationship stable',
+            emotionalEffect: 'attentive humility',
+            continuityNote: 'maintain the same axis and flower bed anchor',
+            finalPanelPrompt: 'Reverse medium close-up storyboard frame. Young disciple listens and answers across the flower bed, old monk soft foreground shoulder on the left edge, disciple right of center, eye-level three-quarter reverse angle, static camera, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
+          },
+        ],
+      },
+    })))
+
+    const result = await generateCameraPlan({
+      userId: 'user-1',
+      projectId: 'project-1',
+      model: 'analysis-model',
+      locale: 'zh',
+      snapshot: buildSnapshot(),
+      coordinateStrategyOutput: {
+        strategy: 'grid_coordinates',
+        blocks: [{
+          sourceVideoBlockId: 'edit-1:videoBlock:1',
+          cinematicTranslation: 'Old monk stays screen left, disciple stays screen right.',
+        }],
+      },
+    })
+
+    expect(textStepMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'edit-script-storyboard-camera-plan',
+    }))
+    expect(result.cameraPlanOutput.panels[0]?.shotScale).toBe('medium close-up')
     expect(result.panels).toHaveLength(2)
-    expect(result.panels[0]?.prompt).toContain('blurred right background listener')
+    expect(result.panels[0]?.prompt).toContain('mild telephoto shallow depth of field')
+    expect(result.panels[0]?.metadata).toMatchObject({
+      source: 'camera_plan',
+      strategy: 'grid_coordinates_camera_plan',
+      cameraPlan: expect.objectContaining({
+        composition: expect.stringContaining('flower bed'),
+        aestheticIntent: expect.stringContaining('patient teaching'),
+      }),
+    })
   })
 })

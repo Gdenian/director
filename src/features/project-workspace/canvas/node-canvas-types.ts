@@ -326,6 +326,7 @@ export interface WorkspaceCanvasSpaceConsistencyDetails {
   readonly stage?: string | null
   readonly floorPlanCount: number
   readonly overlayCount: number
+  readonly cameraPlanCount: number
   readonly artifacts: readonly {
     readonly id: string
     readonly kind: string
@@ -349,6 +350,22 @@ export interface WorkspaceCanvasSpaceConsistencyDetails {
       readonly y?: number | null
       readonly facing?: string | null
     }[]
+  }[]
+  readonly cameraPlans: readonly {
+    readonly panelIndex?: number | null
+    readonly sourceShotNumber?: number | null
+    readonly sourceVideoBlockId?: string | null
+    readonly shotScale?: string | null
+    readonly cameraPosition?: string | null
+    readonly cameraHeight?: string | null
+    readonly cameraAngle?: string | null
+    readonly composition?: string | null
+    readonly cameraMovement?: string | null
+    readonly lensAndDepth?: string | null
+    readonly screenDirection?: string | null
+    readonly aestheticIntent?: string | null
+    readonly emotionalEffect?: string | null
+    readonly continuityNote?: string | null
   }[]
 }
 

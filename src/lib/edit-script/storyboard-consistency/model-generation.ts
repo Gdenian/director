@@ -3,9 +3,12 @@ import { executeAiTextStep, executeAiVisionStep } from '@/lib/ai-exec/engine'
 import { safeParseJsonObject } from '@/lib/json-repair'
 import type { Locale } from '@/i18n/routing'
 import {
+  cameraPlanModelOutputSchema,
   generatedPanelPromptSchema,
   gridCoordinateAnalysisModelOutputSchema,
   gridFloorPlanModelOutputSchema,
+  type CameraPlanModelOutput,
+  type CameraPlanPanel,
   type GridFloorPlanModelOutput,
   type StoryboardConsistencySourceSnapshot,
   type StoryboardPanelPromptDraft,
@@ -44,10 +47,14 @@ function panelKey(panel: {
   return `${panel.panelIndex}:${panel.sourceShotNumber}:${panel.sourceVideoBlockId}`
 }
 
-function validatePanels(
+function validatePanelContract(
   snapshot: StoryboardConsistencySourceSnapshot,
-  panels: readonly typeof generatedPanelPromptSchema._output[],
-): StoryboardPanelPromptDraft[] {
+  panels: readonly {
+    readonly panelIndex: number
+    readonly sourceShotNumber: number
+    readonly sourceVideoBlockId: string
+  }[],
+): void {
   const contract = panelContract(snapshot)
   const requiredKeys = new Set(contract.map(panelKey))
   const seen = new Set<string>()
@@ -60,6 +67,14 @@ function validatePanels(
   for (const required of requiredKeys) {
     if (!seen.has(required)) throw new Error(`EDIT_SCRIPT_STORYBOARD_LLM_PANEL_MISSING:${required}`)
   }
+}
+
+function validatePanels(
+  snapshot: StoryboardConsistencySourceSnapshot,
+  panels: readonly typeof generatedPanelPromptSchema._output[],
+  metadata: Record<string, unknown>,
+): StoryboardPanelPromptDraft[] {
+  validatePanelContract(snapshot, panels)
   return panels
     .slice()
     .sort((left, right) => left.panelIndex - right.panelIndex)
@@ -68,10 +83,28 @@ function validatePanels(
       sourceShotNumber: panel.sourceShotNumber,
       sourceVideoBlockId: panel.sourceVideoBlockId,
       prompt: panel.prompt.trim(),
-      metadata: {
-        source: 'grid_coordinates',
-      },
+      metadata,
     }))
+}
+
+function cameraPlanMetadata(panel: CameraPlanPanel): Record<string, unknown> {
+  return {
+    source: 'camera_plan',
+    strategy: 'grid_coordinates_camera_plan',
+    cameraPlan: {
+      shotScale: panel.shotScale,
+      cameraPosition: panel.cameraPosition,
+      cameraHeight: panel.cameraHeight,
+      cameraAngle: panel.cameraAngle,
+      composition: panel.composition,
+      cameraMovement: panel.cameraMovement,
+      lensAndDepth: panel.lensAndDepth,
+      screenDirection: panel.screenDirection,
+      aestheticIntent: panel.aestheticIntent,
+      emotionalEffect: panel.emotionalEffect,
+      continuityNote: panel.continuityNote,
+    },
+  }
 }
 
 async function runTextJsonStep(input: GenerationContext & {
@@ -177,7 +210,6 @@ export async function analyzeGridCoordinates(input: GenerationContext & {
   readonly overlayImageUrls: readonly string[]
 }): Promise<{
   readonly strategyOutput: unknown
-  readonly panels: readonly StoryboardPanelPromptDraft[]
 }> {
   if (input.overlayImageUrls.length === 0) throw new Error('EDIT_SCRIPT_STORYBOARD_GRID_OVERLAY_IMAGE_REQUIRED')
   const raw = await runVisionJsonStep({
@@ -196,12 +228,48 @@ export async function analyzeGridCoordinates(input: GenerationContext & {
   const parsed = gridCoordinateAnalysisModelOutputSchema.parse(raw)
   return {
     strategyOutput: parsed.strategyOutput,
-    panels: validatePanels(input.snapshot, parsed.panels).map((panel) => ({
-      ...panel,
-      metadata: {
-        ...panel.metadata,
-        strategy: 'grid_coordinates',
-      },
+  }
+}
+
+export async function generateCameraPlan(input: GenerationContext & {
+  readonly snapshot: StoryboardConsistencySourceSnapshot
+  readonly coordinateStrategyOutput: unknown
+}): Promise<CameraPlanModelOutput & {
+  readonly panels: readonly StoryboardPanelPromptDraft[]
+}> {
+  const raw = await runTextJsonStep({
+    ...input,
+    promptId: AI_PROMPT_IDS.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN,
+    variables: {
+      source_snapshot_json: stringifyForPrompt(input.snapshot),
+      coordinate_strategy_output_json: stringifyForPrompt(input.coordinateStrategyOutput),
+      panel_contract_json: stringifyForPrompt(panelContract(input.snapshot)),
+    },
+    stepTitle: 'Generate edit-script storyboard camera language plan',
+    stepIndex: 1,
+    stepTotal: 1,
+  })
+  const parsed = cameraPlanModelOutputSchema.parse(raw)
+  validatePanelContract(input.snapshot, parsed.cameraPlanOutput.panels)
+  const panels = validatePanels(
+    input.snapshot,
+    parsed.cameraPlanOutput.panels.map((panel) => ({
+      panelIndex: panel.panelIndex,
+      sourceShotNumber: panel.sourceShotNumber,
+      sourceVideoBlockId: panel.sourceVideoBlockId,
+      prompt: panel.finalPanelPrompt,
     })),
+    { source: 'camera_plan', strategy: 'grid_coordinates_camera_plan' },
+  ).map((panel) => {
+    const cameraPlan = parsed.cameraPlanOutput.panels.find((item) => panelKey(item) === panelKey(panel))
+    if (!cameraPlan) throw new Error(`EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN_PANEL_MISSING:${panel.sourceShotNumber}`)
+    return {
+      ...panel,
+      metadata: cameraPlanMetadata(cameraPlan),
+    }
+  })
+  return {
+    ...parsed,
+    panels,
   }
 }

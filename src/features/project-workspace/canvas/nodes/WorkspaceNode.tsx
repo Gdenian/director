@@ -1239,6 +1239,7 @@ function SpaceConsistencyContent({
           {renderValue(labels('floorPlanCount'), details.floorPlanCount)}
           {renderValue(labels('coordinateOverlayCount'), details.overlayCount)}
           {renderValue(labels('blockingBlockCount'), details.blocks.length)}
+          {renderValue(labels('cameraPlanCount'), details.cameraPlanCount)}
         </div>
       ))}
       {imageArtifacts.length > 0 ? renderSection(labels('coordinateMaps'), (
@@ -1292,6 +1293,31 @@ function SpaceConsistencyContent({
           ) : null}
         </div>
       ) : renderTextSection(labels('reason'), data.body)}
+      {details.cameraPlans.length > 0 ? renderSection(labels('cameraPlans'), (
+        <div className="space-y-2">
+          {details.cameraPlans.slice(0, expanded ? details.cameraPlans.length : 2).map((plan, index) => (
+            <section key={`${plan.sourceShotNumber ?? index}:${plan.sourceVideoBlockId ?? 'camera'}`} className="space-y-1.5 rounded-[16px] bg-white p-3 ring-1 ring-slate-100">
+              <p className={`${SELECTABLE_TEXT_CLASS} text-xs font-semibold text-[var(--glass-text-primary)]`}>
+                {labels('cameraPlan')} #{plan.sourceShotNumber ?? index + 1}
+              </p>
+              {renderValue(labels('cameraMove'), plan.cameraMovement)}
+              {plan.shotScale || plan.cameraAngle || plan.cameraHeight ? renderTextBlock([
+                plan.shotScale,
+                plan.cameraHeight,
+                plan.cameraAngle,
+              ].filter(Boolean).join(' · ')) : null}
+              {plan.composition ? renderTextBlock(plan.composition) : null}
+              {expanded && plan.lensAndDepth ? renderTextBlock(plan.lensAndDepth) : null}
+              {expanded && plan.aestheticIntent ? renderTextBlock(plan.aestheticIntent) : null}
+            </section>
+          ))}
+          {!expanded && details.cameraPlans.length > 2 ? (
+            <p className={`${SELECTABLE_TEXT_CLASS} text-xs text-[var(--glass-text-tertiary)]`}>
+              {labels('moreItems', { count: details.cameraPlans.length - 2 })}
+            </p>
+          ) : null}
+        </div>
+      )) : null}
       {expanded ? (
         <div className="space-y-2">
           {details.artifacts.filter((artifact) => artifact.prompt).slice(0, 3).map((artifact) => (

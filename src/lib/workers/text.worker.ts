@@ -35,6 +35,7 @@ import { handleReferenceToCharacterTask } from './handlers/reference-to-characte
 import { handleShotAITask } from './handlers/shot-ai-tasks'
 import { handleEditScriptGenerateTask } from './handlers/edit-script-generate'
 import {
+  handleEditScriptStoryboardCameraPlanTask,
   handleEditScriptStoryboardGridAnalyzeTask,
   handleEditScriptStoryboardPrepareTask,
 } from './handlers/edit-script-storyboard-consistency-task-handler'
@@ -666,6 +667,8 @@ async function processTextTask(job: Job<TaskJobData>) {
       return await handleEditScriptStoryboardPrepareTask(job)
     case TASK_TYPE.EDIT_SCRIPT_STORYBOARD_GRID_ANALYZE:
       return await handleEditScriptStoryboardGridAnalyzeTask(job)
+    case TASK_TYPE.EDIT_SCRIPT_STORYBOARD_CAMERA_PLAN:
+      return await handleEditScriptStoryboardCameraPlanTask(job)
     case TASK_TYPE.VOICE_ANALYZE:
       return await handleVoiceAnalyzeTask(job)
     case TASK_TYPE.ANALYZE_NOVEL:

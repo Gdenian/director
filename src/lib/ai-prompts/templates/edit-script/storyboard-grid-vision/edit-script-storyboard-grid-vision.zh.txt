@@ -2,9 +2,9 @@
 
 目标：
 - 必须根据图片上的坐标网格输出角色、空间锚点、机位、朝向和必要移动路径。
-- 坐标只是中间规划，最终 panel prompt 必须转换成镜头语言。
-- 每个 panel prompt 必须说明谁在左前/右后、谁在前景/背景、谁虚焦、视线方向、是否保持左右关系。
-- 不适合固定空间的 shot 不强行注入坐标，但仍要输出可生成分镜图的 prompt，并标记 skipped。
+- 坐标只是中间空间 blocking。本步骤不要生成最终 panel prompt。
+- cinematicTranslation 只做空间到镜头语言的初步翻译：谁在左前/右后、谁在前景/背景、谁虚焦、视线方向、是否保持左右关系。
+- 不适合固定空间的 block 不强行注入坐标，必须标记 skipped。
 - 不改写剧情，不补新人物；只表达 editScript 已有 shot/videoBlock/asset 的空间关系。
 
 source_snapshot_json:
@@ -13,7 +13,7 @@ source_snapshot_json:
 floor_plan_artifacts_json:
 {floor_plan_artifacts_json}
 
-panel_contract_json 定义必须返回的 panel 列表，必须保留 panelIndex/sourceShotNumber/sourceVideoBlockId：
+panel_contract_json 仅用于理解每个 shot 的归属关系，本步骤不返回 panels：
 {panel_contract_json}
 
 只返回 JSON，不要 markdown，不要解释。Schema:
@@ -33,13 +33,5 @@ panel_contract_json 定义必须返回的 panel 列表，必须保留 panelIndex
         "reason": "string"
       }
     ]
-  },
-  "panels": [
-    {
-      "panelIndex": 0,
-      "sourceShotNumber": 1,
-      "sourceVideoBlockId": "string",
-      "prompt": "包含原 shot 信息、videoPrompt、坐标转镜头语言、前后景、虚实和视线关系的最终分镜图提示词"
-    }
-  ]
+  }
 }

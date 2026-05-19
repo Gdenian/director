@@ -651,6 +651,31 @@ function blocksFromStrategyOutput(strategyOutput: unknown): NonNullable<Workspac
   })
 }
 
+function cameraPlansFromValue(cameraPlanOutput: unknown): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']>['cameraPlans'] {
+  const output = readJsonRecord(cameraPlanOutput)
+  const panels = output.panels
+  if (!Array.isArray(panels)) return []
+  return panels.flatMap((panel) => {
+    if (!isRecord(panel)) return []
+    return [{
+      panelIndex: numberValue(panel.panelIndex),
+      sourceShotNumber: numberValue(panel.sourceShotNumber),
+      sourceVideoBlockId: stringValue(panel.sourceVideoBlockId),
+      shotScale: stringValue(panel.shotScale),
+      cameraPosition: stringValue(panel.cameraPosition),
+      cameraHeight: stringValue(panel.cameraHeight),
+      cameraAngle: stringValue(panel.cameraAngle),
+      composition: stringValue(panel.composition),
+      cameraMovement: stringValue(panel.cameraMovement),
+      lensAndDepth: stringValue(panel.lensAndDepth),
+      screenDirection: stringValue(panel.screenDirection),
+      aestheticIntent: stringValue(panel.aestheticIntent),
+      emotionalEffect: stringValue(panel.emotionalEffect),
+      continuityNote: stringValue(panel.continuityNote),
+    }]
+  })
+}
+
 function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullable<WorkspaceCanvasNodeData['spaceConsistencyDetails']> {
   const artifacts = (storyboard.blockingArtifacts ?? []).map((artifact) => ({
     id: artifact.id,
@@ -663,13 +688,16 @@ function createSpaceConsistencyDetails(storyboard: ProjectStoryboard): NonNullab
     errorMessage: artifact.errorMessage,
   }))
   const plan = readJsonRecord(parseJson(storyboard.photographyPlan))
+  const cameraPlans = cameraPlansFromValue(plan.cameraPlanOutput)
   return {
     storyboardId: storyboard.id,
     stage: stringValue(plan.currentStage),
     floorPlanCount: artifacts.filter((artifact) => artifact.kind === 'grid_floor_plan').length,
     overlayCount: artifacts.filter((artifact) => artifact.kind === 'grid_coordinate_overlay').length,
+    cameraPlanCount: cameraPlans.length,
     artifacts,
     blocks: blocksFromStrategyOutput(plan.strategyOutput),
+    cameraPlans,
   }
 }
 

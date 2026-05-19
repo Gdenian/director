@@ -162,7 +162,34 @@ export const gridCoordinateAnalysisModelOutputSchema = z.object({
   strategyOutput: z.object({
     strategy: z.literal('grid_coordinates'),
   }).passthrough(),
-  panels: z.array(generatedPanelPromptSchema).min(1),
 })
 
 export type GridCoordinateAnalysisModelOutput = z.infer<typeof gridCoordinateAnalysisModelOutputSchema>
+
+export const cameraPlanPanelSchema = z.object({
+  panelIndex: z.number().int().min(0),
+  sourceShotNumber: z.number().int().positive(),
+  sourceVideoBlockId: z.string().trim().min(1),
+  shotScale: z.string().trim().min(2),
+  cameraPosition: z.string().trim().min(2),
+  cameraHeight: z.string().trim().min(2),
+  cameraAngle: z.string().trim().min(2),
+  composition: z.string().trim().min(2),
+  cameraMovement: z.string().trim().min(2),
+  lensAndDepth: z.string().trim().min(2),
+  screenDirection: z.string().trim().min(2),
+  aestheticIntent: z.string().trim().min(2),
+  emotionalEffect: z.string().trim().min(2),
+  continuityNote: z.string().trim().min(2),
+  finalPanelPrompt: z.string().trim().min(30),
+})
+
+export const cameraPlanModelOutputSchema = z.object({
+  cameraPlanOutput: z.object({
+    strategy: z.literal('camera_plan'),
+    panels: z.array(cameraPlanPanelSchema).min(1),
+  }).passthrough(),
+})
+
+export type CameraPlanPanel = z.infer<typeof cameraPlanPanelSchema>
+export type CameraPlanModelOutput = z.infer<typeof cameraPlanModelOutputSchema>
