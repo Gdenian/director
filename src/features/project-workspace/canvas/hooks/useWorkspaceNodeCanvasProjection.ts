@@ -98,7 +98,7 @@ const VIDEO_PLAN_FOOTER_HEIGHT = 66
 const VIDEO_PLAN_PENDING_PREVIEW_EXTRA_HEIGHT = 96
 const VIDEO_PLAN_SECTION_BASE_HEIGHT = 42
 const VIDEO_PLAN_TEXT_LINE_HEIGHT = 20
-const VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT = 58
+const VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT = 112
 const VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT = 34
 const VIDEO_PLAN_CONTENT_WIDTH = VIDEO_PLAN_NODE_WIDTH - NODE_CONTENT_INLINE_PADDING
 
@@ -446,7 +446,7 @@ function estimateVideoPlanPreviewHeight(input: {
 }
 
 function estimateVideoPlanAssetReferenceSectionHeight(assetReferenceCount: number, showsModelHint: boolean): number {
-  const imageRows = assetReferenceCount > 0 ? Math.ceil(assetReferenceCount / 3) : 1
+  const imageRows = assetReferenceCount > 0 ? Math.ceil(assetReferenceCount / 2) : 1
   const imageHeight = imageRows * VIDEO_PLAN_ASSET_REFERENCE_IMAGE_HEIGHT
   const hintHeight = showsModelHint ? VIDEO_PLAN_TEXT_LINE_HEIGHT + 8 : 0
   return VIDEO_PLAN_SECTION_BASE_HEIGHT + imageHeight + VIDEO_PLAN_ASSET_REFERENCE_ACTION_HEIGHT + hintHeight + 76

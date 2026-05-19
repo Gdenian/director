@@ -1197,7 +1197,7 @@ function VideoPlanContent({
       ) : (
         <div className={`space-y-2 rounded-[18px] bg-white p-3 ring-1 ring-slate-200 ${running ? 'workspace-node-loading-surface' : ''}`}>
           {(shouldShowAssetReferences ? assetReferences : storyboardReferences).length > 0 ? (
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {(shouldShowAssetReferences ? assetReferences : storyboardReferences).map((item) => {
                 const imageUrl = item.imageUrl
                 const key = 'id' in item ? item.id : `shot:${item.shotNumber}`
@@ -1205,7 +1205,7 @@ function VideoPlanContent({
                 if (!imageUrl) {
                   const label = 'name' in item ? item.name : String(item.shotNumber)
                   return (
-                    <div key={key} className="flex h-16 items-center justify-center rounded-[10px] bg-slate-50 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">
+                    <div key={key} className="flex h-28 items-center justify-center rounded-[10px] bg-slate-50 text-sm font-semibold text-slate-400 ring-1 ring-slate-200">
                       {label}
                     </div>
                   )
@@ -1214,7 +1214,7 @@ function VideoPlanContent({
                 return (
                   <div key={key} className="overflow-hidden rounded-[10px] bg-slate-50 ring-1 ring-slate-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={displayImageUrl} alt={alt} className="h-16 w-full object-contain" />
+                    <img src={displayImageUrl} alt={alt} className="h-28 w-full object-contain" />
                   </div>
                 )
               })}

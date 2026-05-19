@@ -513,7 +513,8 @@ describe('workspace node rendering', () => {
     expect(videoPlanHtml).toContain('https://example.com/shot-2.png')
     expect(videoPlanHtml).not.toContain('videoPlanPendingVideo')
     expect(videoPlanHtml).not.toContain('linkedShots')
-    expect(videoPlanHtml).not.toContain('grid grid-cols-2')
+    expect(videoPlanHtml).toContain('grid grid-cols-2')
+    expect(videoPlanHtml).toContain('h-28 w-full object-contain')
     expect(videoPlanHtml).not.toContain('overflow-x-auto')
   })
 
