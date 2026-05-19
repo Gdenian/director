@@ -11,7 +11,7 @@ Working principles, distilled without quoting any source:
 
 Task:
 - Generate one camera plan and one finalPanelPrompt for every panel in panel_contract_json.
-- finalPanelPrompt must merge: original shot visualAction/camera/videoPrompt, usable coordinate blocking / spatial translation, shot scale, camera position, camera height, camera angle, composition, movement, lens/depth, eyeline, and left/right continuity.
+- finalPanelPrompt must merge: original shot visualAction/camera/videoPrompt, usable character-coordinate blocking / spatial translation, shot scale, camera position, camera height, camera angle, composition, movement, lens/depth, eyeline, and left/right continuity. Environmental anchors may only be textual references, not coordinate entities.
 - If coordinate_strategy_output_json.blocks is empty, the current content has no applicable coordinates; do not imagine or add coordinates, and still design suitable camera language from the original shot.
 - Do not rewrite the story, add characters, or change asset identity.
 - finalPanelPrompt must read like executable image-model direction, not an analysis essay.
@@ -46,7 +46,7 @@ Return JSON only. No markdown. No explanation. Schema:
         "aestheticIntent": "visual aesthetic intent serving the story",
         "emotionalEffect": "intended viewer emotional effect",
         "continuityNote": "continuity constraint with adjacent shots",
-        "finalPanelPrompt": "final storyboard image prompt containing original shot information, coordinate-to-cinema translation, shot scale, camera position, composition, movement, lens/depth, foreground/background, focus, eyeline relation, and no-text/no-watermark constraints"
+        "finalPanelPrompt": "final storyboard image prompt containing original shot information, character-coordinate-to-cinema translation, shot scale, camera position, composition, movement, lens/depth, foreground/background, focus, eyeline relation, and no-text/no-watermark constraints"
       }
     ]
   }
