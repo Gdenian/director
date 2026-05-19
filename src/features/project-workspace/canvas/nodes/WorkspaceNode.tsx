@@ -1510,6 +1510,7 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
   const nodeId = data.nodeId
   const onMeasureNodeSize = data.onMeasureNodeSize
   const showHeaderAction = Boolean(action && data.actionLabel && (data.kind === 'spaceConsistency' || data.kind === 'editRequiredAsset'))
+  const showLargeTitle = data.kind !== 'shot'
   const shouldShowFooter = !isRunning && (
     canToggleDetails ||
     Boolean(action && data.actionLabel && !showHeaderAction) ||
@@ -1563,7 +1564,9 @@ export default function WorkspaceNode({ data }: NodeProps<WorkspaceCanvasFlowNod
                   {data.eyebrow}
                 </p>
               </div>
-              <h2 className={`${SELECTABLE_TEXT_CLASS} mt-2 truncate text-xl font-semibold tracking-tight text-[var(--glass-text-primary)]`}>{data.title}</h2>
+              {showLargeTitle ? (
+                <h2 className={`${SELECTABLE_TEXT_CLASS} mt-2 truncate text-xl font-semibold tracking-tight text-[var(--glass-text-primary)]`}>{data.title}</h2>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {showHeaderAction && action && data.actionLabel ? (

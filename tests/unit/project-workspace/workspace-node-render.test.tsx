@@ -405,7 +405,7 @@ describe('workspace node rendering', () => {
     expect(`${shotHtml}${imageHtml}${videoHtml}${finalHtml}`).not.toContain('overflow-y-auto')
   })
 
-  it('keeps canvas node text non-selectable so drag gestures stay reliable', () => {
+  it('keeps shot node text non-selectable and removes the redundant large shot title', () => {
     const html = renderNode({
       kind: 'shot',
       layoutNodeType: 'shot',
@@ -413,6 +413,7 @@ describe('workspace node rendering', () => {
       targetId: 'panel-1',
       title: 'Selectable shot title',
       eyebrow: 'Shot',
+      indexLabel: '01',
       body: 'selectable shot description',
       meta: 'selectable meta',
       statusLabel: 'Ready',
@@ -431,7 +432,8 @@ describe('workspace node rendering', () => {
 
     expect(html).toContain('select-none')
     expect(html).not.toContain('select-text')
-    expect(html).toMatch(/select-none[^"]*">Selectable shot title<\/h2>/)
+    expect(html).not.toContain('Selectable shot title</h2>')
+    expect(html).toMatch(/select-none[^"]*">01<\/span>/)
     expect(html).toMatch(/select-none[^"]*">selectable shot description<\/p>/)
     expect(html).toMatch(/select-none[^"]*">Selectable character<\/span>/)
   })
