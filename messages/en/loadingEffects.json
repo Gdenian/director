@@ -1,48 +1,36 @@
 {
-  "eyebrow": "Loading motion study",
-  "title": "Loading Effect Test Page",
-  "description": "Compare the current sweep with several perimeter-light variants at the same size, so it is easier to choose for generation, processing, and preview placeholders.",
+  "eyebrow": "Loading motion audit",
+  "title": "White Border Flow Effects",
+  "description": "Compare only monochrome white border-flow effects. Color, center spinners, dashed tracks, and heavy glow are removed so the choice stays minimal and unobtrusive.",
   "hint": "Path: /en/loading-effects",
   "fields": {
     "motion": "Motion",
     "fit": "Best for"
   },
   "variants": {
-    "currentSweep": {
-      "title": "Current Light Sweep",
-      "summary": "A broad highlight crosses the content area. It is clear, but it competes with the preview.",
-      "motion": "Crosses the content",
-      "fit": "Skeletons, list placeholders"
+    "shortEdgeFlow": {
+      "title": "Short Arc Border Flow",
+      "summary": "A short white highlight loops around the border with the lowest visual weight.",
+      "motion": "Short arc on border",
+      "fit": "Default recommendation"
     },
-    "singleOrbit": {
-      "title": "Single Perimeter Flow",
-      "summary": "One light travels around the frame, keeping the center stable while still feeling active.",
-      "motion": "One-way edge orbit",
-      "fit": "Image generation, task cards"
+    "longEdgeFlow": {
+      "title": "Long Arc Border Flow",
+      "summary": "A longer white highlight makes the loading state clearer while staying on the frame.",
+      "motion": "Long arc on border",
+      "fit": "Stronger status signal"
     },
-    "dualOrbit": {
-      "title": "Dual Perimeter Flow",
-      "summary": "Two highlights orbit at once, creating a stronger active-processing signal.",
-      "motion": "Two orbiting highlights",
-      "fit": "Batch generation, long tasks"
+    "softEdgeFlow": {
+      "title": "Soft Border Flow",
+      "summary": "Lower brightness and slower movement for states that may remain visible longer.",
+      "motion": "Soft slow border flow",
+      "fit": "Long waits"
     },
-    "cornerFlow": {
-      "title": "Corner Relay Flow",
-      "summary": "The light focuses on corners and short edge segments, keeping movement clear without a full neon frame.",
-      "motion": "Segmented corner relay",
-      "fit": "Compact cards, thumbnails"
-    },
-    "softPulse": {
-      "title": "Soft Breathing Edge",
-      "summary": "A restrained slow perimeter flow with a light pulse, better for states that may stay visible.",
-      "motion": "Slow orbit and pulse",
-      "fit": "Background processing, queues"
-    },
-    "dashedTrack": {
-      "title": "Dashed Track Flow",
-      "summary": "A moving dashed track feels more technical and progress-oriented.",
-      "motion": "Dashed orbital track",
-      "fit": "Debug pages, task panels"
+    "dualEdgeFlow": {
+      "title": "Dual Arc Border Flow",
+      "summary": "Two symmetric white highlights create steadier rhythm, but are more visible than one arc.",
+      "motion": "Dual arcs on border",
+      "fit": "Batch processing"
     }
   }
 }

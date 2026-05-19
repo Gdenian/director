@@ -2,41 +2,26 @@ import { getTranslations } from 'next-intl/server'
 import styles from './page.module.css'
 
 type LoadingEffectVariant = {
-  id: 'currentSweep' | 'singleOrbit' | 'dualOrbit' | 'cornerFlow' | 'softPulse' | 'dashedTrack'
+  id: 'shortEdgeFlow' | 'longEdgeFlow' | 'softEdgeFlow' | 'dualEdgeFlow'
   effectClassName: string
-  accentClassName: string
 }
 
 const variants: LoadingEffectVariant[] = [
   {
-    id: 'currentSweep',
-    effectClassName: styles.currentSweep,
-    accentClassName: styles.accentBlue,
+    id: 'shortEdgeFlow',
+    effectClassName: styles.shortEdgeFlow,
   },
   {
-    id: 'singleOrbit',
-    effectClassName: styles.singleOrbit,
-    accentClassName: styles.accentCyan,
+    id: 'longEdgeFlow',
+    effectClassName: styles.longEdgeFlow,
   },
   {
-    id: 'dualOrbit',
-    effectClassName: styles.dualOrbit,
-    accentClassName: styles.accentBlue,
+    id: 'softEdgeFlow',
+    effectClassName: styles.softEdgeFlow,
   },
   {
-    id: 'cornerFlow',
-    effectClassName: styles.cornerFlow,
-    accentClassName: styles.accentGreen,
-  },
-  {
-    id: 'softPulse',
-    effectClassName: styles.softPulse,
-    accentClassName: styles.accentAmber,
-  },
-  {
-    id: 'dashedTrack',
-    effectClassName: styles.dashedTrack,
-    accentClassName: styles.accentSlate,
+    id: 'dualEdgeFlow',
+    effectClassName: styles.dualEdgeFlow,
   },
 ]
 
@@ -78,13 +63,12 @@ export default async function LoadingEffectsPage() {
                     {t(`variants.${variant.id}.summary`)}
                   </p>
                 </div>
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${variant.accentClassName}`} />
               </div>
 
               <div className="mt-4 overflow-hidden rounded-lg border border-[var(--glass-stroke-base)] bg-white">
                 <div className={`${styles.previewFrame} ${variant.effectClassName}`}>
                   <PreviewScene />
-                  <PerimeterTrack />
+                  <BorderFlow />
                 </div>
               </div>
 
@@ -110,17 +94,17 @@ export default async function LoadingEffectsPage() {
   )
 }
 
-function PerimeterTrack() {
+function BorderFlow() {
   return (
-    <div className={styles.perimeterTrack} aria-hidden="true">
-      <span className={`${styles.edgeSegment} ${styles.edgeTop} ${styles.edgePrimary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeRight} ${styles.edgePrimary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeBottom} ${styles.edgePrimary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeLeft} ${styles.edgePrimary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeTop} ${styles.edgeSecondary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeRight} ${styles.edgeSecondary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeBottom} ${styles.edgeSecondary}`} />
-      <span className={`${styles.edgeSegment} ${styles.edgeLeft} ${styles.edgeSecondary}`} />
+    <div className={styles.borderFlow} aria-hidden="true">
+      <span className={`${styles.flowSegment} ${styles.flowTop} ${styles.flowPrimary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowRight} ${styles.flowPrimary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowBottom} ${styles.flowPrimary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowLeft} ${styles.flowPrimary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowTop} ${styles.flowSecondary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowRight} ${styles.flowSecondary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowBottom} ${styles.flowSecondary}`} />
+      <span className={`${styles.flowSegment} ${styles.flowLeft} ${styles.flowSecondary}`} />
     </div>
   )
 }

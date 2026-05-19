@@ -1,48 +1,36 @@
 {
-  "eyebrow": "Loading motion study",
-  "title": "加载动效试验页",
-  "description": "把当前扫光和几种周边流光方案放在同一尺寸里对比，方便判断生成中、处理中、预览占位这些场景该用哪一种。",
+  "eyebrow": "Loading motion audit",
+  "title": "白色边框流动动效",
+  "description": "只对比白色单色边框流动。去掉彩色、中心转圈、虚线和复杂光效，重点看哪一种最简洁、最不干扰内容。",
   "hint": "访问路径：/zh/loading-effects",
   "fields": {
     "motion": "动势",
     "fit": "适用"
   },
   "variants": {
-    "currentSweep": {
-      "title": "当前横向扫光",
-      "summary": "大面积高光从内容区域扫过，反馈明确，但会抢中间画面。",
-      "motion": "横向穿过内容",
-      "fit": "骨架屏、列表占位"
+    "shortEdgeFlow": {
+      "title": "短弧边框流动",
+      "summary": "一段短白光沿边框循环，存在感最低。",
+      "motion": "短弧沿边框旋转",
+      "fit": "默认推荐"
     },
-    "singleOrbit": {
-      "title": "单点周边流光",
-      "summary": "一束光沿四周循环，中心区域稳定，最接近“处理中”的状态感。",
-      "motion": "边缘单向环绕",
-      "fit": "图片生成、卡片任务"
+    "longEdgeFlow": {
+      "title": "长弧边框流动",
+      "summary": "白光更长，加载状态更明显，但仍然只在边框上。",
+      "motion": "长弧沿边框旋转",
+      "fit": "需要更强提示"
     },
-    "dualOrbit": {
-      "title": "双点对向流光",
-      "summary": "两段高光同时绕行，存在感更强，适合需要强调任务进行中的场景。",
-      "motion": "双高光环绕",
-      "fit": "批量生成、长任务"
+    "softEdgeFlow": {
+      "title": "柔和边框流动",
+      "summary": "亮度更低、速度更慢，适合长时间等待。",
+      "motion": "低亮度慢速旋转",
+      "fit": "长任务等待"
     },
-    "cornerFlow": {
-      "title": "角点接力流光",
-      "summary": "高光集中在四角和短边段，动感清晰但不会形成完整霓虹边框。",
-      "motion": "四角分段推进",
-      "fit": "紧凑卡片、小缩略图"
-    },
-    "softPulse": {
-      "title": "柔和呼吸边光",
-      "summary": "边缘慢速流动并轻微呼吸，最克制，适合长时间停留的加载状态。",
-      "motion": "慢速环绕呼吸",
-      "fit": "后台处理、等待队列"
-    },
-    "dashedTrack": {
-      "title": "刻度轨道流动",
-      "summary": "虚线轨道持续移动，工具感更强，视觉上偏技术和进度监测。",
-      "motion": "虚线环形推进",
-      "fit": "调试页、任务面板"
+    "dualEdgeFlow": {
+      "title": "双弧边框流动",
+      "summary": "两段白光对称流动，节奏更稳定，但比单弧更显眼。",
+      "motion": "双弧沿边框旋转",
+      "fit": "批量处理中"
     }
   }
 }
