@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { CanvasNodeLayout, CanvasViewportLayout } from '@/lib/project-canvas/layout/canvas-layout.types'
 
-export const CANVAS_LAYOUT_SCHEMA_VERSION = 1
+export const CANVAS_LAYOUT_SCHEMA_VERSION = 2
 
 export const projectCanvasNodeTypeSchema = z.enum([
   'story',

@@ -34,7 +34,7 @@ describe('canvas layout service', () => {
       id: 'layout-1',
       projectId: 'project-1',
       episodeId: 'episode-1',
-      schemaVersion: 1,
+      schemaVersion: 2,
       viewportX: 0,
       viewportY: 0,
       zoom: 1,
@@ -45,7 +45,7 @@ describe('canvas layout service', () => {
       id: 'layout-1',
       projectId: 'project-1',
       episodeId: 'episode-1',
-      schemaVersion: 1,
+      schemaVersion: 2,
       viewportX: 10,
       viewportY: 20,
       zoom: 0.8,
@@ -70,6 +70,7 @@ describe('canvas layout service', () => {
     expect(layout).toMatchObject({
       projectId: 'project-1',
       episodeId: 'episode-1',
+      schemaVersion: 2,
       viewport: { x: 10, y: 20, zoom: 0.8 },
     })
     const upsertArg = txMock.projectCanvasLayout.upsert.mock.calls[0]?.[0] as {
