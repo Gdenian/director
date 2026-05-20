@@ -11,7 +11,8 @@ Style conversion standard:
 - Do not ask the model to imitate a living artist/person. Convert the reference into camera rhythm, composition, lighting, color, filter texture, movement speed, sound, and editing pace.
 - The image filter must be written separately in imageFilterPrompt as a short phrase that can be directly inserted into video prompts, such as: soft-focus lens, blooming highlights, low contrast, vintage 1990s film texture, clear colors, dreamy softness, 35mm lens.
 - The sound filter must be written separately in soundFilterPrompt as one concise phrase that can be inserted directly into the style section of video prompts; infer it from the user request, screenplay genre, period feeling, genre tone, and story emotion, describe the whole-film sound texture, and never override character voiceTimbreText.
-- Excellent soundFilterPrompt examples: narrow-band old-film sound, slight low-pass, muffled low-mid warmth, reduced treble, subtle tape hiss; clean modern sci-fi sound, wide-band clarity, low mechanical hum, restrained spatial reverb; handheld documentary sound, strong location presence, close foley, natural unpolished ambience; fairy-tale animation sound, bright clear texture, rounded foley, light short effects without harshness.
+- soundFilterPrompt may only describe sound texture, frequency response, dynamic range, spatial feel, clarity, period feel, and mix tendency; it must not name concrete sources or effects that depend on image elements, such as footsteps, fabric, door hinges, rain, machines, animals, or object impacts.
+- Excellent soundFilterPrompt examples: narrow-band old-film sound, slight low-pass, muffled low-mid warmth, reduced treble, subtle tape hiss; clean modern sound, wide-band clarity, stable low end, restrained spatial reverb; handheld documentary sound, strong location presence, natural dynamics, lightly unpolished ambience; fairy-tale animation sound, bright clear texture, rounded transients, light short tones without harshness.
 
 Purpose of this Bible:
 - Keep all parallel videoBlocks consistent in video style, image filter, character identity, location continuity, sound rules, and video-model constraints.
@@ -40,10 +41,10 @@ If the user asks for "a quiet East Asian art-house film with seasonal change, na
   "lighting": "natural light, seasonal light, no obvious commercial lighting",
   "colorPalette": "low-saturation natural seasonal colors, clear spring tones, cold winter tones, dry autumn yellows",
   "imageFilterPrompt": "soft natural light, low contrast, slight soft focus, clear air, subtle film texture, 35mm lens, restrained highlights",
-  "soundFilterPrompt": "quiet naturalist sound, soft ambience, close fabric and footstep foley, weak musicality, preserving air and pauses",
+  "soundFilterPrompt": "quiet naturalist sound, soft low dynamics, clear without excessive sharpness, preserving air and pauses",
   "motionStyle": "slow continuous ritualized movement, no exaggerated acting",
   "editingPacing": "slow pace, preserving pauses, gazes, and environmental breathing",
-  "soundStyle": "environmental sound first: water, wind, fabric, footsteps; little or no music",
+  "soundStyle": "use only sound sources already present in the image or screenplay, ambience first, little or no music",
   "hardBans": ["no fast cutting", "no commercial look", "no showy camera movement", "no subtitles", "no watermark"]
 }
 
@@ -59,7 +60,7 @@ Excellent styleReferenceInterpretation examples, for field-writing style only. D
   "soundFilterPrompt": "narrow-band old-film sound, slight low-pass, muffled low-mid warmth, reduced treble, subtle tape hiss",
   "motionStyle": "small gestures, many pauses, emotion externalized through eyes, fingers, and breath",
   "editingPacing": "slow pacing, preserving empty frames and reaction gaps, with ambience carrying edits",
-  "soundStyle": "room tone, footsteps, door hinges, and fabric dominate; short low hits only at story turns"
+  "soundStyle": "only reinforce sound sources already present in the current image, with room tone and short low hits serving story turns"
 }
 2. Clean modern sci-fi:
 {
@@ -69,10 +70,10 @@ Excellent styleReferenceInterpretation examples, for field-writing style only. D
   "lighting": "cool hard light, screen reflections, rim light, clean shadows",
   "colorPalette": "desaturated blue-gray, silver white, with minimal warning red or cyan accents",
   "imageFilterPrompt": "cold sci-fi texture, desaturated blue-gray, clean hard light, slight lens flare, crisp detail",
-  "soundFilterPrompt": "clean modern sci-fi sound, wide-band clarity, low mechanical hum, restrained spatial reverb",
+  "soundFilterPrompt": "clean modern sound, wide-band clarity, stable low end, restrained spatial reverb",
   "motionStyle": "precise restrained human movement, slow continuous mechanical motion",
   "editingPacing": "medium-slow pacing, tension driven by machine sound and light changes",
-  "soundStyle": "low hum, electronic cues, pressure releases, metallic contact, no continuous score"
+  "soundStyle": "use only visible or story-established device and space sounds, with short cues tied to plot or visible action, no continuous score"
 }
 3. Bright fairy-tale animation:
 {
@@ -82,10 +83,10 @@ Excellent styleReferenceInterpretation examples, for field-writing style only. D
   "lighting": "soft diffuse light, warm edge light, clean bright highlights",
   "colorPalette": "bright but not oversaturated warm colors, grass green, sky blue, and cream white",
   "imageFilterPrompt": "bright fairy-tale animation texture, soft diffuse light, clear colors, rounded edges, clean highlights",
-  "soundFilterPrompt": "fairy-tale animation sound, bright clear texture, rounded foley, light short effects without harshness",
+  "soundFilterPrompt": "fairy-tale animation sound, bright clear texture, rounded transients, light short tones without harshness",
   "motionStyle": "fluid elastic movement, slight exaggeration while preserving character identity",
   "editingPacing": "light and quick without feeling fragmented, preserving a short pause after actions finish",
-  "soundStyle": "light footsteps, soft object impacts, natural ambience, and short sound punctuation"
+  "soundStyle": "generate light sound punctuation only from visible actions, without adding concrete sources not present in the image"
 }
 
 user_request:
