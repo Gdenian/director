@@ -34,8 +34,10 @@ import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageD
 import { useWorkspaceProvider } from '../WorkspaceProvider'
 import { useWorkspaceRuntime } from '../WorkspaceRuntimeContext'
 import { useCanvasLayoutPersistence } from './hooks/useCanvasLayoutPersistence'
-import { useWorkspaceNodeCanvasProjection } from './hooks/useWorkspaceNodeCanvasProjection'
-import { useWorkspaceCanvasElkLayout } from './hooks/useWorkspaceCanvasElkLayout'
+import {
+  buildWorkspaceNodeCanvasProjection,
+  useWorkspaceNodeCanvasProjection,
+} from './hooks/useWorkspaceNodeCanvasProjection'
 import { useWorkspaceNodeCanvasActions } from './hooks/useWorkspaceNodeCanvasActions'
 import {
   buildWorkspaceCanvasEdgeSignature,
@@ -54,7 +56,21 @@ import {
   resolveWorkspaceCanvasMeasuredNodeHeight,
   resolveWorkspaceCanvasNodeSize,
 } from './node-presentation-profiles'
-import type { WorkspaceCanvasNodeSize, WorkspaceCanvasPosition } from './layout/workspace-layout-engine'
+import {
+  alignSpaceConsistencyNodesToMeasuredEditScript,
+  preserveWorkspaceNodePositions,
+  type WorkspaceNodeDynamicLayoutOptions,
+} from './layout/workspace-node-auto-layout'
+import {
+  buildWorkspaceCanvasLegacyLayoutModel,
+  captureLayoutBasePositions,
+  composeWorkspaceCanvasLegacyLayout,
+  mergePreservedNodePositions,
+  normalizeNodesToLayoutBasePositions,
+  preservedNodeIdSet,
+  relayoutEditAssetsBelowScript,
+  repairWorkspaceCanvasDraggedLayout,
+} from './layout/workspace-layout-composer'
 
 const EMPTY_SAVED_NODE_LAYOUTS: readonly CanvasNodeLayout[] = []
 const CANVAS_FLOATING_PANEL_BOTTOM_OFFSET_PX = 56
@@ -153,25 +169,20 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const runNodeAction = useWorkspaceNodeCanvasActions()
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const [sourceNodes, setSourceNodes] = useState<WorkspaceCanvasFlowNode[]>([])
-  const [flowNodes, setFlowNodes] = useState<WorkspaceCanvasFlowNode[]>([])
-  const sourceNodesRef = useRef<readonly WorkspaceCanvasFlowNode[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodeExpansionOverrides, setNodeExpansionOverrides] = useState<ReadonlyMap<string, boolean>>(() => new Map())
-  const [measuredNodeSizes, setMeasuredNodeSizes] = useState<ReadonlyMap<string, WorkspaceCanvasNodeSize>>(() => new Map())
-  const [lockedNodePositions, setLockedNodePositions] = useState<ReadonlyMap<string, WorkspaceCanvasPosition>>(() => new Map())
   const defaultExpandedNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningNodeIdsRef = useRef<ReadonlySet<string>>(new Set())
   const optimisticRunningClearTimersRef = useRef<Map<string, number>>(new Map())
   const panelImageTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const storyboardConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
   const editScriptConsistencyTaskStateByKeyRef = useRef<ReadonlyMap<string, TaskTargetState>>(new Map())
-  const expansionAnchorNodePositionsRef = useRef<ReadonlyMap<string, WorkspaceCanvasPosition>>(new Map())
+  const expansionAnchorNodePositionsRef = useRef<ReadonlyMap<string, { readonly x: number; readonly y: number }>>(new Map())
   const appliedProjectionNodeSignatureRef = useRef<string | null>(null)
   const stableEdgesRef = useRef<{
     signature: string
     edges: WorkspaceCanvasFlowEdge[]
   } | null>(null)
-  sourceNodesRef.current = sourceNodes
 
   const {
     layout,
@@ -314,54 +325,73 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     nodeId: string,
     size: { readonly width: number; readonly height: number },
   ) => {
-    const measuredNode = sourceNodesRef.current.find((node) => node.id === nodeId)
-    if (!measuredNode) return
-    const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
-      kind: measuredNode.data.kind,
-      measuredHeight: size.height,
-    })
-    const nextSize: WorkspaceCanvasNodeSize = {
-      width: Math.max(size.width, numericStyleDimension(measuredNode.style?.width) ?? measuredNode.data.width),
-      height: nextHeight,
-    }
-    const currentStyleHeight = numericStyleDimension(measuredNode.style?.height) ?? measuredNode.data.height
-    const sizeChanged = Math.abs(nextHeight - measuredNode.data.height) > MEASURED_NODE_SIZE_EPSILON ||
-      Math.abs(nextHeight - currentStyleHeight) > MEASURED_NODE_SIZE_EPSILON
-    setMeasuredNodeSizes((currentSizes) => {
-      const currentSize = currentSizes.get(nodeId)
-      if (
-        currentSize &&
-        Math.abs(currentSize.width - nextSize.width) <= MEASURED_NODE_SIZE_EPSILON &&
-        Math.abs(currentSize.height - nextSize.height) <= MEASURED_NODE_SIZE_EPSILON
-      ) {
-        return currentSizes
-      }
-      const nextSizes = new Map(currentSizes)
-      nextSizes.set(nodeId, nextSize)
-      return nextSizes
-    })
-    if (!sizeChanged) return
     setSourceNodes((currentNodes) => {
-      return currentNodes.map((node) => node.id === nodeId
-        ? {
-            ...node,
-            style: {
-              ...node.style,
-              height: nextHeight,
-            },
-            data: {
-              ...node.data,
-              height: nextHeight,
-            },
-          }
-        : node)
+      let changed = false
+      let measuredKind: WorkspaceCanvasFlowNode['data']['kind'] | null = null
+      let measuredPosition: { readonly x: number; readonly y: number } | null = null
+      const measuredNodes = currentNodes.map((node) => {
+        if (node.id !== nodeId) return node
+        measuredKind = node.data.kind
+        measuredPosition = node.position
+
+        const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
+          kind: node.data.kind,
+          measuredHeight: size.height,
+        })
+        const currentStyleHeight = numericStyleDimension(node.style?.height) ?? node.data.height
+        if (
+          Math.abs(nextHeight - node.data.height) <= MEASURED_NODE_SIZE_EPSILON &&
+          Math.abs(nextHeight - currentStyleHeight) <= MEASURED_NODE_SIZE_EPSILON
+        ) {
+          return node
+        }
+
+        changed = true
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            height: nextHeight,
+          },
+          data: {
+            ...node.data,
+            height: nextHeight,
+          },
+        }
+      })
+      if (!changed) return currentNodes
+
+      const normalizedNodes = normalizeNodesToLayoutBasePositions(measuredNodes)
+      const relayoutedNodes = relayoutEditAssetsBelowScript(normalizedNodes)
+      const measuredNodePosition = measuredPosition
+        ? new Map([[nodeId, measuredPosition]])
+        : undefined
+      const preservedNodePositions = mergePreservedNodePositions(
+        expansionAnchorNodePositionsRef.current,
+        measuredNodePosition,
+      )
+      const alignOptions = { preservedNodeIds: preservedNodeIdSet(preservedNodePositions) }
+      const alignedNodes = alignSpaceConsistencyNodesToMeasuredEditScript(relayoutedNodes, alignOptions)
+      const baseAlignedNodes = measuredKind === 'editScript'
+        ? captureLayoutBasePositions(alignedNodes)
+        : alignedNodes
+      return composeWorkspaceCanvasLegacyLayout({
+        nodes: baseAlignedNodes,
+        model: buildWorkspaceCanvasLegacyLayoutModel(baseAlignedNodes, { preservedNodePositions }),
+        preservedNodePositions,
+      })
     })
   }, [])
   const attachNodeUiState = useCallback((
     inputNodes: readonly WorkspaceCanvasFlowNode[],
+    options?: WorkspaceNodeDynamicLayoutOptions,
   ) => {
     const defaultExpandedNodeIds = new Set<string>()
-    const nextNodes = inputNodes.map((node) => {
+    const baseNodes = preserveWorkspaceNodePositions(
+      normalizeNodesToLayoutBasePositions(inputNodes),
+      options?.preservedNodePositions,
+    )
+    const nextNodes = baseNodes.map((node) => {
       const editScriptId = node.data.action?.type === 'generate_edit_storyboard_coordinates'
         ? node.data.action.editScriptId
         : null
@@ -437,8 +467,15 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       }
     })
     defaultExpandedNodeIdsRef.current = defaultExpandedNodeIds
-    return nextNodes
+    return composeWorkspaceCanvasLegacyLayout({
+      nodes: nextNodes,
+      model: buildWorkspaceCanvasLegacyLayoutModel(nextNodes, options),
+      preservedNodePositions: options?.preservedNodePositions,
+    })
   }, [handleMeasuredNodeSize, nodeExpansionOverrides, nodeRunningStatusLabel, t, toggleNodeExpanded])
+  const readExpansionAnchorNodePositions = useCallback(() => (
+    expansionAnchorNodePositionsRef.current.size > 0 ? expansionAnchorNodePositionsRef.current : undefined
+  ), [])
 
   const projection = useWorkspaceNodeCanvasProjection({
     projectId,
@@ -536,34 +573,28 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   }
   const flowEdges = stableEdgesRef.current.edges
 
-  const elkLayout = useWorkspaceCanvasElkLayout({
-    nodes: sourceNodes,
-    edges: flowEdges,
-    measuredNodeSizes,
-    lockedNodePositions,
-    expansionAnchors: expansionAnchorNodePositionsRef.current,
-  })
-
-  useEffect(() => {
-    if (elkLayout.error) throw elkLayout.error
-    setFlowNodes([...elkLayout.nodes])
-  }, [elkLayout.error, elkLayout.nodes])
-
   useEffect(() => {
     if (appliedProjectionNodeSignatureRef.current === projectionNodeSignature) return
     appliedProjectionNodeSignatureRef.current = projectionNodeSignature
-    setSourceNodes(attachNodeUiState(projection.nodes))
-  }, [attachNodeUiState, projection.nodes, projectionNodeSignature])
+    setSourceNodes(attachNodeUiState(projection.nodes, {
+      preservedNodePositions: readExpansionAnchorNodePositions(),
+    }))
+  }, [attachNodeUiState, projection.nodes, projectionNodeSignature, readExpansionAnchorNodePositions])
 
   useEffect(() => {
-    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes))
-  }, [attachNodeUiState, panelImageTaskStateSignature])
+    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes, {
+      preservedNodePositions: readExpansionAnchorNodePositions(),
+    }))
+  }, [attachNodeUiState, panelImageTaskStateSignature, readExpansionAnchorNodePositions])
 
   useEffect(() => {
-    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes))
+    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes, {
+      preservedNodePositions: readExpansionAnchorNodePositions(),
+    }))
   }, [
     attachNodeUiState,
     editScriptConsistencyTaskStateSignature,
+    readExpansionAnchorNodePositions,
     storyboardConsistencyTaskStateSignature,
   ])
 
@@ -593,32 +624,20 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   }, [])
 
   useEffect(() => {
-    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes))
-  }, [attachNodeUiState])
+    setSourceNodes((currentNodes) => attachNodeUiState(currentNodes, {
+      preservedNodePositions: readExpansionAnchorNodePositions(),
+    }))
+  }, [attachNodeUiState, readExpansionAnchorNodePositions])
 
   useEffect(() => {
     const projectedNodeIds = new Set(projection.nodes.map((node) => node.id))
-    const nextAnchorPositions = new Map<string, WorkspaceCanvasPosition>()
+    const nextAnchorPositions = new Map<string, { readonly x: number; readonly y: number }>()
     expansionAnchorNodePositionsRef.current.forEach((position, nodeId) => {
       if (projectedNodeIds.has(nodeId)) nextAnchorPositions.set(nodeId, position)
     })
     if (nextAnchorPositions.size !== expansionAnchorNodePositionsRef.current.size) {
       expansionAnchorNodePositionsRef.current = nextAnchorPositions
     }
-    setLockedNodePositions((currentPositions) => {
-      const nextPositions = new Map<string, WorkspaceCanvasPosition>()
-      currentPositions.forEach((position, nodeId) => {
-        if (projectedNodeIds.has(nodeId)) nextPositions.set(nodeId, position)
-      })
-      return nextPositions.size === currentPositions.size ? currentPositions : nextPositions
-    })
-    setMeasuredNodeSizes((currentSizes) => {
-      const nextSizes = new Map<string, WorkspaceCanvasNodeSize>()
-      currentSizes.forEach((size, nodeId) => {
-        if (projectedNodeIds.has(nodeId)) nextSizes.set(nodeId, size)
-      })
-      return nextSizes.size === currentSizes.size ? currentSizes : nextSizes
-    })
     setNodeExpansionOverrides((current) => {
       let changed = false
       const next = new Map<string, boolean>()
@@ -636,58 +655,40 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   useEffect(() => {
     if (!layout) return
     void reactFlow.setViewport(layout.viewport)
-    const nextLockedPositions = new Map<string, WorkspaceCanvasPosition>()
-    layout.nodeLayouts.forEach((nodeLayout) => {
-      if (!nodeLayout.locked) return
-      nextLockedPositions.set(nodeLayout.nodeKey, {
-        x: nodeLayout.x,
-        y: nodeLayout.y,
-      })
-    })
-    setLockedNodePositions(nextLockedPositions)
   }, [layout, reactFlow])
 
-  const persistCurrentLayout = useCallback(async (
-    positions: ReadonlyMap<string, WorkspaceCanvasPosition> = lockedNodePositions,
-  ) => {
+  const persistCurrentLayout = useCallback(async (nextNodes: readonly WorkspaceCanvasFlowNode[]) => {
     if (!episodeId) return
-    const nodeById = new Map<string, WorkspaceCanvasFlowNode>()
-    sourceNodes.forEach((node) => nodeById.set(node.id, node))
-    flowNodes.forEach((node) => nodeById.set(node.id, node))
 
     const input: UpsertCanvasLayoutInput = {
       episodeId,
       viewport: reactFlow.getViewport(),
-      nodeLayouts: [...positions.entries()].flatMap(([nodeId, position], index) => {
-        const node = nodeById.get(nodeId)
-        if (!node) return []
-        return [{
-          nodeKey: node.id,
-          nodeType: node.data.layoutNodeType,
-          targetType: node.data.targetType,
-          targetId: node.data.targetId,
-          x: position.x,
-          y: position.y,
-          width: node.data.width,
-          height: node.data.height,
-          zIndex: typeof node.zIndex === 'number' ? node.zIndex : index,
-          locked: true,
-          collapsed: false,
-        }]
-      }),
+      nodeLayouts: nextNodes.map((node, index) => ({
+        nodeKey: node.id,
+        nodeType: node.data.layoutNodeType,
+        targetType: node.data.targetType,
+        targetId: node.data.targetId,
+        x: node.position.x,
+        y: node.position.y,
+        width: node.data.width,
+        height: node.data.height,
+        zIndex: typeof node.zIndex === 'number' ? node.zIndex : index,
+        locked: false,
+        collapsed: false,
+      })),
     }
 
     await saveLayout(input)
-  }, [episodeId, flowNodes, lockedNodePositions, reactFlow, saveLayout, sourceNodes])
+  }, [episodeId, reactFlow, saveLayout])
 
-  const persistCurrentLayoutSafely = useCallback((positions?: ReadonlyMap<string, WorkspaceCanvasPosition>) => {
-    void persistCurrentLayout(positions).catch((error: unknown) => {
+  const persistCurrentLayoutSafely = useCallback((nextNodes: readonly WorkspaceCanvasFlowNode[]) => {
+    void persistCurrentLayout(nextNodes).catch((error: unknown) => {
       _ulogWarn('[ProjectWorkspaceCanvas] canvas layout save failed', error)
     })
   }, [persistCurrentLayout])
 
   const handleNodesChange = useCallback((changes: NodeChange<WorkspaceCanvasFlowNode>[]) => {
-    setFlowNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
+    setSourceNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
   }, [])
 
   const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceCanvasFlowNode>>((_event, node, draggedNodes) => {
@@ -701,15 +702,14 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
       expansionAnchorNodePositionsRef.current = nextAnchors
     }
     const currentNodes = reactFlow.getNodes().map((currentNode) => movedNodesById.get(currentNode.id) ?? currentNode)
-    const nextLockedPositions = new Map(lockedNodePositions)
-    currentNodes.forEach((currentNode) => {
-      if (!movedNodeIds.has(currentNode.id)) return
-      nextLockedPositions.set(currentNode.id, currentNode.position)
+    const repairedLayoutNodes = repairWorkspaceCanvasDraggedLayout({
+      nodes: currentNodes,
+      movedNodeIds,
     })
-    setFlowNodes(currentNodes)
-    setLockedNodePositions(nextLockedPositions)
-    persistCurrentLayoutSafely(nextLockedPositions)
-  }, [lockedNodePositions, persistCurrentLayoutSafely, reactFlow])
+    const repairedNodes = attachNodeUiState(repairedLayoutNodes)
+    setSourceNodes(repairedNodes)
+    persistCurrentLayoutSafely(repairedNodes)
+  }, [attachNodeUiState, persistCurrentLayoutSafely, reactFlow])
 
   const handleNodeClick = useCallback<NodeMouseHandler<WorkspaceCanvasFlowNode>>((_event, node) => {
     if (node.data.kind === 'analysis' || node.data.kind === 'storyInput') return
@@ -741,13 +741,34 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const resetLayout = useCallback(() => {
     if (!episodeId) return
     expansionAnchorNodePositionsRef.current = new Map()
-    setLockedNodePositions(new Map())
-    setMeasuredNodeSizes(new Map())
-    setSourceNodes(attachNodeUiState(projection.nodes))
+    const defaultProjection = buildWorkspaceNodeCanvasProjection({
+      projectId,
+      episodeId,
+      episodeName,
+      storyText: novelText,
+      clips,
+      storyboards,
+      shots,
+      editScreenplay,
+      editScript: projectedEditScript,
+      editScriptPending: effectiveEditScriptPending,
+      finalVideo,
+      videoGroups,
+      defaultVideoModel: runtime.singleShotVideoModel ?? runtime.videoModel ?? null,
+      defaultSequenceVideoModel: runtime.sequenceVideoModel ?? null,
+      finalRenderPhase: finalRenderTaskState?.phase,
+      finalRenderErrorMessage: finalRenderTaskState?.lastError?.message ?? null,
+      bgmScorePhase: bgmScoreTaskState?.phase,
+      bgmScoreErrorMessage: bgmScoreTaskState?.lastError?.message ?? null,
+      savedLayouts: EMPTY_SAVED_NODE_LAYOUTS,
+      translate: t,
+      onAction: onNodeAction,
+    })
+    setSourceNodes(attachNodeUiState(defaultProjection.nodes))
     void resetSavedLayout().catch((error: unknown) => {
       _ulogWarn('[ProjectWorkspaceCanvas] canvas layout reset failed', error)
     })
-  }, [attachNodeUiState, episodeId, projection.nodes, resetSavedLayout])
+  }, [attachNodeUiState, bgmScoreTaskState?.lastError?.message, bgmScoreTaskState?.phase, clips, editScreenplay, effectiveEditScriptPending, episodeId, episodeName, finalRenderTaskState?.lastError?.message, finalRenderTaskState?.phase, finalVideo, novelText, onNodeAction, projectId, projectedEditScript, resetSavedLayout, runtime.sequenceVideoModel, runtime.singleShotVideoModel, runtime.videoModel, shots, storyboards, t, videoGroups])
 
   const fitView = useCallback(() => {
     void reactFlow.fitView({ padding: 0.14, duration: 180 })
@@ -759,8 +780,8 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     void reactFlow.zoomOut({ duration: 160 })
   }, [reactFlow])
   const selectedNode = useMemo(
-    () => flowNodes.find((node) => node.id === selectedNodeId) ?? null,
-    [flowNodes, selectedNodeId],
+    () => sourceNodes.find((node) => node.id === selectedNodeId) ?? null,
+    [sourceNodes, selectedNodeId],
   )
   const assistantSelection = useMemo<WorkspaceAssistantSelectionContext>(() => {
     if (!selectedNode) return {}
@@ -784,14 +805,14 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     <div className="h-full min-h-0 w-full overflow-hidden bg-[var(--glass-bg-canvas)]">
       <div ref={canvasRef} className="h-full" onWheelCapture={applyWheelZoom}>
         <ReactFlow
-          nodes={flowNodes}
+          nodes={sourceNodes}
           edges={flowEdges}
           nodeTypes={workspaceNodeTypes}
           onNodesChange={handleNodesChange}
           onNodeClick={handleNodeClick}
           onPaneClick={() => setSelectedNodeId(null)}
           onNodeDragStop={handleNodeDragStop}
-          onMoveEnd={() => persistCurrentLayoutSafely()}
+          onMoveEnd={() => persistCurrentLayoutSafely(sourceNodes)}
           nodesDraggable
           nodesConnectable={false}
           elementsSelectable

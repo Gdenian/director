@@ -407,6 +407,10 @@ export interface WorkspaceCanvasNodeData extends Record<string, unknown> {
   readonly isRunning?: boolean
   readonly width: number
   readonly height: number
+  readonly layoutBasePosition?: {
+    readonly x: number
+    readonly y: number
+  }
   readonly actionLabel?: string
   readonly action?: WorkspaceCanvasNodeAction
   readonly secondaryActionLabel?: string

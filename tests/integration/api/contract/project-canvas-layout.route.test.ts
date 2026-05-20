@@ -49,7 +49,7 @@ describe('api contract - project canvas layout route', () => {
     const snapshot = {
       projectId: 'project-1',
       episodeId: 'episode-1',
-      schemaVersion: 2,
+      schemaVersion: 1,
       viewport: { x: 10, y: 20, zoom: 1 },
       nodeLayouts: [],
     }
@@ -79,7 +79,7 @@ describe('api contract - project canvas layout route', () => {
     const snapshot = {
       projectId: 'project-1',
       episodeId: 'episode-1',
-      schemaVersion: 2,
+      schemaVersion: 1,
       viewport: { x: 12, y: 24, zoom: 0.8 },
       nodeLayouts: [{
         nodeKey: 'image:panel-1',
@@ -91,7 +91,7 @@ describe('api contract - project canvas layout route', () => {
         width: 320,
         height: 220,
         zIndex: 1,
-        locked: true,
+        locked: false,
         collapsed: false,
       }],
     }

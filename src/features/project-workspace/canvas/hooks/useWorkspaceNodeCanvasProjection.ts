@@ -43,6 +43,7 @@ import {
   WORKSPACE_CANVAS_FINAL_NODE_SIZE,
   WORKSPACE_CANVAS_VIDEO_PLAN_NODE_SIZE,
 } from '../node-presentation-profiles'
+import { repairWorkspaceNodeOverlaps } from '../layout/workspace-node-auto-layout'
 
 const DEFAULT_NODE_WIDTH = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.width
 const DEFAULT_NODE_HEIGHT = WORKSPACE_CANVAS_DEFAULT_NODE_SIZE.height
@@ -853,7 +854,7 @@ function resolvePosition(params: {
 }): { readonly x: number; readonly y: number } {
   if (params.ignoreSavedLayout) return { x: params.fallbackX, y: params.fallbackY }
   const saved = params.savedLayoutByKey.get(params.nodeKey)
-  if (!saved || saved.locked !== true) return { x: params.fallbackX, y: params.fallbackY }
+  if (!saved) return { x: params.fallbackX, y: params.fallbackY }
   return { x: saved.x, y: saved.y }
 }
 
@@ -1970,7 +1971,7 @@ export function buildWorkspaceNodeCanvasProjection({
     edges.push(createEdge(`edge:bgm-final:${episodeId}`, bgmScoreNodeId, finalNodeId))
   }
 
-  return { nodes, edges }
+  return { nodes: repairWorkspaceNodeOverlaps(nodes), edges }
 }
 
 export function useWorkspaceNodeCanvasProjection({

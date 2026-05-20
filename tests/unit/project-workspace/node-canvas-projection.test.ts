@@ -766,7 +766,7 @@ describe('workspace node canvas projection', () => {
     expect(finalNode?.data.finalDetails?.renderStatus).toBe('completed')
   })
 
-  it('uses locked manual layout only for node position and preserves business ordering', () => {
+  it('uses saved layout only for node position and preserves business ordering', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: 'A real story',
@@ -832,7 +832,7 @@ describe('workspace node canvas projection', () => {
     expect(shotNodes[5].position.y).toBeGreaterThan(shotNodes[0].position.y)
   })
 
-  it('ignores unlocked saved node positions because ELK owns system layout', () => {
+  it('repairs overlapping saved node positions without changing business ordering', () => {
     const projection = buildWorkspaceNodeCanvasProjection({
       episodeId: 'episode-1',
       storyText: '',
@@ -874,8 +874,9 @@ describe('workspace node canvas projection', () => {
 
     const shotNodes = projection.nodes.filter((node) => node.data.kind === 'shot')
     expect(shotNodes).toHaveLength(2)
-    expect(shotNodes[0].position).not.toEqual({ x: 100, y: 100 })
-    expect(shotNodes[1].position).not.toEqual({ x: 100, y: 100 })
+    expect(shotNodes[0].position).toEqual({ x: 100, y: 100 })
+    expect(shotNodes[1].position.x).toBe(100)
+    expect(shotNodes[1].position.y).toBeGreaterThan(shotNodes[0].position.y)
   })
 
   it('sizes tall video segment cards and pushes the next row below them', () => {

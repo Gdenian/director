@@ -6,7 +6,7 @@ import {
 const validLayout = {
   projectId: 'project-1',
   episodeId: 'episode-1',
-  schemaVersion: 2,
+  schemaVersion: 1,
   viewport: { x: 10, y: 20, zoom: 0.8 },
   nodeLayouts: [{
     nodeKey: 'story:episode-1',
@@ -40,19 +40,6 @@ describe('canvas layout error policy', () => {
       layout: {
         ...validLayout,
         schemaVersion: 999,
-      },
-    })).toEqual({
-      layout: null,
-      warningCode: 'schema_mismatch',
-    })
-  })
-
-  it('drops legacy v1 hand-authored node coordinates instead of migrating them', () => {
-    expect(parseCanvasLayoutReadResponse({
-      success: true,
-      layout: {
-        ...validLayout,
-        schemaVersion: 1,
       },
     })).toEqual({
       layout: null,
