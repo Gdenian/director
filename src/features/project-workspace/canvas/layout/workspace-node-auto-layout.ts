@@ -27,6 +27,32 @@ interface NodePosition {
   readonly y: number
 }
 
+export interface WorkspaceNodeDynamicLayoutOptions {
+  readonly preservedNodePositions?: ReadonlyMap<string, NodePosition>
+}
+
+function preservedNodeIds(
+  preservedNodePositions: ReadonlyMap<string, NodePosition> | undefined,
+): ReadonlySet<string> | undefined {
+  return preservedNodePositions && preservedNodePositions.size > 0
+    ? new Set(preservedNodePositions.keys())
+    : undefined
+}
+
+function applyNodePosition(
+  node: WorkspaceCanvasFlowNode,
+  position: NodePosition,
+): WorkspaceCanvasFlowNode {
+  return {
+    ...node,
+    position,
+    data: {
+      ...node.data,
+      layoutBasePosition: position,
+    },
+  }
+}
+
 export function preserveWorkspaceNodePositions(
   nodes: readonly WorkspaceCanvasFlowNode[],
   preservedNodePositions: ReadonlyMap<string, NodePosition> | undefined,
@@ -35,14 +61,7 @@ export function preserveWorkspaceNodePositions(
   return nodes.map((node) => {
     const position = preservedNodePositions.get(node.id)
     if (!position) return node
-    return {
-      ...node,
-      position,
-      data: {
-        ...node.data,
-        layoutBasePosition: position,
-      },
-    }
+    return applyNodePosition(node, position)
   })
 }
 
@@ -144,7 +163,7 @@ export function repairWorkspaceNodeOverlaps(
 ): WorkspaceCanvasFlowNode[] {
   const gap = options?.gap ?? DEFAULT_NODE_GAP
   const preservedNodeIds = options?.preservedNodeIds ?? new Set<string>()
-  const rects = nodes
+  const sortedRects = nodes
     .map(nodeRect)
     .sort((left, right) => {
       if (left.y !== right.y) return left.y - right.y
@@ -152,11 +171,15 @@ export function repairWorkspaceNodeOverlaps(
       return left.order - right.order
     })
 
-  const placed: NodeRect[] = []
+  const fixedRects = sortedRects.filter((rect) => preservedNodeIds.has(rect.id))
+  const movableRects = sortedRects.filter((rect) => !preservedNodeIds.has(rect.id))
+  const placed: NodeRect[] = [...fixedRects]
   const repairedYById = new Map<string, number>()
 
-  for (const rect of rects) {
-    const y = preservedNodeIds.has(rect.id) ? rect.y : nextAvailableY(rect, placed, gap)
+  fixedRects.forEach((rect) => repairedYById.set(rect.id, rect.y))
+
+  for (const rect of movableRects) {
+    const y = nextAvailableY(rect, placed, gap)
     const repaired = { ...rect, y }
     placed.push(repaired)
     repairedYById.set(rect.id, y)
@@ -323,5 +346,14 @@ export function repairWorkspaceNodeOverlapsNearMovedNodes(
         y: repaired.y,
       },
     }
+  })
+}
+
+export function applyWorkspaceNodeDynamicLayout(
+  nodes: readonly WorkspaceCanvasFlowNode[],
+  options?: WorkspaceNodeDynamicLayoutOptions,
+): WorkspaceCanvasFlowNode[] {
+  return repairWorkspaceNodeOverlaps(avoidExpandedSpaceConsistencyLaneOverlaps(nodes), {
+    preservedNodeIds: preservedNodeIds(options?.preservedNodePositions),
   })
 }

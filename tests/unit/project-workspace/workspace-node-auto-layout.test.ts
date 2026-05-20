@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkspaceCanvasFlowNode } from '@/features/project-workspace/canvas/node-canvas-types'
 import {
+  applyWorkspaceNodeDynamicLayout,
   alignSpaceConsistencyNodesToMeasuredEditScript,
   avoidExpandedSpaceConsistencyLaneOverlaps,
   preserveWorkspaceNodePositions,
@@ -206,6 +207,46 @@ describe('workspace node auto layout', () => {
     expect(repairedLaterNeighbor?.position.y).toBeGreaterThan(spaceConsistency.position.y + spaceConsistency.data.height)
   })
 
+  it('treats preserved anchors as fixed obstacles instead of leaving earlier nodes overlapped', () => {
+    const earlierNeighbor = createNode({
+      id: 'neighbor:earlier',
+      kind: 'shot',
+      x: 100,
+      y: 80,
+      width: 420,
+      height: 560,
+    })
+    const anchor = createNode({
+      id: 'video-plan:expanded',
+      kind: 'videoPlan',
+      x: 100,
+      y: 120,
+      width: 420,
+      height: 760,
+      expanded: true,
+    })
+    const laterNeighbor = createNode({
+      id: 'neighbor:later',
+      kind: 'shot',
+      x: 100,
+      y: 160,
+      width: 420,
+      height: 560,
+    })
+
+    const repaired = repairWorkspaceNodeOverlaps(
+      [earlierNeighbor, anchor, laterNeighbor],
+      { preservedNodeIds: new Set([anchor.id]) },
+    )
+    const repairedAnchor = repaired.find((node) => node.id === anchor.id)
+    const repairedEarlier = repaired.find((node) => node.id === earlierNeighbor.id)
+    const repairedLater = repaired.find((node) => node.id === laterNeighbor.id)
+
+    expect(repairedAnchor?.position).toEqual(anchor.position)
+    expect(repairedEarlier && repairedAnchor ? workspaceCanvasNodesOverlap(repairedEarlier, repairedAnchor) : true).toBe(false)
+    expect(repairedLater && repairedAnchor ? workspaceCanvasNodesOverlap(repairedLater, repairedAnchor) : true).toBe(false)
+  })
+
   it('preserves the current anchor position over a stale layout base position', () => {
     const staleBase = { x: 100, y: 1200 }
     const actualAnchor = { x: 100, y: 480 }
@@ -284,6 +325,36 @@ describe('workspace node auto layout', () => {
     expect(repairedNextVideoPlan?.position.x).toBe(1412)
     expect(repairedBgmScore?.position.x).toBe(948)
     expect(repairedVideoPlan && workspaceCanvasNodesOverlap(spaceConsistency, repairedVideoPlan)).toBe(false)
+  })
+
+  it('keeps the expanded node position fixed through the composed dynamic layout pass', () => {
+    const expandedVideoPlan = createNode({
+      id: 'video-plan:expanded',
+      kind: 'videoPlan',
+      x: 620,
+      y: 120,
+      width: 420,
+      height: 760,
+      expanded: true,
+    })
+    const neighbor = createNode({
+      id: 'neighbor:overlap',
+      kind: 'shot',
+      x: 620,
+      y: 160,
+      width: 420,
+      height: 560,
+    })
+
+    const repaired = applyWorkspaceNodeDynamicLayout(
+      [expandedVideoPlan, neighbor],
+      { preservedNodePositions: new Map([[expandedVideoPlan.id, expandedVideoPlan.position]]) },
+    )
+    const repairedExpanded = repaired.find((node) => node.id === expandedVideoPlan.id)
+    const repairedNeighbor = repaired.find((node) => node.id === neighbor.id)
+
+    expect(repairedExpanded?.position).toEqual(expandedVideoPlan.position)
+    expect(repairedExpanded && repairedNeighbor ? workspaceCanvasNodesOverlap(repairedExpanded, repairedNeighbor) : true).toBe(false)
   })
 
   it('does not move the content lane when space consistency is collapsed', () => {
