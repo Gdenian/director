@@ -154,6 +154,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const [sourceNodes, setSourceNodes] = useState<WorkspaceCanvasFlowNode[]>([])
   const [flowNodes, setFlowNodes] = useState<WorkspaceCanvasFlowNode[]>([])
+  const sourceNodesRef = useRef<readonly WorkspaceCanvasFlowNode[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodeExpansionOverrides, setNodeExpansionOverrides] = useState<ReadonlyMap<string, boolean>>(() => new Map())
   const [measuredNodeSizes, setMeasuredNodeSizes] = useState<ReadonlyMap<string, WorkspaceCanvasNodeSize>>(() => new Map())
@@ -170,6 +171,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     signature: string
     edges: WorkspaceCanvasFlowEdge[]
   } | null>(null)
+  sourceNodesRef.current = sourceNodes
 
   const {
     layout,
@@ -312,7 +314,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
     nodeId: string,
     size: { readonly width: number; readonly height: number },
   ) => {
-    const measuredNode = sourceNodes.find((node) => node.id === nodeId)
+    const measuredNode = sourceNodesRef.current.find((node) => node.id === nodeId)
     if (!measuredNode) return
     const nextHeight = resolveWorkspaceCanvasMeasuredNodeHeight({
       kind: measuredNode.data.kind,
@@ -354,7 +356,7 @@ function ProjectWorkspaceCanvasContent({ onAssistantSelectionChange, editScriptP
           }
         : node)
     })
-  }, [sourceNodes])
+  }, [])
   const attachNodeUiState = useCallback((
     inputNodes: readonly WorkspaceCanvasFlowNode[],
   ) => {

@@ -109,7 +109,7 @@ export function useWorkspaceCanvasElkLayout(input: {
 
   useEffect(() => {
     if (input.nodes.length === 0) {
-      setLayoutedNodes([])
+      setLayoutedNodes((currentNodes) => currentNodes.length === 0 ? currentNodes : [])
       setIsLayoutPending(false)
       return undefined
     }
@@ -144,14 +144,18 @@ export function useWorkspaceCanvasElkLayout(input: {
     }
   }, [input.debounceMs, input.edges, input.expansionAnchors, input.lockedNodePositions, input.measuredNodeSizes, input.nodes, signature])
 
-  return {
-    nodes: layoutedNodes.length > 0 ? layoutedNodes : input.nodes.map((node) => ({
+  const visibleNodes = useMemo(() => (
+    layoutedNodes.length > 0 ? layoutedNodes : input.nodes.map((node) => ({
       ...node,
       style: {
         ...node.style,
         opacity: 0,
       },
-    })),
+    }))
+  ), [input.nodes, layoutedNodes])
+
+  return {
+    nodes: visibleNodes,
     error,
     isLayoutPending,
   }
