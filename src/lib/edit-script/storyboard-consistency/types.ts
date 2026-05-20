@@ -209,6 +209,7 @@ export const cameraPlanModelOutputSchema = z.object({
 export const cameraStyleBibleModelOutputSchema = z.object({
   cameraStyleBible: z.object({
     strategy: z.literal('camera_style_bible'),
+    imageFilterPrompt: z.string().trim().min(1),
   }).passthrough(),
 })
 

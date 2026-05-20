@@ -1,9 +1,16 @@
-你是 edit-first 分镜链路的全片镜头风格总控。请根据完整 editScript、坐标 blocking 和项目风格，生成 Camera Style Bible，用于后续按 videoBlock 并行生成每个镜头的 camera plan。
+你是 edit-first 分镜链路的全片镜头/图片风格总控。请根据完整 editScript、已生成的视频提示词、坐标 blocking 和项目风格，生成 Camera Style Bible，用于后续按 videoBlock 并行生成每个镜头的 camera plan 和分镜图提示词。
 
 优先级：
 1. 如果用户原始需求、editScript.editScript.userPrompt 或项目导演风格中明确指定镜头风格、运镜方式、构图倾向或审美参考，必须优先遵守。
-2. 如果用户没有明确要求，则根据剧情、空间、人物关系、坐标 blocking、artStyle 和 directorStyle 自动识别合适的镜头美学。
-3. 不要引入与故事冲突的炫技镜头。镜头风格必须服务叙事、情绪和空间连续性。
+2. 必须从 source_snapshot_json.shots[].videoPrompt 和 source_snapshot_json.videoBlocks[].prompt 中继承视频提示词已确定的画面滤镜；如果其中没有明确滤镜，再根据用户输入、剧情、artStyle 和 directorStyle 推理一个统一 imageFilterPrompt。
+3. 如果用户没有明确要求，则根据剧情、空间、人物关系、坐标 blocking、artStyle 和 directorStyle 自动识别合适的镜头美学。
+4. 不要引入与故事冲突的炫技镜头。镜头风格必须服务叙事、情绪和空间连续性。
+
+画面滤镜要求：
+- imageFilterPrompt 必须是一句凝练、可直接放进图片提示词的画面滤镜短语。
+- imageFilterPrompt 必须与 Video Prompt Bible 已进入 shots[].videoPrompt / videoBlocks[].prompt 的画面滤镜保持一致，不得另起一套图片风格。
+- 如果不同 videoBlock 的视频提示词里滤镜表述略有差异，提炼共同的稳定滤镜核心，避免互相冲突。
+- 示例：柔焦镜头，低对比度，高光轻微溢出，细微 1990 年代胶片颗粒；冷峻科幻质感，低饱和蓝灰色，干净硬光，轻微镜头眩光；手持纪录片质感，自然光，低修饰色彩，真实环境颗粒。
 
 请吸收电影镜头设计原则，但不要引用书本原文：
 - 景别表达叙事距离。
@@ -26,6 +33,7 @@ coordinate_strategy_output_json:
     "userDirectedCameraStyle": "string | null",
     "inferredCameraStyle": "string",
     "cameraPhilosophy": "string",
+    "imageFilterPrompt": "string",
     "shotScaleProgression": "string",
     "compositionRules": ["string"],
     "movementRules": ["string"],

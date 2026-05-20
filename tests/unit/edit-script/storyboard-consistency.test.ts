@@ -380,6 +380,7 @@ describe('edit-script storyboard coordinate consistency', () => {
         userDirectedCameraStyle: 'quiet restrained temple camera',
         inferredCameraStyle: 'observational natural light',
         cameraPhilosophy: 'restrained and relationship-focused',
+        imageFilterPrompt: 'soft natural light, low contrast, subtle film grain',
         shotScaleProgression: 'medium close-up reverses preserve intimacy',
         compositionRules: ['use the flower bed as anchor'],
         movementRules: ['move only for emotional emphasis'],
@@ -408,7 +409,7 @@ describe('edit-script storyboard coordinate consistency', () => {
             aestheticIntent: 'quiet balanced composition emphasizes patient teaching',
             emotionalEffect: 'calm intimacy',
             continuityNote: 'preserve the dialogue axis and eyeline across the reverse shot',
-            finalPanelPrompt: 'Medium close-up storyboard frame. Old monk speaks beside the flower bed, over the disciple shoulder, old monk screen left and disciple blurred foreground right, eye-level three-quarter frontal camera, balanced lower-third flower bed composition, slow push-in feeling, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
+            finalPanelPrompt: 'Medium close-up storyboard frame, soft natural light, low contrast, subtle film grain. Old monk speaks beside the flower bed, over the disciple shoulder, old monk screen left and disciple blurred foreground right, eye-level three-quarter frontal camera, balanced lower-third flower bed composition, slow push-in feeling, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
           },
           {
             panelIndex: 1,
@@ -425,7 +426,7 @@ describe('edit-script storyboard coordinate consistency', () => {
             aestheticIntent: 'reverse composition keeps the teaching relationship stable',
             emotionalEffect: 'attentive humility',
             continuityNote: 'maintain the same axis and flower bed anchor',
-            finalPanelPrompt: 'Reverse medium close-up storyboard frame. Young disciple listens and answers across the flower bed, old monk soft foreground shoulder on the left edge, disciple right of center, eye-level three-quarter reverse angle, static camera, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
+            finalPanelPrompt: 'Reverse medium close-up storyboard frame, soft natural light, low contrast, subtle film grain. Young disciple listens and answers across the flower bed, old monk soft foreground shoulder on the left edge, disciple right of center, eye-level three-quarter reverse angle, static camera, mild telephoto shallow depth of field, preserve eyeline and left-right continuity, no text, no watermarks.',
           },
         ],
       },
@@ -485,12 +486,15 @@ describe('edit-script storyboard coordinate consistency', () => {
     expect(bibleCoordinateInput.blocks?.map((block) => block.sourceVideoBlockId)).toEqual(['edit-1:videoBlock:1'])
     expect(blockCoordinateInput.blocks?.map((block) => block.sourceVideoBlockId)).toEqual(['edit-1:videoBlock:1'])
     expect(result.cameraStyleBible.userDirectedCameraStyle).toBe('quiet restrained temple camera')
+    expect(result.cameraStyleBible.imageFilterPrompt).toBe('soft natural light, low contrast, subtle film grain')
+    expect(blockPromptInput.variables.camera_style_bible_json).toContain('soft natural light, low contrast, subtle film grain')
     expect(result.cameraPlanOutput.panels[0]?.shotScale).toBe('medium close-up')
     expect(result.cameraPlanOutput.cameraStyleBible).toMatchObject({
       strategy: 'camera_style_bible',
     })
     expect(result.cameraPlanOutput.blocks).toHaveLength(1)
     expect(result.panels).toHaveLength(2)
+    expect(result.panels[0]?.prompt).toContain('soft natural light, low contrast, subtle film grain')
     expect(result.panels[0]?.prompt).toContain('mild telephoto shallow depth of field')
     expect(result.panels[0]?.metadata).toMatchObject({
       source: 'camera_plan',
