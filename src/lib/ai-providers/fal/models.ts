@@ -12,8 +12,9 @@ import {
   OPENAI_IMAGE_OUTPUT_FORMATS,
   OPENAI_OFFICIAL_IMAGE_QUALITIES,
 } from '@/lib/ai-providers/shared/openai-image'
+import { OPENAI_IMAGE_2_MODEL_ID } from '@/lib/ai-providers/openai/models'
 
-export const FAL_GPT_IMAGE_2_MODEL_ID = 'gpt-image-2'
+export const FAL_GPT_IMAGE_2_MODEL_ID = OPENAI_IMAGE_2_MODEL_ID
 export const FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID = 'alibaba/happy-horse/image-to-video'
 export const FAL_SEEDANCE_2_VIDEO_MODEL_ID = 'bytedance/seedance-2.0'
 export const FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID = 'bytedance/seedance-2.0/fast'

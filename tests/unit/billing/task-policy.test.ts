@@ -42,7 +42,7 @@ describe('billing/task-policy', () => {
     }))
     expect(info.apiType).toBe('text')
     expect(info.model).toBe('anthropic/claude-sonnet-4')
-    expect(info.quantity).toBe(4200)
+    expect(info.quantity).toBe(3000)
   })
 
   it('returns null for missing required models in text/image/video tasks', () => {

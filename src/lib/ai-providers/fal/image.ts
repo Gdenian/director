@@ -31,7 +31,10 @@ type FalImageSubmitBody = {
 const FAL_IMAGE_ENDPOINTS: Record<string, { base: string; edit: string }> = {
   banana: { base: 'fal-ai/nano-banana-pro', edit: 'fal-ai/nano-banana-pro/edit' },
   'banana-2': { base: 'fal-ai/nano-banana-2', edit: 'fal-ai/nano-banana-2/edit' },
-  [FAL_GPT_IMAGE_2_MODEL_ID]: { base: 'openai/gpt-image-2', edit: 'openai/gpt-image-2/edit' },
+  [FAL_GPT_IMAGE_2_MODEL_ID]: {
+    base: `openai/${FAL_GPT_IMAGE_2_MODEL_ID}`,
+    edit: `openai/${FAL_GPT_IMAGE_2_MODEL_ID}/edit`,
+  },
 }
 
 const FAL_GPT_IMAGE_2_RESOLUTIONS = new Set<string>(FAL_IMAGE_RESOLUTIONS)

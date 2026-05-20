@@ -13,6 +13,12 @@ const prismaMock = vi.hoisted(() => ({
   task: {
     findMany: vi.fn(),
   },
+  projectEditScreenplay: {
+    findFirst: vi.fn(),
+  },
+  projectEditScript: {
+    findFirst: vi.fn(),
+  },
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -73,6 +79,8 @@ describe('assembleProjectContext', () => {
     planRunRuntimeMock.listPlanRuns.mockResolvedValueOnce([])
     planRunRuntimeMock.listPlanRuns.mockResolvedValueOnce([])
     planRunRuntimeMock.listPlanArtifacts.mockResolvedValueOnce([])
+    prismaMock.projectEditScreenplay.findFirst.mockResolvedValueOnce(null)
+    prismaMock.projectEditScript.findFirst.mockResolvedValueOnce(null)
     prismaMock.planApproval.findMany.mockResolvedValueOnce([])
     prismaMock.task.findMany
       .mockResolvedValueOnce([

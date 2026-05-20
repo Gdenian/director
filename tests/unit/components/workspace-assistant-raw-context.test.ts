@@ -95,6 +95,8 @@ describe('workspace assistant raw context helpers', () => {
               rawMessages: [],
               runtimeMessages: [],
               modelMessages: [{ role: 'user', content: 'hello' }],
+              messageCounts: { raw: 0, runtime: 0, model: 1 },
+              contextTokenEstimate: 123,
               projectContext: {},
               projectPhase: {},
               route: {},

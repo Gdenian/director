@@ -18,17 +18,13 @@ import {
 import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/ai-registry/capabilities-catalog'
 import { parseModelKeyStrict } from '@/lib/ai-registry/selection'
+import { supportsAssetReferenceMultiReferenceVideoModel } from '@/lib/ai-registry/video-model-helpers'
 import { getProviderConfig } from '@/lib/user-api/runtime-config'
 import { handleFinalVideoRenderTask } from './final-video-render'
 import { composeAndStoreGridReferenceImage } from '@/lib/video-groups/grid-image'
 import { totalVideoGroupDuration, validateVideoGroupShotNumbers } from '@/lib/video-groups/core'
 import type { VideoGridMode, VideoGroupShot } from '@/lib/video-groups/types'
 import { ensureMediaObjectFromStorageKey } from '@/lib/media/service'
-import {
-  FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID,
-  FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID,
-  FAL_SEEDANCE_2_VIDEO_MODEL_ID,
-} from '@/lib/ai-providers/fal/models'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -359,17 +355,7 @@ function buildAssetReferencePrompt(params: {
 }
 
 function supportsAssetReferenceMultiReference(modelId: string): boolean {
-  if (modelId === `fal::${FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID}`) return true
-  if (modelId === `fal::${FAL_SEEDANCE_2_VIDEO_MODEL_ID}`) return true
-  if (modelId === `fal::${FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID}`) return true
-  const parsedModel = parseModelKeyStrict(modelId)
-  return parsedModel?.provider === 'ark'
-    || (parsedModel?.provider === 'fal'
-      && (
-        parsedModel.modelId === FAL_HAPPY_HORSE_IMAGE_TO_VIDEO_MODEL_ID
-        || parsedModel.modelId === FAL_SEEDANCE_2_VIDEO_MODEL_ID
-        || parsedModel.modelId === FAL_SEEDANCE_2_FAST_VIDEO_MODEL_ID
-      ))
+  return supportsAssetReferenceMultiReferenceVideoModel(modelId)
 }
 
 async function handleAssetReferenceVideoGroupTask(params: {

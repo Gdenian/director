@@ -1,1 +1,3 @@
-export const DEFAULT_GROUP_VIDEO_MODEL = 'ark::doubao-seedance-2-0-260128'
+import { ARK_DEFAULT_GROUP_VIDEO_MODEL } from '@/lib/ai-providers/ark/models'
+
+export const DEFAULT_GROUP_VIDEO_MODEL = ARK_DEFAULT_GROUP_VIDEO_MODEL
