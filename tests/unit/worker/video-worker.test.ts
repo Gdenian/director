@@ -154,7 +154,14 @@ vi.mock('@/lib/media/service', () => ({
 }))
 vi.mock('@/lib/ai-registry/selection', () => ({
   composeModelKey: vi.fn((provider: string, modelId: string) => `${provider}::${modelId}`),
-  parseModelKeyStrict: vi.fn((modelKey: string) => ({ provider: modelKey.split('::')[0] || 'fal' })),
+  parseModelKeyStrict: vi.fn((modelKey: string) => {
+    const separatorIndex = modelKey.indexOf('::')
+    if (separatorIndex <= 0 || separatorIndex >= modelKey.length - 2) return null
+    return {
+      provider: modelKey.slice(0, separatorIndex),
+      modelId: modelKey.slice(separatorIndex + 2),
+    }
+  }),
 }))
 vi.mock('@/lib/user-api/runtime-config', () => ({
   getProviderConfig: vi.fn(async () => ({ apiKey: 'api-key' })),

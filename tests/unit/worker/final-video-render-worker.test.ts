@@ -301,7 +301,7 @@ describe('final video render worker', () => {
     expect(ffmpegCalls.some((args) => args.includes('loudnorm=I=-12.000'))).toBe(true)
     expect(ffmpegCalls.some((args) => args.includes('loudnorm=I=-24.000'))).toBe(false)
     expect(ffmpegCalls.some((args) => args.includes('volume=1.000'))).toBe(true)
-    expect(ffmpegCalls.some((args) => args.includes('sidechaincompress='))).toBe(false)
+    expect(ffmpegCalls.some((args) => args.includes('sidechaincompress='))).toBe(true)
     expect(ffmpegCalls.some((args) => args.includes('amix=inputs=2'))).toBe(true)
     expect(ffmpegCalls.some((args) => args.includes(' -an '))).toBe(true)
     const completedProjectDataCall = prismaMock.videoEditorProject.upsert.mock.calls.find((call) => {
