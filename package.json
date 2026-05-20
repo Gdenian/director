@@ -148,7 +148,6 @@
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.67.3",
     "cos-nodejs-sdk-v5": "^2.15.4",
-    "elkjs": "^0.11.1",
     "express": "^5.2.1",
     "file-saver": "^2.0.5",
     "geist": "^1.7.0",
