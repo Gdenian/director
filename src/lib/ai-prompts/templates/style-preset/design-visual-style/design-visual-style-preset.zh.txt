@@ -24,3 +24,4 @@
 2. negativePrompt 不要复述 prompt，应列出明确禁用项。
 3. detailLevel 必须是 low、medium、high 之一。
 4. colorPalette 必须是字符串数组。
+5. prompt 与 negativePrompt 会拼入图片生成提示词并显示在画布相关详情中，字段值必须使用中文自然语言；除专有名词、模型字段名和原文台词外，不要输出英文句子。

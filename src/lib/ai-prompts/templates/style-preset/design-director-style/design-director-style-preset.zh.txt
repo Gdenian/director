@@ -27,3 +27,4 @@
 3. image.prompt、character.imagePrompt、location.imagePrompt、prop.imagePrompt、storyboardDetail.imagePrompt 必须可直接拼入图片生成提示词。
 4. image.negativePrompt 必须列出画面禁用项，不要复述正向提示词。
 5. 字段内容要具体可执行，避免“高级感、电影感、情绪张力”这类空泛词单独出现。
+6. 所有 imagePrompt、prompt、negativePrompt、avoid 字段会拼入图片/视频提示词并显示在画布相关详情中，字段值必须使用中文自然语言；除专有名词、模型字段名和原文台词外，不要输出英文句子。

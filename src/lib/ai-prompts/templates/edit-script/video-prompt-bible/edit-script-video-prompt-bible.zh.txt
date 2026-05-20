@@ -10,12 +10,15 @@
 - 如果用户给出导演、影片、流派或年代参考，先提炼其可执行特征，再写入 styleReferenceInterpretation。
 - 不允许要求模型“模仿某导演本人”。应转写为镜头节奏、构图、光线、色彩、滤镜质感、动作速度、声音和剪辑方式。
 - 画面滤镜必须单独写入 imageFilterPrompt，必须是可直接放进视频提示词的短语，例如：柔焦镜头，高光溢出，低对比度，复古90年代胶片质感，色彩清澈，梦幻柔和，35mm镜头。
+- 声音滤镜必须单独写入 soundFilterPrompt，只写一句可直接塞进视频提示词风格段的凝练短语；它应根据用户输入、剧本类型、年代感、类型片气质和剧情情绪自动推理，描述整片声音质感，不得覆盖角色 voiceTimbreText。
+- 优秀 soundFilterPrompt 示例：老电影窄频声音，轻微低通，闷厚中低频，弱高频，轻微磁带底噪；现代冷峻科幻声音，干净宽频，低频机械嗡鸣，空间混响克制；手持纪录片声音，现场感强，近距离拟音，环境底噪自然不修饰；童话动画声音，清澈明亮，拟音圆润，短促音效轻巧不刺耳。
 
 Bible 的作用：
 - 统一所有并行 videoBlock 的视频风格、画面滤镜、角色身份、场景连续性、声音规则和视频模型禁令。
 - 不生成具体 shot prompt。
 - 不生成最终 videoBlock prompt。
 - 只输出后续 block prompt 必须共同遵守的规则。
+- 所有会被后续拼入画布提示词的字段值必须使用中文，包括 imageFilterPrompt、soundFilterPrompt、soundStyle、hardBans、soundRules、videoModelRules 和 blockContinuityRules；除专有名词、模型字段名和原文台词外，不要输出英文句子。
 
 必须包含：
 - storyPremise：本集核心叙事。
@@ -38,6 +41,7 @@ Bible 的作用：
   "lighting": "自然光，季节性光线，避免明显商业布光",
   "colorPalette": "随季节变化的低饱和自然色，春季清澈，冬季冷淡，秋季枯黄",
   "imageFilterPrompt": "柔和自然光，低对比度，轻微柔焦，清澈空气感，淡雅胶片质感，35mm镜头，克制高光",
+  "soundFilterPrompt": "安静自然主义声音，柔和环境声，近距离衣料和脚步拟音，弱音乐感，保留空气与停顿",
   "motionStyle": "动作缓慢、连续、仪式化，避免夸张表演",
   "editingPacing": "慢节奏，保留停顿、凝视和环境呼吸",
   "soundStyle": "环境声优先，水声、风声、衣料声、脚步声，少音乐或无音乐",
@@ -77,6 +81,7 @@ style_context:
       "lighting": "string",
       "colorPalette": "string",
       "imageFilterPrompt": "string",
+      "soundFilterPrompt": "string",
       "motionStyle": "string",
       "editingPacing": "string",
       "soundStyle": "string",

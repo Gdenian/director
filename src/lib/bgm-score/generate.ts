@@ -310,6 +310,7 @@ export async function handleBgmScoreGenerateTask(job: Job<TaskJobData>) {
           },
           clips,
           totalDurationSeconds: durationSeconds,
+          locale: job.data.locale,
         }),
       }],
       temperature: 0.35,
@@ -331,7 +332,7 @@ export async function handleBgmScoreGenerateTask(job: Job<TaskJobData>) {
       promptSectionCount: plan.promptSections.length,
       virtualLayerCount: plan.virtualLayers.length,
     })
-    const generated = await generateMusic(job.data.userId, musicModel, buildFinalBgmMusicPrompt(plan), {
+    const generated = await generateMusic(job.data.userId, musicModel, buildFinalBgmMusicPrompt(plan, { locale: job.data.locale }), {
       durationSeconds: selectFinalRenderMusicDurationSeconds(musicModel, durationSeconds),
       vocalMode: 'instrumental',
       outputFormat,

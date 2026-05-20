@@ -255,6 +255,7 @@ describe('bgm score worker', () => {
     const planPrompt = String(executeAiTextStepMock.mock.calls[0]?.[0]?.messages?.[0]?.content)
     expect(planPrompt).toContain('"sourceKind": "videoGroup"')
     expect(planPrompt).toContain('"groupId": "group-1"')
+    expect(planPrompt).toContain('所有会显示在画布上的字段值必须使用中文自然语言')
     expect(generateMusicMock).toHaveBeenCalledTimes(1)
   })
 
@@ -299,7 +300,7 @@ describe('bgm score worker', () => {
     })
     expect(generateMusicMock).toHaveBeenCalledTimes(1)
     expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('Generate one complete continuous instrumental cinematic BGM track')
-    expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('Text-only internal arrangement layers')
+    expect(String(generateMusicMock.mock.calls[0]?.[2])).toContain('文本说明用内部编曲层')
     expect(storageMock.uploadObject).toHaveBeenCalledTimes(1)
 
     const completedCall = prismaMock.videoEditorProject.upsert.mock.calls.find((call) => {

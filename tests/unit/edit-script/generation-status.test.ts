@@ -135,6 +135,7 @@ function mockSuccessfulAiSteps() {
             lighting: 'cold practical lights',
             colorPalette: 'cool blue gray',
             imageFilterPrompt: 'low contrast, clean futuristic texture, subtle bloom, 35mm lens',
+            soundFilterPrompt: 'clean modern sci-fi sound, wide-band clarity, low mechanical hum, restrained spatial reverb',
             motionStyle: 'slow continuous motion',
             editingPacing: 'restrained pacing',
             soundStyle: 'room tone and electrical hum',

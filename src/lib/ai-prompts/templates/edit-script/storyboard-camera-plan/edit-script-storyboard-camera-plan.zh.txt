@@ -15,6 +15,7 @@
 - 如果 coordinate_strategy_output_json.blocks 为空，说明当前内容没有适用坐标；不要想象或补写坐标，仍然根据原 shot 设计合适镜头语言。
 - 不改剧情，不补新人物，不改变资产身份。
 - finalPanelPrompt 要像给图像模型的可执行画面提示词，不要写分析报告。
+- finalPanelPrompt 会写入分镜图片提示词并显示在画布上，必须整体使用中文自然语言；除角色名、专有名词、模型字段名和原文台词外，不要输出英文句子。
 - 禁止文字、编号、水印、字幕。
 
 source_snapshot_json:
@@ -35,13 +36,13 @@ panel_contract_json 定义必须返回的 panel 列表，必须完整保留 pane
         "panelIndex": 0,
         "sourceShotNumber": 1,
         "sourceVideoBlockId": "string",
-        "shotScale": "景别，例如 medium close-up",
+        "shotScale": "景别，例如中近景",
         "cameraPosition": "机位在空间中的位置，例如案台左前侧或角色肩后",
-        "cameraHeight": "机位高度，例如 eye-level / low angle waist height",
-        "cameraAngle": "镜头角度，例如 three-quarter frontal / over-the-shoulder",
-        "composition": "构图方式，例如 foreground shoulder, rule of thirds, layered depth",
-        "cameraMovement": "运镜方式和动机，例如 slow push-in to reveal hesitation",
-        "lensAndDepth": "焦段和景深关系，例如 mild telephoto shallow depth of field",
+        "cameraHeight": "机位高度，例如平视或腰部低机位",
+        "cameraAngle": "镜头角度，例如三分之四正面或越肩视角",
+        "composition": "构图方式，例如前景肩部遮挡、三分法、层次纵深",
+        "cameraMovement": "运镜方式和动机，例如缓慢推进以揭示犹豫",
+        "lensAndDepth": "焦段和景深关系，例如轻微长焦浅景深",
         "screenDirection": "左右、轴线、视线连续性",
         "aestheticIntent": "画面美学意图，必须服务剧情",
         "emotionalEffect": "观众情绪效果",

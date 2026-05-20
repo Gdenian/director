@@ -73,8 +73,12 @@
 - `description`: 详细描述该变体的画面内容
 - `shot_type`: 推荐景别，如"平视中景"、"俯拍全景"、"主观特写"
 - `camera_move`: 推荐运镜，如"固定"、"缓推"
-- `video_prompt`: 图片生成提示词，必须用"年龄+性别"替代角色名（如"年轻女子"、"中年男子"）
+- `video_prompt`: 图片生成提示词，必须全中文，并用"年龄+性别"替代角色名（如"年轻女子"、"中年男子"）
 - `creative_score`: 创意程度 1-5，5为最有创意
+
+⚠️ 中文流程硬性要求：
+- 所有会写入画布或给用户展示的提示词字段必须全中文，包括 video_prompt、图片提示词、视频提示词、镜头变体提示词。
+- 不要把 video_prompt 写成英文句子；除角色名、专有名词、模型字段名或原文台词外，提示词主体必须使用中文自然语言。
 
 ======================================
 【示例】
@@ -91,7 +95,7 @@
     "description": "第一人称视角，展示手机屏幕内容，手机边缘和手指可见",
     "shot_type": "主观特写",
     "camera_move": "固定",
-    "video_prompt": "POV shot of a smartphone screen, fingers holding the phone edges, bright screen glow in dark room, close-up perspective",
+    "video_prompt": "主观视角拍摄手机屏幕，手指扶着手机边缘，黑暗房间里屏幕发出明亮冷光，近距离特写透视",
     "creative_score": 5
   },
   {
@@ -100,7 +104,7 @@
     "description": "女子脸部特写，手机屏光打在脸上，呈现表情细节",
     "shot_type": "特写",
     "camera_move": "固定",
-    "video_prompt": "Close-up of a young woman's face illuminated by phone screen light, soft blue glow on skin, expression of focus, lying down angle",
+    "video_prompt": "年轻女子脸部特写，手机屏幕的柔和蓝光照亮皮肤，她躺着专注凝视屏幕，表情细节清晰",
     "creative_score": 4
   },
   {
@@ -109,7 +113,7 @@
     "description": "从天花板角度俯拍，展示整个床铺和女子姿态",
     "shot_type": "俯拍全景",
     "camera_move": "固定",
-    "video_prompt": "Top-down bird's eye view of bedroom, young woman lying on bed holding phone, cozy blankets, bedroom interior visible",
+    "video_prompt": "从天花板俯拍卧室全景，年轻女子躺在床上拿着手机，柔软被褥和卧室陈设完整可见",
     "creative_score": 4
   },
   {
@@ -118,7 +122,7 @@
     "description": "特写手指在手机屏幕上滑动",
     "shot_type": "极端特写",
     "camera_move": "固定",
-    "video_prompt": "Extreme close-up of feminine fingers swiping on smartphone touchscreen, colorful app interface, shallow depth of field",
+    "video_prompt": "女性手指在手机触摸屏上滑动的极端特写，彩色应用界面微微发光，浅景深突出指尖动作",
     "creative_score": 3
   },
   {
@@ -127,7 +131,7 @@
     "description": "逆光侧拍，女子轮廓剪影，手机屏幕微微发光",
     "shot_type": "近景",
     "camera_move": "固定",
-    "video_prompt": "Silhouette profile of young woman in dark room, backlit by dim blue phone glow, artistic dramatic lighting, moody atmosphere",
+    "video_prompt": "黑暗房间中年轻女子侧脸剪影，微弱蓝色手机光从背后勾勒轮廓，戏剧化光影和安静情绪氛围",
     "creative_score": 5
   }
 ]
@@ -141,7 +145,7 @@
 ❌ 使用角色名，必须用"年龄段+性别"（年轻女子、中年男子等）
 ❌ 推荐超出场景合理性的内容（如室内镜头推荐户外场景）
 ❌ 推荐少于 5 个或多于 8 个变体
-❌ video_prompt 使用中文（必须英文）
+❌ video_prompt 使用英文句子（必须中文）
 
 ======================================
 【输出】

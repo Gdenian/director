@@ -131,6 +131,7 @@ export const editScriptVideoPromptBibleSchema = z.object({
       lighting: z.string().trim().min(1),
       colorPalette: z.string().trim().min(1),
       imageFilterPrompt: z.string().trim().min(1),
+      soundFilterPrompt: z.string().trim().min(1),
       motionStyle: z.string().trim().min(1),
       editingPacing: z.string().trim().min(1),
       soundStyle: z.string().trim().min(1),

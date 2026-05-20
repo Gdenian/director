@@ -11,13 +11,12 @@ const allowedPromptTemplateReaders = new Set([
   'src/lib/ai-prompts/template-store.ts',
   'scripts/guards/prompt-i18n-guard.mjs',
   'scripts/guards/prompt-semantic-regression.mjs',
-  'scripts/guards/prompt-ab-regression.mjs',
-  'scripts/guards/prompt-json-canary-guard.mjs',
 ])
 const languageDirectiveAllowList = new Set([
   'scripts/guards/prompt-i18n-guard.mjs',
 ])
 const languageDirectivePattern = /请用中文|中文输出|use Chinese|output in Chinese/i
+const zhCanvasPromptEnglishPattern = /必须英文|英文词|Sound effects only|Generate one complete continuous instrumental cinematic BGM track|POV shot of a smartphone screen|Warm realistic indoor drama|Quiet roadside bus-stop/
 
 function fail(title, details = []) {
   console.error(`\n[prompt-i18n-guard] ${title}`)
@@ -106,6 +105,25 @@ function collectLanguageDirectiveViolations() {
   return violations
 }
 
+function collectChineseCanvasPromptOutputViolations() {
+  const violations = []
+  const promptFiles = walk(path.join(root, 'src', 'lib', 'ai-prompts', 'templates'))
+    .filter((fullPath) => fullPath.endsWith('.zh.txt'))
+
+  for (const filePath of promptFiles) {
+    const relPath = toRel(filePath)
+    const lines = fs.readFileSync(filePath, 'utf8').split('\n')
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index]
+      if (zhCanvasPromptEnglishPattern.test(line)) {
+        violations.push(`${relPath}:${index + 1} Chinese template contains English-only canvas prompt guidance`)
+      }
+    }
+  }
+
+  return violations
+}
+
 function collectLegacyPromptFiles() {
   return walk(path.join(root, 'src', 'lib', 'ai-prompts', 'templates'))
     .map((fullPath) => toRel(fullPath))
@@ -183,6 +201,11 @@ if (promptReadViolations.length > 0) {
 const languageViolations = collectLanguageDirectiveViolations()
 if (languageViolations.length > 0) {
   fail('Found hardcoded language directives', languageViolations)
+}
+
+const chineseCanvasPromptViolations = collectChineseCanvasPromptOutputViolations()
+if (chineseCanvasPromptViolations.length > 0) {
+  fail('Found English-only canvas prompt guidance in Chinese templates', chineseCanvasPromptViolations)
 }
 
 console.log('[prompt-i18n-guard] OK')

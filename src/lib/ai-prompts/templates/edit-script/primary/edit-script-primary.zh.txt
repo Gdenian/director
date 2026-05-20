@@ -75,8 +75,8 @@ shot 字段职责：
 连续性要求：
 - group/single、shot 顺序、动作承接、空间关系、声音桥接都在本阶段定稿，后续视频提示词阶段不得改变。
 - 相邻 shot 属于同一 block 时，visualAction、camera、sound 必须体现可连续生成的动作惯性、空间方向、光线承接或声音承接。
-- 如果相邻 shot 的主体、方向、光线、空间不同，必须在 camera 或 sound 中写出可生成的连接方式，例如 match cut、whip pan、push-in reveal、motion blur bridge、light sweep、sound-led cut、遮挡转场或同方向运动衔接。
-- 声音必须服务 videoBlock 的连续性，用 room tone、ambience bed、pre-lap、off-screen cue、reverb tail、low rumble、whoosh 或 sound-led transition 连接 shot；不要让每个 shot 重新开始一段声音。
+- 如果相邻 shot 的主体、方向、光线、空间不同，必须在 camera 或 sound 中写出可生成的连接方式，例如匹配剪辑、甩镜、推进揭示、运动模糊衔接、光线扫过、声音引导切换、遮挡转场或同方向运动衔接。
+- 声音必须服务 videoBlock 的连续性，用空间底噪、环境铺底、预入声、画外提示音、混响尾音、低频铺底、掠过声或声音引导转场连接 shot；不要让每个 shot 重新开始一段声音。
 - 可以补充微动作、环境运动、材质变化、景深、空气感和自然音效，但不得改变剧本事实、主体身份、场景关系、shot 顺序和 block 划分。
 
 不要输出 screenplay、clips、storyboard、panel、image、video、videoPrompt 或 prompt 字段。
