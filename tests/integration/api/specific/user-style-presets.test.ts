@@ -81,7 +81,6 @@ const billingMock = vi.hoisted(() => ({
     _userId: string,
     _model: string,
     _inputTokens: number,
-    _outputTokens: number,
     _meta: unknown,
     callback: () => Promise<{ text: string }>,
   ) => await callback()),
@@ -295,8 +294,8 @@ describe('api specific - user style presets', () => {
       'user-1',
       'llm::analysis',
       expect.any(Number),
-      2000,
       expect.objectContaining({
+        projectId: 'user-style-presets',
         action: 'design_director_style_preset',
         metadata: { kind: 'director_style' },
       }),
