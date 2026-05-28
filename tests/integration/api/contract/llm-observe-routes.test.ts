@@ -140,6 +140,13 @@ const ROUTE_CASES: ReadonlyArray<LLMRouteCase> = [
     expectedProjectId: 'global-asset-hub',
   },
   {
+    routeFile: 'src/app/api/asset-hub/ai-design-style/route.ts',
+    body: { referenceImageUrl: 'https://example.com/style-ref.jpg' },
+    expectedTaskType: TASK_TYPE.ASSET_HUB_AI_DESIGN_STYLE,
+    expectedTargetType: 'GlobalAssetHubStyleDesign',
+    expectedProjectId: 'global-asset-hub',
+  },
+  {
     routeFile: 'src/app/api/asset-hub/ai-modify-character/route.ts',
     body: {
       characterId: 'global-character-1',
@@ -382,7 +389,7 @@ describe('api contract - llm observe routes (behavior)', () => {
   })
 
   it('keeps expected coverage size', () => {
-    expect(ROUTE_CASES.length).toBe(25)
+    expect(ROUTE_CASES.length).toBe(26)
   })
 
   for (const routeCase of ROUTE_CASES) {
