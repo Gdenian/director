@@ -10,6 +10,11 @@ import {
 } from './asset-hub-mutations-shared'
 import type { LocationAvailableSlot } from '@/lib/location-available-slots'
 
+export type GeneratedStylePromptResult = {
+  promptZh: string
+  promptEn: string
+}
+
 export function useAiDesignLocation() {
   return useMutation({
     mutationFn: async (userInstruction: string) => {
@@ -23,6 +28,23 @@ export function useAiDesignLocation() {
         'Failed to design location',
       )
       return resolveTaskResponse<{ prompt?: string; availableSlots?: LocationAvailableSlot[] }>(response)
+    },
+  })
+}
+
+export function useAiDesignStyle() {
+  return useMutation({
+    mutationFn: async (referenceImageUrl: string) => {
+      const response = await requestTaskResponseWithError(
+        '/api/asset-hub/ai-design-style',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referenceImageUrl }),
+        },
+        'Failed to generate style prompt',
+      )
+      return resolveTaskResponse<GeneratedStylePromptResult>(response)
     },
   })
 }

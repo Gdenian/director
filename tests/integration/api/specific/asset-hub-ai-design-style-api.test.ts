@@ -11,13 +11,13 @@ const authMock = vi.hoisted(() => ({
 }))
 
 const configMock = vi.hoisted(() => ({
-  getUserModelConfig: vi.fn(async () => ({
+  getUserModelConfig: vi.fn<() => Promise<{ analysisModel: string | null }>>(async () => ({
     analysisModel: 'llm::analysis-model',
   })),
 }))
 
 const routeTaskMock = vi.hoisted(() => ({
-  maybeSubmitLLMTask: vi.fn(async () => NextResponse.json({
+  maybeSubmitLLMTask: vi.fn<(input: Record<string, unknown>) => Promise<Response>>(async () => NextResponse.json({
     success: true,
     async: true,
     taskId: 'task-style-prompt-1',

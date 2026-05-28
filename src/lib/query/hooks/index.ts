@@ -57,6 +57,7 @@ export {
     useSaveDesignedAssetHubVoice,
     useUploadAssetHubVoice,
     useAiDesignLocation,
+    useAiDesignStyle,
     useCreateAssetHubLocation,
     useUploadAssetHubTempMedia,
     useAiDesignCharacter,
