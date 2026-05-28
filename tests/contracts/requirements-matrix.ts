@@ -34,6 +34,19 @@ export const REQUIREMENTS_MATRIX: ReadonlyArray<RequirementCoverageEntry> = [
     ],
   },
   {
+    id: 'REQ-ASSETHUB-STYLE-PROMPT-GENERATION',
+    feature: 'Asset Hub style prompt generation',
+    userValue: '上传风格参考图后可生成中英文风格提示词，且不会把参考图内容误当成资产内容',
+    risk: '误用图片生成模型、提示词混入具体人物场景、任务契约漂移',
+    priority: 'P0',
+    tests: [
+      'tests/integration/api/specific/asset-hub-ai-design-style-api.test.ts',
+      'tests/unit/worker/asset-hub-ai-design.test.ts',
+      'tests/unit/prompt-i18n/style-prompt-generate-template.test.ts',
+      'tests/unit/components/style-asset-modal-prompt-generation.test.ts',
+    ],
+  },
+  {
     id: 'REQ-NP-GENERATE-IMAGE',
     feature: 'Novel promotion image generation',
     userValue: '角色/场景/分镜图可稳定生成并回写',

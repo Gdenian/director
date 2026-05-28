@@ -74,6 +74,7 @@ export const TASK_TYPE = {
   EPISODE_SPLIT_LLM: 'episode_split_llm',
   ASSET_HUB_AI_DESIGN_CHARACTER: 'asset_hub_ai_design_character',
   ASSET_HUB_AI_DESIGN_LOCATION: 'asset_hub_ai_design_location',
+  ASSET_HUB_AI_DESIGN_STYLE: 'asset_hub_ai_design_style',
   ASSET_HUB_AI_MODIFY_CHARACTER: 'asset_hub_ai_modify_character',
   ASSET_HUB_AI_MODIFY_LOCATION: 'asset_hub_ai_modify_location',
   ASSET_HUB_AI_MODIFY_PROP: 'asset_hub_ai_modify_prop',

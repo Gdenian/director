@@ -676,6 +676,7 @@ async function processTextTask(job: Job<TaskJobData>) {
     case TASK_TYPE.AI_CREATE_LOCATION:
     case TASK_TYPE.ASSET_HUB_AI_DESIGN_CHARACTER:
     case TASK_TYPE.ASSET_HUB_AI_DESIGN_LOCATION:
+    case TASK_TYPE.ASSET_HUB_AI_DESIGN_STYLE:
       return await handleAssetHubAIDesignTask(job)
     case TASK_TYPE.ASSET_HUB_AI_MODIFY_CHARACTER:
     case TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION:

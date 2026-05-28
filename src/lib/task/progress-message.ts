@@ -37,6 +37,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   [TASK_TYPE.EPISODE_SPLIT_LLM]: 'progress.taskType.episodeSplitLlm',
   [TASK_TYPE.ASSET_HUB_AI_DESIGN_CHARACTER]: 'progress.taskType.assetHubAiDesignCharacter',
   [TASK_TYPE.ASSET_HUB_AI_DESIGN_LOCATION]: 'progress.taskType.assetHubAiDesignLocation',
+  [TASK_TYPE.ASSET_HUB_AI_DESIGN_STYLE]: 'progress.taskType.assetHubAiDesignStyle',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_CHARACTER]: 'progress.taskType.assetHubAiModifyCharacter',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION]: 'progress.taskType.assetHubAiModifyLocation',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP]: 'progress.taskType.assetHubAiModifyProp',

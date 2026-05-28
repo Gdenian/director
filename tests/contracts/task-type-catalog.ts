@@ -45,6 +45,7 @@ const TASK_TYPE_OWNER_MAP = {
   [TASK_TYPE.EPISODE_SPLIT_LLM]: 'tests/unit/worker/episode-split.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_DESIGN_CHARACTER]: 'tests/unit/worker/asset-hub-ai-design.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_DESIGN_LOCATION]: 'tests/unit/worker/asset-hub-ai-design.test.ts',
+  [TASK_TYPE.ASSET_HUB_AI_DESIGN_STYLE]: 'tests/unit/worker/asset-hub-ai-design.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_CHARACTER]: 'tests/unit/worker/asset-hub-ai-modify.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION]: 'tests/unit/worker/asset-hub-ai-modify.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP]: 'tests/unit/helpers/prop-modify-task-registration.test.ts',

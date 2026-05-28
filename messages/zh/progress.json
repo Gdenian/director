@@ -79,6 +79,7 @@
     "episodeSplitLlm": "智能分集",
     "assetHubAiDesignCharacter": "资产库角色设计",
     "assetHubAiDesignLocation": "资产库场景设计",
+    "assetHubAiDesignStyle": "资产库风格提示词生成",
     "assetHubAiModifyCharacter": "资产库角色修改",
     "assetHubAiModifyLocation": "资产库场景修改",
     "assetHubAiModifyProp": "资产库道具修改",
