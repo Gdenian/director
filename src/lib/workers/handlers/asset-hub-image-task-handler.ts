@@ -1,12 +1,13 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { CHARACTER_ASSET_IMAGE_RATIO, LOCATION_IMAGE_RATIO, PROP_IMAGE_RATIO, addCharacterPromptSuffix, addLocationPromptSuffix, addPropPromptSuffix, getArtStylePrompt } from '@/lib/constants'
+import { CHARACTER_ASSET_IMAGE_RATIO, LOCATION_IMAGE_RATIO, PROP_IMAGE_RATIO, addCharacterPromptSuffix, addLocationPromptSuffix, addPropPromptSuffix } from '@/lib/constants'
 import { type TaskJobData } from '@/lib/task/types'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { buildLocationImagePromptCore } from '@/lib/location-image-prompt'
 import { buildPropImagePromptCore } from '@/lib/prop-image-prompt'
+import { resolvePayloadStylePrompt } from '@/lib/styles/payload'
 import {
   assertTaskActive,
   getUserModels,
@@ -63,10 +64,7 @@ export async function handleAssetHubImageTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as AnyObj
   const userId = job.data.userId
   const userModels = await getUserModels(userId)
-  const artStyle = getArtStylePrompt(
-    typeof payload.artStyle === 'string' ? payload.artStyle : undefined,
-    job.data.locale,
-  )
+  const stylePrompt = resolvePayloadStylePrompt(payload, job.data.locale, 'ASSET_HUB_IMAGE')
 
   if (payload.type === 'character') {
     const characterId = typeof payload.id === 'string' ? payload.id : null
@@ -93,7 +91,7 @@ export async function handleAssetHubImageTask(job: Job<TaskJobData>) {
 
     for (let i = 0; i < count; i++) {
       const raw = base[i] || base[0]
-      const prompt = artStyle ? `${addCharacterPromptSuffix(raw)}，${artStyle}` : addCharacterPromptSuffix(raw)
+      const prompt = `${addCharacterPromptSuffix(raw)}，${stylePrompt}`
       const imageKey = await generateCleanImageToStorage({
         job,
         userId,
@@ -154,7 +152,7 @@ export async function handleAssetHubImageTask(job: Job<TaskJobData>) {
       const promptWithSuffix = payload.type === 'prop'
         ? addPropPromptSuffix(promptCore)
         : addLocationPromptSuffix(promptCore)
-      const prompt = artStyle ? `${promptWithSuffix}，${artStyle}` : promptWithSuffix
+      const prompt = `${promptWithSuffix}，${stylePrompt}`
       const aspectRatio = payload.type === 'prop' ? PROP_IMAGE_RATIO : LOCATION_IMAGE_RATIO
 
       const imageKey = await generateCleanImageToStorage({

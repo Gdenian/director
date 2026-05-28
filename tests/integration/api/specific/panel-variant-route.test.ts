@@ -51,6 +51,20 @@ const configServiceMock = vi.hoisted(() => ({
   })),
 }))
 
+const styleServiceMock = vi.hoisted(() => {
+  const styleSnapshot = {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  }
+  return {
+    styleSnapshot,
+    resolveProjectStyleSnapshot: vi.fn(async () => styleSnapshot),
+  }
+})
+
 const rollbackSpy = vi.hoisted(() => ({
   delete: vi.fn(async () => ({})),
   findFirst: vi.fn(async () => ({ panelIndex: 4 })),
@@ -146,6 +160,9 @@ const prismaMock = vi.hoisted(() => ({
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/task/submitter', () => ({ submitTask: submitTaskMock }))
 vi.mock('@/lib/config-service', () => configServiceMock)
+vi.mock('@/lib/styles/service', () => ({
+  resolveProjectStyleSnapshot: styleServiceMock.resolveProjectStyleSnapshot,
+}))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/billing', () => ({
   buildDefaultTaskBillingInfo: vi.fn(() => ({ mode: 'default' })),
@@ -196,6 +213,28 @@ describe('api specific - panel variant route', () => {
       ['panel-src', buildPanel('panel-src', 'storyboard-1', 1)],
       ['panel-ins', buildPanel('panel-ins', 'storyboard-1', 2)],
     ])
+  })
+
+  it('submits task payload with project style snapshot', async () => {
+    const res = await invokeRoute({
+      storyboardId: 'storyboard-1',
+      insertAfterPanelId: 'panel-ins',
+      sourcePanelId: 'panel-src',
+      variant: { video_prompt: 'variant prompt', description: 'variant desc' },
+    })
+
+    expect(res.status).toBe(200)
+    expect(styleServiceMock.resolveProjectStyleSnapshot).toHaveBeenCalledWith('project-1')
+    expect(configServiceMock.buildImageBillingPayload).toHaveBeenCalledWith(expect.objectContaining({
+      basePayload: expect.objectContaining({
+        styleSnapshot: styleServiceMock.styleSnapshot,
+      }),
+    }))
+    expect(submitTaskMock).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        styleSnapshot: styleServiceMock.styleSnapshot,
+      }),
+    }))
   })
 
   it('returns INVALID_PARAMS when sourcePanelId does not belong to storyboardId', async () => {

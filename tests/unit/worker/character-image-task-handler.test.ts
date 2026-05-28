@@ -1,11 +1,11 @@
 import type { Job } from 'bullmq'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHARACTER_PROMPT_SUFFIX, getArtStylePrompt } from '@/lib/constants'
+import { CHARACTER_PROMPT_SUFFIX } from '@/lib/constants'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
-  getProjectModels: vi.fn(async () => ({ characterModel: 'image-model-1', artStyle: 'realistic' })),
+  getProjectModels: vi.fn(async () => ({ characterModel: 'image-model-1' })),
   toSignedUrlIfCos: vi.fn((url: string | null | undefined) => (url ? `https://signed.example/${url}` : null)),
 }))
 
@@ -48,7 +48,20 @@ vi.mock('@/lib/workers/handlers/image-task-handler-shared', async () => {
 
 import { handleCharacterImageTask } from '@/lib/workers/handlers/character-image-task-handler'
 
-function buildJob(payload: Record<string, unknown>, targetId = 'appearance-2'): Job<TaskJobData> {
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影写实中文提示词',
+  promptEn: 'cinematic realistic prompt',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
+function buildJob(
+  payload: Record<string, unknown>,
+  targetId = 'appearance-2',
+  options: { withStyle?: boolean } = {},
+): Job<TaskJobData> {
+  const withStyle = options.withStyle ?? true
   return {
     data: {
       taskId: 'task-character-image-1',
@@ -58,7 +71,7 @@ function buildJob(payload: Record<string, unknown>, targetId = 'appearance-2'): 
       episodeId: null,
       targetType: 'CharacterAppearance',
       targetId,
-      payload,
+      payload: withStyle ? { styleSnapshot, ...payload } : payload,
       userId: 'user-1',
     },
   } as unknown as Job<TaskJobData>
@@ -88,7 +101,7 @@ describe('worker character-image-task-handler behavior', () => {
   })
 
   it('characterModel not configured -> explicit error', async () => {
-    utilsMock.getProjectModels.mockResolvedValueOnce({ characterModel: '', artStyle: 'realistic' })
+    utilsMock.getProjectModels.mockResolvedValueOnce({ characterModel: '' })
     await expect(handleCharacterImageTask(buildJob({}))).rejects.toThrow('Character model not configured')
   })
 
@@ -107,12 +120,11 @@ describe('worker character-image-task-handler behavior', () => {
       label: string
       options?: { referenceImages?: string[]; aspectRatio?: string }
     }
-    const realisticStylePrompt = getArtStylePrompt('realistic', 'zh')
 
     expect(generationInput.prompt).toContain(CHARACTER_PROMPT_SUFFIX)
-    expect(generationInput.prompt).toContain(realisticStylePrompt)
+    expect(generationInput.prompt).toContain('电影写实中文提示词')
     expect(generationInput.prompt.split(CHARACTER_PROMPT_SUFFIX).length - 1).toBe(1)
-    expect(generationInput.prompt.split(realisticStylePrompt).length - 1).toBe(1)
+    expect(generationInput.prompt.split('电影写实中文提示词').length - 1).toBe(1)
     expect(generationInput.label).toBe('Hero - 战斗形态')
     expect(generationInput.options).toEqual(expect.objectContaining({
       referenceImages: ['normalized-primary-ref'],
@@ -128,20 +140,26 @@ describe('worker character-image-task-handler behavior', () => {
     })
   })
 
-  it('payload artStyle overrides project artStyle in prompt', async () => {
-    const job = buildJob({ imageIndex: 0, artStyle: 'japanese-anime' })
+  it('payload styleSnapshot controls the injected style prompt', async () => {
+    const job = buildJob({
+      imageIndex: 0,
+      styleSnapshot: {
+        ...styleSnapshot,
+        promptZh: '赛璐璐动画风格',
+      },
+    })
     await handleCharacterImageTask(job)
 
     const generationInput = sharedMock.generateProjectLabeledImageToStorage.mock.calls[0]?.[0] as {
       prompt: string
     }
-    expect(generationInput.prompt).toContain(getArtStylePrompt('japanese-anime', 'zh'))
-    expect(generationInput.prompt).not.toContain(getArtStylePrompt('realistic', 'zh'))
+    expect(generationInput.prompt).toContain('赛璐璐动画风格')
+    expect(generationInput.prompt).not.toContain('电影写实中文提示词')
   })
 
-  it('invalid payload artStyle -> explicit error', async () => {
-    await expect(handleCharacterImageTask(buildJob({ imageIndex: 0, artStyle: 'noir' }))).rejects.toThrow(
-      'Invalid artStyle in IMAGE_CHARACTER payload',
+  it('missing payload styleSnapshot -> explicit error', async () => {
+    await expect(handleCharacterImageTask(buildJob({ imageIndex: 0 }, 'appearance-2', { withStyle: false }))).rejects.toThrow(
+      'styleSnapshot is required in IMAGE_CHARACTER payload',
     )
   })
 

@@ -95,7 +95,6 @@ describe('worker analyze-novel behavior', () => {
     prismaMock.novelPromotionProject.findUnique.mockResolvedValue({
       id: 'np-project-1',
       analysisModel: 'llm::analysis-1',
-      artStyle: 'cinematic',
       globalAssetText: '全局设定文本',
       characters: [{ id: 'char-existing', name: '已有角色' }],
       locations: [{ id: 'loc-existing', name: '已有场景', summary: 'old' }],
@@ -141,7 +140,6 @@ describe('worker analyze-novel behavior', () => {
     prismaMock.novelPromotionProject.findUnique.mockResolvedValueOnce({
       id: 'np-project-1',
       analysisModel: 'llm::analysis-1',
-      artStyle: 'cinematic',
       globalAssetText: '',
       characters: [],
       locations: [],
@@ -206,10 +204,7 @@ describe('worker analyze-novel behavior', () => {
       ],
     })
 
-    expect(prismaMock.novelPromotionProject.update).toHaveBeenCalledWith({
-      where: { id: 'np-project-1' },
-      data: { artStylePrompt: 'cinematic style' },
-    })
+    expect(prismaMock.novelPromotionProject.update).not.toHaveBeenCalled()
 
     expect(workerMock.reportTaskProgress).toHaveBeenCalledWith(
       expect.anything(),

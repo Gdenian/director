@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { submitTask } from '@/lib/task/submitter'
 import { resolveRequiredTaskLocale } from '@/lib/task/resolve-locale'
 import { TASK_TYPE } from '@/lib/task/types'
+import { resolveProjectStyleSnapshot } from '@/lib/styles/service'
 
 function createPanelVariantId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -123,6 +124,7 @@ export const POST = apiHandler(async (
   const projectModelConfig = await getProjectModelConfig(projectId, session.user.id)
   const imageModel = projectModelConfig.storyboardModel
   const createdPanelId = createPanelVariantId()
+  const styleSnapshot = await resolveProjectStyleSnapshot(projectId)
 
   let billingPayload: Record<string, unknown>
   try {
@@ -130,7 +132,7 @@ export const POST = apiHandler(async (
       projectId,
       userId: session.user.id,
       imageModel,
-      basePayload: { ...body, newPanelId: createdPanelId },
+      basePayload: { ...body, newPanelId: createdPanelId, styleSnapshot },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Image model capability not configured'

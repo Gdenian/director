@@ -117,7 +117,16 @@ vi.mock('@/lib/prompt-i18n', () => promptI18nMock)
 
 import { handleReferenceToCharacterTask } from '@/lib/workers/handlers/reference-to-character'
 
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影写实中文提示词',
+  promptEn: 'cinematic realistic prompt',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
 function buildJob(payload: Record<string, unknown>, type: TaskType): Job<TaskJobData> {
+  const withStyle = Object.keys(payload).length > 0
   return {
     data: {
       taskId: 'task-1',
@@ -126,7 +135,7 @@ function buildJob(payload: Record<string, unknown>, type: TaskType): Job<TaskJob
       projectId: 'project-1',
       targetType: 'GlobalCharacter',
       targetId: 'target-1',
-      payload,
+      payload: withStyle ? { styleSnapshot, ...payload } : payload,
       userId: 'user-1',
     },
   } as unknown as Job<TaskJobData>
@@ -183,6 +192,7 @@ describe('worker reference-to-character', () => {
     const { prompt, options } = readGenerateCall(0)
     expect(prompt).toContain('冷静黑发角色')
     expect(prompt).toContain(CHARACTER_PROMPT_SUFFIX)
+    expect(prompt).toContain('电影写实中文提示词')
     expect(options.aspectRatio).toBe(CHARACTER_IMAGE_BANANA_RATIO)
     expect(options.referenceImages).toBeUndefined()
   })
@@ -209,6 +219,7 @@ describe('worker reference-to-character', () => {
     const { prompt, options } = readGenerateCall(0)
     expect(prompt).toContain('BASE_REFERENCE_PROMPT')
     expect(prompt).toContain(CHARACTER_PROMPT_SUFFIX)
+    expect(prompt).toContain('电影写实中文提示词')
     expect(options.referenceImages).toEqual(['https://example.com/ref-a.png', 'https://example.com/ref-b.png'])
     expect(options.aspectRatio).toBe(CHARACTER_IMAGE_BANANA_RATIO)
 

@@ -11,7 +11,7 @@ const prismaMock = vi.hoisted(() => ({
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
-  getProjectModels: vi.fn(async () => ({ storyboardModel: 'storyboard-model-1', artStyle: 'realistic' })),
+  getProjectModels: vi.fn(async () => ({ storyboardModel: 'storyboard-model-1' })),
   resolveImageSourceFromGeneration: vi.fn(),
   uploadImageSourceToCos: vi.fn(),
 }))
@@ -78,7 +78,20 @@ vi.mock('@/lib/prompt-i18n', () => ({
 
 import { handlePanelImageTask } from '@/lib/workers/handlers/panel-image-task-handler'
 
-function buildJob(payload: Record<string, unknown>, targetId = 'panel-1'): Job<TaskJobData> {
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影写实中文提示词',
+  promptEn: 'cinematic realistic prompt',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
+function buildJob(
+  payload: Record<string, unknown>,
+  targetId = 'panel-1',
+  options: { withStyle?: boolean } = {},
+): Job<TaskJobData> {
+  const withStyle = options.withStyle ?? true
   return {
     data: {
       taskId: 'task-panel-image-1',
@@ -88,7 +101,7 @@ function buildJob(payload: Record<string, unknown>, targetId = 'panel-1'): Job<T
       episodeId: 'episode-1',
       targetType: 'NovelPromotionPanel',
       targetId,
-      payload,
+      payload: withStyle ? { styleSnapshot, ...payload } : payload,
       userId: 'user-1',
     },
   } as unknown as Job<TaskJobData>
@@ -160,6 +173,7 @@ describe('worker panel-image-task-handler behavior', () => {
     expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
       variables: expect.objectContaining({
         storyboard_text_json_input: expect.stringContaining('"available_slots"'),
+        style: '电影写实中文提示词',
       }),
     }))
 
@@ -170,6 +184,35 @@ describe('worker panel-image-task-handler behavior', () => {
         candidateImages: JSON.stringify(['cos/panel-candidate-1.png', 'cos/panel-candidate-2.png']),
       },
     })
+  })
+
+  it('payload styleSnapshot controls the injected style prompt', async () => {
+    const job = buildJob({
+      candidateCount: 1,
+      styleSnapshot: {
+        ...styleSnapshot,
+        promptZh: '赛璐璐动画风格',
+      },
+    })
+
+    await handlePanelImageTask(job)
+
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: '赛璐璐动画风格',
+      }),
+    }))
+    expect(promptMock.buildPrompt).not.toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: '电影写实中文提示词',
+      }),
+    }))
+  })
+
+  it('missing payload styleSnapshot -> explicit error', async () => {
+    await expect(handlePanelImageTask(buildJob({ candidateCount: 1 }, 'panel-1', { withStyle: false }))).rejects.toThrow(
+      'styleSnapshot is required in IMAGE_PANEL payload',
+    )
   })
 
   it('regeneration branch -> keeps old image in previousImageUrl and stores candidates only', async () => {

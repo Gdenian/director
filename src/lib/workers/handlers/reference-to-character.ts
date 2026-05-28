@@ -10,7 +10,6 @@ import { getUserModelConfig } from '@/lib/config-service'
 import {
   CHARACTER_IMAGE_BANANA_RATIO,
   addCharacterPromptSuffix,
-  getArtStylePrompt,
 } from '@/lib/constants'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { generateUniqueKey, getSignedUrl, uploadObject } from '@/lib/storage'
@@ -20,6 +19,7 @@ import { assertTaskActive } from '@/lib/workers/utils'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import { resolvePayloadStylePrompt } from '@/lib/styles/payload'
 import {
   parseReferenceImages,
   readBoolean,
@@ -142,7 +142,6 @@ export async function handleReferenceToCharacterTask(job: Job<TaskJobData>) {
   const extractOnly = readBoolean(payload.extractOnly)
   const customDescription = readString(payload.customDescription)
   const characterName = readString(payload.characterName) || '新角色 - 初始形象'
-  const artStyle = readString(payload.artStyle)
 
   if (isBackgroundJob && (!characterId || !appearanceId)) {
     throw new Error('Missing characterId or appearanceId for background job')
@@ -197,16 +196,14 @@ export async function handleReferenceToCharacterTask(job: Job<TaskJobData>) {
     }
   }
 
-  const artStylePrompt = getArtStylePrompt(artStyle, job.data.locale)
+  const stylePrompt = resolvePayloadStylePrompt(payload, job.data.locale, String(job.data.type))
 
   const basePrompt = customDescription || buildPrompt({
     promptId: PROMPT_IDS.CHARACTER_REFERENCE_TO_SHEET,
     locale: job.data.locale,
   })
   let prompt = addCharacterPromptSuffix(basePrompt)
-  if (artStylePrompt) {
-    prompt = `${prompt}，${artStylePrompt}`
-  }
+  prompt = `${prompt}，${stylePrompt}`
 
   const useReferenceImages = !customDescription
   const { apiKey: falApiKey } = await getProviderConfig(job.data.userId, 'fal')

@@ -46,6 +46,14 @@ vi.mock('@/lib/workers/handlers/image-task-handler-shared', async () => {
 
 import { handleAssetHubImageTask } from '@/lib/workers/handlers/asset-hub-image-task-handler'
 
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影写实中文提示词',
+  promptEn: 'cinematic realistic prompt',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
 function buildJob(payload: Record<string, unknown>): Job<TaskJobData> {
   return {
     data: {
@@ -55,7 +63,7 @@ function buildJob(payload: Record<string, unknown>): Job<TaskJobData> {
       projectId: 'project-1',
       targetType: 'GlobalCharacter',
       targetId: 'global-character-1',
-      payload,
+      payload: { styleSnapshot, ...payload },
       userId: 'user-1',
     },
   } as unknown as Job<TaskJobData>
@@ -103,6 +111,7 @@ describe('asset hub character image prompt suffix regression', () => {
 
     expect(prompt).toContain('主角，黑发，冷静')
     expect(prompt).toContain(CHARACTER_PROMPT_SUFFIX)
+    expect(prompt).toContain('电影写实中文提示词')
     expect(countOccurrences(prompt, CHARACTER_PROMPT_SUFFIX)).toBe(1)
     expect(callArg?.options).toEqual(expect.objectContaining({ aspectRatio: CHARACTER_ASSET_IMAGE_RATIO }))
     expect(callArg?.label).toBeUndefined()

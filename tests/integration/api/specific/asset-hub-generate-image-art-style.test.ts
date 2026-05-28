@@ -60,6 +60,23 @@ const prismaMock = vi.hoisted(() => ({
   },
 }))
 
+const styleFixtures = vi.hoisted(() => ({
+  styleRecord: {
+    styleAssetId: 'style-1',
+    styleSnapshotName: '电影写实',
+    stylePromptZh: '电影写实中文提示词',
+    stylePromptEn: 'cinematic realistic prompt',
+    styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+  },
+  styleSnapshot: {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  },
+}))
+
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/task/submitter', () => ({ submitTask: submitTaskMock }))
 vi.mock('@/lib/config-service', () => configServiceMock)
@@ -70,13 +87,13 @@ vi.mock('@/lib/task/resolve-locale', () => ({
   resolveRequiredTaskLocale: vi.fn(() => 'zh'),
 }))
 
-describe('api specific - asset hub generate image art style', () => {
+describe('api specific - asset hub generate image style snapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('uses persisted appearance artStyle when request payload does not provide one', async () => {
-    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce({ artStyle: 'realistic' })
+  it('uses persisted appearance style snapshot when request payload does not provide one', async () => {
+    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce(styleFixtures.styleRecord)
     const mod = await import('@/app/api/asset-hub/generate-image/route')
     const req = buildMockRequest({
       path: '/api/asset-hub/generate-image',
@@ -92,12 +109,12 @@ describe('api specific - asset hub generate image art style', () => {
     expect(res.status).toBe(200)
     expect(prismaMock.globalCharacterAppearance.findFirst).toHaveBeenCalled()
     const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
-    expect(submitArg?.payload?.artStyle).toBe('realistic')
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
   })
 
-  it('uses persisted location artStyle when request payload does not provide one', async () => {
+  it('uses persisted location style snapshot when request payload does not provide one', async () => {
     prismaMock.globalLocation.findFirst
-      .mockResolvedValueOnce({ artStyle: 'japanese-anime' })
+      .mockResolvedValueOnce(styleFixtures.styleRecord)
       .mockResolvedValueOnce({ name: 'Location 1', summary: 'Summary 1' })
     const mod = await import('@/app/api/asset-hub/generate-image/route')
     const req = buildMockRequest({
@@ -113,12 +130,18 @@ describe('api specific - asset hub generate image art style', () => {
     expect(res.status).toBe(200)
     expect(prismaMock.globalLocation.findFirst).toHaveBeenCalled()
     const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
-    expect(submitArg?.payload?.artStyle).toBe('japanese-anime')
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
     expect(submitArg?.payload?.count).toBe(3)
   })
 
-  it('fails with invalid params when persisted artStyle is missing', async () => {
-    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce({ artStyle: null })
+  it('fails with invalid params when persisted style snapshot is missing', async () => {
+    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce({
+      styleAssetId: null,
+      styleSnapshotName: null,
+      stylePromptZh: null,
+      stylePromptEn: null,
+      styleSnapshotUpdatedAt: null,
+    })
     const mod = await import('@/app/api/asset-hub/generate-image/route')
     const req = buildMockRequest({
       path: '/api/asset-hub/generate-image',
@@ -138,7 +161,7 @@ describe('api specific - asset hub generate image art style', () => {
   })
 
   it('forwards requested count into asset hub image task payload', async () => {
-    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce({ artStyle: 'realistic' })
+    prismaMock.globalCharacterAppearance.findFirst.mockResolvedValueOnce(styleFixtures.styleRecord)
     const mod = await import('@/app/api/asset-hub/generate-image/route')
     const req = buildMockRequest({
       path: '/api/asset-hub/generate-image',
@@ -158,6 +181,7 @@ describe('api specific - asset hub generate image art style', () => {
       dedupeKey?: string
     } | undefined
     expect(submitArg?.payload?.count).toBe(5)
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
     expect(submitArg?.dedupeKey).toContain(':5')
   })
 })

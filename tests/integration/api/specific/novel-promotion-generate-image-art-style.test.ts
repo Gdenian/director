@@ -31,13 +31,43 @@ const configServiceMock = vi.hoisted(() => ({
     editModel: null,
     videoModel: null,
     videoRatio: '16:9',
-    artStyle: 'american-comic',
     capabilityDefaults: {},
     capabilityOverrides: {},
   })),
   buildImageBillingPayload: vi.fn(async (input: { basePayload: Record<string, unknown> }) => ({
     ...input.basePayload,
   })),
+}))
+
+const styleFixtures = vi.hoisted(() => ({
+  styleRecord: {
+    styleAssetId: 'style-1' as string | null,
+    styleSnapshotName: '电影写实' as string | null,
+    stylePromptZh: '电影写实中文提示词' as string | null,
+    stylePromptEn: 'cinematic realistic prompt' as string | null,
+    styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z') as Date | null,
+  },
+  styleSnapshot: {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  },
+  projectRecord: {
+    styleAssetId: 'style-project' as string | null,
+    styleSnapshotName: '项目风格' as string | null,
+    stylePromptZh: '项目中文提示词' as string | null,
+    stylePromptEn: 'project english prompt' as string | null,
+    styleSnapshotUpdatedAt: new Date('2026-05-28T02:00:00.000Z') as Date | null,
+  },
+  projectSnapshot: {
+    styleAssetId: 'style-project',
+    name: '项目风格',
+    promptZh: '项目中文提示词',
+    promptEn: 'project english prompt',
+    snapshotUpdatedAt: '2026-05-28T02:00:00.000Z',
+  },
 }))
 
 const hasOutputMock = vi.hoisted(() => ({
@@ -49,21 +79,34 @@ const billingMock = vi.hoisted(() => ({
   buildDefaultTaskBillingInfo: vi.fn(() => ({ billable: false })),
 }))
 
+const prismaMock = vi.hoisted(() => ({
+  characterAppearance: {
+    findUnique: vi.fn(async () => styleFixtures.styleRecord),
+  },
+  novelPromotionLocation: {
+    findUnique: vi.fn(async () => styleFixtures.styleRecord),
+  },
+  novelPromotionProject: {
+    findUnique: vi.fn(async () => styleFixtures.projectRecord),
+  },
+}))
+
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/task/submitter', () => ({ submitTask: submitTaskMock }))
 vi.mock('@/lib/config-service', () => configServiceMock)
 vi.mock('@/lib/task/has-output', () => hasOutputMock)
 vi.mock('@/lib/billing', () => billingMock)
+vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/task/resolve-locale', () => ({
   resolveRequiredTaskLocale: vi.fn(() => 'zh'),
 }))
 
-describe('api specific - novel promotion generate image art style', () => {
+describe('api specific - novel promotion generate image style snapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('accepts valid artStyle and forwards it into task payload', async () => {
+  it('forwards persisted character appearance style snapshot into task payload', async () => {
     const mod = await import('@/app/api/novel-promotion/[projectId]/generate-image/route')
     const req = buildMockRequest({
       path: '/api/novel-promotion/project-1/generate-image',
@@ -72,7 +115,6 @@ describe('api specific - novel promotion generate image art style', () => {
         type: 'character',
         id: 'character-1',
         appearanceId: 'appearance-1',
-        artStyle: 'realistic',
       },
     })
 
@@ -80,10 +122,20 @@ describe('api specific - novel promotion generate image art style', () => {
     expect(res.status).toBe(200)
 
     const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
-    expect(submitArg?.payload?.artStyle).toBe('realistic')
+    expect(prismaMock.characterAppearance.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'appearance-1' },
+    }))
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
   })
 
-  it('rejects invalid artStyle with invalid params', async () => {
+  it('falls back to project style snapshot when asset snapshot is missing', async () => {
+    prismaMock.characterAppearance.findUnique.mockResolvedValueOnce({
+      styleAssetId: null,
+      styleSnapshotName: null,
+      stylePromptZh: null,
+      stylePromptEn: null,
+      styleSnapshotUpdatedAt: null,
+    })
     const mod = await import('@/app/api/novel-promotion/[projectId]/generate-image/route')
     const req = buildMockRequest({
       path: '/api/novel-promotion/project-1/generate-image',
@@ -92,15 +144,13 @@ describe('api specific - novel promotion generate image art style', () => {
         type: 'character',
         id: 'character-1',
         appearanceId: 'appearance-1',
-        artStyle: 'anime',
       },
     })
 
     const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
-    const body = await res.json()
-    expect(res.status).toBe(400)
-    expect(body.error.code).toBe('INVALID_PARAMS')
-    expect(submitTaskMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    const submitArg = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> } | undefined
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.projectSnapshot)
   })
 
   it('forwards requested count into task payload and dedupe key', async () => {
@@ -124,6 +174,7 @@ describe('api specific - novel promotion generate image art style', () => {
       dedupeKey?: string
     } | undefined
     expect(submitArg?.payload?.count).toBe(6)
+    expect(submitArg?.payload?.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
     expect(submitArg?.dedupeKey).toBe('image_character:appearance-1:6')
   })
 })

@@ -11,7 +11,7 @@ import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import { ensureGlobalLocationImageSlots, ensureProjectLocationImageSlots } from '@/lib/image-generation/location-slots'
 import { hasCharacterAppearanceOutput, hasGlobalCharacterAppearanceOutput, hasGlobalCharacterOutput, hasGlobalLocationImageOutput, hasGlobalLocationOutput, hasLocationImageOutput } from '@/lib/task/has-output'
 import { sanitizeImageInputsForTaskPayload } from '@/lib/media/outbound-image'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue, removeLocationPromptSuffix, removePropPromptSuffix, type ArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue, removeLocationPromptSuffix, removePropPromptSuffix } from '@/lib/constants'
 import { decodeImageUrlsFromDb, encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { deleteObject } from '@/lib/storage'
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
@@ -31,10 +31,13 @@ import {
 import { resolvePropVisualDescription } from '@/lib/assets/prop-description'
 import { confirmProjectLocationBackedSelection } from '@/lib/assets/services/project-location-backed-selection'
 import {
+  resolveAssetStyleSnapshot,
   resolveDefaultStyleSnapshot,
+  resolveEffectiveStyleSnapshot,
   resolveGlobalStyleSnapshot,
   resolveProjectStyleSnapshot,
 } from '@/lib/styles/service'
+import type { StyleSnapshot } from '@/lib/styles/types'
 
 type AssetWriteAccess = {
   scope: AssetScope
@@ -120,20 +123,6 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function resolveOptionalArtStyle(body: Record<string, unknown>): ArtStyleValue | undefined {
-  if (!Object.prototype.hasOwnProperty.call(body, 'artStyle')) {
-    return undefined
-  }
-  const artStyle = normalizeString(body.artStyle)
-  if (!isArtStyleValue(artStyle)) {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'INVALID_ART_STYLE',
-      message: 'artStyle must be a supported value',
-    })
-  }
-  return artStyle
-}
-
 function normalizeLocationBackedKind(kind: AssetKind): 'character' | 'location' {
   return kind === 'character' ? 'character' : 'location'
 }
@@ -158,13 +147,15 @@ async function submitGlobalAssetGenerateTask(input: AssetGenerateInput) {
   const count = normalizedKind === 'character'
     ? normalizeImageGenerationCount('character', input.body.count)
     : normalizeImageGenerationCount('location', input.body.count)
-  const requestedArtStyle = resolveOptionalArtStyle(input.body)
-  const artStyle = requestedArtStyle || await resolveStoredGlobalArtStyle({
-    userId: input.access.userId,
-    kind: input.kind,
-    assetId: input.assetId,
-    appearanceIndex,
-  })
+  const requestedStyleAssetId = normalizeString(input.body.styleAssetId)
+  const styleSnapshot = requestedStyleAssetId
+    ? await resolveGlobalStyleSnapshot(input.access.userId, requestedStyleAssetId)
+    : await resolveStoredGlobalStyleSnapshot({
+      userId: input.access.userId,
+      kind: input.kind,
+      assetId: input.assetId,
+      appearanceIndex,
+    })
 
   if (normalizedKind === 'location' && toNumber(input.body.imageIndex) === null) {
     const location = await prisma.globalLocation.findFirst({
@@ -197,8 +188,8 @@ async function submitGlobalAssetGenerateTask(input: AssetGenerateInput) {
   }
 
   const payloadBase: Record<string, unknown> = normalizedKind === 'character'
-    ? { ...input.body, id: input.assetId, type: input.kind, appearanceIndex, artStyle, count }
-    : { ...input.body, id: input.assetId, type: input.kind, artStyle, count }
+    ? { ...input.body, id: input.assetId, type: input.kind, appearanceIndex, styleSnapshot, count }
+    : { ...input.body, id: input.assetId, type: input.kind, styleSnapshot, count }
   const targetType = normalizedKind === 'character' ? 'GlobalCharacter' : 'GlobalLocation'
   const hasOutputAtStart = normalizedKind === 'character'
     ? await hasGlobalCharacterOutput({
@@ -247,7 +238,7 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
   const count = normalizedKind === 'character'
     ? normalizeImageGenerationCount('character', input.body.count)
     : normalizeImageGenerationCount('location', input.body.count)
-  const artStyle = resolveOptionalArtStyle(input.body)
+  const requestedStyleAssetId = normalizeString(input.body.styleAssetId)
   const appearanceId = normalizeString(input.body.appearanceId)
   const imageIndex = toNumber(input.body.imageIndex)
 
@@ -302,9 +293,16 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
   const imageModel = normalizedKind === 'character'
     ? projectModelConfig.characterModel
     : projectModelConfig.locationModel
-  const payloadBase = artStyle
-    ? { ...input.body, type: input.kind, id: input.assetId, artStyle, count }
-    : { ...input.body, type: input.kind, id: input.assetId, count }
+  const styleSnapshot = requestedStyleAssetId
+    ? await resolveGlobalStyleSnapshot(input.access.userId, requestedStyleAssetId)
+    : await resolveProjectAssetStyleSnapshot({
+      projectId,
+      kind: input.kind,
+      assetId: input.assetId,
+      appearanceId,
+      appearanceIndex: toNumber(input.body.appearanceIndex) ?? PRIMARY_APPEARANCE_INDEX,
+    })
+  const payloadBase = { ...input.body, type: input.kind, id: input.assetId, styleSnapshot, count }
 
   let billingPayload: Record<string, unknown>
   try {
@@ -333,12 +331,12 @@ async function submitProjectAssetGenerateTask(input: AssetGenerateInput) {
   })
 }
 
-async function resolveStoredGlobalArtStyle(input: {
+async function resolveStoredGlobalStyleSnapshot(input: {
   userId: string
   kind: Extract<AssetKind, 'character' | 'location' | 'prop'>
   assetId: string
   appearanceIndex: number
-}): Promise<string> {
+}): Promise<StyleSnapshot> {
   if (input.kind === 'character') {
     const appearance = await prisma.globalCharacterAppearance.findFirst({
       where: {
@@ -346,29 +344,93 @@ async function resolveStoredGlobalArtStyle(input: {
         appearanceIndex: input.appearanceIndex,
         character: { userId: input.userId },
       },
-      select: { artStyle: true },
+      select: {
+        styleAssetId: true,
+        styleSnapshotName: true,
+        stylePromptZh: true,
+        stylePromptEn: true,
+        styleSnapshotUpdatedAt: true,
+      },
     })
     if (!appearance) {
       throw new ApiError('NOT_FOUND')
     }
-    const artStyle = normalizeString(appearance.artStyle)
-    if (!isArtStyleValue(artStyle)) {
-      throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Character appearance artStyle is not configured' })
-    }
-    return artStyle
+    const snapshot = await resolveAssetStyleSnapshot(appearance)
+    if (!snapshot) throw new ApiError('INVALID_PARAMS', { code: 'STYLE_REQUIRED', message: 'Character appearance style is not configured' })
+    return snapshot
   }
   const location = await prisma.globalLocation.findFirst({
     where: { id: input.assetId, userId: input.userId },
-    select: { artStyle: true },
+    select: {
+      styleAssetId: true,
+      styleSnapshotName: true,
+      stylePromptZh: true,
+      stylePromptEn: true,
+      styleSnapshotUpdatedAt: true,
+    },
   })
   if (!location) {
     throw new ApiError('NOT_FOUND')
   }
-  const artStyle = normalizeString(location.artStyle)
-  if (!isArtStyleValue(artStyle)) {
-    throw new ApiError('INVALID_PARAMS', { code: 'MISSING_ART_STYLE', message: 'Location artStyle is not configured' })
+  const snapshot = await resolveAssetStyleSnapshot(location)
+  if (!snapshot) throw new ApiError('INVALID_PARAMS', { code: 'STYLE_REQUIRED', message: 'Location style is not configured' })
+  return snapshot
+}
+
+async function resolveProjectAssetStyleSnapshot(input: {
+  projectId: string
+  kind: Extract<AssetKind, 'character' | 'location' | 'prop'>
+  assetId: string
+  appearanceId?: string
+  appearanceIndex: number
+}): Promise<StyleSnapshot> {
+  if (input.kind === 'character') {
+    const appearance = input.appearanceId
+      ? await prisma.characterAppearance.findUnique({
+        where: { id: input.appearanceId },
+        select: {
+          styleAssetId: true,
+          styleSnapshotName: true,
+          stylePromptZh: true,
+          stylePromptEn: true,
+          styleSnapshotUpdatedAt: true,
+        },
+      })
+      : await prisma.characterAppearance.findFirst({
+        where: {
+          characterId: input.assetId,
+          appearanceIndex: input.appearanceIndex,
+        },
+        select: {
+          styleAssetId: true,
+          styleSnapshotName: true,
+          stylePromptZh: true,
+          stylePromptEn: true,
+          styleSnapshotUpdatedAt: true,
+        },
+      })
+    if (!appearance) throw new ApiError('NOT_FOUND')
+    return resolveEffectiveStyleSnapshot({
+      projectId: input.projectId,
+      assetSnapshot: appearance,
+    })
   }
-  return artStyle
+
+  const location = await prisma.novelPromotionLocation.findUnique({
+    where: { id: input.assetId },
+    select: {
+      styleAssetId: true,
+      styleSnapshotName: true,
+      stylePromptZh: true,
+      stylePromptEn: true,
+      styleSnapshotUpdatedAt: true,
+    },
+  })
+  if (!location) throw new ApiError('NOT_FOUND')
+  return resolveEffectiveStyleSnapshot({
+    projectId: input.projectId,
+    assetSnapshot: location,
+  })
 }
 
 export async function submitAssetModifyTask(input: AssetModifyInput) {

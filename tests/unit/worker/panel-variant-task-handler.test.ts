@@ -11,7 +11,7 @@ const prismaMock = vi.hoisted(() => ({
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
-  getProjectModels: vi.fn(async () => ({ storyboardModel: 'storyboard-model-1', artStyle: 'realistic' })),
+  getProjectModels: vi.fn(async () => ({ storyboardModel: 'storyboard-model-1' })),
   resolveImageSourceFromGeneration: vi.fn(async () => 'generated-variant-source'),
   toSignedUrlIfCos: vi.fn((url: string | null | undefined) => (url ? `https://signed.example/${url}` : null)),
   uploadImageSourceToCos: vi.fn(async () => 'cos/panel-variant-new.png'),
@@ -72,10 +72,20 @@ vi.mock('@/lib/prompt-i18n', () => ({
 
 import { handlePanelVariantTask } from '@/lib/workers/handlers/panel-variant-task-handler'
 
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影写实中文提示词',
+  promptEn: 'cinematic realistic prompt',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
 function buildJob(
   payload: Record<string, unknown>,
   locale: TaskJobData['locale'] = 'zh',
+  options: { withStyle?: boolean } = {},
 ): Job<TaskJobData> {
+  const withStyle = options.withStyle ?? true
   return {
     data: {
       taskId: 'task-panel-variant-1',
@@ -85,7 +95,7 @@ function buildJob(
       episodeId: 'episode-1',
       targetType: 'NovelPromotionPanel',
       targetId: 'panel-new',
-      payload,
+      payload: withStyle ? { styleSnapshot, ...payload } : payload,
       userId: 'user-1',
     },
   } as unknown as Job<TaskJobData>
@@ -161,6 +171,7 @@ describe('worker panel-variant-task-handler behavior', () => {
       variables: expect.objectContaining({
         characters_info: expect.stringContaining('固定位置：街道左侧靠墙的留白位置'),
         location_asset: expect.stringContaining('街道左侧靠墙的留白位置'),
+        style: '电影写实中文提示词',
       }),
     }))
 
@@ -169,6 +180,47 @@ describe('worker panel-variant-task-handler behavior', () => {
       storyboardId: 'storyboard-1',
       imageUrl: 'cos/panel-variant-new.png',
     })
+  })
+
+  it('payload styleSnapshot controls the injected style prompt', async () => {
+    const payload = {
+      newPanelId: 'panel-new',
+      sourcePanelId: 'panel-source',
+      styleSnapshot: {
+        ...styleSnapshot,
+        promptZh: '赛璐璐动画风格',
+      },
+      variant: {
+        title: '雨夜版本',
+        description: '加强雨夜氛围',
+      },
+    }
+
+    await handlePanelVariantTask(buildJob(payload))
+
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: '赛璐璐动画风格',
+      }),
+    }))
+    expect(promptMock.buildPrompt).not.toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        style: '电影写实中文提示词',
+      }),
+    }))
+  })
+
+  it('missing payload styleSnapshot -> explicit error', async () => {
+    await expect(handlePanelVariantTask(buildJob({
+      newPanelId: 'panel-new',
+      sourcePanelId: 'panel-source',
+      variant: {
+        title: '雨夜版本',
+        description: '加强雨夜氛围',
+      },
+    }, 'zh', { withStyle: false }))).rejects.toThrow(
+      'styleSnapshot is required in PANEL_VARIANT payload',
+    )
   })
 
   it('respects reference asset toggles when character/location assets are disabled', async () => {

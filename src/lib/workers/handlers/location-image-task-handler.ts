@@ -1,8 +1,9 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { LOCATION_IMAGE_RATIO, PROP_IMAGE_RATIO, addLocationPromptSuffix, addPropPromptSuffix, getArtStylePrompt, isArtStyleValue, type ArtStyleValue } from '@/lib/constants'
+import { LOCATION_IMAGE_RATIO, PROP_IMAGE_RATIO, addLocationPromptSuffix, addPropPromptSuffix } from '@/lib/constants'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import { type TaskJobData } from '@/lib/task/types'
+import { resolvePayloadStylePrompt } from '@/lib/styles/payload'
 import { reportTaskProgress } from '../shared'
 import {
   assertTaskActive,
@@ -15,15 +16,6 @@ import {
 } from './image-task-handler-shared'
 import { buildLocationImagePromptCore } from '@/lib/location-image-prompt'
 import { buildPropImagePromptCore } from '@/lib/prop-image-prompt'
-
-function resolvePayloadArtStyle(payload: AnyObj): ArtStyleValue | undefined {
-  if (!Object.prototype.hasOwnProperty.call(payload, 'artStyle')) return undefined
-  const parsedArtStyle = typeof payload.artStyle === 'string' ? payload.artStyle.trim() : ''
-  if (!isArtStyleValue(parsedArtStyle)) {
-    throw new Error('Invalid artStyle in IMAGE_LOCATION payload')
-  }
-  return parsedArtStyle
-}
 
 interface LocationImageRecord {
   id: string
@@ -66,8 +58,7 @@ export async function handleLocationImageTask(job: Job<TaskJobData>) {
   if (!modelId) throw new Error('Location model not configured')
   const requestedCount = resolveRequestedLocationCount(payload)
 
-  const payloadArtStyle = resolvePayloadArtStyle(payload)
-  const artStyle = getArtStylePrompt(payloadArtStyle ?? models.artStyle, job.data.locale)
+  const stylePrompt = resolvePayloadStylePrompt(payload, job.data.locale, 'IMAGE_LOCATION')
   const assetType = payload.type === 'prop' ? 'prop' : 'location'
 
   // targetId may be locationId (group) or locationImageId (single)
@@ -156,7 +147,7 @@ export async function handleLocationImageTask(job: Job<TaskJobData>) {
     const promptWithSuffix = assetType === 'prop'
       ? addPropPromptSuffix(promptCore)
       : addLocationPromptSuffix(promptCore)
-    const prompt = artStyle ? `${promptWithSuffix}，${artStyle}` : promptWithSuffix
+    const prompt = `${promptWithSuffix}，${stylePrompt}`
     const aspectRatio = assetType === 'prop' ? PROP_IMAGE_RATIO : LOCATION_IMAGE_RATIO
     await reportTaskProgress(job, 20 + Math.floor((i / Math.max(locationImages.length, 1)) * 55), {
       stage: 'generate_location_image',

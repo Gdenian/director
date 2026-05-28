@@ -1,9 +1,10 @@
 import { type Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
-import { CHARACTER_ASSET_IMAGE_RATIO, addCharacterPromptSuffix, getArtStylePrompt, isArtStyleValue, PRIMARY_APPEARANCE_INDEX, type ArtStyleValue } from '@/lib/constants'
+import { CHARACTER_ASSET_IMAGE_RATIO, addCharacterPromptSuffix, PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { type TaskJobData } from '@/lib/task/types'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import { resolvePayloadStylePrompt } from '@/lib/styles/payload'
 import { reportTaskProgress } from '../shared'
 import {
   assertTaskActive,
@@ -18,15 +19,6 @@ import {
   parseJsonStringArray,
   pickFirstString,
 } from './image-task-handler-shared'
-
-function resolvePayloadArtStyle(payload: AnyObj): ArtStyleValue | undefined {
-  if (!Object.prototype.hasOwnProperty.call(payload, 'artStyle')) return undefined
-  const parsedArtStyle = typeof payload.artStyle === 'string' ? payload.artStyle.trim() : ''
-  if (!isArtStyleValue(parsedArtStyle)) {
-    throw new Error('Invalid artStyle in IMAGE_CHARACTER payload')
-  }
-  return parsedArtStyle
-}
 
 interface CharacterAppearanceRecord {
   id: string
@@ -106,8 +98,7 @@ export async function handleCharacterImageTask(job: Job<TaskJobData>) {
 
   if (!appearance) throw new Error('Character appearance not found')
 
-  const payloadArtStyle = resolvePayloadArtStyle(payload)
-  const artStyle = getArtStylePrompt(payloadArtStyle ?? models.artStyle, job.data.locale)
+  const stylePrompt = resolvePayloadStylePrompt(payload, job.data.locale, 'IMAGE_CHARACTER')
   const descriptions = parseJsonStringArray(appearance.descriptions)
   const baseDescriptions = descriptions.length > 0 ? descriptions : [appearance.description || '']
 
@@ -145,7 +136,7 @@ export async function handleCharacterImageTask(job: Job<TaskJobData>) {
   for (let i = 0; i < indexes.length; i++) {
     const index = indexes[i]
     const raw = baseDescriptions[index] || baseDescriptions[0]
-    const prompt = artStyle ? `${addCharacterPromptSuffix(raw)}，${artStyle}` : addCharacterPromptSuffix(raw)
+    const prompt = `${addCharacterPromptSuffix(raw)}，${stylePrompt}`
 
     await reportTaskProgress(job, 15 + Math.floor((i / Math.max(indexes.length, 1)) * 55), {
       stage: 'generate_character_image',

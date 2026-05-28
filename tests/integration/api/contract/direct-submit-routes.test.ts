@@ -57,6 +57,20 @@ const configServiceMock = vi.hoisted(() => ({
   })),
 }))
 
+const styleServiceMock = vi.hoisted(() => {
+  const styleSnapshot = {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  }
+  return {
+    styleSnapshot,
+    resolveProjectStyleSnapshot: vi.fn(async () => styleSnapshot),
+  }
+})
+
 const hasOutputMock = vi.hoisted(() => ({
   hasGlobalCharacterOutput: vi.fn(async () => false),
   hasGlobalLocationOutput: vi.fn(async () => false),
@@ -73,6 +87,31 @@ const hasOutputMock = vi.hoisted(() => ({
 const prismaMock = vi.hoisted(() => ({
   userPreference: {
     findUnique: vi.fn(async () => ({ lipSyncModel: 'fal::lipsync-model' })),
+  },
+  globalCharacterAppearance: {
+    findFirst: vi.fn(async () => ({
+      styleAssetId: 'style-1',
+      styleSnapshotName: '电影写实',
+      stylePromptZh: '电影写实中文提示词',
+      stylePromptEn: 'cinematic realistic prompt',
+      styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+    })),
+  },
+  characterAppearance: {
+    findUnique: vi.fn(async () => ({
+      styleAssetId: 'style-1',
+      styleSnapshotName: '电影写实',
+      stylePromptZh: '电影写实中文提示词',
+      stylePromptEn: 'cinematic realistic prompt',
+      styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+    })),
+    findFirst: vi.fn(async () => ({
+      styleAssetId: 'style-1',
+      styleSnapshotName: '电影写实',
+      stylePromptZh: '电影写实中文提示词',
+      stylePromptEn: 'cinematic realistic prompt',
+      styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+    })),
   },
   novelPromotionStoryboard: {
     findUnique: vi.fn(async () => ({
@@ -236,6 +275,13 @@ vi.mock('@/lib/task/resolve-locale', () => ({
   resolveRequiredTaskLocale: vi.fn(() => 'zh'),
 }))
 vi.mock('@/lib/config-service', () => configServiceMock)
+vi.mock('@/lib/styles/service', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/styles/service')>('@/lib/styles/service')
+  return {
+    ...actual,
+    resolveProjectStyleSnapshot: styleServiceMock.resolveProjectStyleSnapshot,
+  }
+})
 vi.mock('@/lib/task/has-output', () => hasOutputMock)
 vi.mock('@/lib/billing', () => ({
   buildDefaultTaskBillingInfo: vi.fn(() => ({ mode: 'default' })),
@@ -301,7 +347,7 @@ function toModuleImportPath(routeFile: string): string {
 const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
   {
     routeFile: 'src/app/api/asset-hub/generate-image/route.ts',
-    body: { type: 'character', id: 'global-character-1', appearanceIndex: 0, artStyle: 'realistic' },
+    body: { type: 'character', id: 'global-character-1', appearanceIndex: 0 },
     expectedTaskType: TASK_TYPE.ASSET_HUB_IMAGE,
     expectedTargetType: 'GlobalCharacter',
     expectedProjectId: 'global-asset-hub',
@@ -326,7 +372,6 @@ const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
       scope: 'global',
       kind: 'character',
       appearanceIndex: 0,
-      artStyle: 'realistic',
     },
     params: { assetId: 'global-character-1' },
     expectedTaskType: TASK_TYPE.ASSET_HUB_IMAGE,
@@ -486,6 +531,7 @@ const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
     expectedTaskType: TASK_TYPE.PANEL_VARIANT,
     expectedTargetType: 'NovelPromotionPanel',
     expectedProjectId: 'project-1',
+    expectedPayloadSubset: { styleSnapshot: styleServiceMock.styleSnapshot },
   },
   {
     routeFile: 'src/app/api/novel-promotion/[projectId]/regenerate-group/route.ts',
@@ -502,6 +548,7 @@ const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
     expectedTaskType: TASK_TYPE.IMAGE_PANEL,
     expectedTargetType: 'NovelPromotionPanel',
     expectedProjectId: 'project-1',
+    expectedPayloadSubset: { styleSnapshot: styleServiceMock.styleSnapshot },
   },
   {
     routeFile: 'src/app/api/novel-promotion/[projectId]/regenerate-single-image/route.ts',

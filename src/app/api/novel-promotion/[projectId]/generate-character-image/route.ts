@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
-import { isArtStyleValue, type ArtStyleValue } from '@/lib/constants'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import { submitAssetGenerateTask } from '@/lib/assets/services/asset-actions'
 
@@ -30,19 +29,8 @@ export const POST = apiHandler(async (
   const bodyMeta = toObject(body.meta)
   const characterId = normalizeString(body.characterId)
   const appearanceId = normalizeString(body.appearanceId)
+  const styleAssetId = normalizeString(body.styleAssetId)
   const count = normalizeImageGenerationCount('character', body.count)
-
-  let artStyle: ArtStyleValue | undefined
-  if (Object.prototype.hasOwnProperty.call(body, 'artStyle')) {
-    const parsedArtStyle = normalizeString(body.artStyle)
-    if (!isArtStyleValue(parsedArtStyle)) {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'INVALID_ART_STYLE',
-        message: 'artStyle must be a supported value',
-      })
-    }
-    artStyle = parsedArtStyle
-  }
 
   if (!characterId) {
     throw new ApiError('INVALID_PARAMS')
@@ -70,8 +58,8 @@ export const POST = apiHandler(async (
     assetId: characterId,
     body: {
       appearanceId: targetAppearanceId,
+      styleAssetId: styleAssetId || undefined,
       count,
-      artStyle,
       locale: taskLocale || undefined,
       meta: {
         ...bodyMeta,
