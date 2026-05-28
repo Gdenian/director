@@ -6,6 +6,12 @@ import { decodeImageUrlsFromDb, encodeImageUrls } from '@/lib/contracts/image-ur
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
+import {
+  resolveAssetStyleSnapshot,
+  resolveGlobalStyleSnapshot,
+  resolveProjectStyleSnapshot,
+  styleSnapshotToColumns,
+} from '@/lib/styles/service'
 
 /**
  * POST - 为现有角色添加子形象
@@ -20,9 +26,11 @@ export const POST = apiHandler(async (
   // 🔐 统一权限验证
   const authResult = await requireProjectAuthLight(projectId)
   if (isErrorResponse(authResult)) return authResult
+  const { session } = authResult
 
   const body = await request.json()
   const { characterId, changeReason, description } = body
+  const styleAssetId = typeof body.styleAssetId === 'string' ? body.styleAssetId.trim() : ''
 
   if (!characterId || !changeReason || !description) {
     throw new ApiError('INVALID_PARAMS')
@@ -52,6 +60,14 @@ export const POST = apiHandler(async (
     0
   )
   const newIndex = maxIndex + 1
+  const primaryAppearance = character.appearances.find((item) => item.appearanceIndex === 0)
+    || character.appearances[0]
+  const inheritedSnapshot = primaryAppearance
+    ? await resolveAssetStyleSnapshot(primaryAppearance)
+    : null
+  const styleSnapshot = styleAssetId
+    ? await resolveGlobalStyleSnapshot(session.user.id, styleAssetId)
+    : inheritedSnapshot ?? await resolveProjectStyleSnapshot(projectId)
 
   // 创建子形象
   const newAppearance = await prisma.characterAppearance.create({
@@ -59,6 +75,7 @@ export const POST = apiHandler(async (
       characterId,
       appearanceIndex: newIndex,
       changeReason: changeReason.trim(),
+      ...styleSnapshotToColumns(styleSnapshot),
       description: description.trim(),
       descriptions: JSON.stringify([description.trim()]),
       imageUrls: encodeImageUrls([]),

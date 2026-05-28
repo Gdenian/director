@@ -47,7 +47,15 @@ describe('api specific - asset hub appearances route', () => {
       id: 'character-1',
       userId: 'user-1',
       appearances: [
-        { id: 'appearance-1', appearanceIndex: 0, artStyle: 'realistic' },
+        {
+          id: 'appearance-1',
+          appearanceIndex: 0,
+          styleAssetId: 'style-1',
+          styleSnapshotName: '电影写实',
+          stylePromptZh: '电影写实中文提示词',
+          stylePromptEn: 'cinematic realistic prompt',
+          styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+        },
       ],
     })
     prismaMock.globalCharacterAppearance.findFirst.mockResolvedValue({
@@ -102,6 +110,9 @@ describe('api specific - asset hub appearances route', () => {
       data: expect.objectContaining({
         description: 'new description',
         descriptions: JSON.stringify(['new description']),
+        styleAssetId: 'style-1',
+        styleSnapshotName: '电影写实',
+        stylePromptZh: '电影写实中文提示词',
       }),
     }))
   })

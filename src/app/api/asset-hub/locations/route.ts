@@ -3,12 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
 import { attachMediaFieldsToGlobalLocation } from '@/lib/media/attach'
-import { isArtStyleValue } from '@/lib/constants'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
 import {
     normalizeLocationAvailableSlots,
     stringifyLocationAvailableSlots,
 } from '@/lib/location-available-slots'
+import {
+    resolveDefaultStyleSnapshot,
+    resolveGlobalStyleSnapshot,
+    styleSnapshotToColumns,
+} from '@/lib/styles/service'
 
 // 获取用户所有场景（支持 folderId 筛选）
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -48,7 +52,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const { session } = authResult
 
     const body = await request.json()
-    const { name, summary, folderId, artStyle } = body
+    const { name, summary, folderId, styleAssetId } = body
     const availableSlots = normalizeLocationAvailableSlots((body as Record<string, unknown>).availableSlots)
     const count = Object.prototype.hasOwnProperty.call(body as Record<string, unknown>, 'count')
         ? normalizeImageGenerationCount('location', (body as Record<string, unknown>).count)
@@ -57,13 +61,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
     if (!name) {
         throw new ApiError('INVALID_PARAMS')
     }
-    const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
-        throw new ApiError('INVALID_PARAMS', {
-            code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
-        })
-    }
+    const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+    const styleSnapshot = normalizedStyleAssetId
+        ? await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        : await resolveDefaultStyleSnapshot(session.user.id)
 
     if (folderId) {
         const folder = await prisma.globalAssetFolder.findUnique({
@@ -79,7 +80,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
             userId: session.user.id,
             folderId: folderId || null,
             name: name.trim(),
-            artStyle: normalizedArtStyle,
+            ...styleSnapshotToColumns(styleSnapshot),
             summary: summary?.trim() || null
         }
     })

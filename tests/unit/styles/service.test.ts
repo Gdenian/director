@@ -13,8 +13,10 @@ import {
   isGlobalStyleStale,
   resolveDefaultStyleSnapshot,
   resolveEffectiveStyleSnapshot,
+  resolveGlobalStyleSnapshot,
   resolveStyleSnapshotState,
   resolveStylePrompt,
+  styleSnapshotToColumns,
 } from '@/lib/styles/service'
 import type { StyleSnapshot } from '@/lib/styles/types'
 
@@ -134,6 +136,23 @@ describe('styles/service', () => {
     })
   })
 
+  it('resolveGlobalStyleSnapshot returns a user-owned style snapshot', async () => {
+    const user = await createFixtureUser()
+    const style = await createStyle(user.id, {
+      name: '指定风格',
+      promptZh: '指定中文提示词',
+      promptEn: 'specified english prompt',
+    })
+
+    await expect(resolveGlobalStyleSnapshot(user.id, style.id)).resolves.toEqual({
+      styleAssetId: style.id,
+      name: '指定风格',
+      promptZh: '指定中文提示词',
+      promptEn: 'specified english prompt',
+      snapshotUpdatedAt: style.updatedAt.toISOString(),
+    })
+  })
+
   it('buildStyleSnapshot copies id, name, prompts, and updatedAt', () => {
     const updatedAt = new Date('2026-05-28T10:20:30.000Z')
 
@@ -151,6 +170,22 @@ describe('styles/service', () => {
       promptZh: '中文提示词',
       promptEn: 'english prompt',
       snapshotUpdatedAt: updatedAt.toISOString(),
+    })
+  })
+
+  it('styleSnapshotToColumns maps snapshot fields to Prisma columns', () => {
+    expect(styleSnapshotToColumns(makeSnapshot({
+      styleAssetId: 'style-2',
+      name: '电影写实',
+      promptZh: '中文提示词',
+      promptEn: 'english prompt',
+      snapshotUpdatedAt: '2026-05-28T10:20:30.000Z',
+    }))).toEqual({
+      styleAssetId: 'style-2',
+      styleSnapshotName: '电影写实',
+      stylePromptZh: '中文提示词',
+      stylePromptEn: 'english prompt',
+      styleSnapshotUpdatedAt: new Date('2026-05-28T10:20:30.000Z'),
     })
   })
 

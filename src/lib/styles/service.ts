@@ -301,8 +301,15 @@ export async function resolveDefaultStyleSnapshot(userId: string): Promise<Style
   assertRequired(userId)
 
   const { defaultStyleId } = await ensureDefaultStyles(userId)
+  return resolveGlobalStyleSnapshot(userId, defaultStyleId)
+}
+
+export async function resolveGlobalStyleSnapshot(userId: string, styleId: string): Promise<StyleSnapshot> {
+  assertRequired(userId)
+  assertRequired(styleId)
+
   const style = await prisma.globalStyle.findFirst({
-    where: { id: defaultStyleId, userId },
+    where: { id: styleId, userId },
     select: {
       id: true,
       name: true,
@@ -345,7 +352,7 @@ export async function applyProjectStyleSnapshot(projectId: string, userId: strin
   const snapshot = buildStyleSnapshot(style)
   await prisma.novelPromotionProject.update({
     where: { id: project.id },
-    data: toSnapshotColumns(snapshot),
+    data: styleSnapshotToColumns(snapshot),
   })
 
   return snapshot
@@ -450,7 +457,7 @@ function toSummary(style: GlobalStyleRecord): GlobalStyleSummary {
   }
 }
 
-function toSnapshotColumns(snapshot: StyleSnapshot) {
+export function styleSnapshotToColumns(snapshot: StyleSnapshot) {
   return {
     styleAssetId: snapshot.styleAssetId,
     styleSnapshotName: snapshot.name,

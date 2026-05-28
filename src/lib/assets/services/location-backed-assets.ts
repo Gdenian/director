@@ -5,6 +5,7 @@ import {
   type LocationAvailableSlot,
   stringifyLocationAvailableSlots,
 } from '@/lib/location-available-slots'
+import type { StyleSnapshot } from '@/lib/styles/types'
 
 export type LocationBackedAssetKind = 'location' | 'prop'
 
@@ -16,6 +17,11 @@ type ProjectLocationBackedAssetRow = {
   selectedImageId: string | null
   sourceGlobalLocationId: string | null
   assetKind: LocationBackedAssetKind
+  styleAssetId: string | null
+  styleSnapshotName: string | null
+  stylePromptZh: string | null
+  stylePromptEn: string | null
+  styleSnapshotUpdatedAt: Date | string | null
 }
 
 type GlobalLocationBackedAssetRow = {
@@ -26,6 +32,11 @@ type GlobalLocationBackedAssetRow = {
   summary: string | null
   artStyle: string | null
   assetKind: LocationBackedAssetKind
+  styleAssetId: string | null
+  styleSnapshotName: string | null
+  stylePromptZh: string | null
+  stylePromptEn: string | null
+  styleSnapshotUpdatedAt: Date | string | null
 }
 
 type LocationBackedImageRow = {
@@ -144,7 +155,12 @@ export async function listProjectLocationBackedAssets(
       summary,
       selectedImageId,
       sourceGlobalLocationId,
-      assetKind
+      assetKind,
+      styleAssetId,
+      styleSnapshotName,
+      stylePromptZh,
+      stylePromptEn,
+      styleSnapshotUpdatedAt
     FROM novel_promotion_locations
     WHERE novelPromotionProjectId = ${novelPromotionProjectId}
       AND assetKind = ${kind}
@@ -173,7 +189,12 @@ export async function listGlobalLocationBackedAssets(input: {
       name,
       summary,
       artStyle,
-      assetKind
+      assetKind,
+      styleAssetId,
+      styleSnapshotName,
+      stylePromptZh,
+      stylePromptEn,
+      styleSnapshotUpdatedAt
     FROM global_locations
     WHERE userId = ${input.userId}
       AND assetKind = ${input.kind}
@@ -193,6 +214,7 @@ export async function createProjectLocationBackedAsset(input: {
   summary: string
   initialDescription?: string
   kind: LocationBackedAssetKind
+  styleSnapshot?: StyleSnapshot | null
 }): Promise<{ id: string }> {
   const id = randomUUID()
   await prisma.$executeRaw(Prisma.sql`
@@ -204,6 +226,11 @@ export async function createProjectLocationBackedAsset(input: {
       selectedImageId,
       sourceGlobalLocationId,
       assetKind,
+      styleAssetId,
+      styleSnapshotName,
+      stylePromptZh,
+      stylePromptEn,
+      styleSnapshotUpdatedAt,
       createdAt,
       updatedAt
     ) VALUES (
@@ -214,6 +241,11 @@ export async function createProjectLocationBackedAsset(input: {
       NULL,
       NULL,
       ${input.kind},
+      ${input.styleSnapshot?.styleAssetId ?? null},
+      ${input.styleSnapshot?.name ?? null},
+      ${input.styleSnapshot?.promptZh ?? null},
+      ${input.styleSnapshot?.promptEn ?? null},
+      ${input.styleSnapshot ? new Date(input.styleSnapshot.snapshotUpdatedAt) : null},
       NOW(),
       NOW()
     )
@@ -235,6 +267,7 @@ export async function createGlobalLocationBackedAsset(input: {
   initialDescription?: string
   artStyle?: string | null
   kind: LocationBackedAssetKind
+  styleSnapshot?: StyleSnapshot | null
 }): Promise<{ id: string }> {
   const id = randomUUID()
   await prisma.$executeRaw(Prisma.sql`
@@ -246,6 +279,11 @@ export async function createGlobalLocationBackedAsset(input: {
       summary,
       artStyle,
       assetKind,
+      styleAssetId,
+      styleSnapshotName,
+      stylePromptZh,
+      stylePromptEn,
+      styleSnapshotUpdatedAt,
       createdAt,
       updatedAt
     ) VALUES (
@@ -256,6 +294,11 @@ export async function createGlobalLocationBackedAsset(input: {
       ${input.summary},
       ${input.artStyle ?? null},
       ${input.kind},
+      ${input.styleSnapshot?.styleAssetId ?? null},
+      ${input.styleSnapshot?.name ?? null},
+      ${input.styleSnapshot?.promptZh ?? null},
+      ${input.styleSnapshot?.promptEn ?? null},
+      ${input.styleSnapshot ? new Date(input.styleSnapshot.snapshotUpdatedAt) : null},
       NOW(),
       NOW()
     )

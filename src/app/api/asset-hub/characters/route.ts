@@ -5,10 +5,15 @@ import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
 import { attachMediaFieldsToGlobalCharacter } from '@/lib/media/attach'
 import { resolveMediaRefFromLegacyValue } from '@/lib/media/service'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import {
+    resolveDefaultStyleSnapshot,
+    resolveGlobalStyleSnapshot,
+    styleSnapshotToColumns,
+} from '@/lib/styles/service'
 
 function toObject(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -64,7 +69,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
         referenceImageUrl,
         referenceImageUrls,
         generateFromReference,
-        artStyle,
+        styleAssetId,
         customDescription
     } = body
     const count = normalizeImageGenerationCount('reference-to-character', (body as Record<string, unknown>).count)
@@ -72,13 +77,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
     if (!name) {
         throw new ApiError('INVALID_PARAMS')
     }
-    const normalizedArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    if (!isArtStyleValue(normalizedArtStyle)) {
-        throw new ApiError('INVALID_PARAMS', {
-            code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
-        })
-    }
+    const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+    const styleSnapshot = normalizedStyleAssetId
+        ? await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        : await resolveDefaultStyleSnapshot(session.user.id)
 
     let allReferenceImages: string[] = []
     if (referenceImageUrls && Array.isArray(referenceImageUrls)) {
@@ -112,7 +114,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
             characterId: character.id,
             appearanceIndex: PRIMARY_APPEARANCE_INDEX,
             changeReason: '初始形象',
-            artStyle: normalizedArtStyle,
+            ...styleSnapshotToColumns(styleSnapshot),
             description: descText,
             descriptions: JSON.stringify([descText]),
             imageUrl: initialImageUrl || null,
@@ -138,7 +140,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
                 appearanceId: appearance.id,
                 count,
                 isBackgroundJob: true,
-                artStyle: normalizedArtStyle,
+                styleSnapshot,
                 customDescription: customDescription || undefined,
                 locale: taskLocale || undefined,
                 meta: {

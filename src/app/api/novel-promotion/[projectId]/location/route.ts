@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { removeLocationPromptSuffix, isArtStyleValue, type ArtStyleValue } from '@/lib/constants'
+import { removeLocationPromptSuffix } from '@/lib/constants'
 import {
   normalizeLocationAvailableSlots,
   stringifyLocationAvailableSlots,
@@ -8,6 +8,11 @@ import {
 import { requireProjectAuth, requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import {
+  resolveGlobalStyleSnapshot,
+  resolveProjectStyleSnapshot,
+  styleSnapshotToColumns,
+} from '@/lib/styles/service'
 function toObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return value as Record<string, unknown>
@@ -53,32 +58,25 @@ export const POST = apiHandler(async (
   // 🔐 统一权限验证
   const authResult = await requireProjectAuth(projectId)
   if (isErrorResponse(authResult)) return authResult
-  const { novelData } = authResult
+  const { novelData, session } = authResult
 
   const rawBody = await request.json().catch(() => ({}))
   const body = toObject(rawBody)
   const name = normalizeString(body.name)
   const description = normalizeString(body.description)
   const summary = normalizeString(body.summary)
+  const styleAssetId = normalizeString(body.styleAssetId)
   const availableSlots = normalizeLocationAvailableSlots(body.availableSlots)
   const count = Object.prototype.hasOwnProperty.call(body, 'count')
     ? normalizeImageGenerationCount('location', body.count)
     : 1
-  let artStyle: ArtStyleValue | undefined
-  if (Object.prototype.hasOwnProperty.call(body, 'artStyle')) {
-    const parsedArtStyle = normalizeString(body.artStyle)
-    if (!isArtStyleValue(parsedArtStyle)) {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'INVALID_ART_STYLE',
-        message: 'artStyle must be a supported value',
-      })
-    }
-    artStyle = parsedArtStyle
-  }
 
   if (!name || !description) {
     throw new ApiError('INVALID_PARAMS')
   }
+  const styleSnapshot = styleAssetId
+    ? await resolveGlobalStyleSnapshot(session.user.id, styleAssetId)
+    : await resolveProjectStyleSnapshot(projectId)
 
   // 创建场景
   const cleanDescription = removeLocationPromptSuffix(description.trim())
@@ -86,6 +84,7 @@ export const POST = apiHandler(async (
     data: {
       novelPromotionProjectId: novelData.id,
       name: name.trim(),
+      ...styleSnapshotToColumns(styleSnapshot),
       summary: summary || null
     }
   })

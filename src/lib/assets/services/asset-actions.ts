@@ -30,6 +30,11 @@ import {
 } from '@/lib/assets/services/location-backed-assets'
 import { resolvePropVisualDescription } from '@/lib/assets/prop-description'
 import { confirmProjectLocationBackedSelection } from '@/lib/assets/services/project-location-backed-selection'
+import {
+  resolveDefaultStyleSnapshot,
+  resolveGlobalStyleSnapshot,
+  resolveProjectStyleSnapshot,
+} from '@/lib/styles/service'
 
 type AssetWriteAccess = {
   scope: AssetScope
@@ -840,6 +845,11 @@ async function copyCharacterFromGlobal(input: AssetCopyInput) {
         characterId: input.targetId,
         appearanceIndex: appearance.appearanceIndex,
         changeReason: appearance.changeReason,
+        styleAssetId: appearance.styleAssetId,
+        styleSnapshotName: appearance.styleSnapshotName,
+        stylePromptZh: appearance.stylePromptZh,
+        stylePromptEn: appearance.stylePromptEn,
+        styleSnapshotUpdatedAt: appearance.styleSnapshotUpdatedAt,
         description: appearance.description,
         descriptions: appearance.descriptions,
         imageUrl: labeledCopy?.imageUrl || appearance.imageUrl,
@@ -907,6 +917,11 @@ async function copyLocationFromGlobal(input: AssetCopyInput) {
       sourceGlobalLocationId: input.globalAssetId,
       summary: globalLocation.summary,
       selectedImageId,
+      styleAssetId: globalLocation.styleAssetId,
+      styleSnapshotName: globalLocation.styleSnapshotName,
+      stylePromptZh: globalLocation.stylePromptZh,
+      stylePromptEn: globalLocation.stylePromptEn,
+      styleSnapshotUpdatedAt: globalLocation.styleSnapshotUpdatedAt,
     },
     include: { images: true },
   })
@@ -1145,6 +1160,7 @@ export async function createAsset(input: AssetCreateInput) {
   const name = normalizeString(input.body.name)
   const kind = requireLocationBackedKind(input.kind)
   const summary = normalizeString(input.body.summary || input.body.description)
+  const requestedStyleAssetId = normalizeString(input.body.styleAssetId)
   const description = kind === 'prop'
     ? normalizeString(input.body.description)
     : summary
@@ -1153,31 +1169,39 @@ export async function createAsset(input: AssetCreateInput) {
   }
 
   if (input.access.scope === 'global') {
+    const styleSnapshot = requestedStyleAssetId
+      ? await resolveGlobalStyleSnapshot(input.access.userId, requestedStyleAssetId)
+      : await resolveDefaultStyleSnapshot(input.access.userId)
     const created = await createGlobalLocationBackedAsset({
       userId: input.access.userId,
       folderId: normalizeString(input.body.folderId) || null,
       name,
       summary,
       initialDescription: description,
-      artStyle: normalizeString(input.body.artStyle) || null,
+      styleSnapshot,
       kind,
     })
     return { success: true, assetId: created.id }
   }
 
+  const projectId = requireProjectId(input.access)
   const project = await prisma.novelPromotionProject.findUnique({
-    where: { projectId: requireProjectId(input.access) },
+    where: { projectId },
     select: { id: true },
   })
   if (!project) {
     throw new ApiError('NOT_FOUND')
   }
+  const styleSnapshot = requestedStyleAssetId
+    ? await resolveGlobalStyleSnapshot(input.access.userId, requestedStyleAssetId)
+    : await resolveProjectStyleSnapshot(projectId)
   const created = await createProjectLocationBackedAsset({
     novelPromotionProjectId: project.id,
     name,
     summary,
     initialDescription: description,
     kind,
+    styleSnapshot,
   })
   return { success: true, assetId: created.id }
 }

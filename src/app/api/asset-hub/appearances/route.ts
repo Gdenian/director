@@ -3,21 +3,31 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { ApiError, apiHandler } from '@/lib/api-errors'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { buildCharacterDescriptionFields } from '@/lib/assets/description-fields'
+import {
+    resolveAssetStyleSnapshot,
+    resolveDefaultStyleSnapshot,
+    resolveGlobalStyleSnapshot,
+    styleSnapshotToColumns,
+} from '@/lib/styles/service'
 
 interface AppearanceBody {
     characterId?: string
     changeReason?: string
     description?: string
     appearanceIndex?: number
-    artStyle?: string
+    styleAssetId?: string
 }
 
 interface GlobalCharacterAppearanceSummary {
     id: string
     appearanceIndex: number
-    artStyle?: string | null
+    styleAssetId?: string | null
+    styleSnapshotName?: string | null
+    stylePromptZh?: string | null
+    stylePromptEn?: string | null
+    styleSnapshotUpdatedAt?: Date | string | null
     description?: string | null
     descriptions?: string | null
 }
@@ -50,7 +60,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const { session } = authResult
 
     const body = (await request.json()) as AppearanceBody
-    const { characterId, changeReason, description, artStyle } = body
+    const { characterId, changeReason, description, styleAssetId } = body
 
     if (!characterId || !changeReason) {
         throw new ApiError('INVALID_PARAMS')
@@ -66,27 +76,22 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
     const maxIndex = character.appearances?.reduce((max, appearance) => Math.max(max, appearance.appearanceIndex), 0) || 0
     const nextIndex = maxIndex + 1
-    const inputArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    const inheritedArtStyle = (() => {
-        if (inputArtStyle) return inputArtStyle
-        const primaryAppearance = character.appearances?.find((item) => item.appearanceIndex === PRIMARY_APPEARANCE_INDEX)
-            || character.appearances?.[0]
-        const stored = typeof primaryAppearance?.artStyle === 'string' ? primaryAppearance.artStyle.trim() : ''
-        return stored
-    })()
-    if (!isArtStyleValue(inheritedArtStyle)) {
-        throw new ApiError('INVALID_PARAMS', {
-            code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
-        })
-    }
+    const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+    const primaryAppearance = character.appearances?.find((item) => item.appearanceIndex === PRIMARY_APPEARANCE_INDEX)
+        || character.appearances?.[0]
+    const inheritedSnapshot = primaryAppearance
+        ? await resolveAssetStyleSnapshot(primaryAppearance)
+        : null
+    const styleSnapshot = normalizedStyleAssetId
+        ? await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        : inheritedSnapshot ?? await resolveDefaultStyleSnapshot(session.user.id)
 
     const appearance = await db.globalCharacterAppearance.create({
         data: {
             characterId,
             appearanceIndex: nextIndex,
             changeReason,
-            artStyle: inheritedArtStyle,
+            ...styleSnapshotToColumns(styleSnapshot),
             description: description?.trim() || null,
             descriptions: description?.trim() ? JSON.stringify([description.trim()]) : null,
             imageUrls: encodeImageUrls([]),
@@ -108,7 +113,7 @@ export const PATCH = apiHandler(async (request: NextRequest) => {
     const { session } = authResult
 
     const body = (await request.json()) as AppearanceBody
-    const { characterId, appearanceIndex, description, changeReason, artStyle } = body
+    const { characterId, appearanceIndex, description, changeReason, styleAssetId } = body
 
     if (!characterId || appearanceIndex === undefined) {
         throw new ApiError('INVALID_PARAMS')
@@ -143,21 +148,16 @@ export const PATCH = apiHandler(async (request: NextRequest) => {
     if (changeReason !== undefined) {
         updateData.changeReason = changeReason
     }
-    if (artStyle !== undefined) {
-        if (typeof artStyle !== 'string') {
+    if (styleAssetId !== undefined) {
+        const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+        if (!normalizedStyleAssetId) {
             throw new ApiError('INVALID_PARAMS', {
-                code: 'INVALID_ART_STYLE',
-                message: 'artStyle must be a supported value',
+                code: 'INVALID_STYLE_ASSET',
+                message: 'styleAssetId must be a non-empty string',
             })
         }
-        const normalizedArtStyle = artStyle.trim()
-        if (!isArtStyleValue(normalizedArtStyle)) {
-            throw new ApiError('INVALID_PARAMS', {
-                code: 'INVALID_ART_STYLE',
-                message: 'artStyle must be a supported value',
-            })
-        }
-        updateData.artStyle = normalizedArtStyle
+        const styleSnapshot = await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        Object.assign(updateData, styleSnapshotToColumns(styleSnapshot))
     }
 
     await db.globalCharacterAppearance.update({

@@ -35,6 +35,28 @@ const mediaServiceMock = vi.hoisted(() => ({
   resolveMediaRefFromLegacyValue: vi.fn(async () => null),
 }))
 
+const styleFixtures = vi.hoisted(() => ({
+  styleSnapshot: {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  },
+}))
+
+const styleServiceMock = vi.hoisted(() => ({
+  resolveGlobalStyleSnapshot: vi.fn(async () => styleFixtures.styleSnapshot),
+  resolveDefaultStyleSnapshot: vi.fn(async () => styleFixtures.styleSnapshot),
+  styleSnapshotToColumns: vi.fn((snapshot: typeof styleFixtures.styleSnapshot) => ({
+    styleAssetId: snapshot.styleAssetId,
+    styleSnapshotName: snapshot.name,
+    stylePromptZh: snapshot.promptZh,
+    stylePromptEn: snapshot.promptEn,
+    styleSnapshotUpdatedAt: new Date(snapshot.snapshotUpdatedAt),
+  })),
+}))
+
 const envMock = vi.hoisted(() => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
 }))
@@ -43,6 +65,7 @@ vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/media/attach', () => mediaAttachMock)
 vi.mock('@/lib/media/service', () => mediaServiceMock)
+vi.mock('@/lib/styles/service', () => styleServiceMock)
 vi.mock('@/lib/env', () => envMock)
 
 describe('api specific - characters POST forwarding to reference task', () => {
@@ -66,7 +89,7 @@ describe('api specific - characters POST forwarding to reference task', () => {
       },
       body: {
         name: 'Hero',
-        artStyle: 'realistic',
+        styleAssetId: 'style-1',
         generateFromReference: true,
         referenceImageUrl: 'https://example.com/ref.png',
         customDescription: '冷静，黑发',
@@ -76,6 +99,14 @@ describe('api specific - characters POST forwarding to reference task', () => {
 
     const res = await mod.POST(req, { params: Promise.resolve({}) })
     expect(res.status).toBe(200)
+    expect(styleServiceMock.resolveGlobalStyleSnapshot).toHaveBeenCalledWith('user-1', 'style-1')
+    expect(prismaMock.globalCharacterAppearance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        styleAssetId: 'style-1',
+        styleSnapshotName: '电影写实',
+        stylePromptZh: '电影写实中文提示词',
+      }),
+    })
 
     const calledUrl = fetchMock.mock.calls[0]?.[0]
     const calledInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined
@@ -88,7 +119,7 @@ describe('api specific - characters POST forwarding to reference task', () => {
       locale?: string
       meta?: { locale?: string }
       customDescription?: string
-      artStyle?: string
+      styleSnapshot?: typeof styleFixtures.styleSnapshot
       referenceImageUrls?: string[]
       appearanceId?: string
       characterId?: string
@@ -98,7 +129,7 @@ describe('api specific - characters POST forwarding to reference task', () => {
     expect(forwarded.locale).toBe('zh')
     expect(forwarded.meta?.locale).toBe('zh')
     expect(forwarded.customDescription).toBe('冷静，黑发')
-    expect(forwarded.artStyle).toBe('realistic')
+    expect(forwarded.styleSnapshot).toEqual(styleFixtures.styleSnapshot)
     expect(forwarded.referenceImageUrls).toEqual(['https://example.com/ref.png'])
     expect(forwarded.characterId).toBe('character-1')
     expect(forwarded.appearanceId).toBe('appearance-1')

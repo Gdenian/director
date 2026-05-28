@@ -4,9 +4,14 @@ import { prisma } from '@/lib/prisma'
 import { requireProjectAuth, requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { apiHandler, ApiError } from '@/lib/api-errors'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue, type ArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { normalizeImageGenerationCount } from '@/lib/image-generation/count'
+import {
+  resolveGlobalStyleSnapshot,
+  resolveProjectStyleSnapshot,
+  styleSnapshotToColumns,
+} from '@/lib/styles/service'
 import {
   collectBailianManagedVoiceIds,
   cleanupUnreferencedBailianVoices,
@@ -123,7 +128,7 @@ export const POST = apiHandler(async (
   // 🔐 统一权限验证
   const authResult = await requireProjectAuth(projectId)
   if (isErrorResponse(authResult)) return authResult
-  const { novelData } = authResult
+  const { novelData, session } = authResult
 
   const rawBody = await request.json().catch(() => ({}))
   const body = toObject(rawBody)
@@ -135,21 +140,10 @@ export const POST = apiHandler(async (
   const referenceImageUrl = normalizeString(body.referenceImageUrl)
   const generateFromReference = body.generateFromReference === true
   const customDescription = normalizeString(body.customDescription)
+  const styleAssetId = normalizeString(body.styleAssetId)
   const count = generateFromReference
     ? normalizeImageGenerationCount('reference-to-character', body.count)
     : normalizeImageGenerationCount('character', body.count)
-  let artStyle: ArtStyleValue | undefined
-  if (Object.prototype.hasOwnProperty.call(body, 'artStyle')) {
-    const parsedArtStyle = normalizeString(body.artStyle)
-    if (!isArtStyleValue(parsedArtStyle)) {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'INVALID_ART_STYLE',
-        message: 'artStyle must be a supported value',
-      })
-    }
-    artStyle = parsedArtStyle
-  }
-  const resolvedArtStyle: ArtStyleValue = artStyle ?? 'american-comic'
   const referenceImageUrls = Array.isArray(body.referenceImageUrls)
     ? body.referenceImageUrls.map((item) => normalizeString(item)).filter(Boolean)
     : []
@@ -157,6 +151,9 @@ export const POST = apiHandler(async (
   if (!name) {
     throw new ApiError('INVALID_PARAMS')
   }
+  const styleSnapshot = styleAssetId
+    ? await resolveGlobalStyleSnapshot(session.user.id, styleAssetId)
+    : await resolveProjectStyleSnapshot(projectId)
 
   // 🔥 支持多张参考图（最多 5 张），兼容单张旧格式
   let allReferenceImages: string[] = []
@@ -182,6 +179,7 @@ export const POST = apiHandler(async (
       characterId: character.id,
       appearanceIndex: PRIMARY_APPEARANCE_INDEX,
       changeReason: '初始形象',
+      ...styleSnapshotToColumns(styleSnapshot),
       description: descText,
       descriptions: JSON.stringify([descText]),
       imageUrls: encodeImageUrls([]),
@@ -205,7 +203,7 @@ export const POST = apiHandler(async (
         appearanceId: appearance.id,
         count,
         isBackgroundJob: true,
-        artStyle: resolvedArtStyle,
+        styleSnapshot,
         customDescription: customDescription || undefined,  // 🔥 传递自定义描述（文生图模式）
         locale: taskLocale || undefined,
         meta: {

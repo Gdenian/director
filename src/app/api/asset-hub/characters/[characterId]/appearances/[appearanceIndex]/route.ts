@@ -3,7 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { ApiError, apiHandler } from '@/lib/api-errors'
-import { PRIMARY_APPEARANCE_INDEX, isArtStyleValue } from '@/lib/constants'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
+import {
+    resolveAssetStyleSnapshot,
+    resolveDefaultStyleSnapshot,
+    resolveGlobalStyleSnapshot,
+    styleSnapshotToColumns,
+} from '@/lib/styles/service'
 
 // 更新形象描述
 export const PATCH = apiHandler(async (
@@ -26,7 +32,7 @@ export const PATCH = apiHandler(async (
     }
 
     const body = await request.json()
-    const { description, descriptionIndex, changeReason, artStyle } = body
+    const { description, descriptionIndex, changeReason, styleAssetId } = body
 
     const appearance = await prisma.globalCharacterAppearance.findFirst({
         where: { characterId, appearanceIndex: parseInt(appearanceIndex, 10) }
@@ -59,21 +65,16 @@ export const PATCH = apiHandler(async (
     if (changeReason !== undefined) {
         updateData.changeReason = changeReason
     }
-    if (artStyle !== undefined) {
-        if (typeof artStyle !== 'string') {
+    if (styleAssetId !== undefined) {
+        const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+        if (!normalizedStyleAssetId) {
             throw new ApiError('INVALID_PARAMS', {
-                code: 'INVALID_ART_STYLE',
-                message: 'artStyle must be a supported value',
+                code: 'INVALID_STYLE_ASSET',
+                message: 'styleAssetId must be a non-empty string',
             })
         }
-        const normalizedArtStyle = artStyle.trim()
-        if (!isArtStyleValue(normalizedArtStyle)) {
-            throw new ApiError('INVALID_PARAMS', {
-                code: 'INVALID_ART_STYLE',
-                message: 'artStyle must be a supported value',
-            })
-        }
-        updateData.artStyle = normalizedArtStyle
+        const styleSnapshot = await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        Object.assign(updateData, styleSnapshotToColumns(styleSnapshot))
     }
 
     await prisma.globalCharacterAppearance.update({
@@ -106,7 +107,7 @@ export const POST = apiHandler(async (
     }
 
     const body = await request.json()
-    const { description, changeReason, artStyle } = body
+    const { description, changeReason, styleAssetId } = body
 
     if (!description) {
         throw new ApiError('INVALID_PARAMS')
@@ -114,27 +115,22 @@ export const POST = apiHandler(async (
 
     const maxIndex = character.appearances.reduce((max, a) => Math.max(max, a.appearanceIndex), 0)
     const newIndex = maxIndex + 1
-    const inputArtStyle = typeof artStyle === 'string' ? artStyle.trim() : ''
-    const fallbackArtStyle = (() => {
-        if (inputArtStyle) return inputArtStyle
-        const primaryAppearance = character.appearances.find((item) => item.appearanceIndex === PRIMARY_APPEARANCE_INDEX)
-            || character.appearances[0]
-        const stored = typeof primaryAppearance?.artStyle === 'string' ? primaryAppearance.artStyle.trim() : ''
-        return stored
-    })()
-    if (!isArtStyleValue(fallbackArtStyle)) {
-        throw new ApiError('INVALID_PARAMS', {
-            code: 'INVALID_ART_STYLE',
-            message: 'artStyle is required and must be a supported value',
-        })
-    }
+    const normalizedStyleAssetId = typeof styleAssetId === 'string' ? styleAssetId.trim() : ''
+    const primaryAppearance = character.appearances.find((item) => item.appearanceIndex === PRIMARY_APPEARANCE_INDEX)
+        || character.appearances[0]
+    const inheritedSnapshot = primaryAppearance
+        ? await resolveAssetStyleSnapshot(primaryAppearance)
+        : null
+    const styleSnapshot = normalizedStyleAssetId
+        ? await resolveGlobalStyleSnapshot(session.user.id, normalizedStyleAssetId)
+        : inheritedSnapshot ?? await resolveDefaultStyleSnapshot(session.user.id)
 
     const appearance = await prisma.globalCharacterAppearance.create({
         data: {
             characterId,
             appearanceIndex: newIndex,
             changeReason: changeReason || '形象变化',
-            artStyle: fallbackArtStyle,
+            ...styleSnapshotToColumns(styleSnapshot),
             description: description.trim(),
             descriptions: JSON.stringify([description.trim()]),
             imageUrls: encodeImageUrls([]),
