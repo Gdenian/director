@@ -3,8 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { logProjectAction } from '@/lib/logging/semantic'
 import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
-import { isArtStyleValue } from '@/lib/constants'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
+import {
+  applyProjectStyleSnapshot,
+  resolveStyleSnapshotState,
+} from '@/lib/styles/service'
 import {
   parseModelKeyStrict,
   type CapabilitySelections,
@@ -113,23 +116,23 @@ function validateModelKeyField(field: typeof MODEL_FIELDS[number], value: unknow
   }
 }
 
-function validateArtStyleField(value: unknown): string {
+function validateStyleAssetIdField(value: unknown): string {
   if (typeof value !== 'string') {
     throw new ApiError('INVALID_PARAMS', {
-      code: 'INVALID_ART_STYLE',
-      field: 'artStyle',
-      message: 'artStyle must be a supported value',
+      code: 'INVALID_STYLE_ASSET',
+      field: 'styleAssetId',
+      message: 'styleAssetId must be a non-empty string',
     })
   }
-  const artStyle = value.trim()
-  if (!isArtStyleValue(artStyle)) {
+  const styleAssetId = value.trim()
+  if (!styleAssetId) {
     throw new ApiError('INVALID_PARAMS', {
-      code: 'INVALID_ART_STYLE',
-      field: 'artStyle',
-      message: 'artStyle must be a supported value',
+      code: 'INVALID_STYLE_ASSET',
+      field: 'styleAssetId',
+      message: 'styleAssetId must be a non-empty string',
     })
   }
-  return artStyle
+  return styleAssetId
 }
 
 function getNextProjectModelMap(
@@ -293,11 +296,12 @@ export const PATCH = apiHandler(async (
 
   const allowedProjectFields = [
     'analysisModel', 'characterModel', 'locationModel', 'storyboardModel',
-    'editModel', 'videoModel', 'audioModel', 'videoRatio', 'artStyle',
+    'editModel', 'videoModel', 'audioModel', 'videoRatio', 'styleAssetId',
     'ttsRate', 'lipSyncEnabled', 'lipSyncMode', 'capabilityOverrides',
   ] as const
 
   const updateData: Record<string, unknown> = {}
+  let styleAssetId: string | null = null
   for (const field of allowedProjectFields) {
     if (body[field] === undefined) continue
 
@@ -305,8 +309,8 @@ export const PATCH = apiHandler(async (
       validateModelKeyField(field as typeof MODEL_FIELDS[number], body[field])
     }
 
-    if (field === 'artStyle') {
-      updateData[field] = validateArtStyleField(body[field])
+    if (field === 'styleAssetId') {
+      styleAssetId = validateStyleAssetIdField(body[field])
       continue
     }
 
@@ -322,15 +326,33 @@ export const PATCH = apiHandler(async (
     updateData[field] = body[field]
   }
 
-  const updatedNovelPromotionData = await prisma.novelPromotionProject.update({
-    where: { projectId },
-    data: updateData})
+  if (Object.keys(updateData).length === 0 && !styleAssetId) {
+    throw new ApiError('INVALID_PARAMS')
+  }
+
+  if (styleAssetId) {
+    await applyProjectStyleSnapshot(projectId, session.user.id, styleAssetId)
+  }
+
+  const updatedNovelPromotionData = Object.keys(updateData).length > 0
+    ? await prisma.novelPromotionProject.update({
+      where: { projectId },
+      data: updateData})
+    : await prisma.novelPromotionProject.findUnique({ where: { projectId } })
+
+  if (!updatedNovelPromotionData) {
+    throw new ApiError('NOT_FOUND')
+  }
 
   const novelPromotionDataWithSignedUrls = await attachMediaFieldsToProject(updatedNovelPromotionData)
+  const styleSnapshotState = await resolveStyleSnapshotState(session.user.id, updatedNovelPromotionData)
 
   const fullProject = {
     ...project,
-    novelPromotionData: novelPromotionDataWithSignedUrls}
+    novelPromotionData: {
+      ...novelPromotionDataWithSignedUrls,
+      ...styleSnapshotState,
+    }}
 
   logProjectAction(
     'UPDATE_NOVEL_PROMOTION',

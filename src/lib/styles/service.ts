@@ -58,6 +58,12 @@ export type ResolveEffectiveStyleSnapshotInput = {
   assetSnapshot?: ResolveAssetStyleSnapshotInput | null
 }
 
+export type StyleSnapshotState = {
+  styleSnapshot: StyleSnapshot | null
+  styleSnapshotStale: boolean
+  styleSnapshotStaleMessage: string | null
+}
+
 type GlobalStyleRecord = {
   id: string
   userId: string
@@ -74,13 +80,15 @@ type GlobalStyleRecord = {
   updatedAt: Date
 }
 
-type SnapshotRecord = {
+export type StyleSnapshotRecord = {
   styleAssetId: string | null
   styleSnapshotName: string | null
   stylePromptZh: string | null
   stylePromptEn: string | null
   styleSnapshotUpdatedAt: Date | string | null
 }
+
+export const STYLE_SNAPSHOT_STALE_MESSAGE = '该风格已有更新，可重新选择刷新状态'
 
 const defaultSeed = DEFAULT_STYLE_SEEDS.find((seed) => seed.isDefault) ?? DEFAULT_STYLE_SEEDS[0]
 
@@ -289,6 +297,25 @@ export async function setDefaultStyle(userId: string, styleId: string): Promise<
   return { defaultStyleId: style.id }
 }
 
+export async function resolveDefaultStyleSnapshot(userId: string): Promise<StyleSnapshot> {
+  assertRequired(userId)
+
+  const { defaultStyleId } = await ensureDefaultStyles(userId)
+  const style = await prisma.globalStyle.findFirst({
+    where: { id: defaultStyleId, userId },
+    select: {
+      id: true,
+      name: true,
+      promptZh: true,
+      promptEn: true,
+      updatedAt: true,
+    },
+  })
+  if (!style) throwStyleNotFound()
+
+  return buildStyleSnapshot(style)
+}
+
 export function buildStyleSnapshot(style: { id: string; name: string; promptZh: string; promptEn: string | null; updatedAt: Date }): StyleSnapshot {
   return {
     styleAssetId: style.id,
@@ -354,6 +381,38 @@ export async function resolveAssetStyleSnapshot(input: ResolveAssetStyleSnapshot
   })
 }
 
+export async function resolveStyleSnapshotState(
+  userId: string,
+  record: StyleSnapshotRecord,
+): Promise<StyleSnapshotState> {
+  assertRequired(userId)
+
+  const styleSnapshot = snapshotFromRecord(record)
+  if (!styleSnapshot) {
+    return {
+      styleSnapshot: null,
+      styleSnapshotStale: false,
+      styleSnapshotStaleMessage: null,
+    }
+  }
+
+  let styleUpdatedAt: Date | null = null
+  if (styleSnapshot.styleAssetId) {
+    const globalStyle = await prisma.globalStyle.findFirst({
+      where: { id: styleSnapshot.styleAssetId, userId },
+      select: { updatedAt: true },
+    })
+    styleUpdatedAt = globalStyle?.updatedAt ?? null
+  }
+
+  const styleSnapshotStale = isGlobalStyleStale(styleSnapshot, styleUpdatedAt)
+  return {
+    styleSnapshot,
+    styleSnapshotStale,
+    styleSnapshotStaleMessage: styleSnapshotStale ? STYLE_SNAPSHOT_STALE_MESSAGE : null,
+  }
+}
+
 export async function resolveEffectiveStyleSnapshot(input: ResolveEffectiveStyleSnapshotInput): Promise<StyleSnapshot> {
   const assetSnapshot = input.assetSnapshot ? await resolveAssetStyleSnapshot(input.assetSnapshot) : null
   if (assetSnapshot) return assetSnapshot
@@ -401,7 +460,7 @@ function toSnapshotColumns(snapshot: StyleSnapshot) {
   }
 }
 
-function snapshotFromRecord(record: SnapshotRecord): StyleSnapshot | null {
+function snapshotFromRecord(record: StyleSnapshotRecord): StyleSnapshot | null {
   if (!record.styleSnapshotName || !record.stylePromptZh || !record.styleSnapshotUpdatedAt) return null
   const snapshotUpdatedAt = toIsoString(record.styleSnapshotUpdatedAt)
   if (!snapshotUpdatedAt) return null

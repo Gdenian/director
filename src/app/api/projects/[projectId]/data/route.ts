@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
+import { resolveStyleSnapshotState } from '@/lib/styles/service'
 
 function readAssetKind(value: Record<string, unknown>): string {
   return typeof value.assetKind === 'string' ? value.assetKind : 'location'
@@ -75,8 +76,10 @@ export const GET = apiHandler(async (
 
   // 转换为稳定媒体 URL（并保留兼容字段）
   const novelPromotionDataWithSignedUrls = await attachMediaFieldsToProject(novelPromotionData)
+  const styleSnapshotState = await resolveStyleSnapshotState(session.user.id, novelPromotionData)
   const filteredNovelPromotionData = {
     ...novelPromotionDataWithSignedUrls,
+    ...styleSnapshotState,
     locations: (novelPromotionDataWithSignedUrls.locations || []).filter((item) => readAssetKind(item) !== 'prop'),
     props: (novelPromotionDataWithSignedUrls.locations || []).filter((item) => readAssetKind(item) === 'prop'),
   }

@@ -1,5 +1,6 @@
 import type { CapabilitySelections } from '@/lib/model-config-contract'
 import type { LocationAvailableSlot } from '@/lib/location-available-slots'
+import type { StyleSnapshot } from '@/lib/styles/types'
 
 // ============================================
 // 基础项目类型
@@ -255,6 +256,14 @@ export interface NovelPromotionProject {
   capabilityOverrides?: CapabilitySelections | string | null
   ttsRate: string
   workflowMode: WorkflowMode  // 新增：工作流模式
+  styleAssetId: string | null
+  styleSnapshotName: string | null
+  stylePromptZh: string | null
+  stylePromptEn: string | null
+  styleSnapshotUpdatedAt: Date | string | null
+  styleSnapshot?: StyleSnapshot | null
+  styleSnapshotStale?: boolean
+  styleSnapshotStaleMessage?: string | null
   artStyle: string
   artStylePrompt: string | null
   audioUrl: string | null

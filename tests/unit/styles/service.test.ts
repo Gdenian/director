@@ -11,7 +11,9 @@ import {
   deleteGlobalStyle,
   ensureDefaultStyles,
   isGlobalStyleStale,
+  resolveDefaultStyleSnapshot,
   resolveEffectiveStyleSnapshot,
+  resolveStyleSnapshotState,
   resolveStylePrompt,
 } from '@/lib/styles/service'
 import type { StyleSnapshot } from '@/lib/styles/types'
@@ -109,6 +111,29 @@ describe('styles/service', () => {
     expect(preference?.defaultStyleId).toBe(existing.id)
   })
 
+  it('resolveDefaultStyleSnapshot returns the default global style snapshot', async () => {
+    const user = await createFixtureUser()
+    const style = await createStyle(user.id, {
+      name: '默认写实',
+      promptZh: '默认中文提示词',
+      promptEn: 'default english prompt',
+    })
+    await prisma.userPreference.create({
+      data: {
+        userId: user.id,
+        defaultStyleId: style.id,
+      },
+    })
+
+    await expect(resolveDefaultStyleSnapshot(user.id)).resolves.toEqual({
+      styleAssetId: style.id,
+      name: '默认写实',
+      promptZh: '默认中文提示词',
+      promptEn: 'default english prompt',
+      snapshotUpdatedAt: style.updatedAt.toISOString(),
+    })
+  })
+
   it('buildStyleSnapshot copies id, name, prompts, and updatedAt', () => {
     const updatedAt = new Date('2026-05-28T10:20:30.000Z')
 
@@ -196,6 +221,32 @@ describe('styles/service', () => {
     expect(isGlobalStyleStale(snapshot, '2026-05-28T10:00:00.000Z')).toBe(false)
     expect(isGlobalStyleStale(snapshot, new Date('2026-05-28T09:59:59.999Z'))).toBe(false)
     expect(isGlobalStyleStale(snapshot, new Date('2026-05-28T10:00:00.001Z'))).toBe(true)
+  })
+
+  it('resolveStyleSnapshotState returns stale message when global style is newer than project snapshot', async () => {
+    const user = await createFixtureUser()
+    const style = await createStyle(user.id, { name: '电影写实' })
+    const olderSnapshotTime = new Date(style.updatedAt.getTime() - 1000)
+
+    await expect(
+      resolveStyleSnapshotState(user.id, {
+        styleAssetId: style.id,
+        styleSnapshotName: '电影写实',
+        stylePromptZh: '旧中文提示词',
+        stylePromptEn: 'old english prompt',
+        styleSnapshotUpdatedAt: olderSnapshotTime,
+      }),
+    ).resolves.toEqual({
+      styleSnapshot: {
+        styleAssetId: style.id,
+        name: '电影写实',
+        promptZh: '旧中文提示词',
+        promptEn: 'old english prompt',
+        snapshotUpdatedAt: olderSnapshotTime.toISOString(),
+      },
+      styleSnapshotStale: true,
+      styleSnapshotStaleMessage: '该风格已有更新，可重新选择刷新状态',
+    })
   })
 
   it('resolveEffectiveStyleSnapshot prefers asset snapshot and falls back to project snapshot', async () => {

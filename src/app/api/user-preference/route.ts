@@ -2,25 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
-import { isArtStyleValue } from '@/lib/constants'
+import { ensureDefaultStyles, setDefaultStyle } from '@/lib/styles/service'
 
-function validateArtStyleField(value: unknown): string {
+function validateDefaultStyleIdField(value: unknown): string {
   if (typeof value !== 'string') {
     throw new ApiError('INVALID_PARAMS', {
-      code: 'INVALID_ART_STYLE',
-      field: 'artStyle',
-      message: 'artStyle must be a supported value',
+      code: 'INVALID_DEFAULT_STYLE',
+      field: 'defaultStyleId',
+      message: 'defaultStyleId must be a non-empty string',
     })
   }
-  const artStyle = value.trim()
-  if (!isArtStyleValue(artStyle)) {
+  const defaultStyleId = value.trim()
+  if (!defaultStyleId) {
     throw new ApiError('INVALID_PARAMS', {
-      code: 'INVALID_ART_STYLE',
-      field: 'artStyle',
-      message: 'artStyle must be a supported value',
+      code: 'INVALID_DEFAULT_STYLE',
+      field: 'defaultStyleId',
+      message: 'defaultStyleId must be a non-empty string',
     })
   }
-  return artStyle
+  return defaultStyleId
 }
 
 // GET - 获取用户偏好配置
@@ -29,6 +29,8 @@ export const GET = apiHandler(async () => {
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
+
+  await ensureDefaultStyles(session.user.id)
 
   // 获取或创建用户偏好
   const preference = await prisma.userPreference.upsert({
@@ -60,34 +62,43 @@ export const PATCH = apiHandler(async (request: NextRequest) => {
     'audioModel',
     'lipSyncModel',
     'videoRatio',
-    'artStyle',
     'ttsRate'
   ]
+
+  let defaultStyleUpdated = false
+  if (body.defaultStyleId !== undefined) {
+    const defaultStyleId = validateDefaultStyleIdField(body.defaultStyleId)
+    await setDefaultStyle(session.user.id, defaultStyleId)
+    defaultStyleUpdated = true
+  }
 
   const updateData: Record<string, unknown> = {}
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
-      if (field === 'artStyle') {
-        updateData[field] = validateArtStyleField(body[field])
-        continue
-      }
       updateData[field] = body[field]
     }
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (Object.keys(updateData).length === 0 && !defaultStyleUpdated) {
     throw new ApiError('INVALID_PARAMS')
   }
 
-  // 更新或创建用户偏好
-  const preference = await prisma.userPreference.upsert({
-    where: { userId: session.user.id },
-    update: updateData,
-    create: {
-      userId: session.user.id,
-      ...updateData
-    }
-  })
+  let preference
+  if (Object.keys(updateData).length > 0) {
+    // 更新或创建用户偏好
+    preference = await prisma.userPreference.upsert({
+      where: { userId: session.user.id },
+      update: updateData,
+      create: {
+        userId: session.user.id,
+        ...updateData
+      }
+    })
+  } else {
+    preference = await prisma.userPreference.findUnique({
+      where: { userId: session.user.id },
+    })
+  }
 
   return NextResponse.json({ preference })
 })

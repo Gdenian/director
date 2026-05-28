@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { toMoneyNumber } from '@/lib/billing/money'
-import { isArtStyleValue } from '@/lib/constants'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
+import { resolveDefaultStyleSnapshot } from '@/lib/styles/service'
+import type { StyleSnapshot } from '@/lib/styles/types'
 import {
   formatProjectValidationIssue,
   normalizeProjectDraft,
@@ -21,6 +22,16 @@ function readProjectDraftBody(body: unknown): ProjectDraftInput {
   return {
     name: typeof payload.name === 'string' ? payload.name : '',
     description: typeof payload.description === 'string' ? payload.description : null,
+  }
+}
+
+function toProjectStyleSnapshotData(snapshot: StyleSnapshot) {
+  return {
+    styleAssetId: snapshot.styleAssetId,
+    styleSnapshotName: snapshot.name,
+    stylePromptZh: snapshot.promptZh,
+    stylePromptEn: snapshot.promptEn,
+    styleSnapshotUpdatedAt: new Date(snapshot.snapshotUpdatedAt),
   }
 }
 
@@ -203,10 +214,13 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
   const { name, description } = normalizeProjectDraft(draft)
 
-  // 获取用户偏好配置
-  const userPreference = await prisma.userPreference.findUnique({
-    where: { userId: session.user.id }
-  })
+  // 获取用户偏好配置和默认风格快照
+  const [userPreference, styleSnapshot] = await Promise.all([
+    prisma.userPreference.findUnique({
+      where: { userId: session.user.id }
+    }),
+    resolveDefaultStyleSnapshot(session.user.id),
+  ])
 
   // 创建基础项目
   const project = await prisma.project.create({
@@ -221,10 +235,11 @@ export const POST = apiHandler(async (request: NextRequest) => {
   // 注意：不再自动创建默认剧集，由用户在选择界面决定：
   // - 手动创作 → 创建第一个空白剧集
   // - 智能导入 → AI 分析后批量创建剧集
-  // 🔥 artStylePrompt 通过实时查询获取，不再存储到数据库
+  // 风格使用项目快照保存，避免全局风格更新影响既有项目生成结果
   await prisma.novelPromotionProject.create({
     data: {
       projectId: project.id,
+      ...toProjectStyleSnapshotData(styleSnapshot),
       ...(userPreference && {
         analysisModel: userPreference.analysisModel,
         characterModel: userPreference.characterModel,
@@ -234,7 +249,6 @@ export const POST = apiHandler(async (request: NextRequest) => {
         videoModel: userPreference.videoModel,
         audioModel: userPreference.audioModel,
         videoRatio: userPreference.videoRatio,
-        artStyle: isArtStyleValue(userPreference.artStyle) ? userPreference.artStyle : 'american-comic',
         ttsRate: userPreference.ttsRate
       })
     }

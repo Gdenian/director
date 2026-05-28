@@ -19,7 +19,7 @@ const prismaMock = vi.hoisted(() => ({
       videoModel: 'video::model',
       audioModel: 'audio::tts',
       videoRatio: '9:16',
-      artStyle: 'realistic',
+      defaultStyleId: 'style-1',
       ttsRate: '+0%',
     })),
   },
@@ -36,8 +36,23 @@ const prismaMock = vi.hoisted(() => ({
   },
 }))
 
+const styleFixtures = vi.hoisted(() => ({
+  styleSnapshot: {
+    styleAssetId: 'style-1',
+    name: '电影写实',
+    promptZh: '电影写实中文提示词',
+    promptEn: 'cinematic realistic prompt',
+    snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+  },
+}))
+
+const styleServiceMock = vi.hoisted(() => ({
+  resolveDefaultStyleSnapshot: vi.fn(async () => styleFixtures.styleSnapshot),
+}))
+
 vi.mock('@/lib/api-auth', () => authMock)
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/styles/service', () => styleServiceMock)
 
 describe('api specific - project create default audio model', () => {
   const routeContext = { params: Promise.resolve({}) }
@@ -70,8 +85,14 @@ describe('api specific - project create default audio model', () => {
       data: expect.objectContaining({
         projectId: 'project-1',
         audioModel: 'audio::tts',
+        styleAssetId: 'style-1',
+        styleSnapshotName: '电影写实',
+        stylePromptZh: '电影写实中文提示词',
+        stylePromptEn: 'cinematic realistic prompt',
+        styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
       }),
     })
+    expect(styleServiceMock.resolveDefaultStyleSnapshot).toHaveBeenCalledWith('user-1')
   })
 
   it('returns an explicit validation error when description exceeds the max length', async () => {
