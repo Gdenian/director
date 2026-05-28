@@ -118,10 +118,12 @@ export function useGenerateProjectCharacterImage(projectId: string) {
         mutationFn: async ({
             characterId,
             appearanceId,
+            styleAssetId,
             count,
         }: {
             characterId: string
             appearanceId: string
+            styleAssetId?: string
             count?: number
         }) => {
             return await requestJsonWithError(`/api/assets/${characterId}/generate`, {
@@ -132,6 +134,7 @@ export function useGenerateProjectCharacterImage(projectId: string) {
                     kind: 'character',
                     projectId,
                     appearanceId,
+                    styleAssetId,
                     count,
                 })
             }, 'Failed to generate image')

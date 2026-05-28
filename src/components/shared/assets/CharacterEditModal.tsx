@@ -16,6 +16,7 @@ import {
     useUpdateProjectCharacterName,
 } from '@/lib/query/hooks'
 import { AiModifyDescriptionField } from './AiModifyDescriptionField'
+import StyleAssetSelect from './StyleAssetSelect'
 
 export interface CharacterEditModalProps {
     mode: 'asset-hub' | 'project'
@@ -30,7 +31,7 @@ export interface CharacterEditModalProps {
     isTaskRunning?: boolean
     introduction?: string | null
     onClose: () => void
-    onSave: (characterId: string, appearanceId: string) => void
+    onSave: (characterId: string, appearanceId: string, styleAssetId?: string) => void
     onUpdate?: (newDescription: string) => void
     onIntroductionUpdate?: (newIntroduction: string) => void
     onNameUpdate?: (newName: string) => void
@@ -65,6 +66,7 @@ export function CharacterEditModal({
     const [editingName, setEditingName] = useState(characterName)
     const [editingDescription, setEditingDescription] = useState(description)
     const [editingIntroduction, setEditingIntroduction] = useState(introduction || '')
+    const [styleAssetId, setStyleAssetId] = useState('')
     const [aiModifyInstruction, setAiModifyInstruction] = useState('')
     const [isAiModifying, setIsAiModifying] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -230,6 +232,7 @@ export function CharacterEditModal({
     const handleSaveAndGenerate = async () => {
         const savedDescription = editingDescription
         const savedAppearanceKey = appearanceKey
+        const savedStyleAssetId = styleAssetId || undefined
         onClose()
 
         ; (async () => {
@@ -240,7 +243,7 @@ export function CharacterEditModal({
 
                 onUpdate?.(savedDescription)
                 onRefresh?.()
-                onSave(characterId, savedAppearanceKey)
+                onSave(characterId, savedAppearanceKey, savedStyleAssetId)
             } catch (error: unknown) {
                 if (shouldShowError(error)) {
                     alert(getErrorMessage(error, t('errors.saveFailed')))
@@ -332,6 +335,12 @@ export function CharacterEditModal({
                         aiModifyingState={aiModifyingState}
                         actionLabel={t('modal.modifyDescription')}
                         cancelLabel={t('common.cancel')}
+                    />
+
+                    <StyleAssetSelect
+                        value={styleAssetId}
+                        onChange={setStyleAssetId}
+                        mode={mode}
                     />
                 </div>
 

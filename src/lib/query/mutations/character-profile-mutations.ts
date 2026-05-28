@@ -144,6 +144,7 @@ export function useCreateProjectCharacter(projectId: string) {
         mutationFn: async (payload: {
             name: string
             description: string
+            styleAssetId?: string
             generateFromReference?: boolean
             referenceImageUrls?: string[]
             customDescription?: string
@@ -176,6 +177,7 @@ export function useCreateProjectCharacterAppearance(projectId: string) {
             characterId: string
             changeReason: string
             description: string
+            styleAssetId?: string
         }) =>
             await requestJsonWithError(
                 `/api/novel-promotion/${projectId}/character/appearance`,

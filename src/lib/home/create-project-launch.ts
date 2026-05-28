@@ -29,7 +29,7 @@ export interface CreateHomeProjectLaunchParams {
   projectName: string
   storyText: string
   videoRatio: string
-  artStyle: string
+  styleAssetId?: string | null
   episodeName: string
 }
 
@@ -87,7 +87,7 @@ export async function createHomeProjectLaunch({
   projectName,
   storyText,
   videoRatio,
-  artStyle,
+  styleAssetId,
   episodeName,
 }: CreateHomeProjectLaunchParams): Promise<CreateHomeProjectLaunchResult> {
   const projectResponse = await apiFetch('/api/projects', {
@@ -103,11 +103,16 @@ export async function createHomeProjectLaunch({
   }
 
   const projectId = await readProjectId(projectResponse)
+  const configBody: { videoRatio: string; styleAssetId?: string } = { videoRatio }
+  const normalizedStyleAssetId = styleAssetId?.trim()
+  if (normalizedStyleAssetId) {
+    configBody.styleAssetId = normalizedStyleAssetId
+  }
 
   const configResponse = await apiFetch(`/api/novel-promotion/${projectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ videoRatio, artStyle }),
+    body: JSON.stringify(configBody),
   })
 
   if (!configResponse.ok) {

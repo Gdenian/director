@@ -14,7 +14,9 @@ interface UseWorkspaceStageRuntimeParams {
   isStartingStoryToScript: boolean
   isStartingScriptToStoryboard: boolean
   videoRatio: string | undefined
-  artStyle: string | undefined
+  styleAssetId: string | null | undefined
+  styleSnapshotName: string | null | undefined
+  styleSnapshotStaleMessage: string | null | undefined
   videoModel: string | undefined
   capabilityOverrides: CapabilitySelections
   userVideoModels: Array<{
@@ -64,7 +66,9 @@ export function useWorkspaceStageRuntime({
   isStartingStoryToScript,
   isStartingScriptToStoryboard,
   videoRatio,
-  artStyle,
+  styleAssetId,
+  styleSnapshotName,
+  styleSnapshotStaleMessage,
   videoModel,
   capabilityOverrides,
   userVideoModels,
@@ -94,13 +98,15 @@ export function useWorkspaceStageRuntime({
     isStartingStoryToScript,
     isStartingScriptToStoryboard,
     videoRatio,
-    artStyle,
+    styleAssetId,
+    styleSnapshotName,
+    styleSnapshotStaleMessage,
     videoModel,
     capabilityOverrides,
     userVideoModels: resolvedUserVideoModels,
     onNovelTextChange: (value) => handleUpdateEpisode('novelText', value),
     onVideoRatioChange: (value) => handleUpdateConfig('videoRatio', value),
-    onArtStyleChange: (value) => handleUpdateConfig('artStyle', value),
+    onStyleAssetChange: (value) => handleUpdateConfig('styleAssetId', value),
     onRunStoryToScript: () => runWithRebuildConfirm('storyToScript', runStoryToScriptFlow),
     onClipUpdate: (clipId, data) => {
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -117,7 +123,6 @@ export function useWorkspaceStageRuntime({
     onUpdatePanelVideoModel: handleUpdatePanelVideoModel,
     onOpenAssetLibraryForCharacter: (characterId, refreshAssets) => openAssetLibrary(characterId, refreshAssets),
   }), [
-    artStyle,
     assetsLoading,
     handleGenerateAllVideos,
     handleGenerateVideo,
@@ -138,6 +143,9 @@ export function useWorkspaceStageRuntime({
     runWithRebuildConfirm,
     resolvedUserVideoModels,
     capabilityOverrides,
+    styleAssetId,
+    styleSnapshotName,
+    styleSnapshotStaleMessage,
     videoModel,
     videoRatio,
   ])

@@ -28,7 +28,6 @@ interface Appearance {
     id: string
     appearanceIndex: number
     changeReason: string
-    artStyle?: string | null
     description: string | null
     imageUrl: string | null
     imageUrls: string[]
@@ -127,7 +126,6 @@ export function CharacterCard({ character, onImageClick, onImageEdit, onVoiceDes
             {
                 characterId: character.id,
                 appearanceIndex: appearance.appearanceIndex,
-                artStyle: appearance.artStyle || undefined,
                 count,
             },
             { onError: (error) => alert(error.message || t('generateFailed')) }

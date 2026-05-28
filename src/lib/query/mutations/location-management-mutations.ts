@@ -274,7 +274,7 @@ export function useCreateProjectLocation(projectId: string) {
         mutationFn: async (payload: {
             name: string
             description: string
-            artStyle?: string
+            styleAssetId?: string
             count?: number
             availableSlots?: LocationAvailableSlot[]
         }) =>

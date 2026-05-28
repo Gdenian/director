@@ -2,10 +2,10 @@
 
 import type { DragEvent, RefObject } from 'react'
 import { useTranslations } from 'next-intl'
-import { ART_STYLES } from '@/lib/constants'
 import CharacterCreationPreview from './CharacterCreationPreview'
 import { AppIcon } from '@/components/ui/icons'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import StyleAssetSelect from '../StyleAssetSelect'
 
 type Mode = 'asset-hub' | 'project'
 
@@ -25,8 +25,8 @@ interface CharacterCreationFormProps {
   setDescription: (value: string) => void
   aiInstruction: string
   setAiInstruction: (value: string) => void
-  artStyle: string
-  setArtStyle: (value: string) => void
+  styleAssetId: string
+  setStyleAssetId: (value: string) => void
   referenceImagesBase64: string[]
   referenceSubMode: 'direct' | 'extract'
   setReferenceSubMode: (mode: 'direct' | 'extract') => void
@@ -66,8 +66,8 @@ export default function CharacterCreationForm({
   setDescription,
   aiInstruction,
   setAiInstruction,
-  artStyle,
-  setArtStyle,
+  styleAssetId,
+  setStyleAssetId,
   referenceImagesBase64,
   referenceSubMode,
   setReferenceSubMode,
@@ -84,7 +84,6 @@ export default function CharacterCreationForm({
   handleClearReference,
   handleExtractDescription,
   handleAiDesign,
-  isSubmitting,
   isAiDesigning,
   isExtracting,
 }: CharacterCreationFormProps) {
@@ -169,28 +168,11 @@ export default function CharacterCreationForm({
         </div>
       )}
 
-      {mode === 'asset-hub' && !isSubAppearance && (
-        <div className="space-y-2">
-          <label className="glass-field-label block">
-            {t('artStyle.title')}
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {ART_STYLES.map((style) => (
-              <button
-                key={style.value}
-                type="button"
-                onClick={() => setArtStyle(style.value)}
-                className={`glass-btn-base px-3 py-2 rounded-lg text-sm border transition-all justify-start ${artStyle === style.value
-                  ? 'glass-btn-tone-info border-[var(--glass-stroke-focus)]'
-                  : 'glass-btn-soft border-[var(--glass-stroke-base)] text-[var(--glass-text-secondary)]'
-                  }`}
-              >
-                <span>{style.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <StyleAssetSelect
+        value={styleAssetId}
+        onChange={setStyleAssetId}
+        mode={mode}
+      />
 
       {createMode === 'reference' && (
         <div className="glass-surface-soft rounded-xl p-4 space-y-3 border border-[var(--glass-stroke-base)]">

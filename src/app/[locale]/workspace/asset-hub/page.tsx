@@ -16,13 +16,16 @@ import ImageEditModal from '@/app/[locale]/workspace/[projectId]/modes/novel-pro
 import VoiceDesignDialog from './components/VoiceDesignDialog'
 import VoiceCreationModal from './components/VoiceCreationModal'
 import VoicePickerDialog from './components/VoicePickerDialog'
+import StyleAssetModal from './components/StyleAssetModal'
 import {
     useAssets,
     useAssetActions,
     useRefreshAssets,
     useGlobalFolders,
+    useStyleActions,
     useSSE,
 } from '@/lib/query/hooks'
+import type { StyleAssetSummary } from '@/lib/assets/contracts'
 import { queryKeys } from '@/lib/query/keys'
 import { AppIcon } from '@/components/ui/icons'
 import { Link } from '@/i18n/navigation'
@@ -46,6 +49,7 @@ export default function AssetHubPage() {
     const characterActions = useAssetActions({ scope: 'global', kind: 'character' })
     const locationActions = useAssetActions({ scope: 'global', kind: 'location' })
     const propActions = useAssetActions({ scope: 'global', kind: 'prop' })
+    const styleActions = useStyleActions()
     const refreshAssets = useRefreshAssets({ scope: 'global' })
 
     const loading = foldersLoading || assetsLoading
@@ -55,6 +59,8 @@ export default function AssetHubPage() {
     const [showAddCharacter, setShowAddCharacter] = useState(false)
     const [showAddLocation, setShowAddLocation] = useState(false)
     const [showAddProp, setShowAddProp] = useState(false)
+    const [showAddStyle, setShowAddStyle] = useState(false)
+    const [editingStyle, setEditingStyle] = useState<StyleAssetSummary | null>(null)
     const [showFolderModal, setShowFolderModal] = useState(false)
     const [editingFolder, setEditingFolder] = useState<{ id: string; name: string } | null>(null)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -77,6 +83,17 @@ export default function AssetHubPage() {
     const [voicePickerCharacterId, setVoicePickerCharacterId] = useState<string | null>(null)
     const [isDownloading, setIsDownloading] = useState(false)
 
+    const handleDeleteStyle = async (styleId: string) => {
+        if (!confirm(t('style.confirmDelete'))) return
+        await styleActions.remove.mutateAsync(styleId)
+        refreshAssets()
+    }
+
+    const handleSetDefaultStyle = async (styleId: string) => {
+        await styleActions.setDefault.mutateAsync(styleId)
+        refreshAssets()
+    }
+
 
     // 编辑角色弹窗状态
     const [characterEditModal, setCharacterEditModal] = useState<{
@@ -85,7 +102,6 @@ export default function AssetHubPage() {
         appearanceId: string
         appearanceIndex: number
         changeReason: string
-        artStyle: string | null
         description: string
     } | null>(null)
 
@@ -95,7 +111,6 @@ export default function AssetHubPage() {
         locationName: string
         summary: string
         imageIndex: number
-        artStyle: string | null
         description: string
     } | null>(null)
     const [propEditModal, setPropEditModal] = useState<{
@@ -262,7 +277,6 @@ export default function AssetHubPage() {
             id: string
             appearanceIndex: number
             changeReason: string
-            artStyle?: string | null
             description: string | null
         }
         setCharacterEditModal({
@@ -271,7 +285,6 @@ export default function AssetHubPage() {
             appearanceId: typedAppearance.id,
             appearanceIndex: typedAppearance.appearanceIndex,
             changeReason: typedAppearance.changeReason || t('appearanceLabel', { index: typedAppearance.appearanceIndex }),
-            artStyle: typedAppearance.artStyle || null,
             description: typedAppearance.description || ''
         })
     }
@@ -282,7 +295,6 @@ export default function AssetHubPage() {
             id: string
             name: string
             summary: string | null
-            artStyle: string | null
             images: Array<{ imageIndex: number; description: string | null }>
         }
         const image = typedLocation.images.find(img => img.imageIndex === imageIndex)
@@ -291,7 +303,6 @@ export default function AssetHubPage() {
             locationName: typedLocation.name,
             summary: typedLocation.summary || '',
             imageIndex: imageIndex,
-            artStyle: typedLocation.artStyle || null,
             description: image?.description || typedLocation.summary || ''
         })
     }
@@ -314,14 +325,14 @@ export default function AssetHubPage() {
     }
 
     // 角色编辑后触发生成
-    const handleCharacterEditGenerate = async () => {
+    const handleCharacterEditGenerate = async (_characterId: string, _appearanceKey: string, styleAssetId?: string) => {
         if (!characterEditModal) return
 
         try {
             await characterActions.generate({
                 id: characterEditModal.characterId,
                 appearanceIndex: characterEditModal.appearanceIndex,
-                artStyle: characterEditModal.artStyle || undefined,
+                styleAssetId,
                 count: characterGenerationCount,
             })
             queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.characters() })
@@ -331,13 +342,13 @@ export default function AssetHubPage() {
     }
 
     // 场景编辑后触发生成
-    const handleLocationEditGenerate = async () => {
+    const handleLocationEditGenerate = async (_locationId: string, styleAssetId?: string) => {
         if (!locationEditModal) return
 
         try {
             await locationActions.generate({
                 id: locationEditModal.locationId,
-                artStyle: locationEditModal.artStyle || undefined,
+                styleAssetId,
                 count: locationGenerationCount,
             })
             queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.locations() })
@@ -491,6 +502,10 @@ export default function AssetHubPage() {
                         onAddLocation={() => setShowAddLocation(true)}
                         onAddProp={() => setShowAddProp(true)}
                         onAddVoice={() => setShowAddVoice(true)}
+                        onAddStyle={() => {
+                            setEditingStyle(null)
+                            setShowAddStyle(true)
+                        }}
                         onDownloadAll={handleDownloadAll}
                         isDownloading={isDownloading}
                         selectedFolderId={selectedFolderId}
@@ -501,6 +516,12 @@ export default function AssetHubPage() {
                         onLocationEdit={handleOpenLocationEdit}
                         onPropEdit={handleOpenPropEdit}
                         onVoiceSelect={(characterId) => setVoicePickerCharacterId(characterId)}
+                        onStyleEdit={(style) => {
+                            setEditingStyle(style)
+                            setShowAddStyle(true)
+                        }}
+                        onStyleDelete={(styleId) => { void handleDeleteStyle(styleId) }}
+                        onStyleSetDefault={(styleId) => { void handleSetDefaultStyle(styleId) }}
                     />
                 </div>
             </div>
@@ -542,6 +563,18 @@ export default function AssetHubPage() {
                         setShowAddProp(false)
                         refreshAssets()
                     }}
+                />
+            )}
+
+            {showAddStyle && (
+                <StyleAssetModal
+                    folderId={selectedFolderId}
+                    style={editingStyle}
+                    onClose={() => {
+                        setShowAddStyle(false)
+                        setEditingStyle(null)
+                    }}
+                    onSuccess={refreshAssets}
                 />
             )}
 

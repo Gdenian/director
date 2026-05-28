@@ -4,10 +4,10 @@ import { logError as _ulogError } from '@/lib/logging/core'
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
-import { ART_STYLES } from '@/lib/constants'
 import { shouldShowError } from '@/lib/error-utils'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import { resolveTaskPresentationState } from '@/lib/task/presentation'
+import StyleAssetSelect from './StyleAssetSelect'
 import {
     useAiCreateProjectLocation,
     useAiDesignLocation,
@@ -63,7 +63,7 @@ export function LocationCreationModal({
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [aiInstruction, setAiInstruction] = useState('')
-    const [artStyle, setArtStyle] = useState('american-comic')
+    const [styleAssetId, setStyleAssetId] = useState('')
     const [availableSlots, setAvailableSlots] = useState<LocationAvailableSlot[]>([])
 
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -150,34 +150,19 @@ export function LocationCreationModal({
         try {
             setIsSubmitting(true)
 
-            const body: {
-                name: string
-                description: string
-                artStyle: string
-                folderId?: string | null
-            } = {
-                name: name.trim(),
-                description: description.trim(),
-                artStyle
-            }
-
-            if (mode === 'asset-hub') {
-                body.folderId = folderId
-            }
-
             if (mode === 'asset-hub') {
                 await createAssetHubLocation.mutateAsync({
-                    name: body.name,
-                    summary: body.description,
-                    artStyle: body.artStyle,
-                    folderId: body.folderId ?? null,
+                    name: name.trim(),
+                    summary: description.trim(),
+                    styleAssetId: styleAssetId || undefined,
+                    folderId: folderId ?? null,
                     availableSlots,
                 })
             } else {
                 await createProjectLocation.mutateAsync({
-                    name: body.name,
-                    description: body.description,
-                    artStyle: body.artStyle,
+                    name: name.trim(),
+                    description: description.trim(),
+                    styleAssetId: styleAssetId || undefined,
                     availableSlots,
                 })
             }
@@ -205,7 +190,7 @@ export function LocationCreationModal({
                 const result = await createAssetHubLocation.mutateAsync({
                     name: name.trim(),
                     summary: description.trim(),
-                    artStyle,
+                    styleAssetId: styleAssetId || undefined,
                     folderId: folderId ?? null,
                     count: locationGenerationCount,
                     availableSlots,
@@ -216,14 +201,14 @@ export function LocationCreationModal({
                 }
                 await generateAssetHubLocation.mutateAsync({
                     locationId: createdLocationId,
-                    artStyle,
+                    styleAssetId: styleAssetId || undefined,
                     count: locationGenerationCount,
                 })
             } else {
                 const result = await createProjectLocation.mutateAsync({
                     name: name.trim(),
                     description: description.trim(),
-                    artStyle,
+                    styleAssetId: styleAssetId || undefined,
                     count: locationGenerationCount,
                     availableSlots,
                 }) as CreatedLocationResponse
@@ -233,7 +218,7 @@ export function LocationCreationModal({
                 }
                 await generateProjectLocation.mutateAsync({
                     locationId: createdLocationId,
-                    artStyle,
+                    styleAssetId: styleAssetId || undefined,
                     count: locationGenerationCount,
                 })
             }
@@ -293,28 +278,11 @@ export function LocationCreationModal({
                             />
                         </div>
 
-                        {mode === 'asset-hub' && (
-                            <div className="space-y-2">
-                                <label className="glass-field-label block">
-                                    {t('artStyle.title')}
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {ART_STYLES.map((style) => (
-                                        <button
-                                            key={style.value}
-                                            type="button"
-                                            onClick={() => setArtStyle(style.value)}
-                                            className={`glass-btn-base px-3 py-2 rounded-lg text-sm border transition-all justify-start ${artStyle === style.value
-                                                ? 'glass-btn-tone-info border-[var(--glass-stroke-focus)]'
-                                                : 'glass-btn-soft border-[var(--glass-stroke-base)] text-[var(--glass-text-secondary)]'
-                                                }`}
-                                        >
-                                            <span>{style.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        <StyleAssetSelect
+                            value={styleAssetId}
+                            onChange={setStyleAssetId}
+                            mode={mode}
+                        />
 
                         {/* AI 设计区域 */}
                         <div className="glass-surface-soft rounded-xl p-4 space-y-3 border border-[var(--glass-stroke-base)]">

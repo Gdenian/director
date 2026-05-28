@@ -79,6 +79,8 @@
         "generatePrompt": "Generate Prompt",
         "generatingPrompt": "Generating...",
         "generatePromptFailed": "Failed to generate style prompt",
+        "generatePromptMissingConfig": "Prompt generation failed: configure an analysis model in Settings, then try again.",
+        "generatePromptInvalidOutput": "The model did not return complete Chinese and English style prompts. Try another reference image.",
         "missingReferenceImage": "Upload or enter a reference image first",
         "overwritePromptConfirm": "Current prompts already have content. Overwrite them with the generated prompts?",
         "saving": "Saving..."

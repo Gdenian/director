@@ -60,6 +60,14 @@
         "description": "Image Description",
         "descriptionPlaceholder": "Describe only the prop itself: material, color, structure, and decoration..."
     },
+    "styleAsset": {
+        "label": "Visual Style",
+        "projectDefault": "Use project default style",
+        "userDefault": "Use asset hub default style",
+        "loading": "Loading styles...",
+        "defaultBadge": "Default",
+        "hint": "Generation injects this style's prompt. Reference images are display-only."
+    },
     "artStyle": {
         "title": "Art Style"
     },

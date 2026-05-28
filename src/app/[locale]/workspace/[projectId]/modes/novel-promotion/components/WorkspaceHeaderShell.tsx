@@ -40,7 +40,9 @@ interface WorkspaceHeaderShellProps {
   onCloseWorldContextModal: () => void
   availableModels?: UserModelsPayload
   modelsLoaded: boolean
-  artStyle: string | null | undefined
+  styleAssetId: string | null | undefined
+  styleSnapshotName: string | null | undefined
+  styleSnapshotStaleMessage: string | null | undefined
   analysisModel: string | null | undefined
   characterModel: string | null | undefined
   locationModel: string | null | undefined
@@ -87,7 +89,9 @@ export default function WorkspaceHeaderShell({
   onCloseWorldContextModal,
   availableModels,
   modelsLoaded,
-  artStyle,
+  styleAssetId,
+  styleSnapshotName,
+  styleSnapshotStaleMessage,
   analysisModel,
   characterModel,
   locationModel,
@@ -126,7 +130,9 @@ export default function WorkspaceHeaderShell({
         onClose={onCloseSettingsModal}
         availableModels={availableModels}
         modelsLoaded={modelsLoaded}
-        artStyle={artStyle ?? undefined}
+        styleAssetId={styleAssetId ?? undefined}
+        styleSnapshotName={styleSnapshotName ?? undefined}
+        styleSnapshotStaleMessage={styleSnapshotStaleMessage ?? undefined}
         analysisModel={analysisModel ?? undefined}
         characterModel={characterModel ?? undefined}
         locationModel={locationModel ?? undefined}
@@ -137,7 +143,7 @@ export default function WorkspaceHeaderShell({
         videoRatio={videoRatio ?? undefined}
         capabilityOverrides={capabilityOverrides}
         ttsRate={ttsRate ?? undefined}
-        onArtStyleChange={(value) => { onUpdateConfig('artStyle', value) }}
+        onStyleAssetChange={(value) => { onUpdateConfig('styleAssetId', value) }}
         onAnalysisModelChange={(value) => { onUpdateConfig('analysisModel', value) }}
         onCharacterModelChange={(value) => { onUpdateConfig('characterModel', value) }}
         onLocationModelChange={(value) => { onUpdateConfig('locationModel', value) }}

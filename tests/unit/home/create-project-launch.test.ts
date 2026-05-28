@@ -35,7 +35,7 @@ describe('createHomeProjectLaunch', () => {
       projectName: '开场白',
       storyText: '第一章内容',
       videoRatio: '9:16',
-      artStyle: 'american-comic',
+      styleAssetId: 'style-1',
       episodeName: '第 1 集',
     })
 
@@ -51,7 +51,7 @@ describe('createHomeProjectLaunch', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         videoRatio: '9:16',
-        artStyle: 'american-comic',
+        styleAssetId: 'style-1',
       }),
     })
     expect(apiFetch).toHaveBeenNthCalledWith(3, '/api/novel-promotion/project-1/episodes', {
@@ -94,7 +94,7 @@ describe('createHomeProjectLaunch', () => {
       projectName: '开场白',
       storyText: '第一章内容',
       videoRatio: '9:16',
-      artStyle: 'american-comic',
+      styleAssetId: 'style-1',
       episodeName: '第 1 集',
     })).rejects.toThrow('Episode creation response missing episode id')
   })

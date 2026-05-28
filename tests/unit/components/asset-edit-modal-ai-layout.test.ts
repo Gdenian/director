@@ -33,6 +33,7 @@ vi.mock('@/lib/query/hooks', () => ({
   useAiModifyProjectLocationDescription: () => ({ mutateAsync: vi.fn() }),
   useAiModifyPropDescription: () => ({ mutateAsync: vi.fn() }),
   useAiModifyProjectPropDescription: () => ({ mutateAsync: vi.fn() }),
+  useGlobalStyles: () => ({ data: [], isLoading: false }),
   useAssetActions: () => ({
     update: vi.fn(),
     updateVariant: vi.fn(),
@@ -86,6 +87,16 @@ const messages = {
     errors: {
       saveFailed: '保存失败',
       failed: '失败',
+    },
+  },
+  assetModal: {
+    styleAsset: {
+      label: '画面风格',
+      projectDefault: '使用项目默认风格',
+      userDefault: '使用默认风格',
+      loading: '加载中',
+      defaultBadge: '默认',
+      hint: '选择风格资产',
     },
   },
 } as const

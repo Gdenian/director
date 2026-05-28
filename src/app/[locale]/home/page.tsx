@@ -10,8 +10,9 @@ import { useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
 import { AppIcon, IconGradientDefs } from '@/components/ui/icons'
 import StoryInputComposer from '@/components/story-input/StoryInputComposer'
+import StyleAssetSelect from '@/components/shared/assets/StyleAssetSelect'
 import TypewriterHero from '@/components/home/TypewriterHero'
-import { ART_STYLES, VIDEO_RATIOS } from '@/lib/constants'
+import { VIDEO_RATIOS } from '@/lib/constants'
 import { DEFAULT_STYLE_PRESET_VALUE, STYLE_PRESETS } from '@/lib/style-presets'
 import { Link, useRouter } from '@/i18n/navigation'
 import { apiFetch } from '@/lib/api-fetch'
@@ -50,7 +51,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [inputValue, setInputValue] = useState('')
   const [videoRatio, setVideoRatio] = useState('9:16')
-  const [artStyle, setArtStyle] = useState('american-comic')
+  const [styleAssetId, setStyleAssetId] = useState('')
   const [stylePresetValue, setStylePresetValue] = useState<string>(DEFAULT_STYLE_PRESET_VALUE)
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -105,7 +106,7 @@ export default function HomePage() {
         }),
         storyText,
         videoRatio,
-        artStyle,
+        styleAssetId: styleAssetId || null,
         episodeName: `${tc('episode')} 1`,
       })
 
@@ -144,11 +145,6 @@ export default function HomePage() {
     []
   )
 
-  // 风格选项（带推荐标签）
-  const styleOptions = useMemo(
-    () => ART_STYLES.map((s) => ({ ...s, recommended: s.value === 'realistic' })),
-    []
-  )
   // 时间格式化
   const formatTimeAgo = (dateString: string): string => {
     const diffMs = Date.now() - new Date(dateString).getTime()
@@ -262,9 +258,15 @@ export default function HomePage() {
               videoRatio={videoRatio}
               onVideoRatioChange={setVideoRatio}
               ratioOptions={ratioOptions}
-              artStyle={artStyle}
-              onArtStyleChange={setArtStyle}
-              styleOptions={styleOptions}
+              styleControl={(
+                <StyleAssetSelect
+                  value={styleAssetId}
+                  onChange={setStyleAssetId}
+                  mode="asset-hub"
+                  showLabel={false}
+                  showHint={false}
+                />
+              )}
               stylePresetValue={stylePresetValue}
               onStylePresetChange={setStylePresetValue}
               stylePresetOptions={STYLE_PRESETS}

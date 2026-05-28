@@ -79,6 +79,8 @@
         "generatePrompt": "生成提示词",
         "generatingPrompt": "生成中...",
         "generatePromptFailed": "生成风格提示词失败",
+        "generatePromptMissingConfig": "生成提示词失败：未配置分析模型，请先到设置页配置可用模型后重试。",
+        "generatePromptInvalidOutput": "模型没有返回完整的中英文风格提示词，请换一张参考图后重试。",
         "missingReferenceImage": "请先上传或填写参考图",
         "overwritePromptConfirm": "当前提示词已有内容，是否用参考图生成结果覆盖？",
         "saving": "保存中..."

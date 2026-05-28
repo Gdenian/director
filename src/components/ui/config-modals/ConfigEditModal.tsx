@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
-    ART_STYLES,
     VIDEO_RATIOS,
 } from '@/lib/constants'
 import type {
@@ -12,9 +11,10 @@ import type {
     ModelCapabilities,
 } from '@/lib/model-config-contract'
 import { filterNormalVideoModelOptions } from '@/lib/model-capabilities/video-model-options'
-import { RatioSelector, StyleSelector } from './config-modal-selectors'
+import { RatioSelector } from './config-modal-selectors'
 import { ModelCapabilityDropdown } from './ModelCapabilityDropdown'
 import { AppIcon } from '@/components/ui/icons'
+import StyleAssetSelect from '@/components/shared/assets/StyleAssetSelect'
 
 interface ModelOption {
     value: string
@@ -42,7 +42,9 @@ interface SettingsModalProps {
     onClose: () => void
     availableModels?: Partial<UserModels>
     modelsLoaded?: boolean
-    artStyle?: string
+    styleAssetId?: string | null
+    styleSnapshotName?: string | null
+    styleSnapshotStaleMessage?: string | null
     analysisModel?: string
     characterModel?: string
     locationModel?: string
@@ -54,7 +56,7 @@ interface SettingsModalProps {
     videoRatio?: string
     capabilityOverrides?: CapabilitySelections
     ttsRate?: string
-    onArtStyleChange?: (value: string) => void
+    onStyleAssetChange?: (value: string) => void
     onAnalysisModelChange?: (value: string) => void
     onCharacterModelChange?: (value: string) => void
     onLocationModelChange?: (value: string) => void
@@ -127,7 +129,9 @@ export function SettingsModal({
     onClose,
     availableModels,
     modelsLoaded = false,
-    artStyle = 'american-comic',
+    styleAssetId,
+    styleSnapshotName,
+    styleSnapshotStaleMessage,
     analysisModel,
     characterModel,
     locationModel,
@@ -138,7 +142,7 @@ export function SettingsModal({
     videoRatio = '9:16',
     capabilityOverrides,
     ttsRate,
-    onArtStyleChange,
+    onStyleAssetChange,
     onAnalysisModelChange,
     onCharacterModelChange,
     onLocationModelChange,
@@ -369,12 +373,25 @@ export function SettingsModal({
                         <h3 className="text-sm font-semibold text-[var(--glass-text-tertiary)]">{t('visualSettings')}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-[var(--glass-text-secondary)]">{t('visualStyle')}</label>
-                                <StyleSelector
-                                    value={artStyle}
-                                    onChange={(value) => handleChange(onArtStyleChange)(value)}
-                                    options={ART_STYLES}
+                                <StyleAssetSelect
+                                    value={styleAssetId ?? ''}
+                                    onChange={(value) => {
+                                        if (!value) return
+                                        handleChange(onStyleAssetChange)(value)
+                                    }}
+                                    mode="asset-hub"
+                                    label={t('visualStyle')}
                                 />
+                                {styleSnapshotName && (
+                                    <p className="text-xs text-[var(--glass-text-tertiary)]">
+                                        {styleSnapshotName}
+                                    </p>
+                                )}
+                                {styleSnapshotStaleMessage && (
+                                    <p className="text-xs text-[var(--glass-tone-warning-fg)]">
+                                        {styleSnapshotStaleMessage}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-[var(--glass-text-secondary)]">{t('aspectRatio')}</label>

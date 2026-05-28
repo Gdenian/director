@@ -15,6 +15,16 @@ export async function seedMinimalDomainState() {
   const user = await createFixtureUser()
   const project = await createFixtureProject(user.id)
   const novelProject = await createFixtureNovelProject(project.id)
+  await prisma.novelPromotionProject.update({
+    where: { id: novelProject.id },
+    data: {
+      styleAssetId: null,
+      styleSnapshotName: '测试风格',
+      stylePromptZh: '测试中文风格提示词',
+      stylePromptEn: 'test english style prompt',
+      styleSnapshotUpdatedAt: new Date('2026-05-28T01:00:00.000Z'),
+    },
+  })
   const episode = await createFixtureEpisode(novelProject.id)
 
   const clip = await prisma.novelPromotionClip.create({

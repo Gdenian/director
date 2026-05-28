@@ -14,6 +14,7 @@ import type { StyleAssetSummary } from '@/lib/assets/contracts'
 import {
   applyGeneratedStylePrompts,
   normalizeGeneratedStylePrompts,
+  resolveStylePromptGenerationError,
 } from './style-prompt-generation'
 
 interface StyleAssetModalProps {
@@ -96,10 +97,11 @@ export default function StyleAssetModal({
       setPromptZh(next.promptZh)
       setPromptEn(next.promptEn)
     } catch (error) {
-      const message = error instanceof Error && error.message
-        ? error.message
-        : t('style.generatePromptFailed')
-      setPromptGenerationError(message)
+      setPromptGenerationError(resolveStylePromptGenerationError(error, {
+        fallback: t('style.generatePromptFailed'),
+        missingConfig: t('style.generatePromptMissingConfig'),
+        invalidOutput: t('style.generatePromptInvalidOutput'),
+      }))
     }
   }
 
@@ -246,9 +248,13 @@ export default function StyleAssetModal({
 
           {renderImageField('referenceImageUrl', referenceImageUrl, setReferenceImageUrl, referenceInputRef)}
           {promptGenerationError && (
-            <p className="glass-field-hint text-[var(--glass-tone-danger-fg)]">
-              {promptGenerationError}
-            </p>
+            <div
+              role="alert"
+              className="flex gap-2 rounded-lg border border-[var(--glass-stroke-danger)] bg-[var(--glass-tone-danger-bg)] px-3 py-2.5 text-sm font-medium text-[var(--glass-tone-danger-fg)]"
+            >
+              <AppIcon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className="min-w-0 break-words leading-5">{promptGenerationError}</p>
+            </div>
           )}
           {renderImageField('previewImageUrl', previewImageUrl, setPreviewImageUrl, previewInputRef)}
         </div>

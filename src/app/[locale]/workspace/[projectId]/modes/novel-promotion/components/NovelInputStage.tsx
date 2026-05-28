@@ -11,7 +11,8 @@ import '@/styles/animations.css'
 import AiWriteModal from '@/components/home/AiWriteModal'
 import LongTextDetectionPrompt from '@/components/story-input/LongTextDetectionPrompt'
 import StoryInputComposer from '@/components/story-input/StoryInputComposer'
-import { ART_STYLES, VIDEO_RATIOS } from '@/lib/constants'
+import StyleAssetSelect from '@/components/shared/assets/StyleAssetSelect'
+import { VIDEO_RATIOS } from '@/lib/constants'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
 import { resolveTaskPresentationState } from '@/lib/task/presentation'
 import { AppIcon } from '@/components/ui/icons'
@@ -43,9 +44,9 @@ interface NovelInputStageProps {
   onEnableNarrationChange?: (enabled: boolean) => void
   // 配置项 - 比例与风格
   videoRatio?: string
-  artStyle?: string
+  styleAssetId?: string
   onVideoRatioChange?: (value: string) => void
-  onArtStyleChange?: (value: string) => void
+  onStyleAssetChange?: (value: string) => void
 }
 
 export default function NovelInputStage({
@@ -59,9 +60,9 @@ export default function NovelInputStage({
   enableNarration = false,
   onEnableNarrationChange,
   videoRatio = '9:16',
-  artStyle = 'american-comic',
+  styleAssetId = '',
   onVideoRatioChange,
-  onArtStyleChange
+  onStyleAssetChange
 }: NovelInputStageProps) {
   const t = useTranslations('novelPromotion')
   const homeT = useTranslations('home')
@@ -189,12 +190,18 @@ export default function NovelInputStage({
             recommended: option.value === '9:16'
           }))}
           getRatioUsage={getRatioUsageTag}
-          artStyle={artStyle}
-          onArtStyleChange={(value) => onArtStyleChange?.(value)}
-          styleOptions={ART_STYLES.map((option) => ({
-            ...option,
-            recommended: option.value === 'realistic'
-          }))}
+          styleControl={(
+            <StyleAssetSelect
+              value={styleAssetId}
+              onChange={(value) => {
+                if (!value) return
+                onStyleAssetChange?.(value)
+              }}
+              mode="asset-hub"
+              showLabel={false}
+              showHint={false}
+            />
+          )}
           stylePresetValue={stylePresetValue}
           onStylePresetChange={setStylePresetValue}
           stylePresetOptions={STYLE_PRESETS}

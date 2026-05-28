@@ -17,10 +17,12 @@ export {
     useGlobalLocations,
     useGlobalProps,
     useGlobalVoices,
+    useGlobalStyles,
     useGlobalFolders,
     useCreateFolder,
     useUpdateFolder,
     useDeleteFolder,
+    useStyleActions,
     useRefreshGlobalAssets,
     type GlobalCharacter,
     type GlobalCharacterAppearance,
@@ -28,6 +30,7 @@ export {
     type GlobalLocationImage,
     type GlobalProp,
     type GlobalVoice,
+    type GlobalStyle,
     type GlobalFolder,
 } from './useGlobalAssets'
 export {

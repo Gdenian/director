@@ -16,6 +16,7 @@ import {
 } from '@/lib/query/hooks'
 import type { LocationAvailableSlot } from '@/lib/location-available-slots'
 import { AiModifyDescriptionField } from './AiModifyDescriptionField'
+import StyleAssetSelect from './StyleAssetSelect'
 
 export interface LocationEditModalProps {
     mode: 'asset-hub' | 'project'
@@ -28,7 +29,7 @@ export interface LocationEditModalProps {
     descriptionIndex?: number
     isTaskRunning?: boolean
     onClose: () => void
-    onSave: (locationId: string) => void
+    onSave: (locationId: string, styleAssetId?: string) => void
     onUpdate?: (newDescription: string) => void
     onNameUpdate?: (newName: string) => void
     onRefresh?: () => void
@@ -58,6 +59,7 @@ export function LocationEditModal({
 
     const [editingName, setEditingName] = useState(locationName)
     const [editingDescription, setEditingDescription] = useState(description || summary || '')
+    const [styleAssetId, setStyleAssetId] = useState('')
     const [availableSlots, setAvailableSlots] = useState<LocationAvailableSlot[]>([])
     const [aiModifyInstruction, setAiModifyInstruction] = useState('')
     const [isAiModifying, setIsAiModifying] = useState(false)
@@ -208,6 +210,7 @@ export function LocationEditModal({
 
     const handleSaveAndGenerate = async () => {
         const savedDescription = editingDescription
+        const savedStyleAssetId = styleAssetId || undefined
         onClose()
 
         ; (async () => {
@@ -216,7 +219,7 @@ export function LocationEditModal({
                 await persistDescription()
                 onUpdate?.(savedDescription)
                 onRefresh?.()
-                onSave(locationId)
+                onSave(locationId, savedStyleAssetId)
             } catch (error: unknown) {
                 if (shouldShowError(error)) {
                     alert(getErrorMessage(error, t('errors.saveFailed')))
@@ -280,6 +283,12 @@ export function LocationEditModal({
                         aiModifyingState={aiModifyingState}
                         actionLabel={t('modal.modifyDescription')}
                         cancelLabel={t('common.cancel')}
+                    />
+
+                    <StyleAssetSelect
+                        value={styleAssetId}
+                        onChange={setStyleAssetId}
+                        mode={mode}
                     />
                 </div>
 

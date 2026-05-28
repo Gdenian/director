@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, type CompositionEvent, type ReactNode } from 'react'
-import { RatioSelector, StylePresetSelector, StyleSelector } from '@/components/selectors/RatioStyleSelectors'
+import { RatioSelector, StylePresetSelector } from '@/components/selectors/RatioStyleSelectors'
 import { resolveTextareaTargetHeight } from '@/lib/ui/textarea-height'
 
 interface StoryInputComposerOption {
@@ -31,9 +31,7 @@ interface StoryInputComposerProps {
   onVideoRatioChange: (value: string) => void
   ratioOptions: StoryInputComposerOption[]
   getRatioUsage?: (ratio: string) => string
-  artStyle: string
-  onArtStyleChange: (value: string) => void
-  styleOptions: StoryInputComposerOption[]
+  styleControl?: ReactNode
   stylePresetValue: string
   onStylePresetChange: (value: string) => void
   stylePresetOptions: readonly StoryInputComposerStylePresetOption[]
@@ -57,9 +55,7 @@ export default function StoryInputComposer({
   onVideoRatioChange,
   ratioOptions,
   getRatioUsage,
-  artStyle,
-  onArtStyleChange,
-  styleOptions,
+  styleControl,
   stylePresetValue,
   onStylePresetChange,
   stylePresetOptions,
@@ -139,13 +135,11 @@ export default function StoryInputComposer({
               getUsage={getRatioUsage}
             />
           </div>
-          <div className="w-[132px] flex-shrink-0">
-            <StyleSelector
-              value={artStyle}
-              onChange={onArtStyleChange}
-              options={styleOptions}
-            />
-          </div>
+          {styleControl ? (
+            <div className="w-[180px] flex-shrink-0">
+              {styleControl}
+            </div>
+          ) : null}
           {stylePresetOptions.length > 0 ? (
             <div className="w-[152px] flex-shrink-0">
               <StylePresetSelector

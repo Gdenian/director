@@ -27,7 +27,7 @@ interface UseCharacterCreationSubmitParams {
   name: string
   description: string
   aiInstruction: string
-  artStyle: string
+  styleAssetId: string
   referenceImagesBase64: string[]
   referenceSubMode: 'direct' | 'extract'
   isSubAppearance: boolean
@@ -51,7 +51,7 @@ export function useCharacterCreationSubmit({
   name,
   description,
   aiInstruction,
-  artStyle,
+  styleAssetId,
   referenceImagesBase64,
   referenceSubMode,
   isSubAppearance,
@@ -157,7 +157,7 @@ export function useCharacterCreationSubmit({
           name: name.trim(),
           description: finalDescription || t('character.defaultDescription', { name: name.trim() }),
           folderId: folderId ?? null,
-          artStyle,
+          styleAssetId: styleAssetId || undefined,
           generateFromReference: true,
           referenceImageUrls,
           customDescription: referenceSubMode === 'extract' ? finalDescription : undefined,
@@ -167,6 +167,7 @@ export function useCharacterCreationSubmit({
         await createProjectCharacter.mutateAsync({
           name: name.trim(),
           description: finalDescription || t('character.defaultDescription', { name: name.trim() }),
+          styleAssetId: styleAssetId || undefined,
           generateFromReference: true,
           referenceImageUrls,
           customDescription: referenceSubMode === 'extract' ? finalDescription : undefined,
@@ -184,7 +185,6 @@ export function useCharacterCreationSubmit({
       setIsSubmitting(false)
     }
   }, [
-    artStyle,
     createAssetHubCharacter,
     createProjectCharacter,
     description,
@@ -196,7 +196,9 @@ export function useCharacterCreationSubmit({
     onClose,
     onSuccess,
     referenceImagesBase64.length,
+    referenceCharacterGenerationCount,
     referenceSubMode,
+    styleAssetId,
     t,
     uploadReferenceImages,
   ])
@@ -232,6 +234,7 @@ export function useCharacterCreationSubmit({
           characterId: selectedCharacterId,
           changeReason: changeReason.trim(),
           description: description.trim(),
+          styleAssetId: styleAssetId || undefined,
         })
         onSuccess()
         onClose()
@@ -253,12 +256,13 @@ export function useCharacterCreationSubmit({
           name: name.trim(),
           description: description.trim(),
           folderId: folderId ?? null,
-          artStyle,
+          styleAssetId: styleAssetId || undefined,
         })
       } else {
         await createProjectCharacter.mutateAsync({
           name: name.trim(),
           description: description.trim(),
+          styleAssetId: styleAssetId || undefined,
         })
       }
       onSuccess()
@@ -271,7 +275,6 @@ export function useCharacterCreationSubmit({
       setIsSubmitting(false)
     }
   }, [
-    artStyle,
     changeReason,
     createAssetHubCharacter,
     createProjectAppearance,
@@ -284,6 +287,7 @@ export function useCharacterCreationSubmit({
     onClose,
     onSuccess,
     selectedCharacterId,
+    styleAssetId,
     t,
   ])
 
@@ -303,7 +307,7 @@ export function useCharacterCreationSubmit({
           name: name.trim(),
           description: description.trim(),
           folderId: folderId ?? null,
-          artStyle,
+          styleAssetId: styleAssetId || undefined,
         }) as CreatedCharacterResponse
         const createdCharacterId = result.character?.id
         const createdAppearanceIndex = result.character?.appearances?.[0]?.appearanceIndex
@@ -313,13 +317,14 @@ export function useCharacterCreationSubmit({
         await generateAssetHubCharacterImage.mutateAsync({
           characterId: createdCharacterId,
           appearanceIndex: createdAppearanceIndex,
-          artStyle,
+          styleAssetId: styleAssetId || undefined,
           count: characterGenerationCount,
         })
       } else {
         const result = await createProjectCharacter.mutateAsync({
           name: name.trim(),
           description: description.trim(),
+          styleAssetId: styleAssetId || undefined,
         }) as CreatedCharacterResponse
         const createdCharacterId = result.character?.id
         const createdAppearanceId = result.character?.appearances?.[0]?.id
@@ -329,6 +334,7 @@ export function useCharacterCreationSubmit({
         await generateProjectCharacterImage.mutateAsync({
           characterId: createdCharacterId,
           appearanceId: createdAppearanceId,
+          styleAssetId: styleAssetId || undefined,
           count: characterGenerationCount,
         })
       }
@@ -343,7 +349,6 @@ export function useCharacterCreationSubmit({
       setIsSubmitting(false)
     }
   }, [
-    artStyle,
     characterGenerationCount,
     createAssetHubCharacter,
     createProjectCharacter,
@@ -357,6 +362,7 @@ export function useCharacterCreationSubmit({
     name,
     onClose,
     onSuccess,
+    styleAssetId,
     t,
   ])
 

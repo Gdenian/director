@@ -60,6 +60,14 @@
         "description": "图片描述",
         "descriptionPlaceholder": "只写道具本体的材质、颜色、结构和装饰细节..."
     },
+    "styleAsset": {
+        "label": "画面风格",
+        "projectDefault": "使用项目默认风格",
+        "userDefault": "使用资产中心默认风格",
+        "loading": "加载风格中...",
+        "defaultBadge": "默认",
+        "hint": "生成时会注入该风格的提示词；参考图仅用于展示。"
+    },
     "artStyle": {
         "title": "画面风格"
     },

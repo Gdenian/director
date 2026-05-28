@@ -43,7 +43,6 @@ interface Location {
   id: string
   name: string
   summary: string | null
-  artStyle?: string | null
   folderId: string | null
   images: LocationImage[]
 }
@@ -99,7 +98,6 @@ export function LocationCard({ location, assetType = 'location', onImageClick, o
     requestedCount: generatedImageCount > 1 ? generatedImageCount : generationCount,
   })
   const displaySlotCount = displaySelectionImages.length
-  const hasMultipleImages = generatedImageCount > 1
   const singleImageAspectClassName = assetType === 'prop' ? 'aspect-[3/2]' : 'aspect-square'
   const displayTaskPresentation = isTaskRunning
     ? resolveTaskPresentationState({
@@ -127,7 +125,6 @@ export function LocationCard({ location, assetType = 'location', onImageClick, o
   const handleGenerate = (count = generationCount) => {
     generateImage.mutate({
       locationId: location.id,
-      artStyle: location.artStyle || undefined,
       count,
     }, {
       onError: (error) => alert(error.message || t('generateFailed'))

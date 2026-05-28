@@ -9,6 +9,7 @@ import { CharacterCreationModal } from '@/components/shared/assets/CharacterCrea
 
 vi.mock('@/lib/query/hooks', () => ({
   useProjectAssets: vi.fn(() => ({ data: { characters: [] } })),
+  useGlobalStyles: vi.fn(() => ({ data: [], isLoading: false })),
 }))
 
 vi.mock('@/components/shared/assets/character-creation/hooks/useCharacterCreationSubmit', () => ({
@@ -55,7 +56,14 @@ const messages = {
       generateCountSuffix: '张图片',
       selectReferenceGenerateCount: '选择参考图生成数量',
     },
-    artStyle: { title: '画面风格' },
+    styleAsset: {
+      label: '画面风格',
+      projectDefault: '使用项目默认风格',
+      userDefault: '使用资产中心默认风格',
+      loading: '加载风格中...',
+      defaultBadge: '默认',
+      hint: '生成时会注入该风格的提示词',
+    },
     aiDesign: {
       title: 'AI 设计',
       placeholder: '描述你想要的角色特征...',

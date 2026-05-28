@@ -12,6 +12,7 @@ import {
   useAssetActions,
 } from '@/lib/query/hooks'
 import { AiModifyDescriptionField } from './AiModifyDescriptionField'
+import StyleAssetSelect from './StyleAssetSelect'
 
 export interface PropEditModalProps {
   mode: 'asset-hub' | 'project'
@@ -45,6 +46,7 @@ export function PropEditModal({
   const [editingName, setEditingName] = useState(propName)
   const [editingSummary, setEditingSummary] = useState(summary)
   const [editingDescription, setEditingDescription] = useState(description)
+  const [styleAssetId, setStyleAssetId] = useState('')
   const [aiModifyInstruction, setAiModifyInstruction] = useState('')
   const [isAiModifying, setIsAiModifying] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -136,7 +138,7 @@ export function PropEditModal({
     try {
       setIsSaving(true)
       await persist()
-      await actions.generate({ id: propId })
+      await actions.generate({ id: propId, styleAssetId: styleAssetId || undefined })
       onClose()
     } finally {
       setIsSaving(false)
@@ -197,6 +199,12 @@ export function PropEditModal({
             aiModifyingState={aiModifyingState}
             actionLabel={t('modal.modifyDescription')}
             cancelLabel={t('common.cancel')}
+          />
+
+          <StyleAssetSelect
+            value={styleAssetId}
+            onChange={setStyleAssetId}
+            mode={mode}
           />
         </div>
 

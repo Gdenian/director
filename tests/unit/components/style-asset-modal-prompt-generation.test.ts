@@ -8,6 +8,7 @@ import type { AbstractIntlMessages } from 'next-intl'
 import {
   applyGeneratedStylePrompts,
   normalizeGeneratedStylePrompts,
+  resolveStylePromptGenerationError,
 } from '@/app/[locale]/workspace/asset-hub/components/style-prompt-generation'
 
 const hookMocks = vi.hoisted(() => ({
@@ -79,6 +80,12 @@ function renderWithIntl(node: ReactElement) {
 }
 
 describe('style asset modal prompt generation helpers', () => {
+  const errorMessages = {
+    fallback: '生成风格提示词失败',
+    missingConfig: '生成提示词失败：未配置分析模型，请先到设置页配置可用模型后重试。',
+    invalidOutput: '模型没有返回完整的中英文风格提示词，请换一张参考图后重试。',
+  }
+
   it('normalizes generated prompt payloads', () => {
     expect(normalizeGeneratedStylePrompts({
       promptZh: '  中文风格  ',
@@ -93,6 +100,27 @@ describe('style asset modal prompt generation helpers', () => {
     expect(() => normalizeGeneratedStylePrompts({
       promptZh: '中文风格',
     })).toThrow('Generated style prompts must include promptZh and promptEn')
+  })
+
+  it('maps missing model configuration errors to a localized prompt generation message', () => {
+    const error = Object.assign(new Error('Missing required configuration'), {
+      payload: {
+        error: {
+          code: 'MISSING_CONFIG',
+          message: 'Missing required configuration',
+        },
+        code: 'MISSING_CONFIG',
+      },
+    })
+
+    expect(resolveStylePromptGenerationError(error, errorMessages)).toBe(errorMessages.missingConfig)
+  })
+
+  it('maps incomplete model extraction output to a localized prompt generation message', () => {
+    expect(resolveStylePromptGenerationError(
+      new Error('Style prompt JSON must include promptZh and promptEn'),
+      errorMessages,
+    )).toBe(errorMessages.invalidOutput)
   })
 
   it('fills empty fields without confirmation', () => {

@@ -83,7 +83,9 @@ function NovelPromotionWorkspaceContent(props: NovelPromotionWorkspaceProps) {
         onCloseWorldContextModal={() => vm.ui.setIsWorldContextModalOpen(false)}
         availableModels={vm.ui.userModelsForSettings || undefined}
         modelsLoaded={vm.ui.userModelsLoaded}
-        artStyle={vm.project.artStyle}
+        styleAssetId={vm.project.styleAssetId}
+        styleSnapshotName={vm.project.styleSnapshotName}
+        styleSnapshotStaleMessage={vm.project.styleSnapshotStaleMessage}
         analysisModel={vm.project.analysisModel}
         characterModel={vm.project.characterModel}
         locationModel={vm.project.locationModel}

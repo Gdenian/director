@@ -79,6 +79,14 @@ function toJob(data: TaskJobData): Job<TaskJobData> {
   return { data } as unknown as Job<TaskJobData>
 }
 
+const styleSnapshot = {
+  styleAssetId: 'style-1',
+  name: '电影写实',
+  promptZh: '电影感写实画面风格',
+  promptEn: 'cinematic realistic visual style',
+  snapshotUpdatedAt: '2026-05-28T01:00:00.000Z',
+}
+
 describe('chain contract - image queue behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -96,7 +104,7 @@ describe('chain contract - image queue behavior', () => {
       episodeId: null,
       targetType: 'GlobalCharacter',
       targetId: 'global-character-1',
-      payload: { type: 'character', id: 'global-character-1' },
+      payload: { type: 'character', id: 'global-character-1', styleSnapshot },
       userId: 'user-1',
     })
 
@@ -155,7 +163,7 @@ describe('chain contract - image queue behavior', () => {
       episodeId: null,
       targetType: 'GlobalCharacter',
       targetId: 'global-character-1',
-      payload: { type: 'character', id: 'global-character-1', appearanceIndex: 0 },
+      payload: { type: 'character', id: 'global-character-1', appearanceIndex: 0, styleSnapshot },
       userId: 'user-1',
     })
 

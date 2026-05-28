@@ -9,6 +9,7 @@ import { useAssetActions } from '@/lib/query/hooks'
 import { useImageGenerationCount } from '@/lib/image-generation/use-image-generation-count'
 import ImageGenerationInlineCountButton from '@/components/image-generation/ImageGenerationInlineCountButton'
 import { getImageGenerationCountOptions } from '@/lib/image-generation/count'
+import StyleAssetSelect from './StyleAssetSelect'
 
 export interface PropCreationModalProps {
   mode: 'asset-hub' | 'project'
@@ -35,7 +36,7 @@ export function PropCreationModal({
   const [name, setName] = useState('')
   const [summary, setSummary] = useState('')
   const [description, setDescription] = useState('')
-  const [artStyle, setArtStyle] = useState('american-comic')
+  const [styleAssetId, setStyleAssetId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const submittingState = isSubmitting
     ? resolveTaskPresentationState({
@@ -65,7 +66,7 @@ export function PropCreationModal({
         summary: summary.trim(),
         description: description.trim(),
         folderId,
-        artStyle,
+        styleAssetId: styleAssetId || undefined,
       }) as { assetId?: string }
       if (generateAfterCreate) {
         if (!result.assetId) {
@@ -73,7 +74,7 @@ export function PropCreationModal({
         }
         await actions.generate({
           id: result.assetId,
-          artStyle,
+          styleAssetId: styleAssetId || undefined,
           count,
         })
       }
@@ -114,9 +115,15 @@ export function PropCreationModal({
               />
             </div>
 
-          <div className="space-y-2">
-            <label className="glass-field-label block">
-              {t('prop.summary')} <span className="text-[var(--glass-tone-danger-fg)]">*</span>
+            <StyleAssetSelect
+              value={styleAssetId}
+              onChange={setStyleAssetId}
+              mode={mode}
+            />
+
+            <div className="space-y-2">
+              <label className="glass-field-label block">
+                {t('prop.summary')} <span className="text-[var(--glass-tone-danger-fg)]">*</span>
               </label>
               <textarea
                 value={summary}

@@ -14,6 +14,7 @@ vi.mock('@/lib/query/hooks', () => ({
   useGenerateLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useCreateProjectLocation: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useGenerateProjectLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useGlobalStyles: vi.fn(() => ({ data: [], isLoading: false })),
 }))
 
 const messages = {
@@ -25,7 +26,14 @@ const messages = {
       description: '场景描述',
       descPlaceholder: '请输入场景描述...',
     },
-    artStyle: { title: '画面风格' },
+    styleAsset: {
+      label: '画面风格',
+      projectDefault: '使用项目默认风格',
+      userDefault: '使用资产中心默认风格',
+      loading: '加载风格中...',
+      defaultBadge: '默认',
+      hint: '生成时会注入该风格的提示词',
+    },
     aiDesign: {
       title: 'AI 设计',
       placeholderLocation: '描述场景氛围和环境...',

@@ -30,7 +30,9 @@ interface ProjectSnapshotInput {
   videoRatio: string | undefined
   capabilityOverrides: CapabilitySelections
   ttsRate: string | number | undefined
-  artStyle: string | undefined
+  styleAssetId: string | null | undefined
+  styleSnapshotName: string | null | undefined
+  styleSnapshotStaleMessage: string | null | undefined
 }
 
 interface BuildWorkspaceControllerViewModelParams {
