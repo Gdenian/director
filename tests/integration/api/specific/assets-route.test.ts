@@ -106,6 +106,30 @@ describe('api specific - unified assets routes', () => {
     expect(body).toEqual({ assets: [{ id: 'prop-1', kind: 'prop' }] })
   })
 
+  it('GET /api/assets reads style assets through the unified filter contract', async () => {
+    readAssetsMock.mockResolvedValue([{ id: 'style-1', kind: 'style' }])
+    const mod = await import('@/app/api/assets/route')
+    const req = buildMockRequest({
+      path: '/api/assets?scope=global&kind=style',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(authMock.requireUserAuth).toHaveBeenCalled()
+    expect(readAssetsMock).toHaveBeenCalledWith({
+      scope: 'global',
+      projectId: null,
+      folderId: null,
+      kind: 'style',
+    }, {
+      userId: 'user-1',
+    })
+    expect(body).toEqual({ assets: [{ id: 'style-1', kind: 'style' }] })
+  })
+
   it('POST /api/assets creates a project prop through the centralized asset action service', async () => {
     const mod = await import('@/app/api/assets/route')
     const req = buildMockRequest({

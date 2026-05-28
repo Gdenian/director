@@ -19,7 +19,7 @@ export const queryKeys = {
             scope: 'global' | 'project'
             projectId?: string | null
             folderId?: string | null
-            kind?: 'character' | 'location' | 'voice' | 'prop' | null
+            kind?: 'character' | 'location' | 'voice' | 'prop' | 'style' | null
         }) => [
             ...unifiedAssetsRoot(params.scope, params.projectId),
             params.folderId ?? '',
@@ -36,6 +36,8 @@ export const queryKeys = {
             folderId ? ['global-assets', 'locations', folderId] as const : ['global-assets', 'locations'] as const,
         voices: (folderId?: string | null) =>
             folderId ? ['global-assets', 'voices', folderId] as const : ['global-assets', 'voices'] as const,
+        styles: (folderId?: string | null) =>
+            folderId ? ['global-assets', 'styles', folderId] as const : ['global-assets', 'styles'] as const,
         folders: () => ['global-assets', 'folders'] as const,
     },
 

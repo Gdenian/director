@@ -83,6 +83,22 @@ export interface GlobalVoice {
     folderId: string | null
 }
 
+export interface GlobalStyle {
+    id: string
+    name: string
+    folderId: string | null
+    promptZh: string
+    promptEn: string | null
+    referenceImageUrl: string | null
+    referenceImageMediaId: string | null
+    previewImageUrl: string | null
+    previewImageMediaId: string | null
+    isDefault: boolean
+    isSystemSeed: boolean
+    createdAt: string
+    updatedAt: string
+}
+
 export interface GlobalFolder {
     id: string
     name: string
@@ -233,6 +249,35 @@ export function useGlobalVoices(folderId?: string | null) {
 }
 
 /**
+ * 获取中心资产库风格列表
+ */
+export function useGlobalStyles(folderId?: string | null) {
+    const assetsQuery = useAssets({
+        scope: 'global',
+        folderId,
+        kind: 'style',
+    })
+    return {
+        ...assetsQuery,
+        data: groupAssetsByKind(assetsQuery.data).style.map((asset) => ({
+            id: asset.id,
+            name: asset.name,
+            folderId: asset.folderId,
+            promptZh: asset.promptZh,
+            promptEn: asset.promptEn,
+            referenceImageUrl: asset.referenceImageUrl,
+            referenceImageMediaId: null,
+            previewImageUrl: asset.previewImageUrl,
+            previewImageMediaId: null,
+            isDefault: asset.isDefault,
+            isSystemSeed: asset.isSystemSeed,
+            createdAt: asset.createdAt,
+            updatedAt: asset.updatedAt,
+        })) as GlobalStyle[],
+    }
+}
+
+/**
  * 获取中心资产库文件夹列表
  */
 export function useGlobalFolders() {
@@ -321,6 +366,87 @@ export function useDeleteFolder() {
             queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.all() })
         },
     })
+}
+
+export function useStyleActions() {
+    const queryClient = useQueryClient()
+
+    const invalidateStyles = () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.styles() })
+        queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.all() })
+        queryClient.invalidateQueries({ queryKey: queryKeys.assets.all('global') })
+    }
+
+    return {
+        create: useMutation({
+            mutationFn: async (payload: {
+                name: string
+                promptZh: string
+                promptEn?: string | null
+                folderId?: string | null
+                referenceImageUrl?: string | null
+                referenceImageMediaId?: string | null
+                previewImageUrl?: string | null
+                previewImageMediaId?: string | null
+            }) => {
+                const res = await apiFetch('/api/asset-hub/styles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    throw new Error(resolveTaskErrorMessage(error, 'Failed to create style'))
+                }
+                return res.json()
+            },
+            onSuccess: invalidateStyles,
+        }),
+        update: useMutation({
+            mutationFn: async ({ styleId, payload }: {
+                styleId: string
+                payload: Partial<GlobalStyle>
+            }) => {
+                const res = await apiFetch(`/api/asset-hub/styles/${styleId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    throw new Error(resolveTaskErrorMessage(error, 'Failed to update style'))
+                }
+                return res.json()
+            },
+            onSuccess: invalidateStyles,
+        }),
+        remove: useMutation({
+            mutationFn: async (styleId: string) => {
+                const res = await apiFetch(`/api/asset-hub/styles/${styleId}`, {
+                    method: 'DELETE',
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    throw new Error(resolveTaskErrorMessage(error, 'Failed to delete style'))
+                }
+                return res.json()
+            },
+            onSuccess: invalidateStyles,
+        }),
+        setDefault: useMutation({
+            mutationFn: async (styleId: string) => {
+                const res = await apiFetch(`/api/asset-hub/styles/${styleId}/default`, {
+                    method: 'POST',
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    throw new Error(resolveTaskErrorMessage(error, 'Failed to set default style'))
+                }
+                return res.json()
+            },
+            onSuccess: invalidateStyles,
+        }),
+    }
 }
 
 /**

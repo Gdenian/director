@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapGlobalVoiceToAsset, mapProjectCharacterToAsset, mapProjectPropToAsset } from '@/lib/assets/mappers'
+import { mapGlobalStyleToAsset, mapGlobalVoiceToAsset, mapProjectCharacterToAsset, mapProjectPropToAsset } from '@/lib/assets/mappers'
 import { groupAssetsByKind } from '@/lib/assets/grouping'
 
 describe('asset mappers', () => {
@@ -127,5 +127,34 @@ describe('asset mappers', () => {
     const groups = groupAssetsByKind([propAsset, voiceAsset])
     expect(groups.prop.map((asset) => asset.id)).toEqual(['prop-1'])
     expect(groups.voice.map((asset) => asset.id)).toEqual(['voice-1'])
+  })
+
+  it('maps global styles into the unified style asset contract and groups them by kind', () => {
+    const styleAsset = mapGlobalStyleToAsset({
+      id: 'style-1',
+      name: '电影写实',
+      folderId: 'folder-1',
+      promptZh: '电影写实中文提示词',
+      promptEn: 'cinematic realistic prompt',
+      referenceImageUrl: 'https://example.com/ref.jpg',
+      previewImageUrl: 'https://example.com/preview.jpg',
+      isSystemSeed: false,
+      createdAt: '2026-05-28T00:00:00.000Z',
+      updatedAt: '2026-05-28T01:00:00.000Z',
+    }, 'style-1')
+
+    expect(styleAsset).toEqual(expect.objectContaining({
+      id: 'style-1',
+      scope: 'global',
+      kind: 'style',
+      family: 'visual',
+      name: '电影写实',
+      promptZh: '电影写实中文提示词',
+      isDefault: true,
+      isSystemSeed: false,
+    }))
+
+    const groups = groupAssetsByKind([styleAsset])
+    expect(groups.style.map((asset) => asset.id)).toEqual(['style-1'])
   })
 })

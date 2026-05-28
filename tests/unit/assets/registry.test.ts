@@ -3,7 +3,7 @@ import { assetKindRegistry, getAssetKindRegistration } from '@/lib/assets/kinds/
 
 describe('asset kind registry', () => {
   it('declares the supported asset kinds with stable capability contracts', () => {
-    expect(Object.keys(assetKindRegistry)).toEqual(['character', 'location', 'prop', 'voice'])
+    expect(Object.keys(assetKindRegistry)).toEqual(['character', 'location', 'prop', 'voice', 'style'])
     expect(getAssetKindRegistration('character')).toEqual(expect.objectContaining({
       kind: 'character',
       family: 'visual',
@@ -38,6 +38,16 @@ describe('asset kind registry', () => {
       capabilities: expect.objectContaining({
         canGenerate: false,
         canSelectRender: false,
+      }),
+    }))
+    expect(getAssetKindRegistration('style')).toEqual(expect.objectContaining({
+      kind: 'style',
+      family: 'visual',
+      supportsMultipleVariants: false,
+      capabilities: expect.objectContaining({
+        canGenerate: false,
+        canUploadRender: true,
+        canCopyFromGlobal: false,
       }),
     }))
   })

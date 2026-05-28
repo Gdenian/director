@@ -22,14 +22,13 @@ import type {
   LocationAssetSummary,
   PropAssetSummary,
   ReadAssetsResponse,
-  VoiceAssetSummary,
 } from '@/lib/assets/contracts'
 
 function flattenTaskRefs(assets: AssetSummary[]): AssetTaskRef[] {
   const refs: AssetTaskRef[] = []
   for (const asset of assets) {
     refs.push(...asset.taskRefs)
-    if (asset.kind === 'voice') {
+    if (asset.kind === 'voice' || asset.kind === 'style') {
       continue
     }
     if (asset.kind === 'character') {
@@ -84,12 +83,12 @@ function withTaskStateVariant(variant: AssetVariantSummary, byKey: Map<string, {
 }
 
 function withTaskStateAsset(asset: AssetSummary, byKey: Map<string, { phase: string | null; lastError: { code: string; message: string } | null }>): AssetSummary {
-  if (asset.kind === 'voice') {
-    const voiceAsset: VoiceAssetSummary = {
+  if (asset.kind === 'voice' || asset.kind === 'style') {
+    const simpleAsset = {
       ...asset,
       taskState: resolveTaskState(asset.taskRefs, byKey),
     }
-    return voiceAsset
+    return simpleAsset
   }
 
   const variants = asset.variants.map((variant) => withTaskStateVariant(variant, byKey))

@@ -7,6 +7,7 @@ import {
   type CharacterAssetSummary,
   type LocationAssetSummary,
   type PropAssetSummary,
+  type StyleAssetSummary,
   type VoiceAssetSummary,
 } from '@/lib/assets/contracts'
 import { getAssetKindRegistration } from '@/lib/assets/kinds/registry'
@@ -117,6 +118,19 @@ type GlobalVoiceRecord = {
   gender: string | null
   language: string
   folderId: string | null
+}
+
+type GlobalStyleRecord = {
+  id: string
+  folderId: string | null
+  name: string
+  promptZh: string
+  promptEn: string | null
+  referenceImageUrl: string | null
+  previewImageUrl: string | null
+  isSystemSeed: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 function createRender(params: {
@@ -445,6 +459,31 @@ export function mapGlobalVoiceToAsset(voice: GlobalVoiceRecord): VoiceAssetSumma
       gender: voice.gender,
       language: voice.language,
     },
+  }
+}
+
+export function mapGlobalStyleToAsset(style: GlobalStyleRecord, defaultStyleId: string | null): StyleAssetSummary {
+  const registration = getAssetKindRegistration('style')
+  return {
+    id: style.id,
+    scope: 'global',
+    kind: 'style',
+    family: 'visual',
+    name: style.name,
+    folderId: style.folderId,
+    capabilities: registration.capabilities,
+    taskRefs: [],
+    taskState: createIdleTaskState(),
+    promptZh: style.promptZh,
+    promptEn: style.promptEn,
+    referenceImageUrl: style.referenceImageUrl,
+    referenceMedia: null,
+    previewImageUrl: style.previewImageUrl,
+    previewMedia: null,
+    isDefault: style.id === defaultStyleId,
+    isSystemSeed: style.isSystemSeed,
+    createdAt: style.createdAt,
+    updatedAt: style.updatedAt,
   }
 }
 

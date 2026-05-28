@@ -10,7 +10,7 @@ function isAssetScope(value: string | null): value is AssetScope {
 }
 
 function isAssetKind(value: string | null): value is AssetKind {
-  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice'
+  return value === 'character' || value === 'location' || value === 'prop' || value === 'voice' || value === 'style'
 }
 
 export const GET = apiHandler(async (request: NextRequest) => {
