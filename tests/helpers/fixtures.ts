@@ -86,6 +86,22 @@ export async function createFixtureGlobalLocationImage(locationId: string, image
   })
 }
 
+export async function createFixtureGlobalStyle(userId: string, overrides: Partial<{
+  name: string
+  promptZh: string
+  promptEn: string | null
+}> = {}) {
+  return prisma.globalStyle.create({
+    data: {
+      userId,
+      name: overrides.name ?? '测试风格',
+      promptZh: overrides.promptZh ?? '测试中文风格提示词',
+      promptEn: overrides.promptEn ?? 'test english style prompt',
+      isSystemSeed: false,
+    },
+  })
+}
+
 export async function createFixtureEpisode(novelPromotionProjectId: string, episodeNumber = 1) {
   return await prisma.novelPromotionEpisode.create({
     data: {

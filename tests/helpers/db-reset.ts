@@ -10,6 +10,7 @@ export async function resetBillingState() {
   await prisma.project.deleteMany()
   await prisma.session.deleteMany()
   await prisma.account.deleteMany()
+  await prisma.globalStyle.deleteMany()
   await prisma.userPreference.deleteMany()
   await prisma.user.deleteMany()
 }
@@ -20,6 +21,7 @@ export async function resetTaskState() {
 }
 
 export async function resetAssetHubState() {
+  await prisma.globalStyle.deleteMany()
   await prisma.globalCharacterAppearance.deleteMany()
   await prisma.globalCharacter.deleteMany()
   await prisma.globalLocationImage.deleteMany()

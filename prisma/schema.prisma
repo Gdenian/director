@@ -32,6 +32,11 @@ model CharacterAppearance {
   characterId          String
   appearanceIndex      Int
   changeReason         String
+  styleAssetId         String?
+  styleSnapshotName    String?
+  stylePromptZh        String?                 @db.Text
+  stylePromptEn        String?                 @db.Text
+  styleSnapshotUpdatedAt DateTime?
   description          String?                 @db.Text
   descriptions         String?                 @db.Text
   imageUrl             String?                 @db.Text
@@ -106,6 +111,11 @@ model NovelPromotionLocation {
   name                    String
   summary                 String?               @db.Text // 场景简要描述（用途/人物关联）
   assetKind               String                @default("location")
+  styleAssetId            String?
+  styleSnapshotName       String?
+  stylePromptZh           String?               @db.Text
+  stylePromptEn           String?               @db.Text
+  styleSnapshotUpdatedAt  DateTime?
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @default(now()) @updatedAt
   sourceGlobalLocationId  String? // 🆕 来源全局场景ID（复制时记录）
@@ -255,6 +265,11 @@ model NovelPromotionProject {
   globalAssetText String?                   @db.Text
   artStyle        String                    @default("american-comic")
   artStylePrompt  String?                   @db.Text
+  styleAssetId            String?
+  styleSnapshotName       String?
+  stylePromptZh           String?           @db.Text
+  stylePromptEn           String?           @db.Text
+  styleSnapshotUpdatedAt  DateTime?
   characterModel  String? // 用户配置的角色图片模型
   locationModel   String? // 用户配置的场景图片模型
   storyboardModel String? // 用户配置的分镜图片模型
@@ -419,6 +434,7 @@ model User {
   globalAssetFolders GlobalAssetFolder[]
   globalCharacters   GlobalCharacter[]
   globalLocations    GlobalLocation[]
+  globalStyles       GlobalStyle[]
   globalVoices       GlobalVoice[]
   tasks              Task[]
   taskEvents         TaskEvent[]
@@ -446,6 +462,7 @@ model UserPreference {
   videoRatio      String   @default("9:16")
   videoResolution String   @default("720p")
   artStyle        String   @default("american-comic")
+  defaultStyleId  String?
   ttsRate         String   @default("+50%")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt
@@ -807,10 +824,38 @@ model GlobalAssetFolder {
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   characters GlobalCharacter[]
   locations  GlobalLocation[]
+  styles     GlobalStyle[]
   voices     GlobalVoice[]
 
   @@index([userId])
   @@map("global_asset_folders")
+}
+
+model GlobalStyle {
+  id                    String             @id @default(uuid())
+  userId                String
+  folderId              String?
+  name                  String
+  promptZh              String             @db.Text
+  promptEn              String?            @db.Text
+  referenceImageUrl     String?            @db.Text
+  referenceImageMediaId String?
+  previewImageUrl       String?            @db.Text
+  previewImageMediaId   String?
+  isSystemSeed          Boolean            @default(false)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder                GlobalAssetFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  referenceImageMedia   MediaObject?       @relation("GlobalStyleReferenceImageMedia", fields: [referenceImageMediaId], references: [id], onDelete: SetNull)
+  previewImageMedia     MediaObject?       @relation("GlobalStylePreviewImageMedia", fields: [previewImageMediaId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([referenceImageMediaId])
+  @@index([previewImageMediaId])
+  @@map("global_styles")
 }
 
 // 全局角色（结构与 NovelPromotionCharacter 一致）
@@ -848,6 +893,11 @@ model GlobalCharacterAppearance {
   appearanceIndex      Int
   changeReason         String   @default("default")
   artStyle             String?
+  styleAssetId         String?
+  styleSnapshotName    String?
+  stylePromptZh        String?  @db.Text
+  stylePromptEn        String?  @db.Text
+  styleSnapshotUpdatedAt DateTime?
   description          String?  @db.Text
   descriptions         String?  @db.Text
   imageUrl             String?  @db.Text
@@ -880,6 +930,11 @@ model GlobalLocation {
   folderId  String?
   name      String
   artStyle  String?
+  styleAssetId            String?
+  styleSnapshotName       String?
+  stylePromptZh           String?  @db.Text
+  stylePromptEn           String?  @db.Text
+  styleSnapshotUpdatedAt  DateTime?
   summary   String?  @db.Text
   assetKind String   @default("location")
   createdAt DateTime @default(now())
@@ -979,6 +1034,8 @@ model MediaObject {
   globalCharacterAppearancePreviousImgs GlobalCharacterAppearance[] @relation("GlobalCharacterAppearancePreviousImageMedia")
   globalLocationImageImages             GlobalLocationImage[]       @relation("GlobalLocationImageMedia")
   globalLocationImagePreviousImages     GlobalLocationImage[]       @relation("GlobalLocationImagePreviousImageMedia")
+  globalStyleReferenceImages            GlobalStyle[]               @relation("GlobalStyleReferenceImageMedia")
+  globalStylePreviewImages              GlobalStyle[]               @relation("GlobalStylePreviewImageMedia")
   globalVoiceCustomVoices               GlobalVoice[]               @relation("GlobalVoiceCustomVoiceMedia")
 
   @@index([createdAt])
