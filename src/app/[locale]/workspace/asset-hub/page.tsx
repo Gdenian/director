@@ -3,7 +3,8 @@ import { logError as _ulogError } from '@/lib/logging/core'
 import { apiFetch } from '@/lib/api-fetch'
 import JSZip from 'jszip'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
@@ -33,6 +34,7 @@ import { useImageGenerationCount } from '@/lib/image-generation/use-image-genera
 
 export default function AssetHubPage() {
     const t = useTranslations('assetHub')
+    const searchParams = useSearchParams()
     const queryClient = useQueryClient()
     const { count: characterGenerationCount } = useImageGenerationCount('character')
     const { count: locationGenerationCount } = useImageGenerationCount('location')
@@ -82,6 +84,17 @@ export default function AssetHubPage() {
     const [showAddVoice, setShowAddVoice] = useState(false)
     const [voicePickerCharacterId, setVoicePickerCharacterId] = useState<string | null>(null)
     const [isDownloading, setIsDownloading] = useState(false)
+
+    useEffect(() => {
+        if (searchParams?.get('create') !== 'style') return
+
+        setEditingStyle(null)
+        setShowAddStyle(true)
+
+        const url = new URL(window.location.href)
+        url.searchParams.delete('create')
+        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+    }, [searchParams])
 
     const handleDeleteStyle = async (styleId: string) => {
         if (!confirm(t('style.confirmDelete'))) return

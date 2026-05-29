@@ -2,10 +2,14 @@
 
 import { useTranslations } from 'next-intl'
 import { useGlobalStyles } from '@/lib/query/hooks'
+import { SelectVariantCard } from '@/components/ui/select-variants'
+
+const CREATE_STYLE_OPTION_VALUE = '__create_style__'
 
 interface StyleAssetSelectProps {
   value: string
   onChange: (value: string) => void
+  onCreateStyle?: () => void
   mode?: 'project' | 'asset-hub'
   disabled?: boolean
   label?: string
@@ -17,6 +21,7 @@ interface StyleAssetSelectProps {
 export default function StyleAssetSelect({
   value,
   onChange,
+  onCreateStyle,
   mode = 'project',
   disabled = false,
   label,
@@ -29,6 +34,28 @@ export default function StyleAssetSelect({
   const fallbackLabel = mode === 'project'
     ? t('styleAsset.projectDefault')
     : t('styleAsset.userDefault')
+  const options = [
+    { value: '', label: isLoading ? t('styleAsset.loading') : fallbackLabel },
+    ...styles.map((style) => ({
+      value: style.id,
+      label: style.isDefault ? `${style.name} (${t('styleAsset.defaultBadge')})` : style.name,
+    })),
+    ...(onCreateStyle
+      ? [{
+          value: CREATE_STYLE_OPTION_VALUE,
+          label: t('styleAsset.createNew'),
+          description: t('styleAsset.createHint'),
+        }]
+      : []),
+  ]
+
+  const handleChange = (nextValue: string) => {
+    if (nextValue === CREATE_STYLE_OPTION_VALUE) {
+      onCreateStyle?.()
+      return
+    }
+    onChange(nextValue)
+  }
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -37,19 +64,14 @@ export default function StyleAssetSelect({
           {label ?? t('styleAsset.label')}
         </label>
       )}
-      <select
+      <SelectVariantCard
+        options={options}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={handleChange}
+        placeholder={fallbackLabel}
         disabled={disabled || isLoading}
-        className="glass-select-base w-full px-3 py-2 text-sm"
-      >
-        <option value="">{isLoading ? t('styleAsset.loading') : fallbackLabel}</option>
-        {styles.map((style) => (
-          <option key={style.id} value={style.id}>
-            {style.name}{style.isDefault ? ` (${t('styleAsset.defaultBadge')})` : ''}
-          </option>
-        ))}
-      </select>
+        className="h-10"
+      />
       {showHint && (
         <p className="glass-field-hint">
           {t('styleAsset.hint')}

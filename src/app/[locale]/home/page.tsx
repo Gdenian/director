@@ -262,6 +262,7 @@ export default function HomePage() {
                 <StyleAssetSelect
                   value={styleAssetId}
                   onChange={setStyleAssetId}
+                  onCreateStyle={() => router.push({ pathname: '/workspace/asset-hub', query: { create: 'style' } })}
                   mode="asset-hub"
                   showLabel={false}
                   showHint={false}

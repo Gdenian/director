@@ -15,8 +15,6 @@ const REDIS_PORT = Number.parseInt(process.env.REDIS_PORT || '6379', 10) || 6379
 const REDIS_USERNAME = process.env.REDIS_USERNAME
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD
 const REDIS_TLS = process.env.REDIS_TLS === 'true'
-const IS_TEST_ENV = process.env.NODE_ENV === 'test'
-
 function buildBaseConfig() {
   return {
     host: REDIS_HOST,
@@ -25,7 +23,7 @@ function buildBaseConfig() {
     password: REDIS_PASSWORD,
     tls: REDIS_TLS ? {} : undefined,
     enableReadyCheck: true,
-    lazyConnect: IS_TEST_ENV,
+    lazyConnect: true,
     retryStrategy(times: number) {
       // Exponential backoff capped at 30s.
       return Math.min(2 ** Math.min(times, 10) * 100, 30_000)

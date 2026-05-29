@@ -66,6 +66,8 @@
         "userDefault": "使用资产中心默认风格",
         "loading": "加载风格中...",
         "defaultBadge": "默认",
+        "createNew": "创建风格",
+        "createHint": "去资产中心新建一个风格",
         "hint": "生成时会注入该风格的提示词；参考图仅用于展示。"
     },
     "artStyle": {

@@ -66,6 +66,8 @@
         "userDefault": "Use asset hub default style",
         "loading": "Loading styles...",
         "defaultBadge": "Default",
+        "createNew": "Create style",
+        "createHint": "Open Asset Hub to add a style",
         "hint": "Generation injects this style's prompt. Reference images are display-only."
     },
     "artStyle": {
