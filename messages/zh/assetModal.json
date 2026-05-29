@@ -63,7 +63,7 @@
     "styleAsset": {
         "label": "画面风格",
         "projectDefault": "使用项目默认风格",
-        "userDefault": "使用资产中心默认风格",
+        "userDefault": "默认风格",
         "loading": "加载风格中...",
         "defaultBadge": "默认",
         "createNew": "创建风格",
