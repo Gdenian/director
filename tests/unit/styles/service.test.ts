@@ -70,6 +70,18 @@ describe('styles/service', () => {
     expect(preference?.defaultStyleId).toBe(defaultStyle?.id)
   })
 
+  it('ensureDefaultStyles rejects a stale session user before creating styles', async () => {
+    await expect(ensureDefaultStyles('missing-user-id')).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+      details: {
+        code: 'AUTH_SESSION_STALE',
+        message: '登录状态已失效，请重新登录',
+      },
+    })
+
+    await expect(prisma.globalStyle.count()).resolves.toBe(0)
+  })
+
   it('ensureDefaultStyles reuses an existing default style', async () => {
     const user = await createFixtureUser()
     const style = await createStyle(user.id, { name: '已有默认风格' })

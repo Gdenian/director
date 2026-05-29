@@ -95,6 +95,17 @@ const defaultSeed = DEFAULT_STYLE_SEEDS.find((seed) => seed.isDefault) ?? DEFAUL
 export async function ensureDefaultStyles(userId: string): Promise<{ defaultStyleId: string }> {
   assertRequired(userId)
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  })
+  if (!user) {
+    throw new ApiError('UNAUTHORIZED', {
+      code: 'AUTH_SESSION_STALE',
+      message: '登录状态已失效，请重新登录',
+    })
+  }
+
   const preference = await prisma.userPreference.findUnique({
     where: { userId },
     select: { defaultStyleId: true },
