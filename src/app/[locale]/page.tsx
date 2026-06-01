@@ -7,11 +7,12 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from '@/i18n/navigation'
 import Navbar from '@/components/Navbar'
 import { Link } from '@/i18n/navigation'
+import SplashCursor from '@/components/home/SplashCursor'
 import { buildAuthenticatedHomeTarget } from '@/lib/home/default-route'
 
 export default function Home() {
   const t = useTranslations('landing')
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
 
   // 已登录用户自动跳转到 home
@@ -39,62 +40,64 @@ export default function Home() {
   }
 
   return (
-    <div className="glass-page min-h-screen overflow-hidden font-sans selection:bg-[var(--glass-tone-info-bg)]">
-      {/* Navbar */}
+    <div className="min-h-screen overflow-hidden bg-[#05050a] font-sans text-white selection:bg-white/20">
       <div className="relative z-50">
         <Navbar />
       </div>
 
-      {/* Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_80%_-10%,rgba(138,170,255,0.12),transparent),radial-gradient(900px_500px_at_0%_100%,rgba(148,163,184,0.16),transparent)]"></div>
+      <div className="fixed inset-0 z-0 bg-[#05050a]">
+        <div aria-hidden="true" className="absolute inset-0 h-full w-full opacity-95">
+          <SplashCursor
+            SIM_RESOLUTION={128}
+            DYE_RESOLUTION={1440}
+            DENSITY_DISSIPATION={3.5}
+            VELOCITY_DISSIPATION={2}
+            PRESSURE={0.1}
+            CURL={3}
+            SPLAT_RADIUS={0.2}
+            SPLAT_FORCE={6000}
+            COLOR_UPDATE_SPEED={10}
+          />
+        </div>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,5,10,0.9)_0%,rgba(5,5,10,0.58)_38%,rgba(5,5,10,0.18)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(0deg,rgba(5,5,10,0.96),transparent)]" />
       </div>
 
       <main className="relative z-10">
-        <section className="relative min-h-screen flex items-center justify-center -mt-16 px-4">
-          <div className="container mx-auto grid lg:grid-cols-2 gap-16 items-center">
-            <div className="text-left space-y-8 animate-slide-up" style={{ animationDuration: '0.8s' }}>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                <span className="block text-[var(--glass-text-primary)]">
+        <section className="relative flex min-h-[calc(100vh-4rem)] items-center px-5 pb-12 pt-24 sm:px-8 lg:px-12">
+          <div className="mx-auto flex w-full max-w-7xl items-center">
+            <div className="max-w-3xl animate-slide-up space-y-8" style={{ animationDuration: '0.8s' }}>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/[0.06] px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-white/72 backdrop-blur-md">
+                {t('eyebrow')}
+              </div>
+
+              <h1 className="max-w-4xl text-6xl font-bold leading-none text-white md:text-8xl lg:text-9xl">
+                <span className="block">
                   {t('title')}
                 </span>
-                <span className="text-[var(--glass-tone-info-fg)]">
+                <span className="mt-3 block text-white/68">
                   {t('subtitle')}
                 </span>
               </h1>
 
-              <div className="flex flex-wrap gap-4 pt-4 animate-fade-in" style={{ animationDelay: '0.6s' }}>
+              <div className="max-w-2xl text-base leading-8 text-white/68 md:text-lg">
+                {t('description')}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 pt-2 animate-fade-in" style={{ animationDelay: '0.6s' }}>
                 <Link
                   href={{ pathname: '/auth/signup' }}
-                  className="glass-btn-base glass-btn-primary px-8 py-4 rounded-xl font-semibold transition-all duration-300"
+                  className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black shadow-[0_18px_60px_rgba(255,255,255,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90"
                 >
                   {t('getStarted')}
                 </Link>
-              </div>
-            </div>
 
-            <div className="relative h-[600px] hidden lg:flex items-center justify-center animate-scale-in" style={{ animationDuration: '1s' }}>
-              <div className="relative w-full max-w-md aspect-square">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle,rgba(148,163,184,0.2),transparent_65%)] rounded-full blur-3xl opacity-70"></div>
-                <div className="absolute top-0 right-10 w-64 h-80 glass-surface rounded-3xl transform rotate-6 animate-float-delayed"></div>
-                <div className="absolute bottom-10 left-10 w-72 h-80 glass-surface-soft rounded-3xl transform -rotate-3 animate-float-slow"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-96 glass-surface-modal rounded-3xl overflow-hidden animate-float">
-                  <div className="p-6 h-full flex flex-col">
-                    <div className="w-full h-48 bg-[var(--glass-bg-muted)] rounded-2xl mb-6 relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-[var(--glass-tone-info-bg)]/20 group-hover:bg-[var(--glass-tone-info-bg)]/35 transition-colors"></div>
-                      <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[var(--glass-bg-surface)]"></div>
-                      <div className="absolute bottom-4 left-4 w-12 h-12 rounded-lg bg-[var(--glass-bg-surface-strong)] rotate-12"></div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="h-3 w-3/4 bg-[var(--glass-bg-muted)] rounded-full"></div>
-                      <div className="h-3 w-1/2 bg-[var(--glass-bg-muted)] rounded-full"></div>
-                      <div className="pt-4 flex gap-2">
-                        <div className="h-10 w-10 rounded-full bg-[var(--glass-bg-surface)] border border-[var(--glass-stroke-soft)]"></div>
-                        <div className="h-10 flex-1 rounded-full bg-[var(--glass-tone-info-bg)]/40 border border-[var(--glass-stroke-base)]"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <Link
+                  href={{ pathname: '/auth/signin' }}
+                  className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/[0.05] px-7 py-3.5 text-sm font-semibold text-white/82 backdrop-blur-md transition-all duration-300 hover:border-white/30 hover:bg-white/[0.1] hover:text-white"
+                >
+                  {t('login')}
+                </Link>
               </div>
             </div>
           </div>
