@@ -28,11 +28,11 @@ export default function Home() {
       <div className="glass-page min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Image
-            src="/logo-small.png?v=3"
+            src="/logo-navbar.png"
             alt="director"
-            width={80}
-            height={80}
-            className="animate-pulse"
+            width={950}
+            height={420}
+            className="h-24 w-auto animate-pulse object-contain"
           />
         </div>
       </div>
