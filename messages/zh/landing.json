@@ -1,9 +1,12 @@
 {
-  "title": "waoowaoo",
+  "title": "DIRECTOR",
   "subtitle": "AI影视Studio",
+  "eyebrow": "AI 影视生产引擎",
+  "description": "从小说、角色、分镜到视频生成，把创作流程聚合在一个可持续迭代的 AI Studio。",
   "enterWorkspace": "进入工作区",
   "loading": "加载中...",
   "getStarted": "立即体验",
+  "login": "登录",
   "learnMore": "了解更多",
   "features": {
     "title": "释放无限创造力",

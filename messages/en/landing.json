@@ -1,9 +1,12 @@
 {
-  "title": "waoowaoo",
+  "title": "DIRECTOR",
   "subtitle": "AI Film & TV Studio",
+  "eyebrow": "AI Film Production Engine",
+  "description": "Bring novels, characters, storyboards, and video generation into one AI Studio built for iterative production.",
   "enterWorkspace": "Enter Workspace",
   "loading": "Loading...",
   "getStarted": "Get Started",
+  "login": "Sign In",
   "learnMore": "Learn More",
   "features": {
     "title": "Unleash Infinite Creativity",
