@@ -44,10 +44,10 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
               <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group">
                 <Image
-                  src="/logo-horizontal-white.png?v=3"
+                  src="/logo-navbar.png"
                   alt={tc('appName')}
-                  width={213}
-                  height={48}
+                  width={950}
+                  height={420}
                   className="h-12 w-auto object-contain transition-transform group-hover:scale-[1.03]"
                 />
               </Link>

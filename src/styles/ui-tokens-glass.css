@@ -1,14 +1,14 @@
 :root {
   /* Surface and text */
-  --glass-bg-canvas: #f3f4f6;
-  --glass-bg-surface: rgba(255, 255, 255, 0.88);
-  --glass-bg-surface-strong: rgba(255, 255, 255, 0.94);
-  --glass-bg-surface-modal: rgba(255, 255, 255, 0.97);
-  --glass-bg-muted: rgba(255, 255, 255, 0.86);
-  --glass-bg-nav: rgba(255, 255, 255, 0.96);
-  --glass-text-primary: #0a0a0a;
-  --glass-text-secondary: #111827;
-  --glass-text-tertiary: #4b5563;
+  --glass-bg-canvas: #000000;
+  --glass-bg-surface: rgba(0, 0, 0, 0.88);
+  --glass-bg-surface-strong: rgba(0, 0, 0, 0.94);
+  --glass-bg-surface-modal: rgba(0, 0, 0, 0.97);
+  --glass-bg-muted: rgba(255, 255, 255, 0.1);
+  --glass-bg-nav: rgba(0, 0, 0, 0.96);
+  --glass-text-primary: #ffffff;
+  --glass-text-secondary: #ffffff;
+  --glass-text-tertiary: #ffffff;
   --glass-text-on-accent: #ffffff;
 
   /* Border strategy: default weak stroke, focus/error stronger */
@@ -79,10 +79,10 @@
 
 /* Low-cost preset for performance-sensitive environments */
 [data-glass-preset='subtle'] {
-  --glass-bg-surface: rgba(255, 255, 255, 0.92);
-  --glass-bg-surface-strong: rgba(255, 255, 255, 0.96);
-  --glass-bg-surface-modal: rgba(255, 255, 255, 0.98);
-  --glass-bg-nav: rgba(255, 255, 255, 0.98);
+  --glass-bg-surface: rgba(0, 0, 0, 0.92);
+  --glass-bg-surface-strong: rgba(0, 0, 0, 0.96);
+  --glass-bg-surface-modal: rgba(0, 0, 0, 0.98);
+  --glass-bg-nav: rgba(0, 0, 0, 0.98);
   --glass-blur-sm: 2px;
   --glass-blur-md: 4px;
   --glass-blur-lg: 8px;
