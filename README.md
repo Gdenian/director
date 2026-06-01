@@ -1,21 +1,21 @@
 <p align="center">
-  <a href="https://www.waoowaoo.com/">
-    <img src="images/cta-banner.png" alt="🚀 探索 AI 影视的下一代创作流 | 立即加入 waoowaoo 在线网页版内测候补" width="800">
+  <a href="https://www.director.com/">
+    <img src="images/cta-banner.png" alt="🚀 探索 AI 影视的下一代创作流 | 立即加入 director 在线网页版内测候补" width="800">
   </a>
 </p>
 
 <p align="center">
-  <img src="public/banner.png" alt="waoowaoo" width="600">
+  <img src="public/banner.png" alt="director" width="600">
 </p>
 
-<h1 align="center">waoowaoo AI 影视 Studio</h1>
+<h1 align="center">director AI 视频创作平台</h1>
 
 <p align="center">
   一款基于 AI 技术的短剧/漫画视频制作工具，支持从小说文本自动生成分镜、角色、场景，并制作成完整视频。
 </p>
 
 <p align="center">
-  <a href="README_en.md">English</a> · <a href="https://www.waoowaoo.com/">加入内测候补</a> · <a href="https://github.com/saturndec/waoowaoo/issues">反馈问题</a>
+  <a href="README_en.md">English</a> · <a href="https://www.director.com/">加入内测候补</a> · <a href="https://github.com/saturndec/director/issues">反馈问题</a>
 </p>
 
 > [!IMPORTANT]
@@ -44,7 +44,7 @@
 
 ```bash
 # 下载 docker-compose.yml
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/saturndec/director/main/docker-compose.yml
 
 # 启动所有服务
 docker compose up -d
@@ -54,8 +54,8 @@ docker compose up -d
 
 ```bash
 docker compose down -v
-docker rmi ghcr.io/saturndec/waoowaoo:latest
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
+docker rmi ghcr.io/saturndec/director:latest
+curl -O https://raw.githubusercontent.com/saturndec/director/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -64,8 +64,8 @@ docker compose up -d
 ### 方式二：克隆仓库 + Docker 构建（完全控制）
 
 ```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
+git clone https://github.com/saturndec/director.git
+cd director
 docker compose up -d
 ```
 
@@ -78,8 +78,8 @@ docker compose down && docker compose up -d --build
 ### 方式三：本地开发模式（开发者）
 
 ```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
+git clone https://github.com/saturndec/director.git
+cd director
 
 # 复制环境变量配置文件（必须在 npm install 之前完成）
 cp .env.example .env
@@ -148,14 +148,14 @@ npm run dev
 
 本项目由核心团队独立维护。欢迎你通过以下方式参与：
 
-- 🐛 提交 [Issue](https://github.com/saturndec/waoowaoo/issues) 反馈 Bug
-- 💡 提交 [Issue](https://github.com/saturndec/waoowaoo/issues) 提出功能建议
+- 🐛 提交 [Issue](https://github.com/saturndec/director/issues) 反馈 Bug
+- 💡 提交 [Issue](https://github.com/saturndec/director/issues) 提出功能建议
 - 🔧 提交 Pull Request 供参考 — 我们会认真审阅每一个 PR 的思路，但最终由团队自行实现修复，不会直接合并外部 PR
 
 ---
 
-**Made with ❤️ by waoowaoo team**
+**Made with ❤️ by director team**
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=saturndec/waoowaoo&type=date&legend=top-left)](https://www.star-history.com/#saturndec/waoowaoo&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=saturndec/director&type=date&legend=top-left)](https://www.star-history.com/#saturndec/director&type=date&legend=top-left)

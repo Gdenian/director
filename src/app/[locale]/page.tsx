@@ -27,8 +27,8 @@ export default function Home() {
       <div className="glass-page min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Image
-            src="/logo-small.png?v=1"
-            alt="waoowaoo"
+            src="/logo-small.png?v=3"
+            alt="director"
             width={80}
             height={80}
             className="animate-pulse"

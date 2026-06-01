@@ -16,6 +16,7 @@ const eslintConfig = [
       "node_modules/**",
       ".agent/**",
       ".next/**",
+      ".worktrees/**",
       "out/**",
       "build/**",
       "coverage/**",

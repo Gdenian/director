@@ -1,6 +1,6 @@
 {
-  "title": "waoowaoo",
-  "subtitle": "AI影视Studio",
+  "title": "director",
+  "subtitle": "AI 视频创作平台",
   "enterWorkspace": "进入工作区",
   "loading": "加载中...",
   "getStarted": "立即体验",
@@ -22,6 +22,6 @@
     }
   },
   "footer": {
-    "copyright": "2026 waoowaoo AI. All rights reserved."
+    "copyright": "2026 director. All rights reserved."
   }
 }

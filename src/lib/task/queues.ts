@@ -3,10 +3,10 @@ import { queueRedis } from '@/lib/redis'
 import { QueueType, TaskType, TASK_TYPE, type TaskJobData } from './types'
 
 export const QUEUE_NAME = {
-  IMAGE: 'waoowaoo-image',
-  VIDEO: 'waoowaoo-video',
-  VOICE: 'waoowaoo-voice',
-  TEXT: 'waoowaoo-text',
+  IMAGE: 'director-image',
+  VIDEO: 'director-video',
+  VOICE: 'director-voice',
+  TEXT: 'director-text',
 } as const
 
 const defaultJobOptions: JobsOptions = {

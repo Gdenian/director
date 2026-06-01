@@ -1,6 +1,6 @@
 {
-  "title": "waoowaoo",
-  "subtitle": "AI Film & TV Studio",
+  "title": "director",
+  "subtitle": "AI Video Creation Platform",
   "enterWorkspace": "Enter Workspace",
   "loading": "Loading...",
   "getStarted": "Get Started",
@@ -22,6 +22,6 @@
     }
   },
   "footer": {
-    "copyright": "2026 waoowaoo AI. All rights reserved."
+    "copyright": "2026 director. All rights reserved."
   }
 }
