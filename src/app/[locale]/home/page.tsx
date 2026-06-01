@@ -253,6 +253,17 @@ export default function HomePage() {
                 }
               }}
               placeholder={t('inputPlaceholder')}
+              borderGlow={{
+                edgeSensitivity: 44,
+                glowColor: '40 80 80',
+                backgroundColor: '#120F17',
+                borderRadius: 28,
+                glowRadius: 40,
+                glowIntensity: 2,
+                coneSpread: 25,
+                animated: true,
+                colors: ['#c084fc', '#f472b6', '#38bdf8'],
+              }}
               minRows={HOME_QUICK_START_MIN_ROWS}
               textareaClassName="px-0 pt-0 pb-3 align-top"
               videoRatio={videoRatio}

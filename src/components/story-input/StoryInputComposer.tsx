@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, type CompositionEvent, type ReactNode } from 'react'
 import { RatioSelector, StylePresetSelector } from '@/components/selectors/RatioStyleSelectors'
+import BorderGlow, { type BorderGlowProps } from '@/components/ui/BorderGlow'
 import { resolveTextareaTargetHeight } from '@/lib/ui/textarea-height'
 
 interface StoryInputComposerOption {
@@ -38,6 +39,7 @@ interface StoryInputComposerProps {
   onCompositionStart?: () => void
   onCompositionEnd?: (event: CompositionEvent<HTMLTextAreaElement>) => void
   textareaClassName?: string
+  borderGlow?: Omit<BorderGlowProps, 'children'>
 }
 
 export default function StoryInputComposer({
@@ -62,6 +64,7 @@ export default function StoryInputComposer({
   onCompositionStart,
   onCompositionEnd,
   textareaClassName,
+  borderGlow,
 }: StoryInputComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textareaMinHeightRef = useRef<number | null>(null)
@@ -103,8 +106,8 @@ export default function StoryInputComposer({
     autoResizeTextarea()
   }, [value, autoResizeTextarea])
 
-  return (
-    <div className="relative w-full glass-surface-elevated rounded-2xl">
+  const content = (
+    <>
       <div className="p-6 pb-4">
         {topRight && (
           <div className="mb-3 flex items-center justify-end">
@@ -161,6 +164,22 @@ export default function StoryInputComposer({
           {footer}
         </div>
       )}
+    </>
+  )
+
+  if (borderGlow) {
+    return (
+      <BorderGlow {...borderGlow} className={`w-full ${borderGlow.className ?? ''}`}>
+        <div className="relative w-full">
+          {content}
+        </div>
+      </BorderGlow>
+    )
+  }
+
+  return (
+    <div className="relative w-full glass-surface-elevated rounded-2xl">
+      {content}
     </div>
   )
 }
