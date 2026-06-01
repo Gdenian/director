@@ -159,14 +159,14 @@ export default function HomePage() {
 
   if (status === 'loading' || !session) {
     return (
-      <div className="glass-page min-h-screen flex items-center justify-center">
+      <div className="glass-page min-h-screen flex items-center justify-center" style={{ backgroundColor: '#000' }}>
         <div className="text-[var(--glass-text-secondary)]">{tc('loading')}</div>
       </div>
     )
   }
 
   return (
-    <div className="glass-page min-h-screen">
+    <div className="glass-page min-h-screen" style={{ backgroundColor: '#000' }}>
       <Navbar />
 
       {/* 自定义呼吸动画 */}
