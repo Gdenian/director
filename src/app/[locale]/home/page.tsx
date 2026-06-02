@@ -2,16 +2,17 @@
 
 /**
  * 首页 - 创作中心
- * 用户登录后的主入口页面：快速创作 + 最近项目
+ * 用户登录后的主入口页面：快速创作 + 作品集
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
-import { AppIcon, IconGradientDefs } from '@/components/ui/icons'
+import { AppIcon } from '@/components/ui/icons'
 import StoryInputComposer from '@/components/story-input/StoryInputComposer'
 import StyleAssetSelect from '@/components/shared/assets/StyleAssetSelect'
 import TypewriterHero from '@/components/home/TypewriterHero'
+import CircularGallery, { type CircularGalleryItem } from '@/components/home/CircularGallery'
 import { VIDEO_RATIOS } from '@/lib/constants'
 import { DEFAULT_STYLE_PRESET_VALUE, STYLE_PRESETS } from '@/lib/style-presets'
 import { Link, useRouter } from '@/i18n/navigation'
@@ -23,23 +24,43 @@ import { HOME_QUICK_START_MIN_ROWS } from '@/lib/ui/textarea-height'
 import AiWriteModal from '@/components/home/AiWriteModal'
 
 interface ProjectStats {
-  episodes: number
-  images: number
-  videos: number
-  panels: number
-  firstEpisodePreview: string | null
+  mainCharacterImageUrl: string | null
 }
 
 interface Project {
   id: string
   name: string
-  description: string | null
-  createdAt: string
-  updatedAt: string
   stats?: ProjectStats
 }
 
 const RECENT_COUNT = 5
+const EMPTY_GALLERY_COUNT = 8
+
+function toSvgDataUri(svg: string) {
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+const EMPTY_PROJECT_CARD_IMAGE = toSvgDataUri(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+    <rect width="800" height="800" rx="54" fill="#07090d"/>
+    <rect x="38" y="38" width="724" height="724" rx="44" fill="#0d1118" stroke="rgba(148,163,184,0.34)" stroke-width="3"/>
+    <path d="M400 286v228M286 400h228" stroke="rgba(255,255,255,0.74)" stroke-width="30" stroke-linecap="round"/>
+  </svg>
+`)
+
+const PROJECT_IMAGE_PLACEHOLDER = toSvgDataUri(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+    <rect width="800" height="800" rx="54" fill="#07090d"/>
+    <rect x="38" y="38" width="724" height="724" rx="44" fill="#0d1118" stroke="rgba(148,163,184,0.28)" stroke-width="3"/>
+    <path d="M250 496c38-72 85-108 141-108 46 0 83 22 112 66 18-16 39-24 63-24 41 0 75 22 102 66" fill="none" stroke="rgba(148,163,184,0.55)" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="310" cy="300" r="48" fill="rgba(148,163,184,0.36)"/>
+  </svg>
+`)
+
+const EMPTY_PROJECT_GALLERY_ITEMS: CircularGalleryItem[] = Array.from({ length: EMPTY_GALLERY_COUNT }, () => ({
+  image: EMPTY_PROJECT_CARD_IMAGE,
+  text: '',
+}))
 
 export default function HomePage() {
   const { data: session, status } = useSession()
@@ -145,17 +166,16 @@ export default function HomePage() {
     []
   )
 
-  // 时间格式化
-  const formatTimeAgo = (dateString: string): string => {
-    const diffMs = Date.now() - new Date(dateString).getTime()
-    const diffMinutes = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    if (diffMinutes < 1) return t('ago.justNow')
-    if (diffMinutes < 60) return t('ago.minutesAgo', { n: diffMinutes })
-    if (diffHours < 24) return t('ago.hoursAgo', { n: diffHours })
-    return t('ago.daysAgo', { n: diffDays })
-  }
+  const projectGalleryItems = useMemo<CircularGalleryItem[]>(() => (
+    projects.map((project) => ({
+      image: project.stats?.mainCharacterImageUrl || PROJECT_IMAGE_PLACEHOLDER,
+      text: project.name,
+    }))
+  ), [projects])
+
+  const openWorkspaceCreateModal = useCallback(() => {
+    router.push({ pathname: '/workspace', query: { create: 'project' } })
+  }, [router])
 
   if (status === 'loading' || !session) {
     return (
@@ -329,7 +349,7 @@ export default function HomePage() {
         />
       </main>
 
-      {/* 最近项目 */}
+      {/* 作品集 */}
       <section className="px-4 sm:px-6 lg:px-10 pb-8 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-sm font-semibold text-[var(--glass-text-secondary)]">{t('recentProjects')}</h2>
@@ -351,67 +371,16 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-12 h-12 bg-[var(--glass-bg-muted)] rounded-xl flex items-center justify-center mx-auto mb-3">
-              <AppIcon name="folderCards" className="w-6 h-6 text-[var(--glass-text-tertiary)]" />
-            </div>
-            <p className="text-sm text-[var(--glass-text-tertiary)]">{t('noProjects')}</p>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                href={{ pathname: `/workspace/${project.id}` }}
-                className="glass-surface cursor-pointer group hover:border-[var(--glass-tone-info-fg)]/40 transition-all duration-300 overflow-hidden relative block"
-              >
-                <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                <div className="p-5 relative z-10">
-                  <h3 className="text-sm font-bold text-[var(--glass-text-primary)] mb-2 group-hover:text-[var(--glass-tone-info-fg)] transition-colors line-clamp-1">
-                    {project.name}
-                  </h3>
-                  {(project.description || project.stats?.firstEpisodePreview) && (
-                    <div className="flex items-start gap-2 mb-3">
-                      <AppIcon name="fileText" className="w-3.5 h-3.5 text-[var(--glass-text-tertiary)] mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-[var(--glass-text-secondary)] line-clamp-2 leading-relaxed">
-                        {project.description || project.stats?.firstEpisodePreview}
-                      </p>
-                    </div>
-                  )}
-                  {project.stats && (project.stats.episodes > 0 || project.stats.images > 0 || project.stats.videos > 0) && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <IconGradientDefs className="w-0 h-0 absolute" aria-hidden="true" />
-                      <AppIcon name="statsBarGradient" className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex items-center gap-3 text-sm font-semibold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
-                        {project.stats.episodes > 0 && (
-                          <span className="flex items-center gap-1">
-                            <AppIcon name="statsEpisodeGradient" className="w-3.5 h-3.5" />
-                            {project.stats.episodes}
-                          </span>
-                        )}
-                        {project.stats.images > 0 && (
-                          <span className="flex items-center gap-1">
-                            <AppIcon name="statsImageGradient" className="w-3.5 h-3.5" />
-                            {project.stats.images}
-                          </span>
-                        )}
-                        {project.stats.videos > 0 && (
-                          <span className="flex items-center gap-1">
-                            <AppIcon name="statsVideoGradient" className="w-3.5 h-3.5" />
-                            {project.stats.videos}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1 text-[10px] text-[var(--glass-text-tertiary)]">
-                    <AppIcon name="clock" className="w-3 h-3" />
-                    {formatTimeAgo(project.updatedAt)}
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <div className="relative -mx-4 h-[320px] overflow-hidden sm:mx-0 sm:h-[380px] lg:h-[420px]">
+            <CircularGallery
+              items={projects.length > 0 ? projectGalleryItems : EMPTY_PROJECT_GALLERY_ITEMS}
+              bend={3}
+              textColor="#ffffff"
+              borderRadius={0.16}
+              scrollEase={0.02}
+              onClick={projects.length === 0 ? openWorkspaceCreateModal : undefined}
+            />
           </div>
         )}
       </section>

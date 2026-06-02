@@ -1,6 +1,7 @@
 'use client'
 import { logError as _ulogError } from '@/lib/logging/core'
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
@@ -68,6 +69,7 @@ function toProjectValidationMessage(
 export default function WorkspacePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -161,6 +163,13 @@ export default function WorkspacePage() {
       }
     })()
   }, [])
+
+  useEffect(() => {
+    if (!session || !searchParams || searchParams.get('create') !== 'project') return
+
+    openCreateModal()
+    router.replace({ pathname: '/workspace' }, { scroll: false })
+  }, [session, searchParams, openCreateModal, router])
 
   // 分页处理
   const handlePageChange = (newPage: number) => {

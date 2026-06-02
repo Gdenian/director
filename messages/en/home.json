@@ -4,8 +4,8 @@
   "inputPlaceholder": "Enter your story idea, novel excerpt, or script outline...",
   "defaultProjectName": "New Project {timestamp}",
   "startCreation": "Start Creating",
-  "recentProjects": "Recent Projects",
-  "viewAll": "View All Projects",
+  "recentProjects": "Portfolio",
+  "viewAll": "View All Works",
   "noProjects": "No projects yet. Start your first creation from above!",
   "ago": {
     "justNow": "Just now",

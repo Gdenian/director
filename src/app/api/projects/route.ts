@@ -6,6 +6,10 @@ import { toMoneyNumber } from '@/lib/billing/money'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { resolveDefaultStyleSnapshot } from '@/lib/styles/service'
 import type { StyleSnapshot } from '@/lib/styles/types'
+import { keyToSignedUrl } from '@/lib/storage/signed-urls'
+import { resolveMediaRefFromLegacyValue } from '@/lib/media/service'
+import { decodeImageUrlsFromDb } from '@/lib/contracts/image-urls-contract'
+import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import {
   formatProjectValidationIssue,
   normalizeProjectDraft,
@@ -33,6 +37,53 @@ function toProjectStyleSnapshotData(snapshot: StyleSnapshot) {
     stylePromptEn: snapshot.promptEn,
     styleSnapshotUpdatedAt: new Date(snapshot.snapshotUpdatedAt),
   }
+}
+
+function safeDecodeImageUrls(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    return decodeImageUrlsFromDb(raw, 'characterAppearance.imageUrls')
+  } catch {
+    return []
+  }
+}
+
+async function resolveDisplayImageUrl(value: string | null): Promise<string | null> {
+  if (!value) return null
+  if (value.startsWith('/m/') || value.startsWith('data:')) return value
+
+  const media = await resolveMediaRefFromLegacyValue(value)
+  if (media?.url) return media.url
+  if (value.startsWith('/')) return value
+
+  return keyToSignedUrl(value) || value
+}
+
+type ProjectCharacterForPreview = {
+  appearances: Array<{
+    appearanceIndex: number
+    imageUrl: string | null
+    imageUrls: string | null
+    selectedIndex: number | null
+  }>
+}
+
+async function resolveMainCharacterImageUrl(characters: ProjectCharacterForPreview[]): Promise<string | null> {
+  for (const character of characters) {
+    const primaryAppearance = character.appearances.find((item) => item.appearanceIndex === PRIMARY_APPEARANCE_INDEX)
+      || character.appearances[0]
+    if (!primaryAppearance) continue
+
+    const imageUrls = safeDecodeImageUrls(primaryAppearance.imageUrls)
+    const selectedImage = typeof primaryAppearance.selectedIndex === 'number'
+      ? imageUrls[primaryAppearance.selectedIndex]
+      : null
+    const sourceImage = selectedImage || imageUrls[0] || primaryAppearance.imageUrl
+    const imageUrl = await resolveDisplayImageUrl(sourceImage)
+    if (imageUrl) return imageUrl
+  }
+
+  return null
 }
 
 // GET - 获取用户的项目（支持分页和搜索）
@@ -111,6 +162,20 @@ export const GET = apiHandler(async (request: NextRequest) => {
             locations: true
           }
         },
+        characters: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            appearances: {
+              orderBy: { appearanceIndex: 'asc' },
+              select: {
+                appearanceIndex: true,
+                imageUrl: true,
+                imageUrls: true,
+                selectedIndex: true,
+              },
+            },
+          },
+        },
         episodes: {
           orderBy: { episodeNumber: 'asc' },
           select: {
@@ -147,8 +212,8 @@ export const GET = apiHandler(async (request: NextRequest) => {
   )
 
   // 构建统计映射表 + 第一集预览
-  const statsMap = new Map<string, { episodes: number; images: number; videos: number; panels: number; firstEpisodePreview: string | null }>(
-    novelProjects.map(np => {
+  const statsEntries = await Promise.all(
+    novelProjects.map(async (np) => {
       let imageCount = 0
       let videoCount = 0
       let panelCount = 0
@@ -169,16 +234,18 @@ export const GET = apiHandler(async (request: NextRequest) => {
         images: imageCount,
         videos: videoCount,
         panels: panelCount,
-        firstEpisodePreview: preview
-      }]
+        firstEpisodePreview: preview,
+        mainCharacterImageUrl: await resolveMainCharacterImageUrl(np.characters),
+      }] as const
     })
   )
+  const statsMap = new Map(statsEntries)
 
   // 合并项目、费用与统计
   const projectsWithStats = projects.map(project => ({
     ...project,
     totalCost: costMap.get(project.id) ?? 0,
-    stats: statsMap.get(project.id) ?? { episodes: 0, images: 0, videos: 0, panels: 0, firstEpisodePreview: null }
+    stats: statsMap.get(project.id) ?? { episodes: 0, images: 0, videos: 0, panels: 0, firstEpisodePreview: null, mainCharacterImageUrl: null }
   }))
 
   return NextResponse.json({
