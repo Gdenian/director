@@ -123,6 +123,14 @@ After launching, go to **Settings** to configure your AI service API keys. A bui
 
 ---
 
+## 🧭 Developer Docs
+
+- [docs/README.md](docs/README.md) — Chinese developer overview covering runtime, module map, test entry points, and current risk areas
+- [Style Management Design](docs/superpowers/specs/2026-05-28-style-management-design.md)
+- [Style Prompt Generation Design](docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md)
+
+---
+
 ## 📦 Preview
 
 ![4f7b913264f7f26438c12560340e958c67fa833a](https://github.com/user-attachments/assets/fa0e9c57-9ea0-4df3-893e-b76c4c9d304b)

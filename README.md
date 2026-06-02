@@ -135,6 +135,14 @@ npm run dev
 
 ---
 
+## 🧭 开发文档
+
+- [docs/README.md](docs/README.md) — 运行方式、模块地图、测试入口与风险点总览
+- [风格管理功能设计](docs/superpowers/specs/2026-05-28-style-management-design.md)
+- [参考图生成风格提示词设计](docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md)
+
+---
+
 ## 📦 页面功能预览
 
 ![4f7b913264f7f26438c12560340e958c67fa833a](https://github.com/user-attachments/assets/fa0e9c57-9ea0-4df3-893e-b76c4c9d304b)

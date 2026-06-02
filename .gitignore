@@ -79,12 +79,8 @@ certificates
 # temporary files
 tmp/
 
-# internal AI agent config (not for public)
-AGENTS.md
+# internal AI agent scratch space (not for public)
 agent/
-
-# internal docs (not for public)
-docs/
 
 # GitHub CI workflows (internal)
 # .github/ — 只保留 workflows，忽略其他
