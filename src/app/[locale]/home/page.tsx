@@ -173,6 +173,13 @@ export default function HomePage() {
     }))
   ), [projects])
 
+  const handleProjectCardClick = useCallback((index: number) => {
+    const project = projects[index]
+    if (!project) return
+
+    router.push({ pathname: `/workspace/${project.id}` })
+  }, [projects, router])
+
   const openWorkspaceCreateModal = useCallback(() => {
     router.push({ pathname: '/workspace', query: { create: 'project' } })
   }, [router])
@@ -379,6 +386,7 @@ export default function HomePage() {
               textColor="#ffffff"
               borderRadius={0.16}
               scrollEase={0.02}
+              onItemClick={projects.length > 0 ? handleProjectCardClick : () => openWorkspaceCreateModal()}
               onClick={projects.length === 0 ? openWorkspaceCreateModal : undefined}
             />
           </div>

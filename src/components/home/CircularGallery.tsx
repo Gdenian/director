@@ -18,6 +18,7 @@ interface CircularGalleryProps {
   scrollSpeed?: number
   scrollEase?: number
   onClick?: () => void
+  onItemClick?: (index: number, item: CircularGalleryItem) => void
 }
 
 interface ScreenSize {
@@ -398,6 +399,7 @@ class Media {
 
 class GalleryApp {
   container: HTMLDivElement
+  items: CircularGalleryItem[]
   scrollSpeed: number
   scroll: ScrollState
   onCheckDebounce: () => void
@@ -433,6 +435,7 @@ class GalleryApp {
   ) {
     document.documentElement.classList.remove('no-js')
     this.container = container
+    this.items = items && items.length ? items : []
     this.scrollSpeed = scrollSpeed
     this.scroll = { ease: scrollEase, current: 0, target: 0, last: 0 }
     this.onCheckDebounce = debounce(this.onCheck, 200)
@@ -496,6 +499,7 @@ class GalleryApp {
       { image: 'https://picsum.photos/seed/12/800/600?grayscale', text: 'Palm Trees' },
     ]
     const galleryItems = items && items.length ? items : defaultItems
+    this.items = galleryItems
     this.mediasImages = galleryItems.concat(galleryItems)
     this.medias = this.mediasImages.map((data, index) => {
       return new Media({
@@ -568,6 +572,52 @@ class GalleryApp {
     }
   }
 
+  getActiveItemIndex() {
+    if (!this.items.length || !this.medias?.[0]) return null
+    const width = this.medias[0].width
+    if (!width) return 0
+
+    const itemIndex = Math.round(Math.abs(this.scroll.target) / width) % this.items.length
+    return itemIndex
+  }
+
+  getItemIndexAtClientPoint(clientX: number, clientY: number) {
+    if (!this.items.length || !this.medias?.length) return null
+
+    const containerRect = this.container.getBoundingClientRect()
+    const localX = clientX - containerRect.left
+    const localY = clientY - containerRect.top
+
+    let matchedMedia: Media | null = null
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    for (const media of this.medias) {
+      const centerX = this.screen.width / 2 + (media.plane.position.x / this.viewport.width) * this.screen.width
+      const centerY = this.screen.height / 2 - (media.plane.position.y / this.viewport.height) * this.screen.height
+      const halfWidth = ((media.plane.scale.x / this.viewport.width) * this.screen.width) / 2
+      const halfHeight = ((media.plane.scale.y / this.viewport.height) * this.screen.height) / 2
+
+      const dx = localX - centerX
+      const dy = localY - centerY
+      const rotation = -media.plane.rotation.z
+      const rotatedX = dx * Math.cos(rotation) - dy * Math.sin(rotation)
+      const rotatedY = dx * Math.sin(rotation) + dy * Math.cos(rotation)
+
+      if (Math.abs(rotatedX) > halfWidth || Math.abs(rotatedY) > halfHeight) {
+        continue
+      }
+
+      const distance = dx * dx + dy * dy
+      if (distance < closestDistance) {
+        closestDistance = distance
+        matchedMedia = media
+      }
+    }
+
+    if (!matchedMedia) return null
+    return matchedMedia.index % this.items.length
+  }
+
   update() {
     this.scroll.current = lerp(this.scroll.current, this.scroll.target, this.scroll.ease)
     const direction = this.scroll.current > this.scroll.last ? 'right' : 'left'
@@ -622,16 +672,20 @@ export default function CircularGallery({
   scrollSpeed = 2,
   scrollEase = 0.05,
   onClick,
+  onItemClick,
 }: CircularGalleryProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const appRef = useRef<GalleryApp | null>(null)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const hasDraggedRef = useRef(false)
 
   useEffect(() => {
     if (!containerRef.current) return
     const app = new GalleryApp(containerRef.current, { items, bend, textColor, borderRadius, font, scrollSpeed, scrollEase })
+    appRef.current = app
     return () => {
       app.destroy()
+      appRef.current = null
     }
   }, [items, bend, textColor, borderRadius, font, scrollSpeed, scrollEase])
 
@@ -649,8 +703,16 @@ export default function CircularGallery({
         const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y)
         if (distance > 8) hasDraggedRef.current = true
       }}
-      onClick={() => {
-        if (!hasDraggedRef.current) onClick?.()
+      onClick={(event) => {
+        if (hasDraggedRef.current) return
+
+        const clickedItemIndex = appRef.current?.getItemIndexAtClientPoint(event.clientX, event.clientY)
+        if (clickedItemIndex != null && items?.[clickedItemIndex]) {
+          onItemClick?.(clickedItemIndex, items[clickedItemIndex])
+          return
+        }
+
+        onClick?.()
       }}
     />
   )
