@@ -1,17 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
 import ApiConfigTab from './components/ApiConfigTab'
+import BillingManagementTab, { formatMoneyAmount, useBillingBalance } from './components/BillingManagementTab'
 import { AppIcon } from '@/components/ui/icons'
 import { useRouter } from '@/i18n/navigation'
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const locale = useLocale()
   const t = useTranslations('profile')
   const tc = useTranslations('common')
+  const balanceState = useBillingBalance(Boolean(session))
 
   // 主要分区：扣费记录 / API配置
   const [activeSection, setActiveSection] = useState<'billing' | 'apiConfig'>('apiConfig')
@@ -29,7 +32,11 @@ export default function ProfilePage() {
     )
   }
 
-  const noBillingText = t('openSourceNoBilling')
+  const balanceText = balanceState.loading
+    ? tc('loading')
+    : balanceState.error
+      ? tc('operationFailed')
+      : formatMoneyAmount(balanceState.data?.balance, balanceState.data?.currency, locale)
 
   return (
     <div className="glass-page min-h-screen">
@@ -52,7 +59,7 @@ export default function ProfilePage() {
                 {/* 余额卡片 */}
                 <div className="glass-surface-soft rounded-2xl border border-[var(--glass-stroke-base)] p-4">
                   <div className="text-xs font-medium text-[var(--glass-text-secondary)]">{t('availableBalance')}</div>
-                  <div className="mt-2 text-base font-semibold text-[var(--glass-text-primary)]">{noBillingText}</div>
+                  <div className="mt-2 text-base font-semibold text-[var(--glass-text-primary)]">{balanceText}</div>
                 </div>
               </div>
 
@@ -98,10 +105,7 @@ export default function ProfilePage() {
               {activeSection === 'apiConfig' ? (
                 <ApiConfigTab />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                  <AppIcon name="receipt" className="mb-4 h-12 w-12 text-[var(--glass-text-tertiary)]" />
-                  <p className="text-base font-semibold text-[var(--glass-text-primary)]">{noBillingText}</p>
-                </div>
+                <BillingManagementTab balanceState={balanceState} />
               )}
             </div>
           </div>
