@@ -17,6 +17,7 @@ interface VideoEditorStageProps {
     episodeId: string
     initialProject?: VideoEditorProject
     onBack?: () => void
+    exportEnabled?: boolean
 }
 
 /**
@@ -38,7 +39,8 @@ export function VideoEditorStage({
     projectId,
     episodeId,
     initialProject,
-    onBack
+    onBack,
+    exportEnabled = true
 }: VideoEditorStageProps) {
     const t = useTranslations('video')
     const {
@@ -124,7 +126,9 @@ export function VideoEditorStage({
 
                 <button
                     onClick={handleExport}
-                    className="glass-btn-base glass-btn-tone-success px-4 py-2"
+                    disabled={!exportEnabled}
+                    title={!exportEnabled ? t('editor.toolbar.exportDisabled') : undefined}
+                    className="glass-btn-base glass-btn-tone-success px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {t('editor.toolbar.export')}
                 </button>

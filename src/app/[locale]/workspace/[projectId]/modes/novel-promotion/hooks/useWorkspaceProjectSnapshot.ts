@@ -32,7 +32,7 @@ export function useWorkspaceProjectSnapshot({
       projectCharacters: projectData?.characters || [],
       projectLocations: projectData?.locations || [],
       episodeStoryboards: episode?.storyboards || [],
-      currentStage: urlStage === 'editor' ? 'videos' : (urlStage || 'config'),
+      currentStage: resolveWorkspaceCurrentStage(urlStage),
       globalAssetText: projectData?.globalAssetText || '',
       novelText: episode?.novelText || '',
       analysisModel: projectData?.analysisModel,
@@ -50,4 +50,8 @@ export function useWorkspaceProjectSnapshot({
       styleSnapshotStaleMessage: projectData?.styleSnapshotStaleMessage,
     }
   }, [episode?.novelText, episode?.storyboards, project.novelPromotionData, urlStage])
+}
+
+export function resolveWorkspaceCurrentStage(urlStage?: string | null) {
+  return urlStage || 'config'
 }

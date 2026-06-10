@@ -148,7 +148,8 @@
       "back": "← 返回",
       "saveDirty": "保存 *",
       "saved": "已保存",
-      "export": "导出视频"
+      "export": "导出视频",
+      "exportDisabled": "UI 预览已开放，导出接口暂未接入"
     },
     "left": {
       "title": "素材库",

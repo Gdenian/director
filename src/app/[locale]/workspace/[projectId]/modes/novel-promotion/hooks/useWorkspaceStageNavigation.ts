@@ -17,7 +17,7 @@ interface UseWorkspaceStageNavigationParams {
   t: (key: string) => string
 }
 
-export function useWorkspaceStageNavigation({
+export function buildWorkspaceStageNavigationItems({
   isAnyOperationRunning,
   stageArtifacts,
   t,
@@ -51,9 +51,11 @@ export function useWorkspaceStageNavigation({
       id: 'editor',
       icon: 'E',
       label: t('stages.editor'),
-      status: 'empty',
-      disabled: true,
-      disabledLabel: t('stages.editorComingSoon'),
+      status: getStageStatus('editor'),
     },
   ]
+}
+
+export function useWorkspaceStageNavigation(params: UseWorkspaceStageNavigationParams): CapsuleNavItem[] {
+  return buildWorkspaceStageNavigationItems(params)
 }

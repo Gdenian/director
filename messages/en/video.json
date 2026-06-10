@@ -148,7 +148,8 @@
       "back": "← Back",
       "saveDirty": "Save *",
       "saved": "Saved",
-      "export": "Export Video"
+      "export": "Export Video",
+      "exportDisabled": "UI preview is open; export API is not wired yet"
     },
     "left": {
       "title": "Media Library",
