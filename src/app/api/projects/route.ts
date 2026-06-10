@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
@@ -98,6 +99,8 @@ export const GET = apiHandler(async (request: NextRequest) => {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const pageSize = parseInt(searchParams.get('pageSize') || '12', 10)
   const search = searchParams.get('search') || ''
+  const sortParam = searchParams.get('sort') || 'lastAccessedAt'
+  const sortBy = sortParam === 'createdAt' ? 'createdAt' : 'lastAccessedAt'
 
   // 构建查询条件
   const where: Record<string, unknown> = { userId: session.user.id }
@@ -111,33 +114,20 @@ export const GET = apiHandler(async (request: NextRequest) => {
     ]
   }
 
+  const orderBy: Prisma.ProjectOrderByWithRelationInput[] = sortBy === 'createdAt'
+    ? [{ createdAt: 'desc' }, { updatedAt: 'desc' }]
+    : [{ lastAccessedAt: 'desc' }, { updatedAt: 'desc' }, { createdAt: 'desc' }]
+
   // ⚡ 并行执行：获取总数 + 分页数据
-  // 排序优先级：最近访问时间（有值的优先） > 更新时间
-  const [total, allProjects] = await Promise.all([
+  const [total, projects] = await Promise.all([
     prisma.project.count({ where }),
     prisma.project.findMany({
       where,
-      orderBy: { updatedAt: 'desc' },  // 先按更新时间排序获取所有匹配项目
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize
     })
   ])
-
-  // 在应用层重新排序：
-  // 1. 新创建但未访问过的项目（无 lastAccessedAt）按创建时间降序排在最前
-  // 2. 访问过的项目按访问时间降序
-  const projects = [...allProjects].sort((a, b) => {
-    // 两个都没有访问时间，按创建时间降序（新创建的排前面）
-    if (!a.lastAccessedAt && !b.lastAccessedAt) {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    }
-    // 只有 a 没有访问时间（新创建），a 排前面
-    if (!a.lastAccessedAt && b.lastAccessedAt) return -1
-    // 只有 b 没有访问时间（新创建），b 排前面
-    if (a.lastAccessedAt && !b.lastAccessedAt) return 1
-    // 两个都有访问时间，按访问时间降序
-    return new Date(b.lastAccessedAt!).getTime() - new Date(a.lastAccessedAt!).getTime()
-  })
 
   // 获取项目 ID 列表
   const projectIds = projects.map(p => p.id)
