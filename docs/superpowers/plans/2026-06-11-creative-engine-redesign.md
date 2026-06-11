@@ -10,6 +10,34 @@
 
 ---
 
+## Execution Strategy Update After Task 2
+
+Task 1 and Task 2 are complete. From Task 3 onward, execute this plan as task contracts rather than as literal micro-step scripts.
+
+The original task sections intentionally contain detailed code sketches and small TDD steps. They were useful for bootstrapping the refactor, but after the persisted-shape foundation is in place they are too verbose for efficient Subagent-Driven execution. They can also cause review noise when reviewers treat later-task work as current-task blockers.
+
+Updated execution rules:
+
+- Keep the specification document `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md` unchanged unless the user explicitly asks for a spec change.
+- Treat each remaining task heading, file list, task summary, and success criteria as authoritative. Treat long code blocks and line-by-line steps below as reference context for test ideas, file locations, and edge cases; they are not mandatory copy-paste instructions.
+- Before starting each task, restate its scope, non-scope, verification commands, and review acceptance rules in the subagent prompt.
+- For every task, keep the gate: implementation/fix -> focused verification -> fresh spec review -> fresh code quality review.
+- Reviews only fail on blockers inside the current task scope. Findings about Task N+1 or future cleanup must be recorded as non-blocking follow-up unless they prove a current-task acceptance criterion is broken. Reviewer prompts must repeat this rule explicitly.
+- Do not expand existing oversized files when a focused helper or component can carry the task cleanly.
+- Prefer the smallest focused test set that proves the task contract, then use broader suites only when the touched files or guard scripts require them.
+
+Compact contracts for the remaining tasks:
+
+| Task | Scope | Required verification | Explicit non-scope |
+| --- | --- | --- | --- |
+| Task 3 | `/api/user/models` model options and selector filtering by creative purpose/status/key availability. | Focused user-models tests, existing audio-filter regression, purpose rules tests, typecheck. | Product shell, detection, save confirmation, impact checks. |
+| Task 4 | Visible product shell/copy and confirmation UI for creative engines. | Copy contract/component-focused tests and typecheck. | Real detection orchestration, impact API, runtime preflight. |
+| Task 5 | Deterministic detection orchestration: URL normalization, fingerprinting, free probes, detect route. | Detection unit tests, detect route integration test, typecheck. | Built-in LLM inspector and paid/lightweight runtime tests. |
+| Task 6 | Built-in recognition LLM inspector fallback, schema validation, and key redaction. | Inspector/redaction/orchestrator tests and typecheck. | UI confirmation save and usage impact checks. |
+| Task 7 | Confirmation save flow and usage impact checks before delete/disable/connection edits. | Usage-impact unit/API tests, UI dialog tests where touched, typecheck. | Runtime preflight and light-test endpoint. |
+| Task 8 | Explicit-confirmation lightweight text test and runtime preflight copy/errors. | Runtime-preflight tests, light-test route tests, provider compatibility regression, typecheck. | Broader cleanup or new model discovery behavior. |
+| Task 9 | Cleanup, guards, and end-to-end verification of the creative-engine rollout. | Guard scripts, focused suite, broader config-center regression suite, local smoke where feasible. | New feature work beyond the confirmed spec. |
+
 ## Assumptions
 
 - 当前规格文档是 `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`，提交 `cc86e78` 已确认。
