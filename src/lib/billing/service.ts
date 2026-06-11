@@ -546,7 +546,7 @@ async function loadUserCustomPricing(
   })
   if (!pref?.customModels) return null
 
-  let models: Array<{ modelKey: string; customPricing?: unknown }>
+  let models: Array<{ modelKey: string; pricing?: unknown; customPricing?: unknown }>
   try {
     models = JSON.parse(pref.customModels) as typeof models
   } catch {
@@ -555,7 +555,7 @@ async function loadUserCustomPricing(
   if (!Array.isArray(models)) return null
 
   const target = models.find((m) => m.modelKey === parsed.modelKey)
-  const raw = target?.customPricing
+  const raw = target?.pricing ?? target?.customPricing
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const pricing = raw as Record<string, unknown>
 

@@ -1,16 +1,20 @@
 import { prisma } from '@/lib/prisma'
 import { composeModelKey } from '@/lib/model-config-contract'
 import { getProviderKey } from '@/lib/api-config'
+import {
+  parseCreativeModels,
+  toRuntimeModel,
+} from '@/lib/creative-engine/persisted-config'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 
 type StoredModelType = 'llm' | 'image' | 'video' | 'audio' | 'lipsync'
 
 type StoredModelRecord = Record<string, unknown> & {
-  modelId: string
+  modelId?: string
   modelKey: string
   name: string
   type: StoredModelType
-  provider: string
+  provider?: string
 }
 
 export interface SaveModelTemplateInput {
@@ -31,45 +35,36 @@ function readTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function isStoredModelType(value: string): value is StoredModelType {
-  return value === 'llm' || value === 'image' || value === 'video' || value === 'audio' || value === 'lipsync'
-}
-
 function parseStoredModels(raw: string | null | undefined): StoredModelRecord[] {
   if (!raw) return []
 
-  let parsed: unknown
   try {
-    parsed = JSON.parse(raw) as unknown
+    return parseCreativeModels(raw).map((model) => ({
+      ...model,
+      ...toRuntimeModel(model),
+    }))
   } catch {
-    throw new Error('MODEL_TEMPLATE_SAVE_CONFLICT: customModels payload is invalid JSON')
-  }
-  if (!Array.isArray(parsed)) {
     throw new Error('MODEL_TEMPLATE_SAVE_CONFLICT: customModels payload is invalid')
   }
+}
 
-  const result: StoredModelRecord[] = []
-  for (let index = 0; index < parsed.length; index += 1) {
-    const item = parsed[index]
-    if (!isRecord(item)) continue
+function isCreativeStoredModel(model: StoredModelRecord): boolean {
+  return readTrimmedString(model.engineId) !== '' && readTrimmedString(model.callName) !== ''
+}
 
-    const provider = readTrimmedString(item.provider)
-    const modelId = readTrimmedString(item.modelId)
-    const modelKey = readTrimmedString(item.modelKey) || composeModelKey(provider, modelId)
-    const name = readTrimmedString(item.name) || modelId
-    const typeRaw = readTrimmedString(item.type)
-    if (!provider || !modelId || !modelKey || !name || !isStoredModelType(typeRaw)) continue
-
-    result.push({
-      ...item,
-      provider,
-      modelId,
-      modelKey,
-      name,
-      type: typeRaw,
-    })
-  }
-  return result
+function toWritableCreativeRecord(model: StoredModelRecord): Record<string, unknown> {
+  const {
+    provider: _provider,
+    modelId: _modelId,
+    customPricing: _customPricing,
+    price: _price,
+    ...creativeRecord
+  } = model
+  void _provider
+  void _modelId
+  void _customPricing
+  void _price
+  return creativeRecord
 }
 
 function hasProvider(rawProviders: string | null | undefined, providerId: string): boolean {
@@ -126,25 +121,43 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
   const baseRecord: StoredModelRecord = existingIndex >= 0
     ? models[existingIndex] as StoredModelRecord
     : {
+      id: modelKey,
+      engineId: input.providerId,
+      callName: modelId,
+      modelKey,
+      name: modelName,
+      type: input.type,
+      purpose: input.type === 'image' ? 'image-generation' : 'video-generation',
+      enabled: true,
+      status: 'available',
+    }
+
+  const nextRecord: StoredModelRecord = isCreativeStoredModel(baseRecord)
+    ? {
+      ...toWritableCreativeRecord(baseRecord),
+      id: readTrimmedString(baseRecord.id) || modelKey,
+      engineId: input.providerId,
+      callName: modelId,
+      modelKey,
+      name: modelName,
+      type: input.type,
+      compatMediaTemplate: input.template,
+      compatMediaTemplateCheckedAt: checkedAt,
+      compatMediaTemplateSource: input.source,
+      enabled: baseRecord.enabled === false ? false : true,
+    } as StoredModelRecord
+    : {
+      ...baseRecord,
       modelId,
       modelKey,
       name: modelName,
       type: input.type,
       provider: input.providerId,
+      compatMediaTemplate: input.template,
+      compatMediaTemplateCheckedAt: checkedAt,
+      compatMediaTemplateSource: input.source,
+      enabled: baseRecord.enabled === false ? false : true,
     }
-
-  const nextRecord: StoredModelRecord = {
-    ...baseRecord,
-    modelId,
-    modelKey,
-    name: modelName,
-    type: input.type,
-    provider: input.providerId,
-    compatMediaTemplate: input.template,
-    compatMediaTemplateCheckedAt: checkedAt,
-    compatMediaTemplateSource: input.source,
-    enabled: baseRecord.enabled === false ? false : true,
-  }
 
   const nextModels = existingIndex >= 0
     ? models.map((model, index) => (index === existingIndex ? nextRecord : model))

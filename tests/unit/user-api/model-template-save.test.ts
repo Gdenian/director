@@ -76,13 +76,100 @@ describe('user-api model template save', () => {
     const savedModels = readSavedModelsFromUpsert()
     const target = savedModels.find((item) => item.modelKey === 'openai-compatible:oa-1::veo3.1')
     expect(target).toBeTruthy()
-    expect(target?.customPricing).toEqual({ video: { basePrice: 1.2 } })
+    expect(target?.pricing).toEqual({ video: { basePrice: 1.2 } })
+    expect(target?.customPricing).toBeUndefined()
     expect(target?.capabilities).toEqual({ video: { durationOptions: [5, 8] } })
+    expect(target?.provider).toBeUndefined()
+    expect(target?.modelId).toBeUndefined()
     expect(target?.compatMediaTemplate).toMatchObject({
       mediaType: 'video',
       mode: 'async',
     })
     expect(target?.compatMediaTemplateSource).toBe('ai')
     expect(typeof target?.compatMediaTemplateCheckedAt).toBe('string')
+  })
+
+  it('preserves creative-shape models when saving a template', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1',
+          name: 'OpenAI Compat',
+          providerKey: 'openai-compatible',
+        },
+      ]),
+      customModels: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1::veo3.1',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'veo3.1',
+          modelKey: 'openai-compatible:oa-1::veo3.1',
+          name: 'Veo 3.1',
+          type: 'video',
+          purpose: 'video-generation',
+          enabled: true,
+          status: 'available',
+          pricing: { video: { basePrice: 1.2 } },
+          warningCodes: ['manual-review'],
+        },
+        {
+          id: 'openai-compatible:oa-1::draft-image',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'draft-image',
+          modelKey: 'openai-compatible:oa-1::draft-image',
+          name: 'Draft Image',
+          type: 'image',
+          purpose: 'image-edit',
+          enabled: false,
+          status: 'unchecked',
+          confidence: 'low',
+        },
+      ]),
+    })
+
+    await saveModelTemplateConfiguration({
+      userId: 'user-1',
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'veo3.1',
+      name: 'Veo 3.1',
+      type: 'video',
+      template: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: { method: 'POST', path: '/v2/videos/generations' },
+        status: { method: 'GET', path: '/v2/videos/generations/{{task_id}}' },
+        response: {
+          taskIdPath: '$.task_id',
+          statusPath: '$.status',
+        },
+        polling: {
+          intervalMs: 3000,
+          timeoutMs: 180000,
+          doneStates: ['done'],
+          failStates: ['failed'],
+        },
+      },
+      source: 'manual',
+    })
+
+    const savedModels = readSavedModelsFromUpsert()
+    expect(savedModels).toHaveLength(2)
+    const target = savedModels.find((item) => item.modelKey === 'openai-compatible:oa-1::veo3.1')
+    expect(target).toMatchObject({
+      engineId: 'openai-compatible:oa-1',
+      callName: 'veo3.1',
+      purpose: 'video-generation',
+      pricing: { video: { basePrice: 1.2 } },
+      warningCodes: ['manual-review'],
+      compatMediaTemplateSource: 'manual',
+    })
+    expect(target?.provider).toBeUndefined()
+    expect(target?.modelId).toBeUndefined()
+    expect(savedModels.find((item) => item.modelKey === 'openai-compatible:oa-1::draft-image')).toMatchObject({
+      purpose: 'image-edit',
+      enabled: false,
+      confidence: 'low',
+    })
   })
 })

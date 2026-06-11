@@ -1,5 +1,8 @@
 import type { ModelCapabilities, UnifiedModelType } from '@/lib/model-config-contract'
-import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
+import type {
+  OpenAICompatMediaTemplate,
+  OpenAICompatMediaTemplateSource,
+} from '@/lib/openai-compat-media-template'
 
 export type CreativeEngineStatus = 'unchecked' | 'available' | 'partial' | 'failed' | 'disabled'
 export type CreativeModelStatus = 'unchecked' | 'available' | 'failed' | 'disabled'
@@ -86,7 +89,10 @@ export interface CreativeModelConfig {
   capabilities?: ModelCapabilities
   pricing?: CreativeModelPricing
   llmProtocol?: 'responses' | 'chat-completions'
+  llmProtocolCheckedAt?: string
   compatMediaTemplate?: OpenAICompatMediaTemplate
+  compatMediaTemplateCheckedAt?: string
+  compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
   lastCheckedAt?: string
   detectionSource?: CreativeModelDetectionSource
   warningCodes?: string[]

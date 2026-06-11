@@ -24,6 +24,17 @@ export interface Provider {
     gatewayRoute?: 'official' | 'openai-compat'
 }
 
+export interface CreativeEngine {
+    id: string
+    name: string
+    providerKey: string
+    serviceUrl?: string
+    apiKey?: string
+    hidden?: boolean
+    apiMode?: 'gemini-sdk' | 'openai-official'
+    gatewayRoute?: 'official' | 'openai-compat'
+}
+
 export interface LlmCustomPricing {
     inputPerMillion?: number
     outputPerMillion?: number
@@ -77,7 +88,7 @@ export type PricingDisplayMap = Record<string, PricingDisplayItem>
 // API 配置响应
 export interface ApiConfig {
     models: CustomModel[]
-    providers: Provider[]
+    engines: CreativeEngine[]
     workflowConcurrency?: {
         analysis: number
         image: number

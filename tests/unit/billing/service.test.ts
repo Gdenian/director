@@ -16,8 +16,17 @@ const modeMock = vi.hoisted(() => ({
   getBillingMode: vi.fn(),
 }))
 
+const prismaMock = vi.hoisted(() => ({
+  userPreference: {
+    findUnique: vi.fn<(...args: unknown[]) => Promise<{ customModels: string | null } | null>>(async () => null),
+  },
+}))
+
 vi.mock('@/lib/billing/ledger', () => ledgerMock)
 vi.mock('@/lib/billing/mode', () => modeMock)
+vi.mock('@/lib/prisma', () => ({
+  prisma: prismaMock,
+}))
 
 import { BillingOperationError, InsufficientBalanceError } from '@/lib/billing/errors'
 import {
@@ -39,6 +48,7 @@ describe('billing/service', () => {
     ledgerMock.increasePendingFreezeAmount.mockResolvedValue(true)
     ledgerMock.recordShadowUsage.mockResolvedValue(true)
     ledgerMock.rollbackFreeze.mockResolvedValue(true)
+    prismaMock.userPreference.findUnique.mockResolvedValue(null)
   })
 
   it('returns raw execution result in OFF mode', async () => {
@@ -110,6 +120,50 @@ describe('billing/service', () => {
     ).rejects.toThrow('boom')
 
     expect(ledgerMock.rollbackFreeze).toHaveBeenCalledWith('freeze_rollback')
+  })
+
+  it('uses creative model pricing for custom text models', async () => {
+    modeMock.getBillingMode.mockResolvedValue('ENFORCE')
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customModels: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1::custom-text',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'custom-text',
+          modelKey: 'openai-compatible:oa-1::custom-text',
+          name: 'Custom Text',
+          type: 'llm',
+          purpose: 'text',
+          enabled: true,
+          status: 'available',
+          pricing: {
+            llm: {
+              inputPerMillion: 2,
+              outputPerMillion: 4,
+            },
+          },
+        },
+      ]),
+    })
+
+    await withTextBilling(
+      'u1',
+      'openai-compatible:oa-1::custom-text',
+      1_000_000,
+      500_000,
+      { projectId: 'p1', action: 'custom_text' },
+      async () => ({ ok: true }),
+    )
+
+    expect(ledgerMock.freezeBalance).toHaveBeenCalledWith(
+      'u1',
+      4,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          model: 'openai-compatible:oa-1::custom-text',
+        }),
+      }),
+    )
   })
 
   it('expands freeze and charges actual voice usage when actual exceeds quoted', async () => {

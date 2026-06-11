@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api-fetch'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
     Provider,
+    type CreativeEngine,
     CustomModel,
     PRESET_PROVIDERS,
     PRESET_MODELS,
@@ -118,6 +119,18 @@ export function mergeProvidersForDisplay(
     }
 
     return merged
+}
+
+function enginesToProviders(engines: CreativeEngine[]): Provider[] {
+    return engines.map((engine) => ({
+        id: engine.id,
+        name: engine.name,
+        baseUrl: engine.serviceUrl,
+        apiKey: engine.apiKey,
+        hidden: engine.hidden,
+        apiMode: engine.apiMode,
+        gatewayRoute: engine.gatewayRoute,
+    }))
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -295,8 +308,8 @@ export function useProviders(): UseProvidersReturn {
             const data = await res.json()
             const pricingDisplay = parsePricingDisplayMap((data as { pricingDisplay?: unknown }).pricingDisplay)
 
-            // 合并预设和已保存的提供商，保持 savedProviders 的顺序不变（拖拽排序依赖）
-            const savedProviders: Provider[] = data.providers || []
+            // 合并预设和已保存的创作引擎，保持服务顺序不变（拖拽排序依赖）
+            const savedProviders = enginesToProviders(data.engines || [])
             setProviders(mergeProvidersForDisplay(savedProviders, presetProviders))
 
             // 合并预设和已保存的模型
