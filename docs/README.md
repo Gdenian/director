@@ -4,7 +4,7 @@
 
 ## 项目定位
 
-`director` 是一个 AI 视频创作平台：用户从首页或工作区创建项目，再围绕剧集完成故事输入、剧本分析、角色/场景/道具资产生成、分镜、成片、配音和后续编辑。
+`director` 是一个 AI 视频创作平台：用户从首页或工作区创建作品，再围绕剧集完成故事输入、剧本分析、角色/场景/道具资产生成、分镜、成片、配音和后续编辑。用户界面称为“作品 / Work”，底层代码、数据库和 API 仍沿用 `Project` / `projects` 命名。
 
 ## 技术栈
 
@@ -50,7 +50,7 @@ npm run dev
 ### 页面与路由
 
 - `src/app/[locale]/home/page.tsx`：登录后的首页创作入口和最近项目画廊。
-- `src/app/[locale]/workspace/page.tsx`：项目列表、创建、编辑、删除。
+- `src/app/[locale]/workspace/page.tsx`：作品图册式列表、搜索、排序、创建、编辑、删除。
 - `src/app/[locale]/workspace/[projectId]/page.tsx`：项目工作区容器，按 `stage` 和 `episode` URL 参数切换视图。
 - `src/app/[locale]/workspace/asset-hub/page.tsx`：资产中心。
 - `src/app/api/**`：服务端接口。
@@ -82,6 +82,7 @@ npm run dev
 ## 关键业务事实
 
 - 首页快速创建项目不是单次 API；当前链路是“创建项目 -> 保存项目配置 -> 创建第一集 -> 带 `episode` 参数跳转工作区”。
+- `/api/projects` 的列表接口支持 `sort=lastAccessedAt|createdAt`，工作区默认按 `lastAccessedAt` 排序，也可切换为创建日期排序。
 - 工作区的阶段和剧集选择以 URL 为单一真相源，`/workspace/[projectId]` 主要依赖 `stage`、`episode` 查询参数。
 - 风格相关能力采用快照模式：项目、角色/外观、场景等会持有风格快照，worker 应读取快照而不是在执行时回查全局风格。
 - `editor` 阶段仍会在工作区容器中回退到 `videos`，说明 AI 剪辑流程还不是完全开放状态。
@@ -123,6 +124,10 @@ npm run dev
 ### 5. 开发环境对基础设施依赖强
 
 少了 MySQL / Redis / MinIO，或者跳过 `npx prisma db push`，很多错误会在运行时才暴露，看起来像前端 bug，实际是底层环境没齐。
+
+### 6. 网站不需要站内升级检查
+
+`director` 是服务器网站，部署更新由运维流程处理。不要在浏览器端轮询 GitHub Releases，也不要在导航栏或页面里加入版本升级按钮、升级弹窗或“检查新版本”一类客户端 app 体验。
 
 ## 现有设计文档
 

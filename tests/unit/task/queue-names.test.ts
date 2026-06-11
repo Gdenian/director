@@ -17,6 +17,18 @@ describe('task queue names', () => {
       VIDEO: 'director-video',
       VOICE: 'director-voice',
       TEXT: 'director-text',
+      RENDER: 'director-render',
     })
+  })
+
+  it('routes AI editing task types to their worker queues', async () => {
+    const { getQueueTypeByTaskType, QUEUE_NAME } = await import('@/lib/task/queues')
+    const { TASK_TYPE } = await import('@/lib/task/types')
+
+    expect(getQueueTypeByTaskType(TASK_TYPE.AI_EDIT_ASSEMBLE)).toBe('text')
+    expect(getQueueTypeByTaskType(TASK_TYPE.AI_EDIT_REFINE)).toBe('text')
+    expect(getQueueTypeByTaskType(TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE)).toBe('video')
+    expect(getQueueTypeByTaskType(TASK_TYPE.EDITOR_RENDER)).toBe('render')
+    expect(QUEUE_NAME.RENDER).toBe('director-render')
   })
 })

@@ -144,6 +144,7 @@ model NovelPromotionEpisode {
   storyboards             NovelPromotionStoryboard[]
   voiceLines              NovelPromotionVoiceLine[]
   editorProject           VideoEditorProject?
+  editorAssets            VideoEditorAsset[]
 
   @@unique([novelPromotionProjectId, episodeNumber])
   @@index([novelPromotionProjectId])
@@ -161,9 +162,52 @@ model VideoEditorProject {
   outputUrl    String?
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @default(now()) @updatedAt
+  assets       VideoEditorAsset[]
+  versions     VideoEditorProjectVersion[]
   episode      NovelPromotionEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
 
   @@map("video_editor_projects")
+}
+
+model VideoEditorAsset {
+  id              String                @id @default(uuid())
+  editorProjectId String
+  episodeId       String
+  kind            String
+  mediaObjectId   String?
+  url             String?
+  status          String                @default("pending")
+  taskId          String?
+  sourceClipIds   String?
+  sourcePanelIds  String?
+  metadata        String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @default(now()) @updatedAt
+  editorProject   VideoEditorProject    @relation(fields: [editorProjectId], references: [id], onDelete: Cascade)
+  episode         NovelPromotionEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  mediaObject     MediaObject?          @relation("VideoEditorAssetMediaObject", fields: [mediaObjectId], references: [id], onDelete: SetNull)
+
+  @@index([editorProjectId])
+  @@index([episodeId])
+  @@index([taskId])
+  @@map("video_editor_assets")
+}
+
+model VideoEditorProjectVersion {
+  id              String             @id @default(uuid())
+  editorProjectId String
+  versionIndex    Int
+  reason          String
+  summary         String
+  snapshotJson    String
+  diffJson        String?
+  createdByTaskId String?
+  createdAt       DateTime           @default(now())
+  editorProject   VideoEditorProject @relation(fields: [editorProjectId], references: [id], onDelete: Cascade)
+
+  @@unique([editorProjectId, versionIndex])
+  @@index([editorProjectId])
+  @@map("video_editor_project_versions")
 }
 
 model NovelPromotionClip {
@@ -874,6 +918,7 @@ model MediaObject {
   globalStyleReferenceImages            GlobalStyle[]               @relation("GlobalStyleReferenceImageMedia")
   globalStylePreviewImages              GlobalStyle[]               @relation("GlobalStylePreviewImageMedia")
   globalVoiceCustomVoices               GlobalVoice[]               @relation("GlobalVoiceCustomVoiceMedia")
+  videoEditorAssets                     VideoEditorAsset[]          @relation("VideoEditorAssetMediaObject")
 
   @@index([createdAt])
   @@map("media_objects")

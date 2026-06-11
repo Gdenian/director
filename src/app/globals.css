@@ -14,6 +14,13 @@
   --bg-glass: var(--glass-bg-surface-strong);
   /* 玻璃态背景 */
 
+  /* 品牌主操作色：基础按钮使用黄色，信息态仍保留蓝色 */
+  --glass-text-on-accent: #140f05;
+  --glass-accent-from: #facc15;
+  --glass-accent-to: #f59e0b;
+  --glass-accent-shadow-soft: rgba(250, 204, 21, 0.24);
+  --glass-accent-shadow-strong: rgba(245, 158, 11, 0.32);
+
   /* 设计系统 - 阴影 */
   --shadow-card: var(--glass-shadow-sm);
   --shadow-card-hover: var(--glass-shadow-md);

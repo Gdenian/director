@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { VideoClip, VideoEditorProject } from '../types/editor.types'
+import { AudioAttachment, SubtitleCue, VideoClip, VideoEditorProject } from '../types/editor.types'
 import { apiFetch } from '@/lib/api-fetch'
 
 interface UseEditorActionsProps {
@@ -31,50 +31,82 @@ export function createProjectFromPanels(
 ): VideoEditorProject {
     // 过滤出有视频的面板
     const videoPanels = panels.filter(p => p.videoUrl)
+    const audioTrack: AudioAttachment[] = []
+    const subtitleCues: SubtitleCue[] = []
+    let currentFrame = 0
 
     // 创建视频片段
     const timeline: VideoClip[] = videoPanels.map((panel, index) => {
         // 查找匹配的配音（简单匹配：按索引）
         const matchedVoice = voiceLines?.[index]
+        const clipId = `clip_${panel.id || panel.storyboardId}_${panel.panelIndex ?? index}`
+        const durationInFrames = Math.round((panel.duration || 3) * 30)
+        const sourcePanelId = panel.id || `${panel.storyboardId}-${panel.panelIndex ?? index}`
 
-        return {
-            id: `clip_${panel.id || panel.storyboardId}_${panel.panelIndex ?? index}`,
+        if (matchedVoice?.audioUrl) {
+            audioTrack.push({
+                id: `audio_${clipId}`,
+                src: matchedVoice.audioUrl,
+                startFrame: currentFrame,
+                durationInFrames,
+                sourceVoiceLineId: matchedVoice.id,
+                sourcePanelId,
+                clipId,
+                volume: 1
+            })
+        }
+
+        if (matchedVoice) {
+            subtitleCues.push({
+                id: `subtitle_${clipId}`,
+                text: matchedVoice.content,
+                startFrame: currentFrame,
+                endFrame: currentFrame + durationInFrames,
+                sourcePanelId,
+                sourceVoiceLineId: matchedVoice.id,
+                style: 'default'
+            })
+        }
+
+        const clip: VideoClip = {
+            id: clipId,
+            kind: 'source',
             src: panel.videoUrl!,
-            durationInFrames: Math.round((panel.duration || 3) * 30), // 默认 3 秒，30fps
-            attachment: {
-                audio: matchedVoice?.audioUrl ? {
-                    src: matchedVoice.audioUrl,
-                    volume: 1,
-                    voiceLineId: matchedVoice.id
-                } : undefined,
-                subtitle: matchedVoice ? {
-                    text: matchedVoice.content,
-                    style: 'default' as const
-                } : undefined
-            },
+            durationInFrames,
             transition: index < videoPanels.length - 1 ? {
                 type: 'dissolve' as const,
                 durationInFrames: 15 // 0.5s @ 30fps
             } : undefined,
             metadata: {
-                panelId: panel.id || `${panel.storyboardId}-${panel.panelIndex ?? index}`,
+                sourcePanelId,
                 storyboardId: panel.storyboardId,
+                voiceLineId: matchedVoice?.id,
+                storyOrder: index,
+                source: 'panel',
                 description: panel.description || undefined
             }
         }
+        currentFrame += durationInFrames
+        return clip
     })
 
     return {
         id: `editor_${episodeId}_${Date.now()}`,
         episodeId,
-        schemaVersion: '1.0',
+        schemaVersion: '1.2',
         config: {
             fps: 30,
             width: 1920,
-            height: 1080
+            height: 1080,
+            videoRatio: '16:9',
+            burnSubtitlesDefault: true
         },
         timeline,
-        bgmTrack: []
+        audioTrack,
+        subtitleCues,
+        editorAssets: [],
+        bgmTrack: [],
+        pendingVersion: null
     }
 }
 

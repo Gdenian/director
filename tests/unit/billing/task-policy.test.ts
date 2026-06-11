@@ -79,4 +79,41 @@ describe('billing/task-policy', () => {
     expect(info.model).toBe('vidu::vidu-lipsync')
     expect(info.quantity).toBe(1)
   })
+
+  it('bills assemble and refine as text planning tasks', () => {
+    const payload = {
+      analysisModel: 'openrouter::anthropic/claude-sonnet-4',
+      maxInputTokens: 3000,
+      maxOutputTokens: 1200,
+    }
+
+    expect(isBillableTaskType(TASK_TYPE.AI_EDIT_ASSEMBLE)).toBe(true)
+    expect(isBillableTaskType(TASK_TYPE.AI_EDIT_REFINE)).toBe(true)
+    expect(buildDefaultTaskBillingInfo(TASK_TYPE.AI_EDIT_ASSEMBLE, payload)).toMatchObject({
+      billable: true,
+      apiType: 'text',
+      taskType: TASK_TYPE.AI_EDIT_ASSEMBLE,
+    })
+    expect(buildDefaultTaskBillingInfo(TASK_TYPE.AI_EDIT_REFINE, payload)).toMatchObject({
+      billable: true,
+      apiType: 'text',
+      taskType: TASK_TYPE.AI_EDIT_REFINE,
+    })
+  })
+
+  it('bills bridge generation as video and keeps render non-billable', () => {
+    const payload = {
+      videoModel: 'fal::fal-ai/kling-video/v2.1/master/image-to-video',
+      generationOptions: { duration: 1 },
+    }
+
+    expect(isBillableTaskType(TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE)).toBe(true)
+    expect(buildDefaultTaskBillingInfo(TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE, payload)).toMatchObject({
+      billable: true,
+      apiType: 'video',
+      taskType: TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE,
+    })
+    expect(isBillableTaskType(TASK_TYPE.EDITOR_RENDER)).toBe(false)
+    expect(buildDefaultTaskBillingInfo(TASK_TYPE.EDITOR_RENDER, {})).toBeNull()
+  })
 })

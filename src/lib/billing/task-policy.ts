@@ -54,6 +54,9 @@ const BILLABLE_TASK_TYPES = new Set<TaskType>([
   TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION,
   TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP,
   TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER,
+  TASK_TYPE.AI_EDIT_ASSEMBLE,
+  TASK_TYPE.AI_EDIT_REFINE,
+  TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE,
 ])
 
 function toNumber(value: unknown, fallback: number) {
@@ -252,6 +255,7 @@ export function buildDefaultTaskBillingInfo(taskType: TaskType, payload: AnyPayl
     case TASK_TYPE.ASSET_HUB_MODIFY:
       return buildImageTaskInfo(taskType, payload)
     case TASK_TYPE.VIDEO_PANEL:
+    case TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE:
       return buildVideoTaskInfo(taskType, payload)
     case TASK_TYPE.LIP_SYNC: {
       const lipSyncModel = pickFirstString([payload?.lipSyncModel]) || 'kling'
@@ -301,6 +305,8 @@ export function buildDefaultTaskBillingInfo(taskType: TaskType, payload: AnyPayl
     case TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION:
     case TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP:
     case TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER:
+    case TASK_TYPE.AI_EDIT_ASSEMBLE:
+    case TASK_TYPE.AI_EDIT_REFINE:
       return buildTextTaskInfo(taskType, payload)
     case TASK_TYPE.PANEL_VARIANT:
       return buildImageTaskInfo(taskType, payload)

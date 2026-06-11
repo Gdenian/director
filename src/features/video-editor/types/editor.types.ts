@@ -1,7 +1,12 @@
 // ========================================
 // Video Editor Core Types
-// Schema Version: 1.0
+// Schema Version: 1.2
 // ========================================
+
+export type VideoEditorSchemaVersion = '1.0' | '1.2'
+export type VideoClipKind = 'source' | 'transition_bridge'
+export type VideoClipSource = 'panel' | 'lip_sync' | 'ai_transition'
+export type SubtitleStyle = 'default' | 'cinematic'
 
 /**
  * 剪辑项目 - 顶层结构
@@ -9,15 +14,27 @@
 export interface VideoEditorProject {
     id: string
     episodeId: string
-    schemaVersion: '1.0'
+    schemaVersion: '1.2'
 
     config: EditorConfig
 
     // 主时间轴 (磁性轨道) - 顺序即时间
     timeline: VideoClip[]
 
+    // 配音轨道 (绝对定位)
+    audioTrack: AudioAttachment[]
+
+    // 字幕轨道 (绝对定位)
+    subtitleCues: SubtitleCue[]
+
+    // 编辑器拥有的派生素材
+    editorAssets: EditorAssetRef[]
+
     // BGM 轨道 (绝对定位)
     bgmTrack: BgmClip[]
+
+    // AI 生成但尚未应用的版本
+    pendingVersion: PendingEditorVersion | null
 }
 
 /**
@@ -27,6 +44,8 @@ export interface EditorConfig {
     fps: number
     width: number
     height: number
+    videoRatio: string
+    burnSubtitlesDefault: boolean
 }
 
 /**
@@ -34,17 +53,15 @@ export interface EditorConfig {
  */
 export interface VideoClip {
     id: string
+    kind: VideoClipKind
     src: string                    // COS URL
     durationInFrames: number       // 播放时长
 
     // 素材内裁剪 (可选)
-    trim?: {
-        from: number                 // 素材起始帧
-        to: number                   // 素材结束帧
+    sourceTrim?: {
+        fromFrame: number            // 素材起始帧
+        toFrame: number              // 素材结束帧
     }
-
-    // 附属内容 - 跟随视频移动
-    attachment?: ClipAttachment
 
     // 转场 (与下一个片段的过渡)
     transition?: ClipTransition
@@ -64,7 +81,7 @@ export interface ClipAttachment {
     }
     subtitle?: {
         text: string
-        style: 'default' | 'cinematic'
+        style: SubtitleStyle
     }
 }
 
@@ -80,9 +97,52 @@ export interface ClipTransition {
  * 片段元数据
  */
 export interface ClipMetadata {
-    panelId: string
+    sourcePanelId?: string
     storyboardId: string
+    voiceLineId?: string
+    storyOrder?: number
+    source?: VideoClipSource
     description?: string
+    editorAssetId?: string
+}
+
+export interface SubtitleCue {
+    id: string
+    text: string
+    startFrame: number
+    endFrame: number
+    sourcePanelId?: string
+    sourceVoiceLineId?: string
+    style: SubtitleStyle
+    truncated?: boolean
+}
+
+export interface AudioAttachment {
+    id: string
+    src: string
+    startFrame: number
+    durationInFrames: number
+    sourceVoiceLineId?: string
+    sourcePanelId?: string
+    clipId?: string
+    volume: number
+    truncated?: boolean
+}
+
+export interface EditorAssetRef {
+    id: string
+    kind: 'transition_bridge' | 'render_output'
+    url?: string
+    status: 'pending' | 'completed' | 'failed' | 'canceled'
+    taskId?: string
+    mediaObjectId?: string
+}
+
+export interface PendingEditorVersion {
+    versionId: string
+    summary: string
+    reason: string
+    createdAt: string
 }
 
 /**

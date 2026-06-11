@@ -63,6 +63,10 @@ const TASK_INTENT_BY_TYPE: Record<TaskType, TaskIntent> = {
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION]: 'modify',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP]: 'modify',
   [TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER]: 'process',
+  [TASK_TYPE.AI_EDIT_ASSEMBLE]: 'build',
+  [TASK_TYPE.AI_EDIT_REFINE]: 'build',
+  [TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE]: 'process',
+  [TASK_TYPE.EDITOR_RENDER]: 'process',
 }
 
 export function resolveTaskIntent(taskType: string | null | undefined): TaskIntent {

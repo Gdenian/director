@@ -138,6 +138,8 @@ export const RemotionPreview: React.FC<RemotionPreviewProps> = ({
                 component={VideoComposition}
                 inputProps={{
                     clips: project.timeline,
+                    audioTrack: project.audioTrack,
+                    subtitleCues: project.subtitleCues,
                     bgmTrack: project.bgmTrack,
                     config: project.config
                 }}

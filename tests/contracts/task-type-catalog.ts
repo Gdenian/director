@@ -50,6 +50,10 @@ const TASK_TYPE_OWNER_MAP = {
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION]: 'tests/unit/worker/asset-hub-ai-modify.test.ts',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP]: 'tests/unit/helpers/prop-modify-task-registration.test.ts',
   [TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER]: 'tests/unit/worker/reference-to-character.test.ts',
+  [TASK_TYPE.AI_EDIT_ASSEMBLE]: 'tests/unit/worker/ai-edit-assemble.test.ts',
+  [TASK_TYPE.AI_EDIT_REFINE]: 'tests/unit/worker/ai-edit-refine.test.ts',
+  [TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE]: 'tests/unit/worker/ai-edit-transition-bridge.test.ts',
+  [TASK_TYPE.EDITOR_RENDER]: 'tests/unit/worker/render-worker.test.ts',
 } as const satisfies Record<TaskType, string>
 
 export const TASK_TYPE_CATALOG: ReadonlyArray<TaskTypeCoverageEntry> = (Object.values(TASK_TYPE) as TaskType[])

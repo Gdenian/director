@@ -1,4 +1,5 @@
 import { VideoClip, ComputedClip, VideoEditorProject } from '../types/editor.types'
+import { dimensionsForVideoRatio } from './dimensions'
 
 /**
  * 计算时间轴总时长 (帧数)
@@ -78,17 +79,25 @@ export function generateClipId(): string {
 /**
  * 创建默认编辑器项目
  */
-export function createDefaultProject(episodeId: string): VideoEditorProject {
+export function createDefaultProject(episodeId: string, videoRatio?: string | null): VideoEditorProject {
+    const dimensions = dimensionsForVideoRatio(videoRatio)
+
     return {
         id: `editor_${Date.now()}`,
         episodeId,
-        schemaVersion: '1.0',
+        schemaVersion: '1.2',
         config: {
             fps: 30,
-            width: 1920,
-            height: 1080
+            width: dimensions.width,
+            height: dimensions.height,
+            videoRatio: videoRatio || '16:9',
+            burnSubtitlesDefault: true
         },
         timeline: [],
-        bgmTrack: []
+        audioTrack: [],
+        subtitleCues: [],
+        editorAssets: [],
+        bgmTrack: [],
+        pendingVersion: null
     }
 }

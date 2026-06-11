@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
+import { assertEpisodeInProject } from '@/lib/novel-promotion/ai-editing/editor-auth'
 
 /**
  * GET /api/novel-promotion/[projectId]/editor
@@ -21,6 +22,11 @@ export const GET = apiHandler(async (
 
     if (!episodeId) {
         throw new ApiError('INVALID_PARAMS')
+    }
+
+    const episode = await assertEpisodeInProject(projectId, episodeId)
+    if (!episode) {
+        throw new ApiError('NOT_FOUND')
     }
 
     // 查找编辑器项目
@@ -113,6 +119,11 @@ export const DELETE = apiHandler(async (
 
     if (!episodeId) {
         throw new ApiError('INVALID_PARAMS')
+    }
+
+    const episode = await assertEpisodeInProject(projectId, episodeId)
+    if (!episode) {
+        throw new ApiError('NOT_FOUND')
     }
 
     await prisma.videoEditorProject.delete({

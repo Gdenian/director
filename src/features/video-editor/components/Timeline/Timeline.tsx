@@ -18,11 +18,12 @@ import {
     useSortable
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { VideoClip, TimelineState, EditorConfig } from '../../types/editor.types'
+import { AudioAttachment, EditorConfig, TimelineState, VideoClip } from '../../types/editor.types'
 import { framesToTime } from '../../utils/time-utils'
 
 interface TimelineProps {
     clips: VideoClip[]
+    audioTrack?: AudioAttachment[]
     timelineState: TimelineState
     config: EditorConfig
     onReorder: (fromIndex: number, toIndex: number) => void
@@ -37,6 +38,7 @@ interface TimelineProps {
  */
 export const Timeline: React.FC<TimelineProps> = ({
     clips,
+    audioTrack = [],
     timelineState,
     config,
     onReorder,
@@ -233,11 +235,11 @@ export const Timeline: React.FC<TimelineProps> = ({
                     {t('editor.timeline.audioTrack')}
                 </span>
                 <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
-                    {clips.filter(c => c.attachment?.audio).map((clip) => (
+                    {audioTrack.map((audio) => (
                         <div
-                            key={`audio-${clip.id}`}
+                            key={audio.id}
                             style={{
-                                width: `${clip.durationInFrames * timelineState.zoom * 2}px`,
+                                width: `${audio.durationInFrames * timelineState.zoom * 2}px`,
                                 height: '28px',
                                 background: 'var(--glass-tone-success-bg)',
                                 borderRadius: '4px',

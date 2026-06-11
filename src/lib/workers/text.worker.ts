@@ -36,6 +36,8 @@ import { handleAssetHubAIModifyTask } from './handlers/asset-hub-ai-modify'
 import { handleReferenceToCharacterTask } from './handlers/reference-to-character'
 import { handleShotAITask } from './handlers/shot-ai-tasks'
 import { handleCharacterProfileTask } from './handlers/character-profile'
+import { handleAiEditAssembleTask } from './handlers/ai-edit-assemble'
+import { handleAiEditRefineTask } from './handlers/ai-edit-refine'
 
 function readAssetKind(value: Record<string, unknown>): string {
   return typeof value.assetKind === 'string' ? value.assetKind : 'location'
@@ -698,6 +700,10 @@ async function processTextTask(job: Job<TaskJobData>) {
       return await handleRegenerateStoryboardTextTask(job)
     case TASK_TYPE.INSERT_PANEL:
       return await handleInsertPanelTask(job)
+    case TASK_TYPE.AI_EDIT_ASSEMBLE:
+      return await handleAiEditAssembleTask(job)
+    case TASK_TYPE.AI_EDIT_REFINE:
+      return await handleAiEditRefineTask(job)
     default:
       throw new Error(`Unsupported text task type: ${job.data.type}`)
   }

@@ -42,6 +42,10 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_LOCATION]: 'progress.taskType.assetHubAiModifyLocation',
   [TASK_TYPE.ASSET_HUB_AI_MODIFY_PROP]: 'progress.taskType.assetHubAiModifyProp',
   [TASK_TYPE.ASSET_HUB_REFERENCE_TO_CHARACTER]: 'progress.taskType.assetHubReferenceToCharacter',
+  [TASK_TYPE.AI_EDIT_ASSEMBLE]: 'progress.taskType.aiEditAssemble',
+  [TASK_TYPE.AI_EDIT_REFINE]: 'progress.taskType.aiEditRefine',
+  [TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE]: 'progress.taskType.aiEditTransitionBridge',
+  [TASK_TYPE.EDITOR_RENDER]: 'progress.taskType.editorRender',
 }
 
 const STAGE_LABELS: Record<string, string> = {

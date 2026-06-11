@@ -18,6 +18,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/lookup'
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
+import { handleAiEditTransitionBridgeTask } from './handlers/ai-edit-transition-bridge'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -298,6 +299,8 @@ async function processVideoTask(job: Job<TaskJobData>) {
       return await handleVideoPanelTask(job)
     case TASK_TYPE.LIP_SYNC:
       return await handleLipSyncTask(job)
+    case TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE:
+      return await handleAiEditTransitionBridgeTask(job)
     default:
       throw new Error(`Unsupported video task type: ${job.data.type}`)
   }

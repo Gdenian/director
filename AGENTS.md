@@ -44,10 +44,12 @@
 ## 协作时的硬规则
 
 - 站内本地化导航统一使用 `@/i18n/navigation` 导出的 `Link`、`useRouter`、`usePathname`，不要直接混用 `next/link` 处理业务路由。
+- 工作区用户可见文案使用“作品 / Work”，但代码、数据库和 API 仍沿用 `Project` / `projects` 命名；不要为了文案统一而重命名底层模型。
 - 工作区的当前阶段和当前剧集以 URL 参数为单一真相源，`/workspace/[projectId]` 依赖 `stage`、`episode` 查询参数驱动。
 - 风格能力以快照字段为真相源；提交任务后不要在 worker 执行阶段重新读取全局风格来替代任务快照。
 - 首页快速创建项目通过 `src/lib/home/create-project-launch.ts` 串联“创建项目 -> 保存项目配置 -> 创建第一集 -> 带 `episode` 参数跳转工作区”。
 - 首页最近项目画廊不是 DOM 卡片列表，而是 `src/components/home/CircularGallery.tsx` 的 OGL canvas。点击、拖拽和卡片命中检测都在这个组件里，改交互时要一起考虑。
+- `director` 是部署在服务器上的网站，不是需要自检升级的客户端 app；不要在站内加入 GitHub Release 轮询、版本升级按钮或升级弹窗。
 - `editor` 阶段在 `src/app/[locale]/workspace/[projectId]/page.tsx` 中仍会回退到 `videos`，不要把 AI 剪辑当成已完全开放的稳定流程。
 
 ## 深入文档

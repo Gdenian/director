@@ -1,12 +1,15 @@
 import React from 'react'
 import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, interpolate } from 'remotion'
-import { VideoClip, BgmClip, EditorConfig } from '../types/editor.types'
+import { AudioAttachment, BgmClip, EditorConfig, SubtitleCue, VideoClip } from '../types/editor.types'
 import { computeClipPositions } from '../utils/time-utils'
 
 interface VideoCompositionProps {
     clips: VideoClip[]
+    audioTrack?: AudioAttachment[]
+    subtitleCues?: SubtitleCue[]
     bgmTrack: BgmClip[]
     config: EditorConfig
+    burnSubtitles?: boolean
 }
 
 /**
@@ -15,8 +18,11 @@ interface VideoCompositionProps {
  */
 export const VideoComposition: React.FC<VideoCompositionProps> = ({
     clips,
+    audioTrack = [],
+    subtitleCues = [],
     bgmTrack,
-    config
+    config,
+    burnSubtitles = true
 }) => {
     const computedClips = computeClipPositions(clips)
 
@@ -43,6 +49,30 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
                     </Sequence>
                 )
             })}
+
+            {/* 配音轨道 */}
+            {audioTrack.map((audio) => (
+                <Sequence
+                    key={audio.id}
+                    from={audio.startFrame}
+                    durationInFrames={audio.durationInFrames}
+                    name={`Audio: ${audio.id}`}
+                >
+                    <Audio src={audio.src} volume={audio.volume} />
+                </Sequence>
+            ))}
+
+            {/* 字幕轨道 */}
+            {burnSubtitles && subtitleCues.map((cue) => (
+                <Sequence
+                    key={cue.id}
+                    from={cue.startFrame}
+                    durationInFrames={Math.max(1, cue.endFrame - cue.startFrame)}
+                    name={`Subtitle: ${cue.id}`}
+                >
+                    <SubtitleOverlay text={cue.text} style={cue.style} />
+                </Sequence>
+            ))}
 
             {/* BGM 轨道 */}
             {bgmTrack.map((bgm) => (
@@ -164,29 +194,13 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
             {/* 视频 */}
             <Video
                 src={clip.src}
-                startFrom={clip.trim?.from || 0}
+                startFrom={clip.sourceTrim?.fromFrame || 0}
                 style={{
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover'
                 }}
             />
-
-            {/* 附属配音 */}
-            {clip.attachment?.audio && (
-                <Audio
-                    src={clip.attachment.audio.src}
-                    volume={clip.attachment.audio.volume}
-                />
-            )}
-
-            {/* 附属字幕 */}
-            {clip.attachment?.subtitle && (
-                <SubtitleOverlay
-                    text={clip.attachment.subtitle.text}
-                    style={clip.attachment.subtitle.style}
-                />
-            )}
         </AbsoluteFill>
     )
 }

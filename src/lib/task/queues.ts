@@ -7,6 +7,7 @@ export const QUEUE_NAME = {
   VIDEO: 'director-video',
   VOICE: 'director-voice',
   TEXT: 'director-text',
+  RENDER: 'director-render',
 } as const
 
 const defaultJobOptions: JobsOptions = {
@@ -39,7 +40,12 @@ export const textQueue = new Queue<TaskJobData>(QUEUE_NAME.TEXT, {
   defaultJobOptions,
 })
 
-const ALL_QUEUES = [imageQueue, videoQueue, voiceQueue, textQueue]
+export const renderQueue = new Queue<TaskJobData>(QUEUE_NAME.RENDER, {
+  connection: queueRedis,
+  defaultJobOptions,
+})
+
+const ALL_QUEUES = [imageQueue, videoQueue, voiceQueue, textQueue, renderQueue]
 
 const IMAGE_TYPES = new Set<TaskType>([
   TASK_TYPE.IMAGE_PANEL,
@@ -52,12 +58,17 @@ const IMAGE_TYPES = new Set<TaskType>([
   TASK_TYPE.ASSET_HUB_MODIFY,
 ])
 
-const VIDEO_TYPES = new Set<TaskType>([TASK_TYPE.VIDEO_PANEL, TASK_TYPE.LIP_SYNC])
+const VIDEO_TYPES = new Set<TaskType>([
+  TASK_TYPE.VIDEO_PANEL,
+  TASK_TYPE.LIP_SYNC,
+  TASK_TYPE.AI_EDIT_TRANSITION_BRIDGE,
+])
 const VOICE_TYPES = new Set<TaskType>([
   TASK_TYPE.VOICE_LINE,
   TASK_TYPE.VOICE_DESIGN,
   TASK_TYPE.ASSET_HUB_VOICE_DESIGN,
 ])
+const RENDER_TYPES = new Set<TaskType>([TASK_TYPE.EDITOR_RENDER])
 
 const SINGLE_ATTEMPT_TASK_TYPES = new Set<TaskType>([
   TASK_TYPE.STORY_TO_SCRIPT_RUN,
@@ -68,6 +79,7 @@ export function getQueueTypeByTaskType(type: TaskType): QueueType {
   if (IMAGE_TYPES.has(type)) return 'image'
   if (VIDEO_TYPES.has(type)) return 'video'
   if (VOICE_TYPES.has(type)) return 'voice'
+  if (RENDER_TYPES.has(type)) return 'render'
   return 'text'
 }
 
@@ -79,6 +91,8 @@ export function getQueueByType(type: QueueType) {
       return videoQueue
     case 'voice':
       return voiceQueue
+    case 'render':
+      return renderQueue
     case 'text':
     default:
       return textQueue
