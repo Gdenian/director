@@ -55,12 +55,13 @@ interface UseProvidersReturn {
     updateProviderHidden: (providerId: string, hidden: boolean) => void
     updateProviderApiKey: (providerId: string, apiKey: string) => void
     updateProviderBaseUrl: (providerId: string, baseUrl: string) => void
+    updateProviderConnection: (providerId: string, updates: { apiKey: string; baseUrl: string }) => void
     reorderProviders: (activeProviderId: string, overProviderId: string) => void
     addProvider: (provider: Omit<Provider, 'hasApiKey'>) => void
     addProviderWithModels: (provider: Omit<Provider, 'hasApiKey'>, models: Array<Omit<CustomModel, 'enabled'>>) => void
-    deleteProvider: (providerId: string) => void
+    deleteProvider: (providerId: string, options?: { skipConfirm?: boolean }) => void
     updateProviderInfo: (providerId: string, name: string, baseUrl?: string) => void
-    toggleModel: (modelKey: string, providerId?: string) => void
+    toggleModel: (modelKey: string, providerId?: string, options?: { skipConfirm?: boolean }) => void
     updateModel: (modelKey: string, updates: Partial<CustomModel>, providerId?: string) => void
     addModel: (model: Omit<CustomModel, 'enabled'>) => void
     deleteModel: (modelKey: string, providerId?: string) => void
@@ -664,12 +665,12 @@ export function useProviders(): UseProvidersReturn {
         void performSave(undefined, false)
     }, [t, performSave])
 
-    const deleteProvider = useCallback((providerId: string) => {
+    const deleteProvider = useCallback((providerId: string, options?: { skipConfirm?: boolean }) => {
         if (PRESET_PROVIDERS.find(p => p.id === providerId)) {
             alert(t('presetProviderCannotDelete'))
             return
         }
-        if (confirm(t('confirmDeleteProvider'))) {
+        if (options?.skipConfirm || confirm(t('confirmDeleteProvider'))) {
             setProviders(prev => {
                 const next = prev.filter(p => p.id !== providerId)
                 latestProvidersRef.current = next
@@ -719,8 +720,22 @@ export function useProviders(): UseProvidersReturn {
         })
     }, [performSave])
 
+    const updateProviderConnection = useCallback((providerId: string, updates: { apiKey: string; baseUrl: string }) => {
+        setProviders(prev => {
+            const next = prev.map(p =>
+                p.id === providerId
+                    ? { ...p, apiKey: updates.apiKey, hasApiKey: !!updates.apiKey, baseUrl: updates.baseUrl }
+                    : p
+            )
+            latestProvidersRef.current = next
+            void performSave(undefined, true)
+            return next
+        })
+    }, [performSave])
+
     // 模型操作
-    const toggleModel = useCallback((modelKey: string, providerId?: string) => {
+    const toggleModel = useCallback((modelKey: string, providerId?: string, options?: { skipConfirm?: boolean }) => {
+        void options
         if (isPresetComingSoonModelKey(modelKey)) {
             return
         }
@@ -839,6 +854,7 @@ export function useProviders(): UseProvidersReturn {
         updateProviderHidden,
         updateProviderApiKey,
         updateProviderBaseUrl,
+        updateProviderConnection,
         reorderProviders,
         addProvider,
         addProviderWithModels,

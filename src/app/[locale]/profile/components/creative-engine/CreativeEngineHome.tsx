@@ -1,14 +1,20 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
-import type { CustomModel, Provider } from '../api-config'
+import { PRESET_PROVIDERS, type CustomModel, type Provider } from '../api-config'
+import { CreativeModelList } from './CreativeModelList'
+
+const PRESET_PROVIDER_IDS = new Set(PRESET_PROVIDERS.map((provider) => provider.id))
 
 interface CreativeEngineHomeProps {
   providers: Provider[]
   models: CustomModel[]
   onAdd: () => void
+  onDeleteEngine?: (provider: Provider) => void
+  onUpdateConnection?: (provider: Provider, updates: { apiKey: string; baseUrl: string }) => void
+  onToggleModel?: (model: CustomModel) => void
 }
 
 function hasKey(provider: Provider): boolean {
@@ -19,12 +25,39 @@ function resolveServiceStatus(provider: Provider): 'available' | 'unchecked' {
   return hasKey(provider) ? 'available' : 'unchecked'
 }
 
-export function CreativeEngineHome({ providers, models, onAdd }: CreativeEngineHomeProps) {
+export function CreativeEngineHome({
+  providers,
+  models,
+  onAdd,
+  onDeleteEngine,
+  onUpdateConnection,
+  onToggleModel,
+}: CreativeEngineHomeProps) {
   const t = useTranslations('apiConfig')
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
+  const [connectionDraft, setConnectionDraft] = useState({ apiKey: '', baseUrl: '' })
   const connectedProviders = useMemo(
     () => providers.filter(hasKey),
     [providers],
   )
+
+  function startConnectionEdit(provider: Provider) {
+    setEditingProviderId(provider.id)
+    setConnectionDraft({
+      apiKey: provider.apiKey || '',
+      baseUrl: provider.baseUrl || '',
+    })
+  }
+
+  function cancelConnectionEdit() {
+    setEditingProviderId(null)
+    setConnectionDraft({ apiKey: '', baseUrl: '' })
+  }
+
+  function saveConnectionEdit(provider: Provider) {
+    onUpdateConnection?.(provider, connectionDraft)
+    cancelConnectionEdit()
+  }
 
   return (
     <section className="space-y-4">
@@ -83,8 +116,63 @@ export function CreativeEngineHome({ providers, models, onAdd }: CreativeEngineH
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-4 flex justify-end gap-2 text-xs text-[var(--glass-text-tertiary)]">
-                  {t('creativeEngine.selectedByUserOnly')}
+                {editingProviderId === provider.id ? (
+                  <div className="mt-4 space-y-3 rounded-lg border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-base)] p-3">
+                    <label className="block text-xs font-medium text-[var(--glass-text-secondary)]">
+                      {t('creativeEngine.serviceAddress')}
+                      <input
+                        value={connectionDraft.baseUrl}
+                        onChange={(event) => setConnectionDraft((previous) => ({ ...previous, baseUrl: event.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] px-3 py-2 text-sm text-[var(--glass-text-primary)] outline-none focus:border-[var(--glass-stroke-focus)]"
+                      />
+                    </label>
+                    <label className="block text-xs font-medium text-[var(--glass-text-secondary)]">
+                      {t('creativeEngine.key')}
+                      <input
+                        type="password"
+                        value={connectionDraft.apiKey}
+                        onChange={(event) => setConnectionDraft((previous) => ({ ...previous, apiKey: event.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] px-3 py-2 text-sm text-[var(--glass-text-primary)] outline-none focus:border-[var(--glass-stroke-focus)]"
+                      />
+                    </label>
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={cancelConnectionEdit} className="glass-btn-base glass-btn-secondary px-3 py-1.5 text-xs">
+                        {t('creativeEngine.cancel')}
+                      </button>
+                      <button type="button" onClick={() => saveConnectionEdit(provider)} className="glass-btn-base glass-btn-primary px-3 py-1.5 text-xs">
+                        {t('creativeEngine.saveConnection')}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4">
+                  <CreativeModelList
+                    models={serviceModels}
+                    emptyLabel={t('creativeEngine.noModels')}
+                    onToggleModel={onToggleModel}
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-wrap justify-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => startConnectionEdit(provider)}
+                    className="glass-btn-base glass-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5"
+                  >
+                    <AppIcon name="edit" className="h-3.5 w-3.5" />
+                    {t('creativeEngine.editConnection')}
+                  </button>
+                  {!PRESET_PROVIDER_IDS.has(provider.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteEngine?.(provider)}
+                      className="glass-btn-base glass-btn-tone-danger inline-flex items-center gap-1.5 px-3 py-1.5"
+                    >
+                      <AppIcon name="trash" className="h-3.5 w-3.5" />
+                      {t('creativeEngine.deleteEngine')}
+                    </button>
+                  ) : null}
                 </div>
               </article>
             )

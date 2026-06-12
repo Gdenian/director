@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import type { CreativeModelPurpose, CreativeModelStatus } from '@/lib/creative-engine/types'
+import type { CustomModel } from '../api-config'
 
 export interface CreativeModelListItem {
   id?: string
@@ -11,11 +12,13 @@ export interface CreativeModelListItem {
   modelKey?: string
   purpose?: CreativeModelPurpose | 'unknown'
   status?: CreativeModelStatus | 'unchecked'
+  enabled?: boolean
 }
 
 interface CreativeModelListProps {
   models: CreativeModelListItem[]
   emptyLabel?: string
+  onToggleModel?: (model: CustomModel) => void
 }
 
 function modelName(model: CreativeModelListItem): string {
@@ -26,7 +29,7 @@ function modelStatus(model: CreativeModelListItem): string {
   return model.status || 'unchecked'
 }
 
-export function CreativeModelList({ models, emptyLabel }: CreativeModelListProps) {
+export function CreativeModelList({ models, emptyLabel, onToggleModel }: CreativeModelListProps) {
   const t = useTranslations('apiConfig')
 
   if (models.length === 0) {
@@ -57,6 +60,15 @@ export function CreativeModelList({ models, emptyLabel }: CreativeModelListProps
               <AppIcon name="badgeCheck" className="h-3 w-3" />
               {t(`creativeEngine.${modelStatus(model)}` as Parameters<typeof t>[0])}
             </span>
+            {onToggleModel && model.modelKey ? (
+              <button
+                type="button"
+                onClick={() => onToggleModel(model as CustomModel)}
+                className="glass-btn-base glass-btn-secondary px-2 py-1"
+              >
+                {model.enabled === false ? t('creativeEngine.enableModel') : t('creativeEngine.disableModel')}
+              </button>
+            ) : null}
           </div>
         </div>
       ))}
