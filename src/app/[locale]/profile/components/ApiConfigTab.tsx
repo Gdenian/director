@@ -1,7 +1,7 @@
 'use client'
 
-import { ApiConfigTabContainer } from './api-config-tab/ApiConfigTabContainer'
+import { CreativeEngineTabContainer } from './creative-engine/CreativeEngineTabContainer'
 
 export default function ApiConfigTab() {
-  return <ApiConfigTabContainer />
+  return <CreativeEngineTabContainer />
 }

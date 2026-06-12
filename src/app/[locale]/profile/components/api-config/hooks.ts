@@ -57,6 +57,7 @@ interface UseProvidersReturn {
     updateProviderBaseUrl: (providerId: string, baseUrl: string) => void
     reorderProviders: (activeProviderId: string, overProviderId: string) => void
     addProvider: (provider: Omit<Provider, 'hasApiKey'>) => void
+    addProviderWithModels: (provider: Omit<Provider, 'hasApiKey'>, models: Array<Omit<CustomModel, 'enabled'>>) => void
     deleteProvider: (providerId: string) => void
     updateProviderInfo: (providerId: string, name: string, baseUrl?: string) => void
     toggleModel: (modelKey: string, providerId?: string) => void
@@ -627,6 +628,42 @@ export function useProviders(): UseProvidersReturn {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [t, performSave])
 
+    const addProviderWithModels = useCallback((
+        provider: Omit<Provider, 'hasApiKey'>,
+        modelsToAdd: Array<Omit<CustomModel, 'enabled'>>,
+    ) => {
+        const normalizedProviderId = provider.id.toLowerCase()
+        const currentProviders = latestProvidersRef.current
+        if (currentProviders.some((p) => p.id.toLowerCase() === normalizedProviderId)) {
+            alert(t('providerIdExists'))
+            return
+        }
+
+        const newProvider: Provider = { ...provider, hasApiKey: !!provider.apiKey }
+        const nextProviders = [...currentProviders, newProvider]
+        const existingModelKeys = new Set(latestModelsRef.current.map((model) => model.modelKey))
+        const normalizedModels = modelsToAdd
+            .map((model) => ({
+                ...model,
+                modelKey: model.modelKey || encodeModelKey(model.provider, model.modelId),
+                price: 0,
+                priceLabel: '--',
+                enabled: true,
+            }))
+            .filter((model) => {
+                if (existingModelKeys.has(model.modelKey)) return false
+                existingModelKeys.add(model.modelKey)
+                return true
+            })
+        const nextModels = [...latestModelsRef.current, ...normalizedModels]
+
+        latestProvidersRef.current = nextProviders
+        latestModelsRef.current = nextModels
+        setProviders(nextProviders)
+        setModels(nextModels)
+        void performSave(undefined, false)
+    }, [t, performSave])
+
     const deleteProvider = useCallback((providerId: string) => {
         if (PRESET_PROVIDERS.find(p => p.id === providerId)) {
             alert(t('presetProviderCannotDelete'))
@@ -804,6 +841,7 @@ export function useProviders(): UseProvidersReturn {
         updateProviderBaseUrl,
         reorderProviders,
         addProvider,
+        addProviderWithModels,
         deleteProvider,
         updateProviderInfo,
         toggleModel,
