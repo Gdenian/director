@@ -1,9 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { detectCreativeEngine } from '@/lib/user-api/creative-engine-detection/orchestrator'
 
+const inspectCreativeEngineMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/user-api/creative-engine-detection/llm-inspector', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/user-api/creative-engine-detection/llm-inspector')>()
+  return {
+    ...actual,
+    inspectCreativeEngine: inspectCreativeEngineMock,
+  }
+})
+
 describe('creative engine detection orchestrator', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    inspectCreativeEngineMock.mockReset()
+    delete process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER
+    delete process.env.CREATIVE_ENGINE_INSPECTOR_MODEL
+    delete process.env.CREATIVE_ENGINE_INSPECTOR_API_KEY
+    delete process.env.CREATIVE_ENGINE_INSPECTOR_BASE_URL
   })
 
   it('detects OpenAI-compatible services through the free models endpoint first', async () => {
@@ -250,6 +265,111 @@ describe('creative engine detection orchestrator', () => {
       protocolType: 'official',
       failureCategory: 'interface-unsupported',
       requiresManualModelEntry: true,
+    }))
+  })
+
+  it('uses the LLM inspector as an env-gated fallback after deterministic probes fail', async () => {
+    process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER = 'openai-compatible'
+    process.env.CREATIVE_ENGINE_INSPECTOR_MODEL = 'gpt-5-mini'
+    process.env.CREATIVE_ENGINE_INSPECTOR_API_KEY = 'inspector-key'
+    process.env.CREATIVE_ENGINE_INSPECTOR_BASE_URL = 'https://inspector.example.com/v1'
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not found', { status: 404 })))
+    inspectCreativeEngineMock.mockResolvedValueOnce({
+      source: 'custom-inspected',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://api.example.com/v1',
+      confidence: 'medium',
+      models: [{
+        name: 'Inspected Model',
+        callName: 'vendor/model',
+        purpose: 'text',
+        confidence: 'medium',
+      }],
+      warnings: ['INSPECTOR_USED'],
+    })
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://api.example.com',
+      apiKey: 'user-key',
+      allowKeyInInspector: false,
+    })
+
+    expect(inspectCreativeEngineMock).toHaveBeenCalledWith(expect.objectContaining({
+      serviceUrl: 'https://api.example.com',
+      apiKey: 'user-key',
+      allowKeyInInspector: false,
+      probeLogs: expect.arrayContaining(['MODEL_LIST_UNSUPPORTED', 'MODEL_LIST_UNREADABLE']),
+    }))
+    expect(result).toEqual(expect.objectContaining({
+      source: 'custom-inspected',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://api.example.com/v1',
+      confidence: 'medium',
+      requiresManualModelEntry: false,
+      warnings: expect.arrayContaining(['INSPECTOR_USED']),
+    }))
+  })
+
+  it('keeps manual-template inspector results in manual configuration mode', async () => {
+    process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER = 'openai-compatible'
+    process.env.CREATIVE_ENGINE_INSPECTOR_MODEL = 'gpt-5-mini'
+    process.env.CREATIVE_ENGINE_INSPECTOR_API_KEY = 'inspector-key'
+    process.env.CREATIVE_ENGINE_INSPECTOR_BASE_URL = 'https://inspector.example.com/v1'
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not found', { status: 404 })))
+    inspectCreativeEngineMock.mockResolvedValueOnce({
+      source: 'custom-template',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'manual-template',
+      normalizedBaseUrl: 'https://api.example.com/v1',
+      confidence: 'low',
+      models: [{
+        name: 'Draft model',
+        callName: 'draft/model',
+        purpose: 'unknown',
+        confidence: 'low',
+      }],
+      warnings: ['INSPECTOR_USED'],
+    })
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://api.example.com',
+      apiKey: 'user-key',
+      allowKeyInInspector: true,
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      protocolType: 'manual-template',
+      requiresManualModelEntry: true,
+    }))
+  })
+
+  it('falls back to manual configuration when the LLM inspector is unavailable', async () => {
+    process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER = 'openai-compatible'
+    process.env.CREATIVE_ENGINE_INSPECTOR_MODEL = 'gpt-5-mini'
+    process.env.CREATIVE_ENGINE_INSPECTOR_API_KEY = 'inspector-key'
+    process.env.CREATIVE_ENGINE_INSPECTOR_BASE_URL = 'https://inspector.example.com/v1'
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not found', { status: 404 })))
+    inspectCreativeEngineMock.mockRejectedValueOnce(new Error('inspector unavailable'))
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://api.example.com/v1',
+      apiKey: 'user-key',
+      allowKeyInInspector: true,
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      source: 'custom-openai-compatible',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      confidence: 'low',
+      failureCategory: 'interface-unsupported',
+      requiresManualModelEntry: true,
+      warnings: expect.arrayContaining(['MODEL_LIST_UNREADABLE', 'INSPECTOR_UNAVAILABLE']),
     }))
   })
 

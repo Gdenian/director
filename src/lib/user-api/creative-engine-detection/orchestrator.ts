@@ -1,5 +1,6 @@
 import { chooseFailureCategory } from './failure-category'
 import { fingerprintCreativeEngineSource } from './fingerprint'
+import { inspectCreativeEngine } from './llm-inspector'
 import { probeGeminiCompatibleModels } from './probe-gemini'
 import { probeOfficialCreativeEngine } from './probe-official'
 import { probeOpenAICompatibleModels } from './probe-openai'
@@ -27,6 +28,35 @@ function resolveFallbackFailureCategory(params: {
   ])
 }
 
+function toInspectorProbeLogs(params: {
+  normalizedWarnings: string[]
+  openaiWarnings: string[]
+  geminiWarnings: string[]
+  officialWarnings: string[]
+}) {
+  return mergeWarnings(
+    params.normalizedWarnings,
+    params.openaiWarnings,
+    params.geminiWarnings,
+    params.officialWarnings,
+    ['MODEL_LIST_UNREADABLE'],
+  )
+}
+
+async function inspectWithFallback(input: Parameters<typeof inspectCreativeEngine>[0]) {
+  try {
+    return {
+      result: await inspectCreativeEngine(input),
+      unavailable: false,
+    }
+  } catch {
+    return {
+      result: null,
+      unavailable: true,
+    }
+  }
+}
+
 export async function detectCreativeEngine(request: CreativeEngineDetectRequest): Promise<CreativeEngineDetectionResult> {
   const normalized = normalizeCreativeEngineUrl(request.serviceUrl)
   const fingerprint = fingerprintCreativeEngineSource({ url: normalized.primaryUrl })
@@ -50,6 +80,29 @@ export async function detectCreativeEngine(request: CreativeEngineDetectRequest)
   })
   if (officialResult.ok) return mapProbeResultToDetection({ normalized, fingerprint, probe: officialResult })
 
+  const probeLogs = toInspectorProbeLogs({
+    normalizedWarnings: normalized.warnings,
+    openaiWarnings: openaiResult.warnings,
+    geminiWarnings: geminiResult.warnings,
+    officialWarnings: officialResult.warnings,
+  })
+  const inspected = await inspectWithFallback({
+    ...request,
+    probeLogs,
+    responseSamples: [],
+  })
+  if (inspected.result) {
+    return {
+      ...inspected.result,
+      warnings: mergeWarnings(probeLogs, inspected.result.warnings),
+      risks: inspected.result.risks || [],
+      requiresManualModelEntry: inspected.result.protocolType === 'manual-template',
+    }
+  }
+  const finalWarnings = inspected.unavailable
+    ? mergeWarnings(probeLogs, ['INSPECTOR_UNAVAILABLE'])
+    : probeLogs
+
   return {
     source: fingerprint.source,
     recommendedProviderKey: fingerprint.providerKey,
@@ -57,13 +110,7 @@ export async function detectCreativeEngine(request: CreativeEngineDetectRequest)
     normalizedBaseUrl: normalized.primaryUrl,
     confidence: 'low',
     models: [],
-    warnings: mergeWarnings(
-      normalized.warnings,
-      openaiResult.warnings,
-      geminiResult.warnings,
-      officialResult.warnings,
-      ['MODEL_LIST_UNREADABLE'],
-    ),
+    warnings: finalWarnings,
     risks: ['这个服务没有开放模型列表接口。你仍然可以手动添加模型调用名。'],
     failureCategory: resolveFallbackFailureCategory({
       fingerprintProtocolType: fingerprint.protocolType,
