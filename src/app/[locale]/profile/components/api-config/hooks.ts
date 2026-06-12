@@ -248,6 +248,57 @@ function applyPricingDisplay(model: CustomModel, map: PricingDisplayMap): Custom
     }
 }
 
+export function mergeModelsForDisplay(
+    savedModelsRaw: CustomModel[],
+    presetModels: Array<Omit<CustomModel, 'enabled' | 'modelKey' | 'price'>>,
+    pricingDisplay: PricingDisplayMap,
+): CustomModel[] {
+    const savedModelsNormalized = savedModelsRaw.map((m: CustomModel) => ({
+        ...m,
+        modelKey: m.modelKey || encodeModelKey(m.provider, m.modelId),
+    }))
+    const savedModels: CustomModel[] = []
+    const seen = new Set<string>()
+    for (const model of savedModelsNormalized) {
+        const key = model.modelKey
+        if (seen.has(key)) continue
+        seen.add(key)
+        savedModels.push(model)
+    }
+
+    const hasSavedModels = savedModels.length > 0
+    const allModels = presetModels.map(preset => {
+        const presetModelKey = encodeModelKey(preset.provider, preset.modelId)
+        const saved = savedModels.find((m: CustomModel) =>
+            m.modelKey === presetModelKey
+        )
+        const alwaysEnabledPreset = preset.type === 'lipsync'
+        const mergedPreset: CustomModel = {
+            ...preset,
+            purpose: saved?.purpose ?? preset.purpose,
+            status: saved?.status ?? preset.status,
+            confidence: saved?.confidence ?? preset.confidence,
+            modelKey: presetModelKey,
+            enabled: isPresetComingSoonModelKey(presetModelKey)
+                ? false
+                : (hasSavedModels ? (alwaysEnabledPreset || saved?.enabled === true) : false),
+            price: 0,
+            capabilities: saved?.capabilities ?? preset.capabilities,
+            customPricing: saved?.customPricing ?? preset.customPricing,
+        }
+        return applyPricingDisplay(mergedPreset, pricingDisplay)
+    })
+    const customModels = savedModels.filter((m: CustomModel) =>
+        !presetModels.find((preset) => encodeModelKey(preset.provider, preset.modelId) === m.modelKey)
+    ).map((m: CustomModel) => ({
+        ...applyPricingDisplay(m, pricingDisplay),
+        // 尊重服务端返回的 enabled 字段（后端对 disabled presets 会明确返回 enabled: false）
+        enabled: (m as CustomModel & { enabled?: boolean }).enabled !== false,
+    }))
+
+    return [...allModels, ...customModels]
+}
+
 export function useProviders(): UseProvidersReturn {
     const locale = useLocale()
     const t = useTranslations('apiConfig')
@@ -313,46 +364,7 @@ export function useProviders(): UseProvidersReturn {
             setProviders(mergeProvidersForDisplay(savedProviders, presetProviders))
 
             // 合并预设和已保存的模型
-            const savedModelsRaw = data.models || []
-            const savedModelsNormalized = savedModelsRaw.map((m: CustomModel) => ({
-                ...m,
-                modelKey: m.modelKey || encodeModelKey(m.provider, m.modelId),
-            }))
-            const savedModels: CustomModel[] = []
-            const seen = new Set<string>()
-            for (const model of savedModelsNormalized) {
-                const key = model.modelKey
-                if (seen.has(key)) continue
-                seen.add(key)
-                savedModels.push(model)
-            }
-            const hasSavedModels = savedModels.length > 0
-            const allModels = PRESET_MODELS.map(preset => {
-                const presetModelKey = encodeModelKey(preset.provider, preset.modelId)
-                const saved = savedModels.find((m: CustomModel) =>
-                    m.modelKey === presetModelKey
-                )
-                const alwaysEnabledPreset = preset.type === 'lipsync'
-                const mergedPreset: CustomModel = {
-                    ...preset,
-                    modelKey: presetModelKey,
-                    enabled: isPresetComingSoonModelKey(presetModelKey)
-                        ? false
-                        : (hasSavedModels ? (alwaysEnabledPreset || !!saved) : false),
-                    price: 0,
-                    capabilities: saved?.capabilities ?? preset.capabilities,
-                }
-                return applyPricingDisplay(mergedPreset, pricingDisplay)
-            })
-            const customModels = savedModels.filter((m: CustomModel) =>
-                !PRESET_MODELS.find((preset) => encodeModelKey(preset.provider, preset.modelId) === m.modelKey)
-            ).map((m: CustomModel) => ({
-                ...applyPricingDisplay(m, pricingDisplay),
-                // 尊重服务端返回的 enabled 字段（后端对 disabled presets 会明确返回 enabled: false）
-                enabled: (m as CustomModel & { enabled?: boolean }).enabled !== false,
-            }))
-
-            setModels([...allModels, ...customModels])
+            setModels(mergeModelsForDisplay(data.models || [], PRESET_MODELS, pricingDisplay))
 
             // 加载默认模型配置
             if (data.defaultModels) {

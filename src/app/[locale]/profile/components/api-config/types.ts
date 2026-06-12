@@ -11,6 +11,11 @@ import type {
     OpenAICompatMediaTemplate,
     OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
+import type {
+    CreativeDetectionConfidence,
+    CreativeModelPurpose,
+    CreativeModelStatus,
+} from '@/lib/creative-engine/types'
 
 // 统一提供商接口
 export interface Provider {
@@ -71,6 +76,9 @@ export interface CustomModel {
     priceInput?: number
     priceOutput?: number
     enabled: boolean
+    purpose?: CreativeModelPurpose
+    status?: CreativeModelStatus
+    confidence?: CreativeDetectionConfidence
     capabilities?: ModelCapabilities
     customPricing?: CustomModelPricing
 }

@@ -41,7 +41,7 @@ interface DefaultModelCardsProps {
         lipSyncModel?: string
         voiceDesignModel?: string
     }
-    getEnabledModelsByType: (type: ModelType) => ModelOption[]
+    getEnabledModelsByType: (type: ModelType, field?: DefaultModelField) => ModelOption[]
     parseModelKey: (key: string | undefined | null) => { provider: string; modelId: string } | null
     encodeModelKey: (provider: string, modelId: string) => string
     getProviderDisplayName: (providerId: string, locale: string) => string
@@ -76,7 +76,7 @@ function resolveModel(
     parseModelKey: DefaultModelCardsProps['parseModelKey'],
     encodeModelKey: DefaultModelCardsProps['encodeModelKey'],
 ) {
-    const options = getEnabledModelsByType(modelType)
+    const options = getEnabledModelsByType(modelType, field)
     const currentKey = defaultModels[field]
     const parsed = parseModelKey(currentKey)
     const normalizedKey = parsed ? encodeModelKey(parsed.provider, parsed.modelId) : ''
@@ -208,7 +208,7 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
     // Pipeline unified override state
     const [pipelineGlobalKey, setPipelineGlobalKey] = useState('')
     const [pipelineGlobalCapOverrides, setPipelineGlobalCapOverrides] = useState<Record<string, CapabilityValue>>({})
-    const pipelineGlobalOptions = getEnabledModelsByType('image')
+    const pipelineGlobalOptions = getEnabledModelsByType('image', 'characterModel')
     const pipelineGlobalCurrent = pipelineGlobalOptions.find((opt) => opt.modelKey === pipelineGlobalKey) ?? null
     const pipelineGlobalCapFields = computeCapabilityFields(pipelineGlobalCurrent, 'image')
 
@@ -216,7 +216,7 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
         setPipelineGlobalKey(newModelKey)
         setPipelineGlobalCapOverrides({})
         if (newModelKey) {
-            const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel', 'editModel']
+            const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel']
             const newModel = pipelineGlobalOptions.find((opt) => opt.modelKey === newModelKey)
             const newCapFields = extractCapabilityFieldsFromModel(
                 newModel?.capabilities as Record<string, unknown> | undefined,
@@ -230,8 +230,8 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
         if (!pipelineGlobalCurrent) return
         const parsed = allProps.parseBySample(rawValue, sample)
         setPipelineGlobalCapOverrides((prev) => ({ ...prev, [field]: parsed }))
-        // Batch update all 4 pipeline fields
-        const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel', 'editModel']
+        // Batch update image-generation pipeline fields.
+        const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel']
         for (const pField of pipelineFields) {
             allProps.updateCapabilityDefault(pipelineGlobalCurrent.modelKey, field, parsed)
             // Also update each individual pipeline model's capability if they share the same model

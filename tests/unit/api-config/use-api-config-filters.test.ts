@@ -116,4 +116,102 @@ describe('api config filters', () => {
       'ark',
     ])
   })
+
+  it('excludes failed and disabled creative models from default selectors', () => {
+    const providers: Provider[] = [
+      { id: 'engine-text', name: 'Text Engine', hasApiKey: true, apiKey: 'k-text' },
+      { id: 'engine-voice', name: 'Voice Engine', hasApiKey: true, apiKey: 'k-voice' },
+    ]
+    const models: CustomModel[] = [
+      {
+        modelId: 'available-text',
+        modelKey: 'engine-text::available-text',
+        name: 'Available Text',
+        type: 'llm',
+        provider: 'engine-text',
+        price: 0,
+        enabled: true,
+        purpose: 'text',
+        status: 'available',
+      },
+      {
+        modelId: 'unchecked-text',
+        modelKey: 'engine-text::unchecked-text',
+        name: 'Unchecked Text',
+        type: 'llm',
+        provider: 'engine-text',
+        price: 0,
+        enabled: true,
+        purpose: 'text',
+        status: 'unchecked',
+      },
+      {
+        modelId: 'failed-text',
+        modelKey: 'engine-text::failed-text',
+        name: 'Failed Text',
+        type: 'llm',
+        provider: 'engine-text',
+        price: 0,
+        enabled: true,
+        purpose: 'text',
+        status: 'failed',
+      },
+      {
+        modelId: 'disabled-voice-design',
+        modelKey: 'engine-voice::disabled-voice-design',
+        name: 'Disabled Voice Design',
+        type: 'audio',
+        provider: 'engine-voice',
+        price: 0,
+        enabled: true,
+        purpose: 'voice-design',
+        status: 'disabled',
+      },
+    ]
+
+    const result = useApiConfigFilters({ providers, models })
+
+    expect(result.getEnabledModelsByType('llm').map((model) => model.modelId)).toEqual([
+      'available-text',
+      'unchecked-text',
+    ])
+    expect(result.getEnabledModelsByType('voicedesign').map((model) => model.modelId)).toEqual([])
+  })
+
+  it('filters image models by default field purpose', () => {
+    const providers: Provider[] = [
+      { id: 'engine-image', name: 'Image Engine', hasApiKey: true, apiKey: 'k-image' },
+    ]
+    const models: CustomModel[] = [
+      {
+        modelId: 'seedream',
+        modelKey: 'engine-image::seedream',
+        name: 'Seedream',
+        type: 'image',
+        provider: 'engine-image',
+        price: 0,
+        enabled: true,
+        purpose: 'image-generation',
+        status: 'available',
+      },
+      {
+        modelId: 'gpt-image-edit',
+        modelKey: 'engine-image::gpt-image-edit',
+        name: 'GPT Image Edit',
+        type: 'image',
+        provider: 'engine-image',
+        price: 0,
+        enabled: true,
+        purpose: 'image-edit',
+        status: 'available',
+      },
+    ]
+
+    const result = useApiConfigFilters({ providers, models })
+
+    expect(result.getEnabledModelsByType('image', 'characterModel').map((model) => model.modelId)).toEqual(['seedream'])
+    expect(result.getEnabledModelsByType('image', 'locationModel').map((model) => model.modelId)).toEqual(['seedream'])
+    expect(result.getEnabledModelsByType('image', 'storyboardModel').map((model) => model.modelId)).toEqual(['seedream'])
+    expect(result.getEnabledModelsByType('image', 'editModel').map((model) => model.modelId)).toEqual(['gpt-image-edit'])
+  })
 })

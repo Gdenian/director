@@ -10,8 +10,11 @@ import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import {
+  parseCreativeEngines,
+  parseCreativeModels,
+} from '@/lib/creative-engine/persisted-config'
+import {
   composeModelKey,
-  parseModelKeyStrict,
   type CapabilityValue,
   type ModelCapabilities,
   type UnifiedModelType,
@@ -19,22 +22,14 @@ import {
 import { findBuiltinCapabilities } from '@/lib/model-capabilities/catalog'
 import { findBuiltinPricingCatalogEntry } from '@/lib/model-pricing/catalog'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
-
-type StoredModelType = UnifiedModelType | string
-
-interface StoredModel {
-  modelId?: string
-  modelKey?: string
-  name?: string
-  type?: StoredModelType
-  provider?: string
-}
-
-interface StoredProvider {
-  id?: string
-  name?: string
-  apiKey?: string
-}
+import type {
+  CreativeDetectionConfidence,
+  CreativeEngineConfig,
+  CreativeEngineStatus,
+  CreativeModelConfig,
+  CreativeModelPurpose,
+  CreativeModelStatus,
+} from '@/lib/creative-engine/types'
 
 interface UserModelOption {
   value: string
@@ -43,6 +38,11 @@ interface UserModelOption {
   providerName?: string
   capabilities?: ModelCapabilities
   videoPricingTiers?: VideoPricingTier[]
+  purpose?: CreativeModelPurpose
+  engineStatus?: CreativeEngineStatus
+  modelStatus?: CreativeModelStatus
+  source?: string
+  confidence?: CreativeDetectionConfidence
 }
 
 interface UserModelsPayload {
@@ -51,49 +51,14 @@ interface UserModelsPayload {
   video: UserModelOption[]
   audio: UserModelOption[]
   lipsync: UserModelOption[]
+  voiceDesign: UserModelOption[]
 }
 
 const AUDIO_MODEL_EXCLUDED_IDS = new Set([
   'qwen-voice-design',
 ])
 
-function isUnifiedModelType(type: unknown): type is UnifiedModelType {
-  return (
-    type === 'llm'
-    || type === 'image'
-    || type === 'video'
-    || type === 'audio'
-    || type === 'lipsync'
-  )
-}
-
-function toModelKey(model: StoredModel): string {
-  const provider = typeof model.provider === 'string' ? model.provider.trim() : ''
-  const modelId = typeof model.modelId === 'string' ? model.modelId.trim() : ''
-
-  if (provider && modelId) {
-    return composeModelKey(provider, modelId)
-  }
-
-  const parsed = parseModelKeyStrict(typeof model.modelKey === 'string' ? model.modelKey : '')
-  return parsed?.modelKey || ''
-}
-
-function toProvider(model: StoredModel): string | undefined {
-  if (typeof model.provider === 'string' && model.provider.trim()) return model.provider.trim()
-  const parsed = parseModelKeyStrict(typeof model.modelKey === 'string' ? model.modelKey : '')
-  return parsed?.provider || undefined
-}
-
-function toModelId(model: StoredModel): string {
-  if (typeof model.modelId === 'string' && model.modelId.trim()) {
-    return model.modelId.trim()
-  }
-  const parsed = parseModelKeyStrict(typeof model.modelKey === 'string' ? model.modelKey : '')
-  return parsed?.modelId || ''
-}
-
-function toDisplayLabel(model: StoredModel, fallbackModelId: string): string {
+function toDisplayLabel(model: CreativeModelConfig, fallbackModelId: string): string {
   if (typeof model.name === 'string' && model.name.trim()) return model.name.trim()
   return fallbackModelId
 }
@@ -113,54 +78,78 @@ function cloneVideoPricingTiers(rawTiers: Array<{ when: Record<string, Capabilit
   }))
 }
 
-function parseStoredModels(rawModels: string | null | undefined): StoredModel[] {
-  if (!rawModels) return []
-  let parsedUnknown: unknown
+function parseStoredModels(rawModels: string | null | undefined): CreativeModelConfig[] {
   try {
-    parsedUnknown = JSON.parse(rawModels)
-  } catch {
+    return parseCreativeModels(rawModels)
+  } catch (error) {
+    const apiError = error instanceof ApiError ? error : null
     throw new ApiError('INVALID_PARAMS', {
-      code: 'MODEL_PAYLOAD_INVALID',
+      code: apiError?.details?.code || 'MODEL_PAYLOAD_INVALID',
       field: 'customModels',
     })
   }
-  if (!Array.isArray(parsedUnknown)) {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'MODEL_PAYLOAD_INVALID',
-      field: 'customModels',
-    })
-  }
-  return parsedUnknown as StoredModel[]
 }
 
-function parseStoredProviders(rawProviders: string | null | undefined): StoredProvider[] {
-  if (!rawProviders) return []
-  let parsedUnknown: unknown
+function parseStoredProviders(rawProviders: string | null | undefined): CreativeEngineConfig[] {
   try {
-    parsedUnknown = JSON.parse(rawProviders)
-  } catch {
+    return parseCreativeEngines(rawProviders)
+  } catch (error) {
+    const apiError = error instanceof ApiError ? error : null
     throw new ApiError('INVALID_PARAMS', {
-      code: 'PROVIDER_PAYLOAD_INVALID',
+      code: apiError?.details?.code || 'PROVIDER_PAYLOAD_INVALID',
       field: 'customProviders',
     })
   }
-  if (!Array.isArray(parsedUnknown)) {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'PROVIDER_PAYLOAD_INVALID',
-      field: 'customProviders',
-    })
-  }
-  return parsedUnknown as StoredProvider[]
 }
 
-function hasStoredProviderApiKey(provider: StoredProvider): boolean {
+function hasStoredProviderApiKey(provider: CreativeEngineConfig): boolean {
   return typeof provider.apiKey === 'string' && provider.apiKey.trim().length > 0
 }
 
-function isUserSelectableModel(model: StoredModel): boolean {
+function isBlockedStatus(status: CreativeEngineStatus | CreativeModelStatus): boolean {
+  return status === 'failed' || status === 'disabled'
+}
+
+function isPurposeCompatible(modelType: UnifiedModelType, purpose: CreativeModelPurpose): boolean {
+  if (purpose === 'text') return modelType === 'llm'
+  if (purpose === 'image-generation' || purpose === 'image-edit') return modelType === 'image'
+  if (purpose === 'video-generation') return modelType === 'video'
+  if (purpose === 'voice-generation' || purpose === 'voice-design') return modelType === 'audio'
+  if (purpose === 'lip-sync') return modelType === 'lipsync'
+  return false
+}
+
+function isUserSelectableModel(model: CreativeModelConfig): boolean {
+  if (!model.enabled) return false
+  if (isBlockedStatus(model.status)) return false
+  if (!isPurposeCompatible(model.type, model.purpose)) return false
   if (model.type !== 'audio') return true
-  const modelId = toModelId(model)
-  return !AUDIO_MODEL_EXCLUDED_IDS.has(modelId)
+  if (model.purpose === 'voice-design') return true
+  return !AUDIO_MODEL_EXCLUDED_IDS.has(model.callName)
+}
+
+function getModelGroup(modelType: UnifiedModelType, purpose: CreativeModelPurpose): keyof UserModelsPayload {
+  if (modelType === 'audio' && purpose === 'voice-design') return 'voiceDesign'
+  return modelType
+}
+
+function findBuiltinCapabilitiesWithProviderKey(
+  modelType: UnifiedModelType,
+  provider: string,
+  providerKey: string,
+  modelId: string,
+): ModelCapabilities | undefined {
+  return findBuiltinCapabilities(modelType, provider, modelId)
+    || (providerKey !== provider ? findBuiltinCapabilities(modelType, providerKey, modelId) : undefined)
+}
+
+function findVideoPricingEntryWithProviderKey(
+  provider: string,
+  providerKey: string,
+  modelId: string,
+) {
+  return findBuiltinPricingCatalogEntry('video', provider, modelId)
+    || (providerKey !== provider ? findBuiltinPricingCatalogEntry('video', providerKey, modelId) : null)
 }
 
 export const GET = apiHandler(async () => {
@@ -174,19 +163,14 @@ export const GET = apiHandler(async () => {
     select: { customModels: true, customProviders: true },
   })
 
-  const modelsRaw: StoredModel[] = parseStoredModels(pref?.customModels)
-  const providers: StoredProvider[] = parseStoredProviders(pref?.customProviders)
+  const modelsRaw = parseStoredModels(pref?.customModels)
+  const providers = parseStoredProviders(pref?.customProviders)
 
-  const providerNameMap = new Map<string, string>()
-  const providerIdsWithApiKey = new Set<string>()
+  const providersById = new Map<string, CreativeEngineConfig>()
   providers.forEach((provider) => {
-    const providerId = typeof provider?.id === 'string' ? provider.id.trim() : ''
+    const providerId = provider.id.trim()
     if (!providerId) return
-
-    if (provider?.name && typeof provider.name === 'string') {
-      providerNameMap.set(providerId, provider.name)
-    }
-    if (hasStoredProviderApiKey(provider)) providerIdsWithApiKey.add(providerId)
+    providersById.set(providerId, provider)
   })
 
   const grouped: UserModelsPayload = {
@@ -195,41 +179,50 @@ export const GET = apiHandler(async () => {
     video: [],
     audio: [],
     lipsync: [],
+    voiceDesign: [],
   }
 
   for (const model of modelsRaw) {
-    if (!isUnifiedModelType(model.type)) continue
     if (!isUserSelectableModel(model)) continue
 
     const modelType = model.type
-    const modelKey = toModelKey(model)
+    const engine = providersById.get(model.engineId)
+    if (!engine) continue
+    if (isBlockedStatus(engine.status)) continue
+    if (!hasStoredProviderApiKey(engine)) continue
+
+    const provider = model.engineId
+    const modelId = model.callName
+    const modelKey = model.modelKey || composeModelKey(provider, modelId)
     if (!modelKey) continue
 
-    const provider = toProvider(model)
-    if (!provider || !providerIdsWithApiKey.has(provider)) continue
-    const modelId = toModelId(model)
     const option: UserModelOption = {
       value: modelKey,
       label: toDisplayLabel(model, modelId || modelKey),
       provider,
-      providerName: provider ? providerNameMap.get(provider) : undefined,
+      providerName: engine.name,
+      purpose: model.purpose,
+      engineStatus: engine.status,
+      modelStatus: model.status,
+      source: model.detectionSource,
+      confidence: model.confidence,
     }
 
     if (provider && modelId) {
-      const capabilities = findBuiltinCapabilities(modelType, provider, modelId)
+      const capabilities = findBuiltinCapabilitiesWithProviderKey(modelType, provider, engine.providerKey, modelId)
       if (capabilities) {
         option.capabilities = capabilities
       }
 
       if (modelType === 'video') {
-        const pricingEntry = findBuiltinPricingCatalogEntry('video', provider, modelId)
+        const pricingEntry = findVideoPricingEntryWithProviderKey(provider, engine.providerKey, modelId)
         if (pricingEntry?.pricing.mode === 'capability' && Array.isArray(pricingEntry.pricing.tiers)) {
           option.videoPricingTiers = cloneVideoPricingTiers(pricingEntry.pricing.tiers)
         }
       }
     }
 
-    grouped[modelType].push(option)
+    grouped[getModelGroup(modelType, model.purpose)].push(option)
   }
 
   return NextResponse.json({
@@ -238,5 +231,6 @@ export const GET = apiHandler(async () => {
     video: dedupeByModelKey(grouped.video),
     audio: dedupeByModelKey(grouped.audio),
     lipsync: dedupeByModelKey(grouped.lipsync),
+    voiceDesign: dedupeByModelKey(grouped.voiceDesign),
   } satisfies UserModelsPayload)
 })

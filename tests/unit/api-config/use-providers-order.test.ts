@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { mergeProvidersForDisplay } from '@/app/[locale]/profile/components/api-config/hooks'
-import type { Provider } from '@/app/[locale]/profile/components/api-config/types'
+import {
+  mergeModelsForDisplay,
+  mergeProvidersForDisplay,
+} from '@/app/[locale]/profile/components/api-config/hooks'
+import type { CustomModel, Provider } from '@/app/[locale]/profile/components/api-config/types'
 
 describe('useProviders provider order merge', () => {
   it('preserves saved providers order and appends missing presets at the end', () => {
@@ -60,6 +63,95 @@ describe('useProviders provider order merge', () => {
       baseUrl: 'https://api.minimaxi.com/v1',
       apiKey: 'mm-key',
       hasApiKey: true,
+    })
+  })
+
+  it('preserves saved creative metadata when merging saved preset models', () => {
+    const presetModels: Array<Omit<CustomModel, 'enabled' | 'modelKey' | 'price'>> = [
+      {
+        modelId: 'doubao-seedream-4-5-251128',
+        name: 'Seedream 4.5',
+        type: 'image',
+        provider: 'ark',
+      },
+      {
+        modelId: 'gpt-image-edit',
+        name: 'GPT Image Edit',
+        type: 'image',
+        provider: 'openai-compatible:abc',
+      },
+    ]
+    const savedModels: CustomModel[] = [
+      {
+        modelId: 'doubao-seedream-4-5-251128',
+        modelKey: 'ark::doubao-seedream-4-5-251128',
+        name: 'Seedream 4.5',
+        type: 'image',
+        provider: 'ark',
+        price: 0,
+        enabled: true,
+        purpose: 'image-generation',
+        status: 'available',
+        confidence: 'high',
+      },
+      {
+        modelId: 'gpt-image-edit',
+        modelKey: 'openai-compatible:abc::gpt-image-edit',
+        name: 'GPT Image Edit',
+        type: 'image',
+        provider: 'openai-compatible:abc',
+        price: 0,
+        enabled: true,
+        purpose: 'image-edit',
+        status: 'available',
+        confidence: 'medium',
+      },
+    ]
+
+    const merged = mergeModelsForDisplay(savedModels, presetModels, {})
+
+    expect(merged.find((model) => model.modelKey === 'ark::doubao-seedream-4-5-251128')).toMatchObject({
+      purpose: 'image-generation',
+      status: 'available',
+      confidence: 'high',
+    })
+    expect(merged.find((model) => model.modelKey === 'openai-compatible:abc::gpt-image-edit')).toMatchObject({
+      purpose: 'image-edit',
+      status: 'available',
+      confidence: 'medium',
+    })
+  })
+
+  it('preserves disabled state for saved preset models', () => {
+    const presetModels: Array<Omit<CustomModel, 'enabled' | 'modelKey' | 'price'>> = [
+      {
+        modelId: 'doubao-seedream-4-5-251128',
+        name: 'Seedream 4.5',
+        type: 'image',
+        provider: 'ark',
+      },
+    ]
+    const savedModels: CustomModel[] = [
+      {
+        modelId: 'doubao-seedream-4-5-251128',
+        modelKey: 'ark::doubao-seedream-4-5-251128',
+        name: 'Seedream 4.5',
+        type: 'image',
+        provider: 'ark',
+        price: 0,
+        enabled: false,
+        purpose: 'image-generation',
+        status: 'available',
+      },
+    ]
+
+    const merged = mergeModelsForDisplay(savedModels, presetModels, {})
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({
+      modelKey: 'ark::doubao-seedream-4-5-251128',
+      enabled: false,
+      purpose: 'image-generation',
     })
   })
 })
