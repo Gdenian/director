@@ -25,6 +25,10 @@ Updated execution rules:
 - Reviews only fail on blockers inside the current task scope. Findings about Task N+1 or future cleanup must be recorded as non-blocking follow-up unless they prove a current-task acceptance criterion is broken. Reviewer prompts must repeat this rule explicitly.
 - Do not expand existing oversized files when a focused helper or component can carry the task cleanly.
 - Prefer the smallest focused test set that proves the task contract, then use broader suites only when the touched files or guard scripts require them.
+- Database/container verification is not a per-step gate. `tests/integration/api/specific/*` in this plan are Vitest route tests with mocked Prisma unless the test itself explicitly says otherwise; they do not imply starting MySQL/Redis/MinIO.
+- Do not stop and restart the test database for each task or commit. Run `docker compose up mysql redis minio -d` and `npx prisma db push` only when the touched area genuinely requires a real local database check, or once during Task 9 final smoke if feasible.
+- If a hook or guard would force heavy database/container work for a narrow task, use focused verification and record the deferred smoke instead of expanding the task. Commits may use `--no-verify` after the focused verification and review gates have passed.
+- When a real local smoke is needed, reuse already running services. Do not shut down shared services unless this session started them and the user asks to stop them.
 
 Compact contracts for the remaining tasks:
 
@@ -36,7 +40,7 @@ Compact contracts for the remaining tasks:
 | Task 6 | Built-in recognition LLM inspector fallback, schema validation, and key redaction. | Inspector/redaction/orchestrator tests and typecheck. | UI confirmation save and usage impact checks. |
 | Task 7 | Confirmation save flow and usage impact checks before delete/disable/connection edits. | Usage-impact unit/API tests, UI dialog tests where touched, typecheck. | Runtime preflight and light-test endpoint. |
 | Task 8 | Explicit-confirmation lightweight text test and runtime preflight copy/errors. | Runtime-preflight tests, light-test route tests, provider compatibility regression, typecheck. | Broader cleanup or new model discovery behavior. |
-| Task 9 | Cleanup, guards, and end-to-end verification of the creative-engine rollout. | Guard scripts, focused suite, broader config-center regression suite, local smoke where feasible. | New feature work beyond the confirmed spec. |
+| Task 9 | Cleanup, guards, and end-to-end verification of the creative-engine rollout. | Guard scripts, focused suite, broader config-center regression suite, one local smoke where feasible. | New feature work beyond the confirmed spec. |
 
 ## Assumptions
 
