@@ -22,16 +22,25 @@ export function buildDetectedModelDrafts(
   providerId: string,
   models: CreativeModelListItem[],
 ): Array<Omit<CustomModel, 'enabled'>> {
+  const llmProtocolCheckedAt = new Date().toISOString()
   return models.flatMap((model) => {
     if (!isCreativeModelPurpose(model.purpose)) return []
     const modelId = (model.callName || model.id || '').trim()
     if (!modelId) return []
+    const type = purposeToRuntimeType(model.purpose)
+    const llmProtocol = type === 'llm' && providerId.startsWith('openai-compatible:')
+      ? {
+        llmProtocol: 'chat-completions' as const,
+        llmProtocolCheckedAt,
+      }
+      : {}
     return [{
       modelId,
       modelKey: encodeModelKey(providerId, modelId),
       name: model.name || modelId,
-      type: purposeToRuntimeType(model.purpose),
+      type,
       provider: providerId,
+      ...llmProtocol,
       purpose: model.purpose,
       status: model.status === 'failed' || model.status === 'disabled'
         ? model.status

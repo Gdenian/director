@@ -34,6 +34,8 @@ describe('creative engine detection save draft', () => {
         name: 'Text One',
         type: 'llm',
         provider: 'openai-compatible:abc',
+        llmProtocol: 'chat-completions',
+        llmProtocolCheckedAt: expect.any(String),
         purpose: 'text',
         status: 'available',
         price: 0,
