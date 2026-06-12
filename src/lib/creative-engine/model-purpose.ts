@@ -66,11 +66,11 @@ export function classifyModelPurposeFromName(name: string): {
   if (/(image[-_ ]?edit|edit[-_ ]?image|inpaint|outpaint|修图|编辑)/.test(value)) {
     return { purpose: 'image-edit', confidence: 'medium' }
   }
-  if (/(imagen|seedream|flux|sdxl|stable[-_ ]?diffusion|image|banana|图片|图像)/.test(value)) {
-    return { purpose: 'image-generation', confidence: 'medium' }
-  }
   if (/(veo|kling|wan|seedance|sora|vidu|video|hailuo|视频)/.test(value)) {
     return { purpose: 'video-generation', confidence: 'medium' }
+  }
+  if (/(imagen|seedream|flux|sdxl|stable[-_ ]?diffusion|image|banana|图片|图像)/.test(value)) {
+    return { purpose: 'image-generation', confidence: 'medium' }
   }
   if (/(gpt|claude|deepseek|qwen|gemini|doubao|llama|mistral|sonnet|haiku|文本|chat)/.test(value)) {
     return { purpose: 'text', confidence: 'high' }

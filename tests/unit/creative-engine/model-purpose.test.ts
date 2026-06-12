@@ -50,6 +50,7 @@ describe('creative engine model purpose rules', () => {
     expect(classifyModelPurposeFromName('doubao-seedream-4-0')).toMatchObject({ purpose: 'image-generation' })
     expect(classifyModelPurposeFromName('gpt-image-edit')).toMatchObject({ purpose: 'image-edit' })
     expect(classifyModelPurposeFromName('veo-3.1-fast')).toMatchObject({ purpose: 'video-generation' })
+    expect(classifyModelPurposeFromName('fal-ai/veo3.1/fast/image-to-video')).toMatchObject({ purpose: 'video-generation' })
     expect(classifyModelPurposeFromName('qwen3-tts')).toMatchObject({ purpose: 'voice-generation' })
     expect(classifyModelPurposeFromName('kling-lipsync')).toMatchObject({ purpose: 'lip-sync' })
     expect(classifyModelPurposeFromName('qwen-voice-design')).toMatchObject({ purpose: 'voice-design' })
