@@ -20,6 +20,10 @@ import {
   toRuntimeModel,
   toRuntimeProvider,
 } from './creative-engine/persisted-config'
+import {
+  getMissingCreativeEngineModelMessage,
+  getUnavailableCreativeEngineModelMessage,
+} from './creative-engine/runtime-preflight'
 import type {
   OpenAICompatMediaTemplate,
   OpenAICompatMediaTemplateSource,
@@ -36,6 +40,8 @@ export interface CustomModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  enabled?: boolean
+  status?: string
   // Non-authoritative display field; billing uses unified server pricing catalog.
   price: number
 }
@@ -119,7 +125,11 @@ function pickProviderStrict(
   throw new Error(`PROVIDER_NOT_FOUND: ${providerId} is not configured`)
 }
 
-async function readUserConfig(userId: string): Promise<{ models: CustomModel[]; providers: CustomProvider[] }> {
+async function readUserConfig(userId: string): Promise<{
+  models: CustomModel[]
+  providers: CustomProvider[]
+  allModels: CustomModel[]
+}> {
   const pref = await prisma.userPreference.findUnique({
     where: { userId },
     select: {
@@ -128,8 +138,10 @@ async function readUserConfig(userId: string): Promise<{ models: CustomModel[]; 
     },
   })
 
+  const allModels = parseCreativeModels(pref?.customModels).map(toRuntimeModel)
   return {
     models: parseCustomModels(pref?.customModels),
+    allModels,
     providers: parseCustomProviders(pref?.customProviders),
   }
 }
@@ -157,10 +169,19 @@ export async function resolveModelSelection(
   mediaType: ModelMediaType,
 ): Promise<ModelSelection> {
   const parsed = assertModelKey(model, `${mediaType} model`)
-  const models = await getModelsByType(userId, mediaType)
+  const { allModels } = await readUserConfig(userId)
+  const models = allModels.filter((candidate) => candidate.enabled && candidate.status !== 'disabled' && candidate.status !== 'failed' && candidate.type === mediaType)
 
   const exact = findModelByKey(models, parsed.modelKey)
   if (!exact) {
+    const configuredButUnavailable = allModels.some((candidate) =>
+      candidate.modelKey === parsed.modelKey
+      && candidate.type === mediaType
+      && (candidate.enabled === false || candidate.status === 'disabled' || candidate.status === 'failed')
+    )
+    if (configuredButUnavailable) {
+      throw new Error(getUnavailableCreativeEngineModelMessage())
+    }
     throw new Error(`MODEL_NOT_FOUND: ${parsed.modelKey} is not enabled for ${mediaType}`)
   }
 
@@ -188,7 +209,7 @@ async function resolveSingleModelSelection(
 ): Promise<ModelSelection> {
   const models = await getModelsByType(userId, mediaType)
   if (models.length === 0) {
-    throw new Error(`MODEL_NOT_CONFIGURED: no ${mediaType} model is enabled`)
+    throw new Error(getMissingCreativeEngineModelMessage(mediaType))
   }
   if (models.length > 1) {
     throw new Error(`MODEL_SELECTION_REQUIRED: multiple ${mediaType} models are enabled, provide model_key explicitly`)

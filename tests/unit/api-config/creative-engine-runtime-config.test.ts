@@ -70,4 +70,35 @@ describe('api-config creative engine runtime reader', () => {
       gatewayRoute: 'openai-compat',
     })
   })
+
+  it('reports unavailable selected models with creative engine preflight copy', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([{
+        id: 'openai-compatible:abc',
+        name: 'OpenRouter',
+        providerKey: 'openai-compatible',
+        serviceUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'enc:sk-test',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([{
+        id: 'model-1',
+        engineId: 'openai-compatible:abc',
+        name: 'Claude Sonnet',
+        callName: 'anthropic/claude-sonnet-4.5',
+        modelKey: 'openai-compatible:abc::anthropic/claude-sonnet-4.5',
+        type: 'llm',
+        purpose: 'text',
+        enabled: false,
+        status: 'disabled',
+      }]),
+    })
+    const { resolveModelSelection } = await import('@/lib/api-config')
+
+    await expect(resolveModelSelection(
+      'user-1',
+      'openai-compatible:abc::anthropic/claude-sonnet-4.5',
+      'llm',
+    )).rejects.toThrow('当前选择的模型暂时不可用，请重新检测或更换模型。')
+  })
 })
