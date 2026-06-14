@@ -32,6 +32,13 @@ function modelStatus(model: CreativeModelListItem): string {
   return model.status || 'unchecked'
 }
 
+export function getCreativeModelPurposeLabel(
+  purpose: CreativeModelListItem['purpose'],
+  t: (key: string) => string,
+): string {
+  return t(`creativeEngine.modelPurposes.${purpose || 'unknown'}`)
+}
+
 export function CreativeModelList({
   models,
   emptyLabel,
@@ -64,7 +71,7 @@ export function CreativeModelList({
           </div>
           <div className="flex shrink-0 items-center gap-2 text-xs">
             <span className="rounded-md bg-[var(--glass-bg-surface)] px-2 py-1 text-[var(--glass-text-secondary)]">
-              {model.purpose || 'unknown'}
+              {getCreativeModelPurposeLabel(model.purpose, t)}
             </span>
             {canTestModel?.(model) ? (
               <button

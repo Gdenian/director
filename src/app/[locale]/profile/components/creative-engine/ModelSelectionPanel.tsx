@@ -85,6 +85,7 @@ export function ModelSelectionPanel({ state }: ModelSelectionPanelProps) {
       parseBySample={parseBySample}
       workflowConcurrency={state.workflowConcurrency}
       handleWorkflowConcurrencyChange={handleWorkflowConcurrencyChange}
+      showHeader={false}
     />
   )
 }

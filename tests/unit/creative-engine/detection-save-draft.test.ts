@@ -2,9 +2,30 @@ import { describe, expect, it } from 'vitest'
 import {
   buildDetectedEngineProviderDraft,
   buildDetectedModelDrafts,
+  resolveCreativeEngineDisplayName,
 } from '@/app/[locale]/profile/components/creative-engine/detection-save-draft'
 
 describe('creative engine detection save draft', () => {
+  it('uses the user supplied service name before detected or fallback names', () => {
+    expect(resolveCreativeEngineDisplayName({
+      serviceName: '  My API  ',
+      detectedSource: 'custom-openai-compatible',
+      fallbackName: 'Example Service',
+    })).toBe('My API')
+
+    expect(resolveCreativeEngineDisplayName({
+      serviceName: '  ',
+      detectedSource: 'OpenRouter',
+      fallbackName: 'Example Service',
+    })).toBe('OpenRouter')
+
+    expect(resolveCreativeEngineDisplayName({
+      serviceName: '',
+      detectedSource: 'unknown',
+      fallbackName: 'Example Service',
+    })).toBe('Example Service')
+  })
+
   it('converts confirmed detected models into config-center model drafts', () => {
     const drafts = buildDetectedModelDrafts('openai-compatible:abc', [
       {

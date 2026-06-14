@@ -40,6 +40,20 @@ function normalizeDetectedProviderKey(value: string, protocolType: CreativeProto
   return 'openai-compatible'
 }
 
+export function resolveCreativeEngineDisplayName(input: {
+  serviceName: string
+  detectedSource?: string | null
+  fallbackName: string
+}): string {
+  const serviceName = input.serviceName.trim()
+  if (serviceName) return serviceName
+
+  const detectedSource = input.detectedSource?.trim()
+  if (detectedSource && detectedSource !== 'unknown') return detectedSource
+
+  return input.fallbackName
+}
+
 export function buildDetectedEngineProviderDraft(input: {
   recommendedProviderKey: string
   protocolType: string

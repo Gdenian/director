@@ -55,7 +55,7 @@ interface UseProvidersReturn {
     updateProviderHidden: (providerId: string, hidden: boolean) => void
     updateProviderApiKey: (providerId: string, apiKey: string) => void
     updateProviderBaseUrl: (providerId: string, baseUrl: string) => void
-    updateProviderConnection: (providerId: string, updates: { apiKey: string; baseUrl: string }) => void
+    updateProviderConnection: (providerId: string, updates: { apiKey: string; baseUrl: string; name?: string }) => void
     reorderProviders: (activeProviderId: string, overProviderId: string) => void
     addProvider: (provider: Omit<Provider, 'hasApiKey'>) => void
     addProviderWithModels: (provider: Omit<Provider, 'hasApiKey'>, models: Array<Omit<CustomModel, 'enabled'>>) => void
@@ -722,11 +722,17 @@ export function useProviders(): UseProvidersReturn {
         })
     }, [performSave])
 
-    const updateProviderConnection = useCallback((providerId: string, updates: { apiKey: string; baseUrl: string }) => {
+    const updateProviderConnection = useCallback((providerId: string, updates: { apiKey: string; baseUrl: string; name?: string }) => {
         setProviders(prev => {
             const next = prev.map(p =>
                 p.id === providerId
-                    ? { ...p, apiKey: updates.apiKey, hasApiKey: !!updates.apiKey, baseUrl: updates.baseUrl }
+                    ? {
+                        ...p,
+                        name: updates.name?.trim() || p.name,
+                        apiKey: updates.apiKey,
+                        hasApiKey: !!updates.apiKey,
+                        baseUrl: updates.baseUrl,
+                    }
                     : p
             )
             latestProvidersRef.current = next

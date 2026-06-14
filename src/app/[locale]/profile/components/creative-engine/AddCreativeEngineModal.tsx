@@ -7,6 +7,7 @@ import { GlassModalShell } from '@/components/ui/primitives'
 import { apiFetch } from '@/lib/api-fetch'
 import type { CreativeModelListItem } from './CreativeModelList'
 import { DetectionResultPanel, type CreativeEngineDetectionResult } from './DetectionResultPanel'
+import { resolveCreativeEngineDisplayName } from './detection-save-draft'
 
 interface AddCreativeEngineModalProps {
   onClose: () => void
@@ -53,6 +54,7 @@ function normalizeDetectionResult(raw: unknown, fallbackUrl: string): CreativeEn
 
 export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineModalProps) {
   const t = useTranslations('apiConfig')
+  const [serviceName, setServiceName] = useState('')
   const [serviceUrl, setServiceUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [allowKeyInInspector, setAllowKeyInInspector] = useState(true)
@@ -94,9 +96,11 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
     setIsSaving(true)
     try {
       await onSaved({
-        name: result?.source && result.source !== 'unknown'
-          ? result.source
-          : t('creativeEngine.serviceNamePlaceholder'),
+        name: resolveCreativeEngineDisplayName({
+          serviceName,
+          detectedSource: result?.source,
+          fallbackName: t('creativeEngine.serviceNamePlaceholder'),
+        }),
         serviceUrl: result?.normalizedBaseUrl || serviceUrl.trim(),
         apiKey: apiKey.trim(),
         recommendedProviderKey: result?.recommendedProviderKey || '',
@@ -165,6 +169,19 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
             {t('creativeEngine.manualConfig')}
           </button>
         </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-[var(--glass-text-primary)]">
+            {t('creativeEngine.serviceName')}
+          </span>
+          <input
+            type="text"
+            value={serviceName}
+            onChange={(event) => setServiceName(event.target.value)}
+            placeholder={t('creativeEngine.serviceNamePlaceholder')}
+            className="glass-input-base w-full px-3 py-2.5 text-sm"
+          />
+        </label>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">

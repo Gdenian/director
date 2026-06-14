@@ -23,7 +23,8 @@ vi.mock('next-intl', () => ({
       'profile.openSourceNoBilling': '开源版本，无需计费',
       'profile.frozen': '冻结',
       'profile.totalSpent': '已消费',
-      'profile.apiConfig': 'API 配置',
+      'profile.apiConfig': '创作引擎',
+      'profile.modelSelection': '模型选择',
       'profile.billingRecords': '扣费记录',
       'profile.logout': '退出登录',
       'profile.balanceAfter': `余额 ${String(params?.amount ?? '')}`,
@@ -58,6 +59,7 @@ describe('ProfilePage billing management', () => {
     const html = renderToStaticMarkup(createElement(ProfilePage))
 
     expect(html).toContain('扣费记录')
+    expect(html).toContain('模型选择')
     expect(html).toContain('可用余额')
     expect(html).not.toContain('开源版本，无需计费')
   })

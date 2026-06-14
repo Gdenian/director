@@ -8,6 +8,8 @@ import BillingManagementTab, { formatMoneyAmount, useBillingBalance } from './co
 import { AppIcon } from '@/components/ui/icons'
 import { useRouter } from '@/i18n/navigation'
 
+type ProfileSection = 'apiConfig' | 'modelSelection' | 'billing'
+
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -16,8 +18,8 @@ export default function ProfilePage() {
   const tc = useTranslations('common')
   const balanceState = useBillingBalance(Boolean(session))
 
-  // 主要分区：扣费记录 / API配置
-  const [activeSection, setActiveSection] = useState<'billing' | 'apiConfig'>('apiConfig')
+  // 主要分区：创作引擎 / 模型选择 / 扣费记录
+  const [activeSection, setActiveSection] = useState<ProfileSection>('apiConfig')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -77,6 +79,17 @@ export default function ProfilePage() {
                 </button>
 
                 <button
+                  onClick={() => setActiveSection('modelSelection')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all cursor-pointer ${activeSection === 'modelSelection'
+                    ? 'glass-btn-base glass-btn-tone-info'
+                    : 'text-[var(--glass-text-secondary)] hover:bg-[var(--glass-bg-muted)]'
+                    }`}
+                >
+                  <AppIcon name="cpu" className="w-5 h-5" />
+                  <span className="font-medium">{t('modelSelection')}</span>
+                </button>
+
+                <button
                   onClick={() => setActiveSection('billing')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all cursor-pointer ${activeSection === 'billing'
                     ? 'glass-btn-base glass-btn-tone-info'
@@ -103,7 +116,12 @@ export default function ProfilePage() {
             <div className="glass-surface-elevated h-full flex flex-col">
 
               {activeSection === 'apiConfig' ? (
-                <ApiConfigTab />
+                <ApiConfigTab
+                  view="engines"
+                  onOpenModelSelection={() => setActiveSection('modelSelection')}
+                />
+              ) : activeSection === 'modelSelection' ? (
+                <ApiConfigTab view="models" />
               ) : (
                 <BillingManagementTab balanceState={balanceState} />
               )}

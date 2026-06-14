@@ -21,7 +21,7 @@ import { buildCreativeModelLightTestPayload, canLightTestCreativeModel } from '.
 type PendingImpactAction =
   | { action: 'delete-engine'; provider: Provider }
   | { action: 'disable-model'; model: CustomModel }
-  | { action: 'edit-connection'; provider: Provider; updates: { apiKey: string; baseUrl: string } }
+  | { action: 'edit-connection'; provider: Provider; updates: { apiKey: string; baseUrl: string; name?: string } }
 
 interface UsageImpactState {
   pending: PendingImpactAction | null
@@ -32,7 +32,15 @@ interface UsageImpactState {
   isConfirming: boolean
 }
 
-export function CreativeEngineTabContainer() {
+interface CreativeEngineTabContainerProps {
+  view?: 'engines' | 'models'
+  onOpenModelSelection?: () => void
+}
+
+export function CreativeEngineTabContainer({
+  view = 'engines',
+  onOpenModelSelection,
+}: CreativeEngineTabContainerProps) {
   const t = useTranslations('apiConfig')
   const tc = useTranslations('common')
   const state = useProviders()
@@ -109,7 +117,7 @@ export function CreativeEngineTabContainer() {
   }
 
   function scrollToModelSelection() {
-    document.getElementById('creative-engine-model-selection')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    onOpenModelSelection?.()
     closeImpactDialog()
   }
 
@@ -135,7 +143,7 @@ export function CreativeEngineTabContainer() {
     )
   }
 
-  function requestUpdateConnection(provider: Provider, updates: { apiKey: string; baseUrl: string }) {
+  function requestUpdateConnection(provider: Provider, updates: { apiKey: string; baseUrl: string; name?: string }) {
     void openImpactDialog(
       { action: 'edit-connection', provider, updates },
       { type: 'engine', engineId: provider.id },
@@ -197,7 +205,7 @@ export function CreativeEngineTabContainer() {
   return (
     <div className="flex h-full flex-col">
       <ApiConfigToolbar
-        title={t('title')}
+        title={view === 'engines' ? t('title') : t('defaultModels')}
         saveStatus={state.saveStatus}
         savingState={savingState}
         savingLabel={t('saving')}
@@ -208,33 +216,37 @@ export function CreativeEngineTabContainer() {
         <div className="space-y-6 p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-3xl text-sm text-[var(--glass-text-secondary)]">
-              {t('creativeEngine.description')}
+              {view === 'engines' ? t('creativeEngine.description') : t('defaultModel.hint')}
             </p>
-            <button
-              type="button"
-              onClick={() => setIsAddOpen(true)}
-              className="glass-btn-base glass-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 text-sm"
-            >
-              <AppIcon name="plus" className="h-4 w-4" />
-              {t('creativeEngine.addTitle')}
-            </button>
+            {view === 'engines' ? (
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(true)}
+                className="glass-btn-base glass-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 text-sm"
+              >
+                <AppIcon name="plus" className="h-4 w-4" />
+                {t('creativeEngine.addTitle')}
+              </button>
+            ) : null}
           </div>
 
-          <CreativeEngineHome
-            providers={state.providers}
-            models={state.models}
-            onAdd={() => setIsAddOpen(true)}
-            onDeleteEngine={requestDeleteEngine}
-            onUpdateConnection={requestUpdateConnection}
-            onToggleModel={requestToggleModel}
-            canTestModel={(model, provider) => canLightTestCreativeModel({ model, provider })}
-            onTestModel={(model, provider) => void requestLightTestModel(model, provider)}
-            testingModelKey={testingModelKey}
-          />
+          {view === 'engines' ? (
+            <CreativeEngineHome
+              providers={state.providers}
+              models={state.models}
+              onAdd={() => setIsAddOpen(true)}
+              onDeleteEngine={requestDeleteEngine}
+              onUpdateConnection={requestUpdateConnection}
+              onToggleModel={requestToggleModel}
+              canTestModel={(model, provider) => canLightTestCreativeModel({ model, provider })}
+              onTestModel={(model, provider) => void requestLightTestModel(model, provider)}
+              testingModelKey={testingModelKey}
+            />
+          ) : null}
 
-          <div id="creative-engine-model-selection">
+          {view === 'models' ? (
             <ModelSelectionPanel state={state} />
-          </div>
+          ) : null}
         </div>
       </div>
 

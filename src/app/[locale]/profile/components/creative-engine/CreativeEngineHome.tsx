@@ -13,7 +13,7 @@ interface CreativeEngineHomeProps {
   models: CustomModel[]
   onAdd: () => void
   onDeleteEngine?: (provider: Provider) => void
-  onUpdateConnection?: (provider: Provider, updates: { apiKey: string; baseUrl: string }) => void
+  onUpdateConnection?: (provider: Provider, updates: { apiKey: string; baseUrl: string; name?: string }) => void
   onToggleModel?: (model: CustomModel) => void
   canTestModel?: (model: CustomModel, provider: Provider) => boolean
   onTestModel?: (model: CustomModel, provider: Provider) => void
@@ -41,7 +41,7 @@ export function CreativeEngineHome({
 }: CreativeEngineHomeProps) {
   const t = useTranslations('apiConfig')
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
-  const [connectionDraft, setConnectionDraft] = useState({ apiKey: '', baseUrl: '' })
+  const [connectionDraft, setConnectionDraft] = useState({ name: '', apiKey: '', baseUrl: '' })
   const connectedProviders = useMemo(
     () => providers.filter(hasKey),
     [providers],
@@ -50,6 +50,7 @@ export function CreativeEngineHome({
   function startConnectionEdit(provider: Provider) {
     setEditingProviderId(provider.id)
     setConnectionDraft({
+      name: provider.name || '',
       apiKey: provider.apiKey || '',
       baseUrl: provider.baseUrl || '',
     })
@@ -57,7 +58,7 @@ export function CreativeEngineHome({
 
   function cancelConnectionEdit() {
     setEditingProviderId(null)
-    setConnectionDraft({ apiKey: '', baseUrl: '' })
+    setConnectionDraft({ name: '', apiKey: '', baseUrl: '' })
   }
 
   function saveConnectionEdit(provider: Provider) {
@@ -124,6 +125,14 @@ export function CreativeEngineHome({
                 </div>
                 {editingProviderId === provider.id ? (
                   <div className="mt-4 space-y-3 rounded-lg border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-base)] p-3">
+                    <label className="block text-xs font-medium text-[var(--glass-text-secondary)]">
+                      {t('creativeEngine.serviceName')}
+                      <input
+                        value={connectionDraft.name}
+                        onChange={(event) => setConnectionDraft((previous) => ({ ...previous, name: event.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-[var(--glass-stroke-base)] bg-[var(--glass-bg-surface)] px-3 py-2 text-sm text-[var(--glass-text-primary)] outline-none focus:border-[var(--glass-stroke-focus)]"
+                      />
+                    </label>
                     <label className="block text-xs font-medium text-[var(--glass-text-secondary)]">
                       {t('creativeEngine.serviceAddress')}
                       <input

@@ -15,6 +15,7 @@ const forbiddenZh = [
 describe('creative engine UI copy contract', () => {
   it('renames profile navigation and main module', () => {
     expect(zhProfile.apiConfig).toBe('创作引擎')
+    expect(zhProfile.modelSelection).toBe('模型选择')
     expect(zhApiConfig.title).toBe('创作引擎')
     expect(zhApiConfig.providerPool).toBe('已接入的服务')
     expect(zhApiConfig.defaultModels).toBe('模型选择')
@@ -23,6 +24,10 @@ describe('creative engine UI copy contract', () => {
 
   it('contains required disclosure and confirmation copy', () => {
     expect(zhApiConfig.creativeEngine.description).toBe('接入你已有的 AI 服务，并在创作流程中选择需要使用的模型。')
+    expect(zhApiConfig.creativeEngine.serviceName).toBe('服务名称')
+    expect(zhApiConfig.creativeEngine.modelPurposes.text).toBe('文本')
+    expect(zhApiConfig.creativeEngine.modelPurposes['image-generation']).toBe('图片生成')
+    expect(zhApiConfig.creativeEngine.modelPurposes['video-generation']).toBe('视频')
     expect(zhApiConfig.creativeEngine.smartRecognitionDisclosure).toContain('完整密钥')
     expect(zhApiConfig.creativeEngine.saveEngine).toBe('保存创作引擎')
     expect(zhApiConfig.creativeEngine.skipDetectionAndSave).toBe('跳过检测并保存')
