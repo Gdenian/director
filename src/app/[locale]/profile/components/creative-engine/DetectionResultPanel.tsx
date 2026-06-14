@@ -79,7 +79,9 @@ export function DetectionResultPanel({
         </div>
       </dl>
 
-      <CreativeModelList models={result.models} />
+      <div className="max-h-[min(42dvh,26rem)] overflow-y-auto pr-1">
+        <CreativeModelList models={result.models} />
+      </div>
 
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" onClick={onManualAdjust} className="glass-btn-base glass-btn-secondary px-3 py-1.5 text-sm">

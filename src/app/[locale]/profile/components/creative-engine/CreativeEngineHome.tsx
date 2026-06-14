@@ -15,6 +15,9 @@ interface CreativeEngineHomeProps {
   onDeleteEngine?: (provider: Provider) => void
   onUpdateConnection?: (provider: Provider, updates: { apiKey: string; baseUrl: string }) => void
   onToggleModel?: (model: CustomModel) => void
+  canTestModel?: (model: CustomModel, provider: Provider) => boolean
+  onTestModel?: (model: CustomModel, provider: Provider) => void
+  testingModelKey?: string | null
 }
 
 function hasKey(provider: Provider): boolean {
@@ -32,6 +35,9 @@ export function CreativeEngineHome({
   onDeleteEngine,
   onUpdateConnection,
   onToggleModel,
+  canTestModel,
+  onTestModel,
+  testingModelKey,
 }: CreativeEngineHomeProps) {
   const t = useTranslations('apiConfig')
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
@@ -151,6 +157,9 @@ export function CreativeEngineHome({
                     models={serviceModels}
                     emptyLabel={t('creativeEngine.noModels')}
                     onToggleModel={onToggleModel}
+                    canTestModel={(model) => canTestModel?.(model as CustomModel, provider) || false}
+                    onTestModel={(model) => onTestModel?.(model as CustomModel, provider)}
+                    testingModelKey={testingModelKey}
                   />
                 </div>
 

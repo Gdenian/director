@@ -26,6 +26,8 @@ describe('creative engine UI copy contract', () => {
     expect(zhApiConfig.creativeEngine.smartRecognitionDisclosure).toContain('完整密钥')
     expect(zhApiConfig.creativeEngine.saveEngine).toBe('保存创作引擎')
     expect(zhApiConfig.creativeEngine.skipDetectionAndSave).toBe('跳过检测并保存')
+    expect(zhApiConfig.creativeEngine.testModel).toBe('检测模型是否可用')
+    expect(enApiConfig.creativeEngine.testingModel).toBe('Checking...')
   })
 
   it('does not contain forbidden automatic-decision copy', () => {

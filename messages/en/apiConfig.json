@@ -215,6 +215,8 @@
     "disabled": "Disabled",
     "detecting": "Detecting...",
     "detectFailed": "Detection failed. Check the service address and key, then try again.",
+    "testModel": "Check whether this model is available",
+    "testingModel": "Checking...",
     "modelPurpose": "Purpose",
     "modelCallName": "Call Name",
     "protocol": "Protocol",

@@ -65,7 +65,7 @@ export default function GlassModalShell({
           if (closeOnBackdrop) onClose()
         }}
       />
-      <div className={cx('glass-surface-modal relative z-10 w-full overflow-hidden', maxWidthClass)}>
+      <div className={cx('glass-surface-modal relative z-10 flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden', maxWidthClass)}>
         {(title || description || showCloseButton) && (
           <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
             <div>
@@ -86,7 +86,7 @@ export default function GlassModalShell({
         )}
 
         <div className="glass-divider" />
-        <div className="px-5 py-4 sm:px-6 sm:py-5">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">{children}</div>
 
         {footer ? (
           <>

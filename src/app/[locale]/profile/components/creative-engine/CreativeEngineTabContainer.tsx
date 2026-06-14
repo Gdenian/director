@@ -16,6 +16,7 @@ import { AddCreativeEngineModal } from './AddCreativeEngineModal'
 import { ModelSelectionPanel } from './ModelSelectionPanel'
 import { ModelUsageImpactDialog, type ModelUsageImpactAction } from './ModelUsageImpactDialog'
 import { buildDetectedEngineProviderDraft, buildDetectedModelDrafts } from './detection-save-draft'
+import { buildCreativeModelLightTestPayload, canLightTestCreativeModel } from './model-light-test'
 
 type PendingImpactAction =
   | { action: 'delete-engine'; provider: Provider }
@@ -36,6 +37,7 @@ export function CreativeEngineTabContainer() {
   const tc = useTranslations('common')
   const state = useProviders()
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [testingModelKey, setTestingModelKey] = useState<string | null>(null)
   const [impactState, setImpactState] = useState<UsageImpactState>({
     pending: null,
     items: [],
@@ -140,6 +142,26 @@ export function CreativeEngineTabContainer() {
     )
   }
 
+  async function requestLightTestModel(model: CustomModel, provider: Provider) {
+    if (testingModelKey) return
+    const payload = buildCreativeModelLightTestPayload({ model, provider })
+    if (!payload) return
+
+    setTestingModelKey(model.modelKey)
+    try {
+      const response = await apiFetch('/api/user/creative-engines/light-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      state.updateModel(model.modelKey, { status: response.ok ? 'available' : 'failed' }, model.provider)
+    } catch {
+      state.updateModel(model.modelKey, { status: 'failed' }, model.provider)
+    } finally {
+      setTestingModelKey(null)
+    }
+  }
+
   function confirmImpactAction() {
     const pending = impactState.pending
     if (!pending) return
@@ -205,6 +227,9 @@ export function CreativeEngineTabContainer() {
             onDeleteEngine={requestDeleteEngine}
             onUpdateConnection={requestUpdateConnection}
             onToggleModel={requestToggleModel}
+            canTestModel={(model, provider) => canLightTestCreativeModel({ model, provider })}
+            onTestModel={(model, provider) => void requestLightTestModel(model, provider)}
+            testingModelKey={testingModelKey}
           />
 
           <div id="creative-engine-model-selection">

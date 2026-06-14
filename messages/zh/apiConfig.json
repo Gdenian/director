@@ -215,6 +215,8 @@
     "disabled": "已停用",
     "detecting": "识别中...",
     "detectFailed": "识别失败，请检查服务地址和密钥后重试。",
+    "testModel": "检测模型是否可用",
+    "testingModel": "检测中...",
     "modelPurpose": "用途",
     "modelCallName": "调用名",
     "protocol": "接口类型",
