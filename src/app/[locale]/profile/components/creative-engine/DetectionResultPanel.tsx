@@ -6,6 +6,7 @@ import { CreativeModelList, type CreativeModelListItem } from './CreativeModelLi
 
 export interface CreativeEngineDetectionResult {
   source: string
+  recommendedProviderKey?: string
   confidence: string
   normalizedBaseUrl: string
   protocolType?: string

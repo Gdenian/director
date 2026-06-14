@@ -48,6 +48,7 @@ import {
 import type {
   CreativeEngineConfig,
   CreativeModelConfig,
+  CreativeProtocolType,
 } from '@/lib/creative-engine/types'
 import type {
   OpenAICompatMediaTemplate,
@@ -75,6 +76,7 @@ interface StoredProvider {
   baseUrl?: string
   apiKey?: string
   hidden?: boolean
+  protocolType?: CreativeProtocolType
   apiMode?: ApiModeType
   gatewayRoute?: GatewayRouteType
 }
@@ -469,6 +471,18 @@ function isApiMode(value: unknown): value is ApiModeType {
 
 function isGatewayRoute(value: unknown): value is GatewayRouteType {
   return value === 'official' || value === 'openai-compat'
+}
+
+function readCreativeProtocolType(value: unknown): CreativeProtocolType | undefined {
+  if (
+    value === 'official'
+    || value === 'openai-compatible'
+    || value === 'gemini-compatible'
+    || value === 'manual-template'
+  ) {
+    return value
+  }
+  return undefined
 }
 
 function isLlmProtocol(value: unknown): value is LlmProtocolType {
@@ -931,6 +945,7 @@ function normalizeProvidersInput(rawProviders: unknown): StoredProvider[] {
       baseUrl,
       apiKey: typeof item.apiKey === 'string' ? item.apiKey.trim() : undefined,
       hidden: hiddenRaw === true,
+      protocolType: readCreativeProtocolType(item.protocolType),
       apiMode: apiModeRaw,
       gatewayRoute,
     })
@@ -1011,6 +1026,7 @@ function mergeRuntimeProviderIntoCreativeEngine(
     providerKey: existing?.providerKey || getProviderKey(provider.id),
     ...(provider.baseUrl !== undefined ? { serviceUrl: provider.baseUrl } : {}),
     ...(provider.apiKey !== undefined ? { apiKey: provider.apiKey } : {}),
+    ...(provider.protocolType ? { protocolType: provider.protocolType } : {}),
     ...(provider.apiMode ? { apiMode: provider.apiMode } : {}),
     ...(provider.gatewayRoute ? { gatewayRoute: provider.gatewayRoute } : {}),
     status: existing?.status || 'unchecked',

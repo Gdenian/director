@@ -15,7 +15,7 @@ import { CreativeEngineHome } from './CreativeEngineHome'
 import { AddCreativeEngineModal } from './AddCreativeEngineModal'
 import { ModelSelectionPanel } from './ModelSelectionPanel'
 import { ModelUsageImpactDialog, type ModelUsageImpactAction } from './ModelUsageImpactDialog'
-import { buildDetectedModelDrafts } from './detection-save-draft'
+import { buildDetectedEngineProviderDraft, buildDetectedModelDrafts } from './detection-save-draft'
 
 type PendingImpactAction =
   | { action: 'delete-engine'; provider: Provider }
@@ -29,13 +29,6 @@ interface UsageImpactState {
   errorMessage: string | null
   isLoading: boolean
   isConfirming: boolean
-}
-
-function makeDynamicEngineId(): string {
-  const uuid = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-  return `openai-compatible:${uuid}`
 }
 
 export function CreativeEngineTabContainer() {
@@ -224,17 +217,10 @@ export function CreativeEngineTabContainer() {
         <AddCreativeEngineModal
           onClose={() => setIsAddOpen(false)}
           onSaved={async (draft) => {
-            const providerId = makeDynamicEngineId()
+            const provider = buildDetectedEngineProviderDraft(draft)
             state.addProviderWithModels(
-              {
-                id: providerId,
-                name: draft.name,
-                baseUrl: draft.serviceUrl,
-                apiKey: draft.apiKey,
-                apiMode: 'openai-official',
-                gatewayRoute: 'openai-compat',
-              },
-              buildDetectedModelDrafts(providerId, draft.models),
+              provider,
+              buildDetectedModelDrafts(provider.id, draft.models),
             )
             setIsAddOpen(false)
           }}

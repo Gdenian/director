@@ -97,6 +97,7 @@ export function mergeProvidersForDisplay(
                 hasApiKey: apiKey.length > 0,
                 hidden: savedProvider.hidden === true,
                 baseUrl: providerBaseUrl,
+                protocolType: savedProvider.protocolType,
                 apiMode: savedProvider.apiMode,
                 gatewayRoute: savedProvider.gatewayRoute,
             })
@@ -130,6 +131,7 @@ function enginesToProviders(engines: CreativeEngine[]): Provider[] {
         baseUrl: engine.serviceUrl,
         apiKey: engine.apiKey,
         hidden: engine.hidden,
+        protocolType: engine.protocolType,
         apiMode: engine.apiMode,
         gatewayRoute: engine.gatewayRoute,
     }))

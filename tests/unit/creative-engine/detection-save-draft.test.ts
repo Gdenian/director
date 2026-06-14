@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildDetectedModelDrafts } from '@/app/[locale]/profile/components/creative-engine/detection-save-draft'
+import {
+  buildDetectedEngineProviderDraft,
+  buildDetectedModelDrafts,
+} from '@/app/[locale]/profile/components/creative-engine/detection-save-draft'
 
 describe('creative engine detection save draft', () => {
   it('converts confirmed detected models into config-center model drafts', () => {
@@ -51,5 +54,51 @@ describe('creative engine detection save draft', () => {
         price: 0,
       },
     ])
+  })
+
+  it('keeps detected protocol routing when building the provider draft', () => {
+    expect(buildDetectedEngineProviderDraft({
+      recommendedProviderKey: 'google',
+      protocolType: 'gemini-compatible',
+      name: 'Google AI Studio',
+      serviceUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'gemini-key',
+    })).toMatchObject({
+      id: expect.stringMatching(/^gemini-compatible:/),
+      name: 'Google AI Studio',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'gemini-key',
+      protocolType: 'gemini-compatible',
+      apiMode: 'gemini-sdk',
+      gatewayRoute: 'official',
+    })
+
+    expect(buildDetectedEngineProviderDraft({
+      recommendedProviderKey: 'fal',
+      protocolType: 'official',
+      name: 'FAL',
+      serviceUrl: 'https://fal.ai',
+      apiKey: 'fal-key',
+    })).toMatchObject({
+      id: expect.stringMatching(/^fal:/),
+      name: 'FAL',
+      baseUrl: 'https://fal.ai',
+      apiKey: 'fal-key',
+      protocolType: 'official',
+      gatewayRoute: 'official',
+    })
+
+    expect(buildDetectedEngineProviderDraft({
+      recommendedProviderKey: 'openrouter',
+      protocolType: 'openai-compatible',
+      name: 'OpenRouter',
+      serviceUrl: 'https://openrouter.ai/api/v1',
+      apiKey: 'openrouter-key',
+    })).toMatchObject({
+      id: expect.stringMatching(/^openai-compatible:/),
+      protocolType: 'openai-compatible',
+      apiMode: 'openai-official',
+      gatewayRoute: 'openai-compat',
+    })
   })
 })

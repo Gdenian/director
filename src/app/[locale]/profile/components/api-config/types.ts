@@ -25,6 +25,7 @@ export interface Provider {
     apiKey?: string
     hasApiKey?: boolean
     hidden?: boolean
+    protocolType?: 'official' | 'openai-compatible' | 'gemini-compatible' | 'manual-template'
     apiMode?: 'gemini-sdk' | 'openai-official'
     gatewayRoute?: 'official' | 'openai-compat'
 }
@@ -36,6 +37,7 @@ export interface CreativeEngine {
     serviceUrl?: string
     apiKey?: string
     hidden?: boolean
+    protocolType?: 'official' | 'openai-compatible' | 'gemini-compatible' | 'manual-template'
     apiMode?: 'gemini-sdk' | 'openai-official'
     gatewayRoute?: 'official' | 'openai-compat'
 }

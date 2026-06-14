@@ -14,6 +14,8 @@ interface AddCreativeEngineModalProps {
     name: string
     serviceUrl: string
     apiKey: string
+    recommendedProviderKey: string
+    protocolType: string
     models: CreativeModelListItem[]
   }) => void | Promise<void>
 }
@@ -33,6 +35,7 @@ function normalizeDetectionResult(raw: unknown, fallbackUrl: string): CreativeEn
   const models = Array.isArray(payload.models) ? payload.models.filter(isRecord) : []
   return {
     source: readString(payload.source, 'unknown'),
+    recommendedProviderKey: readString(payload.recommendedProviderKey, ''),
     confidence: readString(payload.confidence, 'low'),
     normalizedBaseUrl: readString(payload.normalizedBaseUrl, fallbackUrl),
     protocolType: readString(payload.protocolType, ''),
@@ -96,6 +99,8 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
           : t('creativeEngine.serviceNamePlaceholder'),
         serviceUrl: result?.normalizedBaseUrl || serviceUrl.trim(),
         apiKey: apiKey.trim(),
+        recommendedProviderKey: result?.recommendedProviderKey || '',
+        protocolType: result?.protocolType || 'openai-compatible',
         models: result?.models || [],
       })
     } finally {
