@@ -266,9 +266,9 @@ function inferPurposeFromType(type: UnifiedModelType): CreativeModelPurpose {
   return 'text'
 }
 
-function readModelPurpose(value: unknown, index: number): CreativeModelPurpose {
-  if (value === 'unknown') {
-    throw new Error(`CREATIVE_MODEL_PURPOSE_INVALID: models[${index}].purpose`)
+function readModelPurpose(value: unknown, type: UnifiedModelType, index: number): CreativeModelPurpose {
+  if (value === 'unknown' || value === undefined || value === null || value === '') {
+    return inferPurposeFromType(type)
   }
   const purpose = readEnum(
     value,
@@ -363,7 +363,7 @@ export function normalizeCreativeModelInput(raw: unknown, index: number): Creati
   if (!type) {
     throw new Error(`CREATIVE_MODEL_TYPE_INVALID: models[${index}].type`)
   }
-  const purpose = readModelPurpose(raw.purpose, index)
+  const purpose = readModelPurpose(raw.purpose, type, index)
   const confidence = readEnum(raw.confidence, CONFIDENCES, 'CREATIVE_MODEL_CONFIDENCE_INVALID', index, 'confidence')
   const llmProtocol = readEnum(raw.llmProtocol, LLM_PROTOCOLS, 'CREATIVE_MODEL_LLM_PROTOCOL_INVALID', index, 'llmProtocol')
   const llmProtocolCheckedAt = readOptionalString(raw.llmProtocolCheckedAt)

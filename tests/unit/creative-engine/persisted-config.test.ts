@@ -63,8 +63,8 @@ describe('creative engine persisted config', () => {
     })
   })
 
-  it('keeps unknown detection drafts disabled by rejecting persisted unknown purpose', () => {
-    expect(() => normalizeCreativeModelInput({
+  it('normalizes historical unknown purpose by falling back to the model type', () => {
+    const model = normalizeCreativeModelInput({
       id: 'm-1',
       engineId: 'openai-compatible:abc',
       name: 'Mystery',
@@ -73,7 +73,10 @@ describe('creative engine persisted config', () => {
       purpose: 'unknown',
       enabled: true,
       status: 'available',
-    }, 0)).toThrow('CREATIVE_MODEL_PURPOSE_INVALID')
+    }, 0)
+
+    expect(model.purpose).toBe('text')
+    expect(model.status).toBe('available')
   })
 
   it('keeps creative model drafts disabled until the user enables them', () => {

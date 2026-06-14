@@ -94,6 +94,48 @@ describe('api contract - creative engine api-config', () => {
     expect(body.workflowConcurrency).toEqual({ analysis: 5, image: 5, video: 5 })
   })
 
+  it('GET recovers historical unknown model purposes instead of failing config load', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      ...defaultPreference,
+      customProviders: JSON.stringify([{
+        id: 'openai-compatible:abc',
+        name: 'OpenRouter',
+        providerKey: 'openai-compatible',
+        serviceUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'enc:sk-test',
+        protocolType: 'openai-compatible',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([{
+        id: 'model-1',
+        engineId: 'openai-compatible:abc',
+        name: 'Mystery',
+        callName: 'mystery-model',
+        modelKey: 'openai-compatible:abc::mystery-model',
+        type: 'llm',
+        purpose: 'unknown',
+        enabled: true,
+        status: 'unchecked',
+      }]),
+    })
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'GET',
+    })
+
+    const res = await route.GET(req, { params: Promise.resolve({}) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.models[0]).toMatchObject({
+      modelKey: 'openai-compatible:abc::mystery-model',
+      purpose: 'text',
+    })
+  })
+
   it('PUT accepts creative models without requiring engines in the same request', async () => {
     prismaMock.userPreference.findUnique.mockResolvedValueOnce({
       ...defaultPreference,
