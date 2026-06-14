@@ -415,6 +415,8 @@ Prefer free model-list endpoints.
 
 If the model list is readable, create model drafts.
 
+Model-list parsers should preserve provider metadata from each returned model object instead of reducing entries to only `id` or `name`. Common metadata fields include `capabilities`, `modalities`, `input_modalities`, `output_modalities`, `supportedGenerationMethods`, `supported_generation_methods`, `type`, `mode`, and `supported_endpoints`.
+
 If the model list is not readable, show:
 
 > 这个服务没有开放模型列表接口。你仍然可以手动添加模型调用名。
@@ -432,6 +434,14 @@ Initial purposes:
 - Voice design.
 - Unknown.
 
+Classification order:
+
+1. Provider model-list metadata.
+2. Deterministic name heuristics.
+3. Unknown fallback.
+
+Metadata wins over model-name heuristics. For example, an opaque call name such as `agnes-1.5-flash` should be classified as text if `/models` reports `modalities: ["text"]`, `capabilities.chat = true`, or Gemini `supportedGenerationMethods` includes `generateContent`.
+
 Heuristic examples:
 
 - `gpt`, `claude`, `deepseek`, `qwen`, `gemini` -> text.
@@ -442,7 +452,7 @@ Heuristic examples:
 
 This is only an initial guess. Users must be able to change it.
 
-Unknown models must not be enabled for formal workflows until the user classifies them.
+Unknown models must not be silently dropped when the user saves a detected engine. If no metadata or name heuristic can classify a model, save it as a low-confidence, unchecked text model so the call name remains visible and editable. It should not be auto-selected for any workflow; users can correct the purpose before using it.
 
 ### Detection Step 7: Confidence
 
@@ -593,7 +603,7 @@ Mapping rules:
 - `type` remains the broad runtime type.
 - `purpose` is used for product display and finer UI filtering.
 
-Unknown models are detection drafts and not persisted as enabled runnable models until classified.
+Unknown detection results are persisted as low-confidence, unchecked text models rather than being dropped. This preserves provider call names that cannot be classified from `/models`, while keeping model assignment under user control.
 
 ## Default Model Selection
 
@@ -753,7 +763,7 @@ Message:
 - Smart recognition toggle is enabled by default and can be disabled.
 - Detection result page requires confirmation before saving.
 - Detection result page does not show forbidden automatic-decision copy.
-- Unknown models require user classification or remain disabled.
+- Unknown detected models are preserved as unchecked, low-confidence text models and remain user-editable.
 - Saving an engine does not write default model selections.
 - Save success offers `去选择模型`, `继续添加`, and `完成`.
 
@@ -813,7 +823,7 @@ The LLM is a draft generator. Deterministic validation must own save eligibility
 
 ### Model Misclassification
 
-Users can correct model purpose. Unknown models are not enabled for workflows.
+Users can correct model purpose. Metadata classification must run before model-name heuristics, and unknown models should remain visible as unchecked, low-confidence text models instead of disappearing.
 
 ### Runtime Regression
 

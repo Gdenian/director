@@ -66,6 +66,7 @@ npm run dev
 
 - `src/lib/home/**`：首页创建项目、最近项目、快速跳转逻辑。
 - `src/lib/styles/**`：风格资产、默认风格、风格快照。
+- `src/lib/creative-engine/**`、`src/lib/user-api/creative-engine-detection/**`：创作引擎配置、模型用途、服务探测和模型分类。
 - `src/lib/task/**`：任务提交、状态、发布与对账。
 - `src/lib/run-runtime/**`：运行时桥接、任务目标状态和事件发布。
 - `src/lib/workers/**`：四类 worker 入口与处理器：
@@ -124,7 +125,12 @@ npm run dev
 
 少了 MySQL / Redis / MinIO，或者跳过 `npx prisma db push`，很多错误会在运行时才暴露，看起来像前端 bug，实际是底层环境没齐。
 
+### 6. 创作引擎模型识别不能只看名字
+
+`/models` 探测要优先保留并读取模型对象里的元数据，例如 `capabilities`、`modalities`、`supportedGenerationMethods`、`type` 和 `supported_endpoints`。只有元数据无法判断时，才使用模型调用名的关键词规则。无法识别的模型也要保留为低置信度、未检查的文本模型，避免用户保存后模型静默消失。
+
 ## 现有设计文档
 
 - `docs/superpowers/specs/2026-05-28-style-management-design.md`
 - `docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md`
+- `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`

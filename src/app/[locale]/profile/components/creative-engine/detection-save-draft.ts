@@ -18,6 +18,12 @@ function isCreativeModelPurpose(value: unknown): value is CreativeModelPurpose {
   return typeof value === 'string' && CREATIVE_PURPOSES.has(value as CreativeModelPurpose)
 }
 
+function resolveDetectedModelPurpose(value: unknown): CreativeModelPurpose | null {
+  if (isCreativeModelPurpose(value)) return value
+  if (value === 'unknown') return 'text'
+  return null
+}
+
 function isCreativeProtocolType(value: unknown): value is CreativeProtocolType {
   return value === 'openai-compatible'
     || value === 'gemini-compatible'
@@ -88,10 +94,11 @@ export function buildDetectedModelDrafts(
 ): Array<Omit<CustomModel, 'enabled'>> {
   const llmProtocolCheckedAt = new Date().toISOString()
   return models.flatMap((model) => {
-    if (!isCreativeModelPurpose(model.purpose)) return []
+    const purpose = resolveDetectedModelPurpose(model.purpose)
+    if (!purpose) return []
     const modelId = (model.callName || model.id || '').trim()
     if (!modelId) return []
-    const type = purposeToRuntimeType(model.purpose)
+    const type = purposeToRuntimeType(purpose)
     const llmProtocol = type === 'llm' && providerId.startsWith('openai-compatible:')
       ? {
         llmProtocol: 'chat-completions' as const,
@@ -105,7 +112,7 @@ export function buildDetectedModelDrafts(
       type,
       provider: providerId,
       ...llmProtocol,
-      purpose: model.purpose,
+      purpose,
       status: model.status === 'failed' || model.status === 'disabled'
         ? model.status
         : (model.status || 'unchecked'),

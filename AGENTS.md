@@ -49,9 +49,11 @@
 - 首页快速创建项目通过 `src/lib/home/create-project-launch.ts` 串联“创建项目 -> 保存项目配置 -> 创建第一集 -> 带 `episode` 参数跳转工作区”。
 - 首页最近项目画廊不是 DOM 卡片列表，而是 `src/components/home/CircularGallery.tsx` 的 OGL canvas。点击、拖拽和卡片命中检测都在这个组件里，改交互时要一起考虑。
 - `editor` 阶段在 `src/app/[locale]/workspace/[projectId]/page.tsx` 中仍会回退到 `videos`，不要把 AI 剪辑当成已完全开放的稳定流程。
+- 创作引擎探测模型类型时，`/models` 返回的元数据优先于模型名关键词；无法识别的模型也要保留为未检查、低置信度的文本模型，不能在保存时静默丢弃。
 
 ## 深入文档
 
 - `docs/README.md`：开发总览、入口命令、模块地图、测试入口、风险点。
 - `docs/superpowers/specs/2026-05-28-style-management-design.md`：风格资产与风格快照设计。
 - `docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md`：参考图生成风格提示词设计。
+- `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`：创作引擎、服务探测、模型用途和模型选择设计。

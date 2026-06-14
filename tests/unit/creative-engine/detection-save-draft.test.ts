@@ -26,7 +26,7 @@ describe('creative engine detection save draft', () => {
     })).toBe('Example Service')
   })
 
-  it('converts confirmed detected models into config-center model drafts', () => {
+  it('converts detected models into config-center model drafts without dropping unknown purpose entries', () => {
     const drafts = buildDetectedModelDrafts('openai-compatible:abc', [
       {
         id: 'text-1',
@@ -71,6 +71,18 @@ describe('creative engine detection save draft', () => {
         type: 'image',
         provider: 'openai-compatible:abc',
         purpose: 'image-generation',
+        status: 'unchecked',
+        price: 0,
+      },
+      {
+        modelId: 'mystery-model',
+        modelKey: 'openai-compatible:abc::mystery-model',
+        name: 'Mystery',
+        type: 'llm',
+        provider: 'openai-compatible:abc',
+        llmProtocol: 'chat-completions',
+        llmProtocolCheckedAt: expect.any(String),
+        purpose: 'text',
         status: 'unchecked',
         price: 0,
       },

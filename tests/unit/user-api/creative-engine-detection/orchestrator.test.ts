@@ -58,6 +58,53 @@ describe('creative engine detection orchestrator', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('uses OpenAI-compatible model metadata before name-based classification', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      data: [
+        {
+          id: 'agnes-1.5-flash',
+          modalities: ['text'],
+          capabilities: { chat: true },
+        },
+        {
+          id: 'agnes-renderer',
+          modalities: ['image'],
+          capabilities: { image_generation: true },
+        },
+        {
+          id: 'agnes-motion',
+          modalities: ['video'],
+          capabilities: { video_generation: true },
+        },
+      ],
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://apihub.agnes-ai.com/v1',
+      apiKey: 'agnes-key',
+      allowKeyInInspector: false,
+    })
+
+    expect(result.models).toEqual([
+      expect.objectContaining({
+        callName: 'agnes-1.5-flash',
+        purpose: 'text',
+        confidence: 'high',
+      }),
+      expect.objectContaining({
+        callName: 'agnes-renderer',
+        purpose: 'image-generation',
+        confidence: 'high',
+      }),
+      expect.objectContaining({
+        callName: 'agnes-motion',
+        purpose: 'video-generation',
+        confidence: 'high',
+      }),
+    ])
+  })
+
   it('falls through to Gemini-compatible model listing without generation calls', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models?key=gemini-key')
@@ -89,6 +136,41 @@ describe('creative engine detection orchestrator', () => {
       'models/veo-3.1-generate-preview',
     ])
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses Gemini supported generation methods before name-based classification', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      models: [
+        {
+          name: 'models/agnes-core',
+          supportedGenerationMethods: ['generateContent', 'countTokens'],
+        },
+        {
+          name: 'models/agnes-still',
+          supportedGenerationMethods: ['generateImages'],
+        },
+      ],
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'gemini-key',
+      allowKeyInInspector: false,
+    })
+
+    expect(result.models).toEqual([
+      expect.objectContaining({
+        callName: 'models/agnes-core',
+        purpose: 'text',
+        confidence: 'high',
+      }),
+      expect.objectContaining({
+        callName: 'models/agnes-still',
+        purpose: 'image-generation',
+        confidence: 'high',
+      }),
+    ])
   })
 
   it('returns a manual fallback when model lists are unreadable', async () => {

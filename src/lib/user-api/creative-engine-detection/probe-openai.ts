@@ -1,4 +1,4 @@
-import { modelIdToDraft } from './model-classifier'
+import { modelIdToDraft, modelMetadataToDraft } from './model-classifier'
 import { chooseFailureCategory } from './failure-category'
 import type { DetectionFailureCategory, ProbeResult } from './types'
 
@@ -22,18 +22,23 @@ function isOpenAICompatibleCandidate(url: string) {
   }
 }
 
-function parseModelIds(payload: unknown): string[] {
+function parseModels(payload: unknown): Array<string | Record<string, unknown>> {
   if (!payload || typeof payload !== 'object') return []
   const record = payload as Record<string, unknown>
   const rawList = Array.isArray(record.data) ? record.data : Array.isArray(record.models) ? record.models : []
-  return rawList.flatMap((item) => {
-    if (typeof item === 'string') return [item]
-    if (!item || typeof item !== 'object') return []
+  const models: Array<string | Record<string, unknown>> = []
+  for (const item of rawList) {
+    if (typeof item === 'string') {
+      models.push(item)
+      continue
+    }
+    if (!item || typeof item !== 'object') continue
     const model = item as Record<string, unknown>
-    if (typeof model.id === 'string') return [model.id]
-    if (typeof model.name === 'string') return [model.name]
-    return []
-  })
+    if (typeof model.id === 'string' || typeof model.name === 'string') {
+      models.push(model)
+    }
+  }
+  return models
 }
 
 function failureFromStatus(status: number): { category: DetectionFailureCategory; warning?: string } {
@@ -67,8 +72,8 @@ export async function probeOpenAICompatibleModels(params: ProbeOpenAIParams): Pr
       }
 
       const payload = await response.json().catch(() => null)
-      const modelIds = parseModelIds(payload)
-      if (modelIds.length === 0) {
+      const parsedModels = parseModels(payload)
+      if (parsedModels.length === 0) {
         failures.push('interface-unsupported')
         continue
       }
@@ -78,7 +83,11 @@ export async function probeOpenAICompatibleModels(params: ProbeOpenAIParams): Pr
         protocolType: 'openai-compatible',
         confidence: 'high',
         normalizedBaseUrl: url,
-        models: modelIds.map(modelIdToDraft),
+        models: parsedModels.flatMap((model) => {
+          if (typeof model === 'string') return [modelIdToDraft(model)]
+          const draft = modelMetadataToDraft(model)
+          return draft ? [draft] : []
+        }),
         warnings,
       }
     } catch {

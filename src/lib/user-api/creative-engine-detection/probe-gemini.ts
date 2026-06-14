@@ -1,4 +1,4 @@
-import { modelIdToDraft } from './model-classifier'
+import { modelMetadataToDraft } from './model-classifier'
 import { chooseFailureCategory } from './failure-category'
 import type { DetectionFailureCategory, ProbeResult } from './types'
 
@@ -24,14 +24,14 @@ function modelsUrl(baseUrl: string, apiKey: string) {
   return url.toString()
 }
 
-function parseModelIds(payload: unknown): string[] {
+function parseModels(payload: unknown): Array<Record<string, unknown>> {
   if (!payload || typeof payload !== 'object') return []
   const record = payload as Record<string, unknown>
   if (!Array.isArray(record.models)) return []
   return record.models.flatMap((item) => {
     if (!item || typeof item !== 'object') return []
     const model = item as Record<string, unknown>
-    return typeof model.name === 'string' ? [model.name] : []
+    return typeof model.name === 'string' ? [model] : []
   })
 }
 
@@ -62,8 +62,8 @@ export async function probeGeminiCompatibleModels(params: ProbeGeminiParams): Pr
       }
 
       const payload = await response.json().catch(() => null)
-      const modelIds = parseModelIds(payload)
-      if (modelIds.length === 0) {
+      const parsedModels = parseModels(payload)
+      if (parsedModels.length === 0) {
         failures.push('interface-unsupported')
         continue
       }
@@ -73,7 +73,10 @@ export async function probeGeminiCompatibleModels(params: ProbeGeminiParams): Pr
         protocolType: 'gemini-compatible',
         confidence: 'high',
         normalizedBaseUrl: url,
-        models: modelIds.map(modelIdToDraft),
+        models: parsedModels.flatMap((model) => {
+          const draft = modelMetadataToDraft(model)
+          return draft ? [draft] : []
+        }),
         warnings,
       }
     } catch {
