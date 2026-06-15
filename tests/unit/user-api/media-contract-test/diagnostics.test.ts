@@ -15,4 +15,25 @@ describe('media test diagnostics', () => {
     expect(classifyMediaTestError({ status: 200, body: '{"data":[]}', extraction: 'output-url-missing' }))
       .toMatchObject({ code: 'MEDIA_TEST_RESPONSE_JSON_PATH_MISMATCH' })
   })
+
+  it('redacts json-shaped secrets from messages and snippets', () => {
+    const result = classifyMediaTestError({
+      status: 500,
+      body: JSON.stringify({
+        Authorization: 'Bearer plain-secret',
+        api_key: 'plain-api-key',
+        key: 'plain-key',
+        error: 'bad sk-secret-value',
+      }),
+    })
+
+    expect(result.message).not.toContain('plain-secret')
+    expect(result.message).not.toContain('plain-api-key')
+    expect(result.message).not.toContain('plain-key')
+    expect(result.message).not.toContain('sk-secret-value')
+    expect(result.debugSnippet).not.toContain('plain-secret')
+    expect(result.debugSnippet).not.toContain('plain-api-key')
+    expect(result.debugSnippet).not.toContain('plain-key')
+    expect(result.debugSnippet).not.toContain('sk-secret-value')
+  })
 })

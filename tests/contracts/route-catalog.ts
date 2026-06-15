@@ -172,6 +172,7 @@ const ROUTE_FILES = [
   'src/app/api/user/creative-engines/detect/route.ts',
   'src/app/api/user/creative-engines/impact/route.ts',
   'src/app/api/user/creative-engines/light-test/route.ts',
+  'src/app/api/user/creative-engines/media-test/route.ts',
   'src/app/api/user/ai-story-expand/route.ts',
   'src/app/api/user/models/route.ts',
   'src/app/api/user/transactions/route.ts',

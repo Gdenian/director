@@ -39,6 +39,9 @@ function toSnippet(value: unknown): string | undefined {
 
 export function redactMediaTestSecrets(value: string): string {
   return value
+    .replace(/(["']Authorization["']\s*:\s*["']Bearer\s+)([^"']+)(["'])/gi, '$1[REDACTED]$3')
+    .replace(/(["']Authorization["']\s*:\s*["'])([^"']+)(["'])/gi, '$1[REDACTED]$3')
+    .replace(/(["'](?:api_key|key)["']\s*:\s*["'])([^"']+)(["'])/gi, '$1[REDACTED]$3')
     .replace(/(Authorization\s*[:=]\s*Bearer\s+)[^\s"',}]+/gi, '$1[REDACTED]')
     .replace(/(Authorization\s*[:=]\s*)[^\s"',}]+/gi, '$1[REDACTED]')
     .replace(/(["']?(?:api_key|key)["']?\s*[:=]\s*["']?)([^"',}\s]+)/gi, '$1[REDACTED]')
