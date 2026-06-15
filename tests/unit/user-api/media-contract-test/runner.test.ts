@@ -173,6 +173,95 @@ describe('media contract test runner', () => {
     expect(JSON.stringify(result.preview)).not.toContain('sk-token-secret')
   })
 
+  it('accepts output url when head fails but range get succeeds', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: 'https://cdn.test/image.png' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 501 }))
+      .mockResolvedValueOnce(new Response('', { status: 206 }))
+
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract,
+        compatMediaTemplate,
+      },
+      capability: 'text-to-image',
+      sample: { prompt: '生成一张简单测试图' },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.status).toBe('passed')
+    expect(result.output).toMatchObject({ url: 'https://cdn.test/image.png' })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://cdn.test/image.png', expect.objectContaining({
+      method: 'HEAD',
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://cdn.test/image.png', expect.objectContaining({
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+    }))
+  })
+
+  it('includes multipart content type in preview without sending content-type header', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: 'https://cdn.test/image.png' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract,
+        compatMediaTemplate: {
+          ...compatMediaTemplate,
+          create: {
+            method: 'POST',
+            path: '/images/edits',
+            contentType: 'multipart/form-data',
+            bodyTemplate: {
+              model: '{{model}}',
+              prompt: '{{prompt}}',
+              image: '{{image}}',
+            },
+            multipartFileFields: ['image'],
+          },
+        },
+      },
+      capability: 'text-to-image',
+      sample: {
+        prompt: '生成一张简单测试图',
+        image: 'data:image/png;base64,aGVsbG8=',
+      },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.status).toBe('passed')
+    expect(result.preview).toMatchObject({
+      method: 'POST',
+      endpointUrl: 'https://api.aisenyu.test/v1/images/edits',
+      contentType: 'multipart/form-data',
+      bodyPreview: '[multipart/form-data]',
+    })
+    const createCall = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(createCall.headers).not.toHaveProperty('Content-Type')
+  })
+
   it('caps async polling timeout and interval for media tests', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'task-1' }), { status: 200 }))

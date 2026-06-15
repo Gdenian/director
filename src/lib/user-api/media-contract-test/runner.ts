@@ -74,7 +74,6 @@ function readOutput(payload: unknown, input: RunMediaContractTestInput): MediaCo
 async function verifyOutputUrl(url: string, input: RunMediaContractTestInput): Promise<boolean> {
   const head = await mediaTestFetch(url, { method: 'HEAD' }, input)
   if (head.ok) return true
-  if (head.status !== 405) return false
 
   const ranged = await mediaTestFetch(url, {
     method: 'GET',
@@ -101,8 +100,11 @@ async function renderCreateRequest(input: RunMediaContractTestInput) {
   })
 }
 
-async function previewFromRequest(request: Awaited<ReturnType<typeof renderCreateRequest>>): Promise<MediaContractTestPreview> {
-  const contentType = contentTypeFromHeaders(request.headers)
+async function previewFromRequest(
+  request: Awaited<ReturnType<typeof renderCreateRequest>>,
+  declaredContentType?: string,
+): Promise<MediaContractTestPreview> {
+  const contentType = contentTypeFromHeaders(request.headers) || declaredContentType
   const bodyPreview = await bodyToPreview(request.body)
   return {
     endpointUrl: redactEndpointUrl(request.endpointUrl),
@@ -129,7 +131,7 @@ async function mediaTestFetch(url: string, init: RequestInit, input: RunMediaCon
 
 async function runSyncTemplate(input: RunMediaContractTestInput): Promise<MediaContractTestResult> {
   const request = await renderCreateRequest(input)
-  const preview = await previewFromRequest(request)
+  const preview = await previewFromRequest(request, input.model.compatMediaTemplate?.create.contentType)
   const response = await mediaTestFetch(request.endpointUrl, {
     method: request.method,
     headers: request.headers,
@@ -181,7 +183,7 @@ async function delay(ms: number) {
 async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<MediaContractTestResult> {
   const template = input.model.compatMediaTemplate
   const createRequest = await renderCreateRequest(input)
-  const preview = await previewFromRequest(createRequest)
+  const preview = await previewFromRequest(createRequest, template?.create.contentType)
   const createResponse = await mediaTestFetch(createRequest.endpointUrl, {
     method: createRequest.method,
     headers: createRequest.headers,
