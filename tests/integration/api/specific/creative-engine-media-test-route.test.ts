@@ -18,7 +18,6 @@ const runnerState = vi.hoisted(() => ({
     },
     output: { url: 'https://cdn.test/image.png' },
     diagnostic: {
-      code: 'MEDIA_TEST_OUTPUT_URL_MISSING',
       message: 'ok',
     },
   })),
@@ -30,6 +29,7 @@ const prismaMock = vi.hoisted(() => ({
     omitMediaContract: false,
     omitCompatMediaTemplate: false,
     omitProviderServiceUrl: false,
+    providerServiceUrl: 'https://api.aisenyu.test/v1',
     executor: 'openai-compat-template',
   },
   userPreference: {
@@ -38,7 +38,7 @@ const prismaMock = vi.hoisted(() => ({
         id: 'openai-compatible:relay',
         name: 'Relay',
         providerKey: 'openai-compatible',
-        ...(prismaMock.state.omitProviderServiceUrl ? {} : { serviceUrl: 'https://api.aisenyu.test/v1' }),
+        ...(prismaMock.state.omitProviderServiceUrl ? {} : { serviceUrl: prismaMock.state.providerServiceUrl }),
         apiKey: 'enc:sk-route-secret',
         protocolType: 'openai-compatible',
         status: 'available',
@@ -110,6 +110,7 @@ describe('api specific - creative engine media-test route', () => {
     prismaMock.state.omitMediaContract = false
     prismaMock.state.omitCompatMediaTemplate = false
     prismaMock.state.omitProviderServiceUrl = false
+    prismaMock.state.providerServiceUrl = 'https://api.aisenyu.test/v1'
     prismaMock.state.executor = 'openai-compat-template'
     resetAuthMockState()
   })
@@ -267,6 +268,7 @@ describe('api specific - creative engine media-test route', () => {
     ['missing compat template', { omitCompatMediaTemplate: true }, 'MEDIA_TEST_COMPAT_TEMPLATE_REQUIRED'],
     ['unsupported executor', { executor: 'openai-standard' }, 'MEDIA_TEST_EXECUTOR_UNSUPPORTED'],
     ['missing provider base url', { omitProviderServiceUrl: true }, 'MEDIA_TEST_BASE_URL_ERROR'],
+    ['malformed provider base url', { providerServiceUrl: 'not a url' }, 'MEDIA_TEST_BASE_URL_ERROR'],
   ])('rejects %s as a config error before running or saving', async (_name, statePatch, code) => {
     Object.assign(prismaMock.state, statePatch)
     installAuthMocks()

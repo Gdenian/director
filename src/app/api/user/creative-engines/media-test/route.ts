@@ -54,6 +54,15 @@ function readOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function parseMediaTestModels(rawModels: string | null | undefined) {
   try {
     return parseCreativeModels(rawModels)
@@ -145,6 +154,12 @@ export const POST = apiHandler(async (request: NextRequest) => {
     })
   }
   if (!provider.serviceUrl) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_BASE_URL_ERROR',
+      field: 'modelKey',
+    })
+  }
+  if (!isValidHttpUrl(provider.serviceUrl)) {
     throw new ApiError('INVALID_PARAMS', {
       code: 'MEDIA_TEST_BASE_URL_ERROR',
       field: 'modelKey',

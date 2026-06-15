@@ -16,6 +16,7 @@ import type {
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_POLL_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_POLL_INTERVAL_MS = 1_000
+const DEFAULT_MIN_POLL_INTERVAL_MS = 250
 const SECRET_QUERY_KEYS = new Set(['key', 'api_key', 'token', 'access_token'])
 
 function isValidHttpUrl(value: string): boolean {
@@ -211,7 +212,8 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
   }
 
   const timeoutMs = Math.min(template.polling.timeoutMs, input.limits?.maxPollTimeoutMs ?? DEFAULT_MAX_POLL_TIMEOUT_MS)
-  const intervalMs = Math.min(template.polling.intervalMs, input.limits?.maxPollIntervalMs ?? DEFAULT_MAX_POLL_INTERVAL_MS)
+  const maxIntervalMs = Math.max(input.limits?.maxPollIntervalMs ?? DEFAULT_MAX_POLL_INTERVAL_MS, DEFAULT_MIN_POLL_INTERVAL_MS)
+  const intervalMs = Math.min(Math.max(template.polling.intervalMs, DEFAULT_MIN_POLL_INTERVAL_MS), maxIntervalMs)
   const startedAt = Date.now()
   while (Date.now() - startedAt <= timeoutMs) {
     const statusRequest = await buildRenderedTemplateRequest({

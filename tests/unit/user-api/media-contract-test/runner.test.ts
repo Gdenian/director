@@ -333,4 +333,84 @@ describe('media contract test runner', () => {
       diagnostic: { code: 'MEDIA_TEST_PROVIDER_TIMEOUT' },
     })
   })
+
+  it('clamps non-positive async polling interval before scheduling another poll', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'task-1' }), { status: 200 }))
+      .mockResolvedValue(new Response(JSON.stringify({ status: 'running' }), { status: 200 }))
+
+    let scheduledDelayMs: number | undefined
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((handler: TimerHandler, timeout?: number) => {
+      void handler
+      scheduledDelayMs = Number(timeout ?? 0)
+      throw new Error('stop after first polling delay')
+    }) as unknown as typeof setTimeout)
+
+    try {
+      await runMediaContractTest({
+        provider: {
+          id: 'openai-compatible:relay',
+          baseUrl: 'https://api.aisenyu.test/v1',
+          apiKey: 'sk-secret-value',
+        },
+        model: {
+          modelKey: 'openai-compatible:relay::video-1',
+          modelId: 'video-1',
+          mediaType: 'video',
+          mediaContract: {
+            version: 1,
+            mediaType: 'video',
+            executor: 'openai-compat-template',
+            capabilities: ['text-to-video'],
+            input: {},
+            output: {
+              kind: 'asyncTask',
+              urlPath: '$.url',
+            },
+          },
+          compatMediaTemplate: {
+            version: 1,
+            mediaType: 'video',
+            mode: 'async',
+            create: {
+              method: 'POST',
+              path: '/videos',
+              contentType: 'application/json',
+              bodyTemplate: {
+                model: '{{model}}',
+                prompt: '{{prompt}}',
+              },
+            },
+            status: {
+              method: 'GET',
+              path: '/videos/{{task_id}}',
+            },
+            response: {
+              taskIdPath: '$.id',
+              statusPath: '$.status',
+              outputUrlPath: '$.url',
+            },
+            polling: {
+              intervalMs: 0,
+              timeoutMs: 600_000,
+              doneStates: ['done'],
+              failStates: ['failed'],
+            },
+          },
+        },
+        capability: 'text-to-video',
+        sample: { prompt: '生成一段简单测试视频' },
+        limits: {
+          maxPollTimeoutMs: 600_000,
+          maxPollIntervalMs: 1_000,
+          fetchTimeoutMs: 0,
+        },
+      })
+    } finally {
+      setTimeoutSpy.mockRestore()
+    }
+
+    expect(scheduledDelayMs).toBeGreaterThanOrEqual(250)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
