@@ -206,6 +206,12 @@ export async function prepareMediaInputs(
   if ((capability === 'image-to-image' || capability === 'image-edit') && !imageFormat && !imagesFormat) {
     diagnostics.push(unsupportedFormatDiagnostic('image', undefined))
   }
+  if ((capability === 'image-to-video' || capability === 'first-last-frame-video') && !imageFormat) {
+    diagnostics.push(unsupportedFormatDiagnostic('image', undefined))
+  }
+  if (capability === 'first-last-frame-video' && !lastFrameImageFormat) {
+    diagnostics.push(unsupportedFormatDiagnostic('lastFrameImage', undefined))
+  }
 
   if (imageFormat && (params.image || imageRequired)) {
     if (!params.image) {

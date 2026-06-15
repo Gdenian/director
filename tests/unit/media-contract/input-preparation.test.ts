@@ -217,8 +217,93 @@ describe('prepareMediaInputs', () => {
 
     expect(result.ok).toBe(false)
     expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_PUBLIC_URL_REQUIRED',
       field: 'images',
+      message: 'Media contract requires images input.',
     })
+  })
+
+  it('fails when image-to-video contract does not declare image input schema', async () => {
+    const result = await prepareMediaInputs({
+      capability: 'image-to-video',
+      contract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: {},
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+      },
+      image: 'images/start.png',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+      field: 'image',
+    })
+  })
+
+  it('fails when first-last-frame video contract does not declare image input schema', async () => {
+    const result = await prepareMediaInputs({
+      capability: 'first-last-frame-video',
+      contract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['first-last-frame-video'],
+        input: { lastFrameImage: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+      },
+      image: 'images/start.png',
+      lastFrameImage: 'images/end.png',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+      field: 'image',
+    })
+  })
+
+  it('fails when first-last-frame video contract does not declare last frame input schema', async () => {
+    const result = await prepareMediaInputs({
+      capability: 'first-last-frame-video',
+      contract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['first-last-frame-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+      },
+      image: 'images/start.png',
+      lastFrameImage: 'images/end.png',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.values.lastFrameImage).toBeUndefined()
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+      field: 'lastFrameImage',
+    })
+  })
+
+  it('does not require image schema for text-to-video', async () => {
+    const result = await prepareMediaInputs({
+      capability: 'text-to-video',
+      contract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['text-to-video'],
+        input: {},
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.diagnostics).toEqual([])
   })
 
   it('reports unsupported image format before missing image input', async () => {
@@ -345,6 +430,29 @@ describe('prepareMediaInputs', () => {
     expect(result.ok).toBe(false)
     expect(result.diagnostics[0]).toMatchObject({
       code: 'MEDIA_INPUT_BASE64_CONVERSION_FAILED',
+      field: 'image',
+    })
+  })
+
+  it('returns multipart diagnostics instead of throwing when multipart conversion fails', async () => {
+    normalizeToBase64ForGeneration.mockRejectedValueOnce(new Error('upload conversion failed'))
+
+    const result = await prepareMediaInputs({
+      capability: 'image-to-image',
+      contract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-image'],
+        input: { image: 'multipartFile' },
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+      },
+      image: 'images/ref.png',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_MULTIPART_CONVERSION_FAILED',
       field: 'image',
     })
   })
