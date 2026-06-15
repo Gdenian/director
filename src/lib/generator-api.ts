@@ -29,6 +29,30 @@ import { generateSiliconFlowAudio, generateSiliconFlowImage, generateSiliconFlow
 const OFFICIAL_ONLY_PROVIDER_KEYS = new Set(['bailian', 'siliconflow'])
 const OFFICIAL_CONTRACT_EXECUTORS = new Set(['official-adapter', 'gemini-standard'])
 
+function isTrustedOfficialAdapterProvider(providerKey: string): boolean {
+    return providerKey === 'bailian' || providerKey === 'siliconflow'
+}
+
+function assertMediaContractExecutorProviderSupported(input: {
+    executor: string
+    providerKey: string
+    providerConfig?: { apiMode?: string | null }
+}): void {
+    const { executor, providerKey, providerConfig } = input
+    if (executor === 'openai-compat-template' && providerKey !== 'openai-compatible') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-compat-template')
+    }
+    if (executor !== 'gemini-standard') {
+        return
+    }
+    if (providerKey !== 'gemini-compatible' && providerKey !== 'google') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: gemini-standard')
+    }
+    if (providerKey === 'gemini-compatible' && providerConfig?.apiMode === 'openai-official') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: gemini-standard')
+    }
+}
+
 /**
  * 将 aspectRatio 映射为 OpenAI 兼容的 size
  */
@@ -70,15 +94,27 @@ export async function generateImage(
     const selection = await resolveModelSelection(userId, modelKey, 'image')
     _ulogInfo(`[generateImage] resolved model selection: ${selection.modelKey}`)
     const mediaContract = selection.mediaContract
+    const providerKey = getProviderKey(selection.provider).toLowerCase()
+    let providerConfig: Awaited<ReturnType<typeof getProviderConfig>> | undefined
+    const resolveProviderConfig = async () => {
+        providerConfig = providerConfig || await getProviderConfig(userId, selection.provider)
+        return providerConfig
+    }
     if (mediaContract) {
+        const executorProviderConfig = mediaContract.executor === 'gemini-standard' && providerKey === 'gemini-compatible'
+            ? await resolveProviderConfig()
+            : undefined
         assertMediaContractCapability({
             contract: mediaContract,
             capability: resolveRequestedImageCapability(options?.referenceImages),
-            trustedOfficialAdapter: true,
+            trustedOfficialAdapter: isTrustedOfficialAdapterProvider(providerKey),
+        })
+        assertMediaContractExecutorProviderSupported({
+            executor: mediaContract.executor,
+            providerKey,
+            providerConfig: executorProviderConfig,
         })
     }
-    const providerConfig = await getProviderConfig(userId, selection.provider)
-    const providerKey = getProviderKey(selection.provider).toLowerCase()
     const shouldUseOfficialProvider = !mediaContract || OFFICIAL_CONTRACT_EXECUTORS.has(mediaContract.executor)
     if (shouldUseOfficialProvider && providerKey === 'bailian') {
         return await generateBailianImage({
@@ -106,6 +142,7 @@ export async function generateImage(
             },
         })
     }
+    providerConfig = await resolveProviderConfig()
     const defaultGatewayRoute = resolveModelGatewayRoute(selection.provider)
     let gatewayRoute = OFFICIAL_ONLY_PROVIDER_KEYS.has(providerKey)
         ? 'official'
@@ -187,7 +224,6 @@ export async function generateImage(
                 },
                 profile: 'openai-compatible',
                 template: compatTemplate,
-                ...(mediaContract ? { mediaContract } : {}),
             })
         }
 
@@ -258,14 +294,27 @@ export async function generateVideo(
     const selection = await resolveModelSelection(userId, modelKey, 'video')
     _ulogInfo(`[generateVideo] resolved model selection: ${selection.modelKey}`)
     const mediaContract = selection.mediaContract
+    const providerKey = getProviderKey(selection.provider).toLowerCase()
+    let providerConfig: Awaited<ReturnType<typeof getProviderConfig>> | undefined
+    const resolveProviderConfig = async () => {
+        providerConfig = providerConfig || await getProviderConfig(userId, selection.provider)
+        return providerConfig
+    }
     if (mediaContract) {
+        const executorProviderConfig = mediaContract.executor === 'gemini-standard' && providerKey === 'gemini-compatible'
+            ? await resolveProviderConfig()
+            : undefined
         assertMediaContractCapability({
             contract: mediaContract,
             capability: resolveRequestedVideoCapability(options),
-            trustedOfficialAdapter: true,
+            trustedOfficialAdapter: isTrustedOfficialAdapterProvider(providerKey),
+        })
+        assertMediaContractExecutorProviderSupported({
+            executor: mediaContract.executor,
+            providerKey,
+            providerConfig: executorProviderConfig,
         })
     }
-    const providerKey = getProviderKey(selection.provider).toLowerCase()
     const shouldUseOfficialProvider = !mediaContract || OFFICIAL_CONTRACT_EXECUTORS.has(mediaContract.executor)
     if (shouldUseOfficialProvider && providerKey === 'bailian') {
         return await generateBailianVideo({
@@ -293,7 +342,7 @@ export async function generateVideo(
             },
         })
     }
-    const providerConfig = await getProviderConfig(userId, selection.provider)
+    providerConfig = await resolveProviderConfig()
     const defaultGatewayRoute = resolveModelGatewayRoute(selection.provider)
     const gatewayRoute = OFFICIAL_ONLY_PROVIDER_KEYS.has(providerKey)
         ? 'official'
@@ -361,7 +410,6 @@ export async function generateVideo(
                 },
                 profile: 'openai-compatible',
                 template: compatTemplate,
-                ...(mediaContract ? { mediaContract } : {}),
             })
         }
 

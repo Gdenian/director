@@ -155,7 +155,7 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, imageUrl: 'compat-image' })
   })
 
-  it('routes official-adapter image contract to provider generator even when provider defaults to openai compat', async () => {
+  it('blocks unchecked official-adapter contract for openai-compatible provider before dispatch', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'openai-compatible:oa-1',
       modelId: 'official-image-model',
@@ -173,15 +173,41 @@ describe('generator-api gateway routing', () => {
     })
     resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
 
-    const result = await generateImage('user-1', 'openai-compatible:oa-1::official-image-model', 'draw cat')
+    await expect(
+      generateImage('user-1', 'openai-compatible:oa-1::official-image-model', 'draw cat'),
+    ).rejects.toThrow('MEDIA_CONTRACT_CAPABILITY_NOT_PASSED')
 
-    expect(createImageGeneratorMock).toHaveBeenCalledWith('openai-compatible:oa-1', 'official-image-model')
+    expect(createImageGeneratorMock).not.toHaveBeenCalled()
     expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
     expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
-    expect(result).toEqual({ success: true, imageUrl: 'official-image' })
   })
 
-  it('routes template executor before provider-specific official adapters', async () => {
+  it('allows unchecked official-adapter contract for trusted bailian provider adapter', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'bailian',
+      modelId: 'wanx-image',
+      modelKey: 'bailian::wanx-image',
+      mediaType: 'image',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'official-adapter',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.url' },
+        testStatus: { textToImage: 'unchecked' },
+      },
+    })
+
+    const result = await generateImage('user-1', 'bailian::wanx-image', 'draw sky')
+
+    expect(generateBailianImageMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(createImageGeneratorMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, imageUrl: 'bailian-image' })
+  })
+
+  it('blocks openai-compat-template executor for non openai-compatible provider', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'bailian',
       modelId: 'wanx-image',
@@ -205,16 +231,15 @@ describe('generator-api gateway routing', () => {
       },
     })
 
-    const result = await generateImage('user-1', 'bailian::wanx-image', 'draw sky')
+    await expect(
+      generateImage('user-1', 'bailian::wanx-image', 'draw sky'),
+    ).rejects.toThrow('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-compat-template')
 
-    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
-      mediaContract: expect.objectContaining({ executor: 'openai-compat-template' }),
-    }))
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
     expect(generateBailianImageMock).not.toHaveBeenCalled()
-    expect(result).toEqual({ success: true, imageUrl: 'compat-template-image' })
   })
 
-  it('routes gemini-standard video contract to provider generator even when provider defaults to openai compat', async () => {
+  it('blocks gemini-standard video contract when gemini-compatible provider uses openai-official api mode', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'gemini-compatible:gm-1',
       modelId: 'veo-3.1',
@@ -237,6 +262,40 @@ describe('generator-api gateway routing', () => {
       baseUrl: 'https://gm.test',
       apiMode: 'openai-official',
       gatewayRoute: 'openai-compat',
+    })
+
+    await expect(
+      generateVideo('user-1', 'gemini-compatible:gm-1::veo-3.1', 'https://example.com/source.png'),
+    ).rejects.toThrow('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: gemini-standard')
+
+    expect(createVideoGeneratorMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+  })
+
+  it('routes gemini-standard video contract through official generator for gemini-sdk api mode', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'gemini-compatible:gm-1',
+      modelId: 'veo-3.1',
+      modelKey: 'gemini-compatible:gm-1::veo-3.1',
+      mediaType: 'video',
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'gemini-standard',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.name' },
+        testStatus: { imageToVideo: 'passed' },
+      },
+    })
+    getProviderConfigMock.mockResolvedValueOnce({
+      id: 'gemini-compatible:gm-1',
+      name: 'Gemini Compatible',
+      apiKey: 'gm-key',
+      baseUrl: 'https://gm.test',
+      apiMode: 'gemini-sdk',
+      gatewayRoute: 'official',
     })
 
     const result = await generateVideo('user-1', 'gemini-compatible:gm-1::veo-3.1', 'https://example.com/source.png')
