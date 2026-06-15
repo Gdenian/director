@@ -11,6 +11,11 @@ import type {
     OpenAICompatMediaTemplate,
     OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
+import type {
+    CreativeDetectionConfidence,
+    CreativeModelPurpose,
+    CreativeModelStatus,
+} from '@/lib/creative-engine/types'
 
 // 统一提供商接口
 export interface Provider {
@@ -20,6 +25,19 @@ export interface Provider {
     apiKey?: string
     hasApiKey?: boolean
     hidden?: boolean
+    protocolType?: 'official' | 'openai-compatible' | 'gemini-compatible' | 'manual-template'
+    apiMode?: 'gemini-sdk' | 'openai-official'
+    gatewayRoute?: 'official' | 'openai-compat'
+}
+
+export interface CreativeEngine {
+    id: string
+    name: string
+    providerKey: string
+    serviceUrl?: string
+    apiKey?: string
+    hidden?: boolean
+    protocolType?: 'official' | 'openai-compatible' | 'gemini-compatible' | 'manual-template'
     apiMode?: 'gemini-sdk' | 'openai-official'
     gatewayRoute?: 'official' | 'openai-compat'
 }
@@ -60,6 +78,9 @@ export interface CustomModel {
     priceInput?: number
     priceOutput?: number
     enabled: boolean
+    purpose?: CreativeModelPurpose
+    status?: CreativeModelStatus
+    confidence?: CreativeDetectionConfidence
     capabilities?: ModelCapabilities
     customPricing?: CustomModelPricing
 }
@@ -77,7 +98,7 @@ export type PricingDisplayMap = Record<string, PricingDisplayItem>
 // API 配置响应
 export interface ApiConfig {
     models: CustomModel[]
-    providers: Provider[]
+    engines: CreativeEngine[]
     workflowConcurrency?: {
         analysis: number
         image: number

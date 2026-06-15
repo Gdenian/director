@@ -3,6 +3,8 @@
 import { useMemo } from 'react'
 import type { CustomModel, Provider } from '../../api-config'
 import { PRESET_PROVIDERS, getProviderKey } from '../../api-config'
+import { shouldShowModelForDefaultField } from '@/lib/creative-engine/model-purpose'
+import type { DefaultModelField } from '@/lib/creative-engine/types'
 
 interface UseApiConfigFiltersParams {
   providers: Provider[]
@@ -41,9 +43,19 @@ function isDefaultModelType(type: CustomModel['type']): type is 'llm' | 'image' 
   return type === 'llm' || type === 'image' || type === 'video' || type === 'audio' || type === 'lipsync'
 }
 
+function isVoiceDesignCandidate(model: CustomModel): boolean {
+  if (model.purpose) return model.purpose === 'voice-design'
+  return model.type === 'audio' && DEFAULT_AUDIO_EXCLUDED_MODEL_IDS.has(model.modelId)
+}
+
 function isAudioDefaultCandidate(model: CustomModel): boolean {
   if (model.type !== 'audio') return true
+  if (model.purpose) return model.purpose === 'voice-generation'
   return !DEFAULT_AUDIO_EXCLUDED_MODEL_IDS.has(model.modelId)
+}
+
+function isSelectableStatus(model: CustomModel): boolean {
+  return model.status !== 'failed' && model.status !== 'disabled'
 }
 
 function hasProviderApiKey(provider: Provider | undefined): boolean {
@@ -103,6 +115,7 @@ export function useApiConfigFilters({
 
     for (const model of models) {
       if (!model.enabled) continue
+      if (!isSelectableStatus(model)) continue
       if (!isDefaultModelType(model.type)) continue
       const provider = providersById.get(model.provider)
       if (!hasProviderApiKey(provider)) continue
@@ -112,8 +125,8 @@ export function useApiConfigFilters({
         providerName: provider?.name || model.provider,
       }
 
-      // Voice design models (audio type but excluded from TTS)
-      if (model.type === 'audio' && DEFAULT_AUDIO_EXCLUDED_MODEL_IDS.has(model.modelId)) {
+      // Voice design models are audio runtime models but use a separate default selector.
+      if (isVoiceDesignCandidate(model)) {
         grouped.voicedesign.push(option)
         continue
       }
@@ -131,6 +144,21 @@ export function useApiConfigFilters({
     modelProviders,
     getModelsForProvider: (providerId: string) =>
       models.filter((model) => model.provider === providerId),
-    getEnabledModelsByType: (type: 'llm' | 'image' | 'video' | 'audio' | 'lipsync' | 'voicedesign') => enabledModelsByType[type],
+    getEnabledModelsByType: (
+      type: 'llm' | 'image' | 'video' | 'audio' | 'lipsync' | 'voicedesign',
+      field?: DefaultModelField,
+    ) => {
+      const options = enabledModelsByType[type]
+      if (!field) return options
+      return options.filter((model) => (
+        model.purpose
+          ? shouldShowModelForDefaultField({
+            purpose: model.purpose,
+            enabled: model.enabled,
+            status: model.status || 'unchecked',
+          }, field)
+          : true
+      ))
+    },
   }
 }

@@ -23,6 +23,7 @@
 - 🎨 **Character & Scene Generation** — Consistent AI-generated character and scene images
 - 📽️ **Storyboard Video** — Auto-generate shots and compose into complete videos
 - 🎙️ **AI Voiceover** — Multi-character voice synthesis
+- ⚙️ **Creative Engine** — Connect official services or OpenAI / Gemini compatible services, then choose models per creative workflow
 - 🌐 **Bilingual UI** — Chinese / English, switch in the top-right corner
 
 ---
@@ -107,9 +108,9 @@ Visit [http://localhost:13000](http://localhost:13000) (Method 1 & 2) or [http:/
 
 ## 🔧 API Configuration
 
-After launching, go to **Settings** to configure your AI service API keys. A built-in guide is provided.
+After launching, go to **Settings** to configure creative engines. You can connect built-in official services, or add OpenAI Compatible / Gemini Compatible service URLs and API keys, then choose models for text, image, video, voice, and other workflow steps in **Model Selection**.
 
-> 💡 **Note**: Currently only official provider APIs are recommended. Third-party compatible formats (OpenAI Compatible) are not yet fully supported and will be improved in future releases.
+> 💡 **Note**: Third-party compatibility layers vary by provider. Before saving, use auto detection or a lightweight text-model check when possible; image, video, voice, and other high-cost models are not called automatically during detection.
 
 ---
 
@@ -128,6 +129,7 @@ After launching, go to **Settings** to configure your AI service API keys. A bui
 - [docs/README.md](docs/README.md) — Chinese developer overview covering runtime, module map, test entry points, and current risk areas
 - [Style Management Design](docs/superpowers/specs/2026-05-28-style-management-design.md)
 - [Style Prompt Generation Design](docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md)
+- [Creative Engine Redesign](docs/superpowers/specs/2026-06-11-creative-engine-redesign.md)
 
 ---
 

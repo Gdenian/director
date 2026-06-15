@@ -19,6 +19,7 @@ import {
   type WorkflowConcurrencyConfig,
   normalizeWorkflowConcurrencyConfig,
 } from '@/lib/workflow-concurrency'
+import { getMissingCreativeEngineConfigMessage } from '@/lib/creative-engine/runtime-preflight'
 
 export type ParsedModelKey = { provider: string, modelId: string }
 
@@ -268,6 +269,8 @@ export function checkRequiredModels(
  */
 export function getMissingConfigError(missingFields: string[]): string {
   if (missingFields.length === 0) return ''
+  const creativeEngineMessage = getMissingCreativeEngineConfigMessage(missingFields)
+  if (creativeEngineMessage) return creativeEngineMessage
   if (missingFields.length === 1) {
     return `请先在项目设置中配置"${missingFields[0]}"`
   }

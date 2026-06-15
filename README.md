@@ -30,6 +30,7 @@
 - 🎨 **角色 & 场景生成** — AI 生成一致性人物和场景图片
 - 📽️ **分镜视频制作** — 自动生成分镜头并合成视频
 - 🎙️ **AI 配音** — 多角色语音合成
+- ⚙️ **创作引擎** — 接入官方服务或 OpenAI / Gemini 兼容服务，并为不同创作环节选择模型
 - 🌐 **多语言支持** — 中文 / 英文界面，右上角一键切换
 
 ---
@@ -119,9 +120,9 @@ npm run dev
 
 ## 🔧 API 配置
 
-启动后进入**设置中心**配置 AI 服务的 API Key，内置配置教程。
+启动后进入**设置中心**配置创作引擎。你可以接入内置官方服务，也可以添加 OpenAI Compatible 或 Gemini Compatible 服务地址与 API Key，并在**模型选择**中为文本、图片、视频、语音等创作环节指定模型。
 
-> 💡 **注意**：目前仅推荐使用各服务商官方 API，第三方兼容格式（OpenAI Compatible）尚不完善，后续版本会持续优化。
+> 💡 **注意**：第三方兼容层的接口细节可能因服务商而异。保存前建议先使用自动识别或轻量检测确认文本模型可用；图片、视频、语音等高消耗模型不会在检测阶段自动发起付费调用。
 
 ---
 
@@ -140,6 +141,7 @@ npm run dev
 - [docs/README.md](docs/README.md) — 运行方式、模块地图、测试入口与风险点总览
 - [风格管理功能设计](docs/superpowers/specs/2026-05-28-style-management-design.md)
 - [参考图生成风格提示词设计](docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md)
+- [创作引擎重构设计](docs/superpowers/specs/2026-06-11-creative-engine-redesign.md)
 
 ---
 

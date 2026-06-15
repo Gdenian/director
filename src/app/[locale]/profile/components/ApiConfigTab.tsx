@@ -1,7 +1,12 @@
 'use client'
 
-import { ApiConfigTabContainer } from './api-config-tab/ApiConfigTabContainer'
+import { CreativeEngineTabContainer } from './creative-engine/CreativeEngineTabContainer'
 
-export default function ApiConfigTab() {
-  return <ApiConfigTabContainer />
+interface ApiConfigTabProps {
+  view?: 'engines' | 'models'
+  onOpenModelSelection?: () => void
+}
+
+export default function ApiConfigTab({ view = 'engines', onOpenModelSelection }: ApiConfigTabProps) {
+  return <CreativeEngineTabContainer view={view} onOpenModelSelection={onOpenModelSelection} />
 }

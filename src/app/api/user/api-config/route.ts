@@ -18,6 +18,15 @@ import {
   type UnifiedModelType,
 } from '@/lib/model-config-contract'
 import {
+  normalizeCreativeEngineInput,
+  normalizeCreativeModelInput,
+  parseCreativeEngines,
+  parseCreativeModels,
+  toApiError,
+  toRuntimeModel,
+  toRuntimeProvider,
+} from '@/lib/creative-engine/persisted-config'
+import {
   getCapabilityOptionFields,
   resolveBuiltinModelContext,
   validateCapabilitySelectionsPayload,
@@ -36,6 +45,11 @@ import {
   normalizeWorkflowConcurrencyConfig,
   normalizeWorkflowConcurrencyValue,
 } from '@/lib/workflow-concurrency'
+import type {
+  CreativeEngineConfig,
+  CreativeModelConfig,
+  CreativeProtocolType,
+} from '@/lib/creative-engine/types'
 import type {
   OpenAICompatMediaTemplate,
   OpenAICompatMediaTemplateSource,
@@ -62,6 +76,7 @@ interface StoredProvider {
   baseUrl?: string
   apiKey?: string
   hidden?: boolean
+  protocolType?: CreativeProtocolType
   apiMode?: ApiModeType
   gatewayRoute?: GatewayRouteType
 }
@@ -134,6 +149,7 @@ interface WorkflowConcurrencyPayload {
 
 interface ApiConfigPutBody {
   models?: unknown
+  engines?: unknown
   providers?: unknown
   defaultModels?: unknown
   capabilityDefaults?: unknown
@@ -455,6 +471,18 @@ function isApiMode(value: unknown): value is ApiModeType {
 
 function isGatewayRoute(value: unknown): value is GatewayRouteType {
   return value === 'official' || value === 'openai-compat'
+}
+
+function readCreativeProtocolType(value: unknown): CreativeProtocolType | undefined {
+  if (
+    value === 'official'
+    || value === 'openai-compatible'
+    || value === 'gemini-compatible'
+    || value === 'manual-template'
+  ) {
+    return value
+  }
+  return undefined
 }
 
 function isLlmProtocol(value: unknown): value is LlmProtocolType {
@@ -917,6 +945,7 @@ function normalizeProvidersInput(rawProviders: unknown): StoredProvider[] {
       baseUrl,
       apiKey: typeof item.apiKey === 'string' ? item.apiKey.trim() : undefined,
       hidden: hiddenRaw === true,
+      protocolType: readCreativeProtocolType(item.protocolType),
       apiMode: apiModeRaw,
       gatewayRoute,
     })
@@ -937,6 +966,176 @@ function normalizeModelList(rawModels: unknown): StoredModel[] {
   return rawModels.map((item, index) => normalizeStoredModel(item, index, { strictCustomPricing: true }))
 }
 
+function normalizeEngineList(rawEngines: unknown): CreativeEngineConfig[] {
+  if (rawEngines === undefined) return []
+  if (!Array.isArray(rawEngines)) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'CREATIVE_ENGINE_PAYLOAD_INVALID',
+      field: 'engines',
+    })
+  }
+
+  try {
+    return rawEngines.map((item, index) => normalizeCreativeEngineInput(item, index))
+  } catch (error) {
+    throw toApiError(error, 'engines')
+  }
+}
+
+function normalizeCreativeModelList(rawModels: unknown): CreativeModelConfig[] {
+  if (rawModels === undefined) return []
+  if (!Array.isArray(rawModels)) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'CREATIVE_MODEL_PAYLOAD_INVALID',
+      field: 'models',
+    })
+  }
+
+  try {
+    return rawModels.map((item, index) => normalizeCreativeModelInput(item, index))
+  } catch (error) {
+    throw toApiError(error, 'models')
+  }
+}
+
+function validateCreativeEnginesAgainstProviderRules(engines: CreativeEngineConfig[]): StoredProvider[] {
+  return normalizeProvidersInput(engines.map((engine) => ({
+    id: engine.id,
+    name: engine.name,
+    baseUrl: engine.serviceUrl,
+    apiKey: engine.apiKey,
+    hidden: engine.hidden,
+    apiMode: engine.apiMode,
+    gatewayRoute: engine.gatewayRoute,
+  })))
+}
+
+function hasCreativeModelShape(rawModels: unknown): boolean {
+  return Array.isArray(rawModels)
+    && rawModels.some((item) => isRecord(item) && (item.engineId !== undefined || item.callName !== undefined))
+}
+
+function mergeRuntimeProviderIntoCreativeEngine(
+  provider: StoredProvider,
+  existing?: CreativeEngineConfig,
+): CreativeEngineConfig {
+  return {
+    ...(existing || {}),
+    id: provider.id,
+    name: provider.name,
+    providerKey: existing?.providerKey || getProviderKey(provider.id),
+    ...(provider.baseUrl !== undefined ? { serviceUrl: provider.baseUrl } : {}),
+    ...(provider.apiKey !== undefined ? { apiKey: provider.apiKey } : {}),
+    ...(provider.protocolType ? { protocolType: provider.protocolType } : {}),
+    ...(provider.apiMode ? { apiMode: provider.apiMode } : {}),
+    ...(provider.gatewayRoute ? { gatewayRoute: provider.gatewayRoute } : {}),
+    status: existing?.status || 'unchecked',
+    hidden: provider.hidden === true,
+  }
+}
+
+function runtimeModelToCreativeModel(model: StoredModel): CreativeModelConfig {
+  return {
+    id: model.modelKey,
+    engineId: model.provider,
+    name: model.name,
+    callName: model.modelId,
+    modelKey: model.modelKey,
+    type: model.type,
+    purpose: model.type === 'image'
+      ? 'image-generation'
+      : model.type === 'video'
+        ? 'video-generation'
+        : model.type === 'audio'
+          ? 'voice-generation'
+          : model.type === 'lipsync'
+            ? 'lip-sync'
+            : 'text',
+    enabled: true,
+    status: 'unchecked',
+    ...(model.capabilities ? { capabilities: model.capabilities } : {}),
+    ...(model.customPricing ? { pricing: model.customPricing } : {}),
+    ...(model.llmProtocol ? { llmProtocol: model.llmProtocol } : {}),
+    ...(model.llmProtocolCheckedAt ? { llmProtocolCheckedAt: model.llmProtocolCheckedAt } : {}),
+    ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
+    ...(model.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt } : {}),
+    ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+  }
+}
+
+function mergeRuntimeModelIntoCreativeModel(
+  model: StoredModel,
+  existing?: CreativeModelConfig,
+): CreativeModelConfig {
+  const fallback = runtimeModelToCreativeModel(model)
+  return {
+    ...(existing || fallback),
+    id: existing?.id || fallback.id,
+    engineId: model.provider,
+    name: model.name,
+    callName: model.modelId,
+    modelKey: model.modelKey,
+    type: model.type,
+    purpose: existing?.purpose || fallback.purpose,
+    enabled: existing?.enabled ?? true,
+    status: existing?.status || fallback.status,
+    ...(model.capabilities ? { capabilities: model.capabilities } : {}),
+    ...(model.customPricing ? { pricing: model.customPricing } : {}),
+    ...(model.llmProtocol ? { llmProtocol: model.llmProtocol } : {}),
+    ...(model.llmProtocolCheckedAt ? { llmProtocolCheckedAt: model.llmProtocolCheckedAt } : {}),
+    ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
+    ...(model.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt } : {}),
+    ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+  }
+}
+
+function syncCreativeModelsFromLegacyRuntime(
+  existingCreativeModels: CreativeModelConfig[],
+  runtimeModels: StoredModel[],
+): CreativeModelConfig[] {
+  const runtimeByModelKey = new Map(runtimeModels.map((model) => [model.modelKey, model] as const))
+  const merged = existingCreativeModels.flatMap((model) => {
+    const runtime = runtimeByModelKey.get(model.modelKey)
+    if (!runtime) return model.enabled === false ? [model] : []
+    runtimeByModelKey.delete(model.modelKey)
+    return [mergeRuntimeModelIntoCreativeModel(runtime, model)]
+  })
+  for (const runtime of runtimeByModelKey.values()) {
+    merged.push(mergeRuntimeModelIntoCreativeModel(runtime))
+  }
+  return merged
+}
+
+function syncCreativeModelsFromRuntime(
+  creativeModels: CreativeModelConfig[],
+  runtimeModels: StoredModel[],
+): CreativeModelConfig[] {
+  const runtimeByModelKey = new Map(runtimeModels.map((model) => [model.modelKey, model] as const))
+  return creativeModels.map((model) => {
+    const runtime = runtimeByModelKey.get(model.modelKey)
+    if (!runtime) return model
+    return {
+      ...model,
+      ...(runtime.llmProtocol ? { llmProtocol: runtime.llmProtocol } : {}),
+      ...(runtime.llmProtocolCheckedAt ? { llmProtocolCheckedAt: runtime.llmProtocolCheckedAt } : {}),
+      ...(runtime.compatMediaTemplate ? { compatMediaTemplate: runtime.compatMediaTemplate } : {}),
+      ...(runtime.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: runtime.compatMediaTemplateCheckedAt } : {}),
+      ...(runtime.compatMediaTemplateSource ? { compatMediaTemplateSource: runtime.compatMediaTemplateSource } : {}),
+      ...(runtime.customPricing ? { pricing: runtime.customPricing } : {}),
+    }
+  })
+}
+
+function withCreativeRuntimeDefaults(model: StoredModel): StoredModel {
+  if (isOpenAICompatibleLlmModel(model) && !model.llmProtocol) {
+    return {
+      ...model,
+      llmProtocol: 'chat-completions',
+    }
+  }
+  return model
+}
+
 function validateModelProviderConsistency(models: StoredModel[], providers: StoredProvider[]) {
   for (let index = 0; index < models.length; index += 1) {
     const model = models[index]
@@ -947,6 +1146,17 @@ function validateModelProviderConsistency(models: StoredModel[], providers: Stor
         field: `models[${index}].provider`,
       })
     }
+  }
+}
+
+function validateCreativeModelEngineConsistency(models: CreativeModelConfig[], engines: StoredProvider[]) {
+  const engineIds = new Set(engines.map((engine) => engine.id))
+  for (let index = 0; index < models.length; index += 1) {
+    if (engineIds.has(models[index].engineId)) continue
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MODEL_PROVIDER_NOT_FOUND',
+      field: `models[${index}].engineId`,
+    })
   }
 }
 
@@ -1389,121 +1599,31 @@ function sanitizeDefaultModelsForBilling(defaultModels: DefaultModelsPayload): D
 }
 
 function parseStoredProviders(rawProviders: string | null | undefined): StoredProvider[] {
-  if (!rawProviders) return []
-  let parsedUnknown: unknown
   try {
-    parsedUnknown = JSON.parse(rawProviders)
-  } catch {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'PROVIDER_PAYLOAD_INVALID',
-      field: 'customProviders',
-    })
+    return parseCreativeEngines(rawProviders)
+      .map(toRuntimeProvider)
+      .map((provider) => ({
+        ...provider,
+        baseUrl: normalizeMinimaxProviderBaseUrl({
+          providerId: provider.id,
+          baseUrl: provider.baseUrl,
+          strict: false,
+          field: 'customProviders.baseUrl',
+        }),
+      }))
+  } catch (error) {
+    throw toApiError(error, 'customProviders')
   }
-  if (!Array.isArray(parsedUnknown)) {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'PROVIDER_PAYLOAD_INVALID',
-      field: 'customProviders',
-    })
-  }
-
-  const normalized: StoredProvider[] = []
-  for (let index = 0; index < parsedUnknown.length; index += 1) {
-    const raw = parsedUnknown[index]
-    if (!isRecord(raw)) {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'PROVIDER_PAYLOAD_INVALID',
-        field: `customProviders[${index}]`,
-      })
-    }
-
-    const id = readTrimmedString(raw.id)
-    const name = readTrimmedString(raw.name)
-    if (!id || !name) {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'PROVIDER_PAYLOAD_INVALID',
-        field: `customProviders[${index}]`,
-      })
-    }
-
-    const providerKey = getProviderKey(id)
-    const apiModeRaw = raw.apiMode
-    let apiMode: ApiModeType | undefined
-    if (apiModeRaw !== undefined) {
-      if (!isApiMode(apiModeRaw)) {
-        throw new ApiError('INVALID_PARAMS', {
-          code: 'PROVIDER_APIMODE_INVALID',
-          field: `customProviders[${index}].apiMode`,
-        })
-      }
-      if (providerKey === 'gemini-compatible' && apiModeRaw === 'openai-official') {
-        throw new ApiError('INVALID_PARAMS', {
-          code: 'PROVIDER_APIMODE_INVALID',
-          field: `customProviders[${index}].apiMode`,
-        })
-      }
-      apiMode = apiModeRaw
-    }
-
-    let gatewayRoute: GatewayRouteType
-    try {
-      gatewayRoute = resolveProviderGatewayRoute(id, raw.gatewayRoute)
-    } catch {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'PROVIDER_GATEWAY_ROUTE_INVALID',
-        field: `customProviders[${index}].gatewayRoute`,
-      })
-    }
-    const hiddenRaw = raw.hidden
-    if (hiddenRaw !== undefined && typeof hiddenRaw !== 'boolean') {
-      throw new ApiError('INVALID_PARAMS', {
-        code: 'PROVIDER_HIDDEN_INVALID',
-        field: `customProviders[${index}].hidden`,
-      })
-    }
-
-    const baseUrl = normalizeMinimaxProviderBaseUrl({
-      providerId: id,
-      baseUrl: readTrimmedString(raw.baseUrl) || undefined,
-      strict: false,
-      field: `customProviders[${index}].baseUrl`,
-    })
-
-    normalized.push({
-      id,
-      name,
-      baseUrl,
-      apiKey: typeof raw.apiKey === 'string' ? raw.apiKey.trim() : undefined,
-      hidden: hiddenRaw === true,
-      apiMode,
-      gatewayRoute,
-    })
-  }
-
-  return normalized
 }
 
 function parseStoredModels(rawModels: string | null | undefined): StoredModel[] {
-  if (!rawModels) return []
-  let parsedUnknown: unknown
   try {
-    parsedUnknown = JSON.parse(rawModels)
-  } catch {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'MODEL_PAYLOAD_INVALID',
-      field: 'customModels',
-    })
+    return parseCreativeModels(rawModels)
+      .map(toRuntimeModel)
+      .map((model) => withBuiltinCapabilities(model))
+  } catch (error) {
+    throw toApiError(error, 'customModels')
   }
-  if (!Array.isArray(parsedUnknown)) {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'MODEL_PAYLOAD_INVALID',
-      field: 'customModels',
-    })
-  }
-  const normalized: StoredModel[] = []
-  for (let index = 0; index < parsedUnknown.length; index += 1) {
-    normalized.push(withBuiltinCapabilities(normalizeStoredModel(parsedUnknown[index], index)))
-  }
-  return normalized
 }
 
 function normalizeCapabilitySelectionsInput(
@@ -1676,13 +1796,28 @@ export const GET = apiHandler(async () => {
     },
   })
 
-  const providers = parseStoredProviders(pref?.customProviders).map((provider) => ({
+  const storedEngines = parseCreativeEngines(pref?.customProviders)
+  const engines = storedEngines.map((engine) => ({
+    ...engine,
+    apiKey: engine.apiKey ? decryptApiKey(engine.apiKey) : '',
+  }))
+  const providers = storedEngines.map((engine) => ({
+    ...toRuntimeProvider(engine),
+    baseUrl: normalizeMinimaxProviderBaseUrl({
+      providerId: engine.id,
+      baseUrl: engine.serviceUrl,
+      strict: false,
+      field: 'engines.serviceUrl',
+    }),
+  })).map((provider) => ({
     ...provider,
     apiKey: provider.apiKey ? decryptApiKey(provider.apiKey) : '',
   }))
 
   const billingMode = await getBillingMode()
-  const parsedModels = parseStoredModels(pref?.customModels)
+  const parsedModels = parseCreativeModels(pref?.customModels)
+    .map(toRuntimeModel)
+    .map((model) => withBuiltinCapabilities(model))
   const models = billingMode === 'OFF' ? parsedModels : sanitizeModelsForBilling(parsedModels)
   const pricingDisplay = buildPricingDisplayMap()
   const pricedModels = models.map((model) => withDisplayPricing(model, pricingDisplay))
@@ -1753,7 +1888,7 @@ export const GET = apiHandler(async () => {
 
   return NextResponse.json({
     models: [...pricedModels, ...disabledPresets],
-    providers,
+    engines,
     defaultModels,
     capabilityDefaults,
     workflowConcurrency,
@@ -1776,8 +1911,32 @@ export const PUT = apiHandler(async (request: NextRequest) => {
       field: 'body',
     })
   }
-  const normalizedModelsInput = body.models === undefined ? undefined : normalizeModelList(body.models)
-  const normalizedProviders = body.providers === undefined ? undefined : normalizeProvidersInput(body.providers)
+  const hasCreativeEnginePayload = body.engines !== undefined
+  const hasCreativeModelsPayload = hasCreativeModelShape(body.models)
+  const normalizedCreativeEngines = hasCreativeEnginePayload ? normalizeEngineList(body.engines) : undefined
+  const normalizedCreativeModelsInput = hasCreativeModelsPayload
+    ? normalizeCreativeModelList(body.models)
+    : undefined
+  const normalizedModelsInput = body.models === undefined
+    ? undefined
+    : hasCreativeModelsPayload
+      ? normalizedCreativeModelsInput?.map((model, index) => {
+        const runtimeModel = toRuntimeModel(model)
+        const customPricing = normalizeCustomPricing(model.pricing, {
+          strict: true,
+          field: `models[${index}].pricing`,
+        })
+        return {
+          ...runtimeModel,
+          customPricing,
+        }
+      }).map(withCreativeRuntimeDefaults)
+      : normalizeModelList(body.models)
+  const normalizedProviders = hasCreativeEnginePayload
+    ? validateCreativeEnginesAgainstProviderRules(normalizedCreativeEngines || [])
+    : body.providers === undefined
+      ? undefined
+      : normalizeProvidersInput(body.providers)
   const normalizedDefaults = body.defaultModels === undefined ? undefined : normalizeDefaultModelsInput(body.defaultModels)
   const normalizedCapabilityDefaults = body.capabilityDefaults === undefined
     ? undefined
@@ -1797,12 +1956,17 @@ export const PUT = apiHandler(async (request: NextRequest) => {
   })
   const existingProviders = parseStoredProviders(existingPref?.customProviders)
   const existingModels = parseStoredModels(existingPref?.customModels)
+  const existingCreativeEngines = parseCreativeEngines(existingPref?.customProviders)
+  const existingCreativeModels = parseCreativeModels(existingPref?.customModels)
   const normalizedModels = normalizedModelsInput === undefined
     ? undefined
     : resolveStoredMediaTemplates(resolveStoredLlmProtocols(normalizedModelsInput, existingModels), existingModels)
 
   const providerSourceForValidation = normalizedProviders ?? existingProviders
   if (normalizedModels !== undefined) {
+    if (normalizedCreativeModelsInput !== undefined) {
+      validateCreativeModelEngineConsistency(normalizedCreativeModelsInput, providerSourceForValidation)
+    }
     validateModelProviderConsistency(normalizedModels, providerSourceForValidation)
     validateModelProviderTypeSupport(normalizedModels, providerSourceForValidation)
     validateCustomPricingCapabilityMappings(normalizedModels)
@@ -1812,12 +1976,32 @@ export const PUT = apiHandler(async (request: NextRequest) => {
   }
 
   if (normalizedModels !== undefined) {
-    updateData.customModels = JSON.stringify(normalizedModels)
+    updateData.customModels = JSON.stringify(
+      normalizedCreativeModelsInput
+        ? syncCreativeModelsFromRuntime(normalizedCreativeModelsInput, normalizedModels)
+        : syncCreativeModelsFromLegacyRuntime(existingCreativeModels, normalizedModels),
+    )
   }
 
-  if (normalizedProviders !== undefined) {
+  if (normalizedCreativeEngines !== undefined) {
+    const enginesToSave = normalizedCreativeEngines.map((engine) => {
+      const existing = existingCreativeEngines.find((candidate) => candidate.id === engine.id)
+      const finalApiKey = engine.apiKey === undefined
+        ? existing?.apiKey
+        : engine.apiKey === ''
+          ? undefined
+          : encryptApiKey(engine.apiKey)
+
+      return {
+        ...engine,
+        apiKey: finalApiKey,
+      }
+    })
+    updateData.customProviders = JSON.stringify(enginesToSave)
+  } else if (normalizedProviders !== undefined) {
     const providersToSave = normalizedProviders.map((provider) => {
       const existing = existingProviders.find((candidate) => candidate.id === provider.id)
+      const existingCreativeEngine = existingCreativeEngines.find((candidate) => candidate.id === provider.id)
       let finalApiKey: string | undefined
       if (provider.apiKey === undefined) {
         finalApiKey = existing?.apiKey
@@ -1830,15 +2014,11 @@ export const PUT = apiHandler(async (request: NextRequest) => {
         ? existing?.hidden === true
         : provider.hidden === true
 
-      return {
-        id: provider.id,
-        name: provider.name,
-        baseUrl: provider.baseUrl,
+      return mergeRuntimeProviderIntoCreativeEngine({
+        ...provider,
         hidden: finalHidden,
-        apiMode: provider.apiMode,
-        gatewayRoute: provider.gatewayRoute,
         apiKey: finalApiKey,
-      }
+      }, existingCreativeEngine)
     })
     updateData.customProviders = JSON.stringify(providersToSave)
   }

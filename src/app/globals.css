@@ -145,10 +145,10 @@ body {
   --glass-shadow-sm: 0 10px 30px rgba(0, 0, 0, 0.18);
   --glass-shadow-md: 0 14px 38px rgba(0, 0, 0, 0.24);
   --glass-shadow-nav: 0 18px 60px rgba(0, 0, 0, 0.24);
-  --glass-accent-from: #ffffff;
-  --glass-accent-to: #f4f4f5;
-  --glass-accent-shadow-soft: rgba(255, 255, 255, 0.18);
-  --glass-accent-shadow-strong: rgba(255, 255, 255, 0.24);
+  --glass-accent-from: #facc15;
+  --glass-accent-to: #f59e0b;
+  --glass-accent-shadow-soft: rgba(250, 204, 21, 0.18);
+  --glass-accent-shadow-strong: rgba(245, 158, 11, 0.24);
   --glass-fill-active: rgba(255, 255, 255, 0.12);
   --glass-fill-hover: rgba(255, 255, 255, 0.08);
   background: var(--glass-bg-nav);

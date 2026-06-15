@@ -51,6 +51,7 @@ npm run dev
 
 - `src/app/[locale]/home/page.tsx`：登录后的首页创作入口和最近项目画廊。
 - `src/app/[locale]/workspace/page.tsx`：作品图册式列表、搜索、排序、创建、编辑、删除。
+- `src/app/[locale]/profile/page.tsx`：设置中心，包含创作引擎、模型选择和扣费记录三个同级入口。
 - `src/app/[locale]/workspace/[projectId]/page.tsx`：项目工作区容器，按 `stage` 和 `episode` URL 参数切换视图。
 - `src/app/[locale]/workspace/asset-hub/page.tsx`：资产中心。
 - `src/app/api/**`：服务端接口。
@@ -59,6 +60,7 @@ npm run dev
 
 - `src/components/**`：页面组件与交互部件。
 - `src/components/providers/QueryProvider.tsx`：React Query Provider 入口。
+- `src/app/[locale]/profile/components/creative-engine/**`：创作引擎接入、检测结果、模型列表、模型选择和影响确认 UI。
 - `src/lib/query/**`：query keys、hooks、mutation 和刷新逻辑。
 - `src/i18n/navigation.ts`：本地化导航封装，站内路由应统一从这里取 `Link` / `useRouter`。
 
@@ -66,6 +68,8 @@ npm run dev
 
 - `src/lib/home/**`：首页创建项目、最近项目、快速跳转逻辑。
 - `src/lib/styles/**`：风格资产、默认风格、风格快照。
+- `src/lib/creative-engine/**`：创作引擎 canonical 配置、用途分类、模型选择过滤、运行前检查和使用影响分析。
+- `src/lib/user-api/creative-engine-detection/**`：OpenAI/Gemini/official 服务识别、模型列表读取、用途分类和内置识别模型兜底。
 - `src/lib/task/**`：任务提交、状态、发布与对账。
 - `src/lib/run-runtime/**`：运行时桥接、任务目标状态和事件发布。
 - `src/lib/workers/**`：四类 worker 入口与处理器：
@@ -78,6 +82,7 @@ npm run dev
 
 - `prisma/schema.prisma`：MySQL 主 schema。
 - `src/lib/storage/**`：对象存储初始化与访问。
+- `src/app/api/user/creative-engines/**`：创作引擎检测、轻量测试和使用影响检查接口。
 
 ## 关键业务事实
 
@@ -85,6 +90,9 @@ npm run dev
 - `/api/projects` 的列表接口支持 `sort=lastAccessedAt|createdAt`，工作区默认按 `lastAccessedAt` 排序，也可切换为创建日期排序。
 - 工作区的阶段和剧集选择以 URL 为单一真相源，`/workspace/[projectId]` 主要依赖 `stage`、`episode` 查询参数。
 - 风格相关能力采用快照模式：项目、角色/外观、场景等会持有风格快照，worker 应读取快照而不是在执行时回查全局风格。
+- 创作引擎以 `CreativeEngineConfig` / `CreativeModelConfig` 为 canonical JSON 形状，仍复用 `UserPreference.customProviders`、`UserPreference.customModels` 和 `provider::modelId` 运行时合约。
+- 设置中心把“服务接入”和“默认模型选择”拆开：创作引擎只负责接入、识别、保存可用模型，模型选择由用户显式指定，不自动替换现有工作流选择。
+- OpenAI-compatible 文本模型支持用户点击后的轻量检测；图片、视频、语音、口型同步等高消耗模型不在识别阶段自动发起付费测试。
 - `editor` 阶段仍会在工作区容器中回退到 `videos`，说明 AI 剪辑流程还不是完全开放状态。
 
 ## 测试与构建入口
@@ -129,7 +137,16 @@ npm run dev
 
 `director` 是服务器网站，部署更新由运维流程处理。不要在浏览器端轮询 GitHub Releases，也不要在导航栏或页面里加入版本升级按钮、升级弹窗或“检查新版本”一类客户端 app 体验。
 
+### 7. 创作引擎兼容层和模型识别容易回退
+
+`api-config` 的旧 UI、媒体模板助手和计费路径仍会接触自定义 provider/model 数据。改这些区域时要保留 canonical 字段，包括 `engineId`、`callName`、`purpose`、`status`、`confidence`、`warningCodes` 和 `pricing`，不能只按 legacy `provider` / `modelId` / `customPricing` 重建。
+
+`/models` 探测要优先保留并读取模型对象里的元数据，例如 `capabilities`、`modalities`、`supportedGenerationMethods`、`type` 和 `supported_endpoints`。只有元数据无法判断时，才使用模型调用名的关键词规则。无法识别的模型也要保留为低置信度、未检查的文本模型，避免用户保存后模型静默消失。
+
 ## 现有设计文档
 
 - `docs/superpowers/specs/2026-05-28-style-management-design.md`
 - `docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md`
+- `docs/superpowers/specs/2026-06-10-ai-video-editing-design.md`
+- `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`
+- `docs/superpowers/plans/2026-06-11-creative-engine-redesign.md`：创作引擎实施计划归档，正文较长；优先按任务标题、范围和验收标准阅读。

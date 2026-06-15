@@ -41,7 +41,7 @@ interface DefaultModelCardsProps {
         lipSyncModel?: string
         voiceDesignModel?: string
     }
-    getEnabledModelsByType: (type: ModelType) => ModelOption[]
+    getEnabledModelsByType: (type: ModelType, field?: DefaultModelField) => ModelOption[]
     parseModelKey: (key: string | undefined | null) => { provider: string; modelId: string } | null
     encodeModelKey: (provider: string, modelId: string) => string
     getProviderDisplayName: (providerId: string, locale: string) => string
@@ -58,6 +58,7 @@ interface DefaultModelCardsProps {
     parseBySample: (input: string, sample: CapabilityValue) => CapabilityValue
     workflowConcurrency: { analysis: number; image: number; video: number }
     handleWorkflowConcurrencyChange: (field: 'analysis' | 'image' | 'video', rawValue: string) => void
+    showHeader?: boolean
 }
 
 // ---------- helpers ----------
@@ -76,7 +77,7 @@ function resolveModel(
     parseModelKey: DefaultModelCardsProps['parseModelKey'],
     encodeModelKey: DefaultModelCardsProps['encodeModelKey'],
 ) {
-    const options = getEnabledModelsByType(modelType)
+    const options = getEnabledModelsByType(modelType, field)
     const currentKey = defaultModels[field]
     const parsed = parseModelKey(currentKey)
     const normalizedKey = parsed ? encodeModelKey(parsed.provider, parsed.modelId) : ''
@@ -203,12 +204,13 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
         extractCapabilityFieldsFromModel,
         workflowConcurrency,
         handleWorkflowConcurrencyChange,
+        showHeader = true,
     } = allProps
 
     // Pipeline unified override state
     const [pipelineGlobalKey, setPipelineGlobalKey] = useState('')
     const [pipelineGlobalCapOverrides, setPipelineGlobalCapOverrides] = useState<Record<string, CapabilityValue>>({})
-    const pipelineGlobalOptions = getEnabledModelsByType('image')
+    const pipelineGlobalOptions = getEnabledModelsByType('image', 'characterModel')
     const pipelineGlobalCurrent = pipelineGlobalOptions.find((opt) => opt.modelKey === pipelineGlobalKey) ?? null
     const pipelineGlobalCapFields = computeCapabilityFields(pipelineGlobalCurrent, 'image')
 
@@ -216,7 +218,7 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
         setPipelineGlobalKey(newModelKey)
         setPipelineGlobalCapOverrides({})
         if (newModelKey) {
-            const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel', 'editModel']
+            const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel']
             const newModel = pipelineGlobalOptions.find((opt) => opt.modelKey === newModelKey)
             const newCapFields = extractCapabilityFieldsFromModel(
                 newModel?.capabilities as Record<string, unknown> | undefined,
@@ -230,8 +232,8 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
         if (!pipelineGlobalCurrent) return
         const parsed = allProps.parseBySample(rawValue, sample)
         setPipelineGlobalCapOverrides((prev) => ({ ...prev, [field]: parsed }))
-        // Batch update all 4 pipeline fields
-        const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel', 'editModel']
+        // Batch update image-generation pipeline fields.
+        const pipelineFields = ['characterModel', 'locationModel', 'storyboardModel']
         for (const pField of pipelineFields) {
             allProps.updateCapabilityDefault(pipelineGlobalCurrent.modelKey, field, parsed)
             // Also update each individual pipeline model's capability if they share the same model
@@ -268,16 +270,17 @@ export function DefaultModelCards(allProps: DefaultModelCardsProps) {
             <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
             <div className="relative z-10">
-                {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center gap-2.5 mb-1">
-                        <span className="glass-surface-soft inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--glass-text-secondary)]">
-                            <AppIcon name="settingsHex" className="w-4 h-4" />
-                        </span>
-                        <h2 className="text-xl font-bold text-[var(--glass-text-primary)]">{t('defaultModels')}</h2>
+                {showHeader ? (
+                    <div className="mb-8">
+                        <div className="flex items-center gap-2.5 mb-1">
+                            <span className="glass-surface-soft inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--glass-text-secondary)]">
+                                <AppIcon name="settingsHex" className="w-4 h-4" />
+                            </span>
+                            <h2 className="text-xl font-bold text-[var(--glass-text-primary)]">{t('defaultModels')}</h2>
+                        </div>
+                        <p className="text-[13px] text-[var(--glass-text-secondary)] ml-[38px]">{t('defaultModel.hint')}</p>
                     </div>
-                    <p className="text-[13px] text-[var(--glass-text-secondary)] ml-[38px]">{t('defaultModel.hint')}</p>
-                </div>
+                ) : null}
 
                 {/* ===== Section 1: Core Foundation ===== */}
                 <h3 className="text-[17px] font-bold text-[var(--glass-text-primary)] mb-5 flex items-center gap-2">

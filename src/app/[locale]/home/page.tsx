@@ -323,7 +323,7 @@ export default function HomePage() {
                 <button
                   onClick={() => setAiWriteOpen(true)}
                   disabled={createLoading}
-                  className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[var(--glass-tone-info-fg)]/40"
+                  className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
                 >
                   <AppIcon name="sparklesAlt" className="w-4 h-4 text-[#f59e0b]" />
                   <span

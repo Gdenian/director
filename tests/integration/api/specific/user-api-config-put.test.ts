@@ -27,8 +27,11 @@ type SavedProvider = {
   id: string
   name: string
   baseUrl?: string
+  serviceUrl?: string
+  providerKey?: string
   apiKey?: string
   hidden?: boolean
+  status?: string
   apiMode?: 'gemini-sdk' | 'openai-official'
   gatewayRoute?: 'official' | 'openai-compat'
 }
@@ -140,6 +143,224 @@ describe('api specific - user api-config PUT provider uniqueness', () => {
       'gemini-compatible:gm-1',
       'gemini-compatible:gm-2',
     ])
+    expect(savedProviders[0]).toMatchObject({
+      providerKey: 'openai-compatible',
+      serviceUrl: 'https://oa-a.test',
+      status: 'unchecked',
+    })
+    expect(savedProviders[0]?.baseUrl).toBeUndefined()
+  })
+
+  it('stores legacy providers and models in creative engine shape', async () => {
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'PUT',
+      body: {
+        providers: [
+          { id: 'openai-compatible:oa-1', name: 'OpenAI Node', baseUrl: 'https://oa.test/v1', apiKey: 'oa-key' },
+        ],
+        models: [
+          {
+            type: 'llm',
+            provider: 'openai-compatible:oa-1',
+            modelId: 'gpt-4.1-mini',
+            modelKey: 'openai-compatible:oa-1::gpt-4.1-mini',
+            name: 'GPT 4.1 Mini',
+            llmProtocol: 'responses',
+          },
+        ],
+      },
+    })
+
+    const res = await route.PUT(req, routeContext)
+    expect(res.status).toBe(200)
+
+    const savedProviders = readSavedProvidersFromUpsert()
+    expect(savedProviders[0]).toMatchObject({
+      id: 'openai-compatible:oa-1',
+      providerKey: 'openai-compatible',
+      serviceUrl: 'https://oa.test/v1',
+      apiKey: 'enc:oa-key',
+      status: 'unchecked',
+    })
+    expect(savedProviders[0]?.baseUrl).toBeUndefined()
+
+    const savedModels = readSavedModelsFromUpsert()
+    expect(savedModels[0]).toMatchObject({
+      id: 'openai-compatible:oa-1::gpt-4.1-mini',
+      engineId: 'openai-compatible:oa-1',
+      callName: 'gpt-4.1-mini',
+      modelKey: 'openai-compatible:oa-1::gpt-4.1-mini',
+      purpose: 'text',
+      enabled: true,
+      status: 'unchecked',
+      llmProtocol: 'responses',
+    })
+    expect(savedModels[0]?.provider).toBeUndefined()
+    expect(savedModels[0]?.modelId).toBeUndefined()
+    expect(typeof savedModels[0]?.llmProtocolCheckedAt).toBe('string')
+  })
+
+  it('preserves creative metadata when legacy clients save runtime config', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1',
+          name: 'OpenAI Node',
+          providerKey: 'openai-compatible',
+          serviceUrl: 'https://oa.test/v1',
+          apiKey: 'enc:existing',
+          status: 'available',
+          confidence: 'high',
+          lastCheckedAt: '2026-06-11T00:00:00.000Z',
+        },
+      ]),
+      customModels: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1::gpt-image-edit',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'gpt-image-edit',
+          modelKey: 'openai-compatible:oa-1::gpt-image-edit',
+          name: 'GPT Image Edit',
+          type: 'image',
+          purpose: 'image-edit',
+          enabled: true,
+          status: 'available',
+          confidence: 'high',
+          warningCodes: ['manual-review'],
+        },
+        {
+          id: 'openai-compatible:oa-1::draft-video',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'draft-video',
+          modelKey: 'openai-compatible:oa-1::draft-video',
+          name: 'Draft Video',
+          type: 'video',
+          purpose: 'video-generation',
+          enabled: false,
+          status: 'unchecked',
+          confidence: 'low',
+        },
+      ]),
+    })
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'PUT',
+      body: {
+        providers: [
+          { id: 'openai-compatible:oa-1', name: 'OpenAI Node', baseUrl: 'https://oa.test/v1' },
+        ],
+        models: [
+          {
+            type: 'image',
+            provider: 'openai-compatible:oa-1',
+            modelId: 'gpt-image-edit',
+            modelKey: 'openai-compatible:oa-1::gpt-image-edit',
+            name: 'GPT Image Edit',
+          },
+        ],
+      },
+    })
+
+    const res = await route.PUT(req, routeContext)
+    expect(res.status).toBe(200)
+
+    const savedProviders = readSavedProvidersFromUpsert()
+    expect(savedProviders[0]).toMatchObject({
+      id: 'openai-compatible:oa-1',
+      providerKey: 'openai-compatible',
+      serviceUrl: 'https://oa.test/v1',
+      status: 'available',
+      confidence: 'high',
+      lastCheckedAt: '2026-06-11T00:00:00.000Z',
+      apiKey: 'enc:existing',
+    })
+
+    const savedModels = readSavedModelsFromUpsert()
+    expect(savedModels).toHaveLength(2)
+    expect(savedModels.find((model) => model.modelKey === 'openai-compatible:oa-1::gpt-image-edit')).toMatchObject({
+      purpose: 'image-edit',
+      status: 'available',
+      confidence: 'high',
+      warningCodes: ['manual-review'],
+    })
+    expect(savedModels.find((model) => model.modelKey === 'openai-compatible:oa-1::draft-video')).toMatchObject({
+      purpose: 'video-generation',
+      enabled: false,
+      status: 'unchecked',
+      confidence: 'low',
+    })
+  })
+
+  it('drops enabled creative models omitted by legacy clients while preserving disabled drafts', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1',
+          name: 'OpenAI Node',
+          providerKey: 'openai-compatible',
+          serviceUrl: 'https://oa.test/v1',
+          apiKey: 'enc:existing',
+          status: 'available',
+        },
+      ]),
+      customModels: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1::gpt-image',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'gpt-image',
+          modelKey: 'openai-compatible:oa-1::gpt-image',
+          name: 'GPT Image',
+          type: 'image',
+          purpose: 'image-generation',
+          enabled: true,
+          status: 'available',
+        },
+        {
+          id: 'openai-compatible:oa-1::draft-video',
+          engineId: 'openai-compatible:oa-1',
+          callName: 'draft-video',
+          modelKey: 'openai-compatible:oa-1::draft-video',
+          name: 'Draft Video',
+          type: 'video',
+          purpose: 'video-generation',
+          enabled: false,
+          status: 'unchecked',
+        },
+      ]),
+    })
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'PUT',
+      body: {
+        providers: [
+          { id: 'openai-compatible:oa-1', name: 'OpenAI Node', baseUrl: 'https://oa.test/v1' },
+        ],
+        models: [],
+      },
+    })
+
+    const res = await route.PUT(req, routeContext)
+    expect(res.status).toBe(200)
+
+    const savedModels = readSavedModelsFromUpsert()
+    expect(savedModels.find((model) => model.modelKey === 'openai-compatible:oa-1::gpt-image')).toBeUndefined()
+    expect(savedModels.find((model) => model.modelKey === 'openai-compatible:oa-1::draft-video')).toMatchObject({
+      enabled: false,
+      status: 'unchecked',
+    })
   })
 
   it('regression: preserves reordered providers array order when persisting', async () => {
@@ -239,8 +460,9 @@ describe('api specific - user api-config PUT provider uniqueness', () => {
     expect(savedProviders).toHaveLength(1)
     expect(savedProviders[0]).toMatchObject({
       id: 'minimax',
-      baseUrl: 'https://api.minimaxi.com/v1',
+      serviceUrl: 'https://api.minimaxi.com/v1',
     })
+    expect(savedProviders[0]?.baseUrl).toBeUndefined()
   })
 
   it('rejects minimax provider custom baseUrl', async () => {
@@ -837,10 +1059,12 @@ describe('api specific - user api-config PUT provider uniqueness', () => {
     expect(savedModels).toHaveLength(1)
     expect(savedModels[0]).toMatchObject({
       type: 'lipsync',
-      provider: 'bailian',
-      modelId: 'videoretalk',
+      engineId: 'bailian',
+      callName: 'videoretalk',
       modelKey: 'bailian::videoretalk',
     })
+    expect(savedModels[0]?.provider).toBeUndefined()
+    expect(savedModels[0]?.modelId).toBeUndefined()
   })
 
   it('siliconflow provider rejects litellm gatewayRoute', async () => {

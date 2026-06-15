@@ -79,6 +79,22 @@ function parseModelKeyStrict(value) {
   }
 }
 
+function readModelProvider(modelRaw) {
+  return isNonEmptyString(modelRaw.engineId)
+    ? modelRaw.engineId.trim()
+    : isNonEmptyString(modelRaw.provider)
+      ? modelRaw.provider.trim()
+      : ''
+}
+
+function readModelId(modelRaw) {
+  return isNonEmptyString(modelRaw.callName)
+    ? modelRaw.callName.trim()
+    : isNonEmptyString(modelRaw.modelId)
+      ? modelRaw.modelId.trim()
+      : ''
+}
+
 function addSample(summary, sample) {
   if (summary.samples.length >= MAX_SAMPLES) return
   summary.samples.push(sample)
@@ -380,8 +396,8 @@ async function main() {
       }
 
       const modelKey = isNonEmptyString(modelRaw.modelKey) ? modelRaw.modelKey.trim() : ''
-      const provider = isNonEmptyString(modelRaw.provider) ? modelRaw.provider.trim() : ''
-      const modelId = isNonEmptyString(modelRaw.modelId) ? modelRaw.modelId.trim() : ''
+      const provider = readModelProvider(modelRaw)
+      const modelId = readModelId(modelRaw)
       const parsed = parseModelKeyStrict(modelKey)
       if (!parsed || parsed.provider !== provider || parsed.modelId !== modelId) {
         summary.userPreference.invalidCustomModelShape += 1
@@ -389,7 +405,7 @@ async function main() {
           table: 'userPreference',
           rowId: pref.id,
           field: `customModels[${index}].modelKey`,
-          reason: 'modelKey/provider/modelId mismatch',
+          reason: 'modelKey does not match engineId/callName or provider/modelId',
         })
       }
 

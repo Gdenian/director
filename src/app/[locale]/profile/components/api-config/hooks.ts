@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api-fetch'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
     Provider,
+    type CreativeEngine,
     CustomModel,
     PRESET_PROVIDERS,
     PRESET_MODELS,
@@ -54,11 +55,13 @@ interface UseProvidersReturn {
     updateProviderHidden: (providerId: string, hidden: boolean) => void
     updateProviderApiKey: (providerId: string, apiKey: string) => void
     updateProviderBaseUrl: (providerId: string, baseUrl: string) => void
+    updateProviderConnection: (providerId: string, updates: { apiKey: string; baseUrl: string; name?: string }) => void
     reorderProviders: (activeProviderId: string, overProviderId: string) => void
     addProvider: (provider: Omit<Provider, 'hasApiKey'>) => void
-    deleteProvider: (providerId: string) => void
+    addProviderWithModels: (provider: Omit<Provider, 'hasApiKey'>, models: Array<Omit<CustomModel, 'enabled'>>) => void
+    deleteProvider: (providerId: string, options?: { skipConfirm?: boolean }) => void
     updateProviderInfo: (providerId: string, name: string, baseUrl?: string) => void
-    toggleModel: (modelKey: string, providerId?: string) => void
+    toggleModel: (modelKey: string, providerId?: string, options?: { skipConfirm?: boolean }) => void
     updateModel: (modelKey: string, updates: Partial<CustomModel>, providerId?: string) => void
     addModel: (model: Omit<CustomModel, 'enabled'>) => void
     deleteModel: (modelKey: string, providerId?: string) => void
@@ -94,6 +97,7 @@ export function mergeProvidersForDisplay(
                 hasApiKey: apiKey.length > 0,
                 hidden: savedProvider.hidden === true,
                 baseUrl: providerBaseUrl,
+                protocolType: savedProvider.protocolType,
                 apiMode: savedProvider.apiMode,
                 gatewayRoute: savedProvider.gatewayRoute,
             })
@@ -118,6 +122,19 @@ export function mergeProvidersForDisplay(
     }
 
     return merged
+}
+
+function enginesToProviders(engines: CreativeEngine[]): Provider[] {
+    return engines.map((engine) => ({
+        id: engine.id,
+        name: engine.name,
+        baseUrl: engine.serviceUrl,
+        apiKey: engine.apiKey,
+        hidden: engine.hidden,
+        protocolType: engine.protocolType,
+        apiMode: engine.apiMode,
+        gatewayRoute: engine.gatewayRoute,
+    }))
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -235,6 +252,57 @@ function applyPricingDisplay(model: CustomModel, map: PricingDisplayMap): Custom
     }
 }
 
+export function mergeModelsForDisplay(
+    savedModelsRaw: CustomModel[],
+    presetModels: Array<Omit<CustomModel, 'enabled' | 'modelKey' | 'price'>>,
+    pricingDisplay: PricingDisplayMap,
+): CustomModel[] {
+    const savedModelsNormalized = savedModelsRaw.map((m: CustomModel) => ({
+        ...m,
+        modelKey: m.modelKey || encodeModelKey(m.provider, m.modelId),
+    }))
+    const savedModels: CustomModel[] = []
+    const seen = new Set<string>()
+    for (const model of savedModelsNormalized) {
+        const key = model.modelKey
+        if (seen.has(key)) continue
+        seen.add(key)
+        savedModels.push(model)
+    }
+
+    const hasSavedModels = savedModels.length > 0
+    const allModels = presetModels.map(preset => {
+        const presetModelKey = encodeModelKey(preset.provider, preset.modelId)
+        const saved = savedModels.find((m: CustomModel) =>
+            m.modelKey === presetModelKey
+        )
+        const alwaysEnabledPreset = preset.type === 'lipsync'
+        const mergedPreset: CustomModel = {
+            ...preset,
+            purpose: saved?.purpose ?? preset.purpose,
+            status: saved?.status ?? preset.status,
+            confidence: saved?.confidence ?? preset.confidence,
+            modelKey: presetModelKey,
+            enabled: isPresetComingSoonModelKey(presetModelKey)
+                ? false
+                : (hasSavedModels ? (alwaysEnabledPreset || saved?.enabled === true) : false),
+            price: 0,
+            capabilities: saved?.capabilities ?? preset.capabilities,
+            customPricing: saved?.customPricing ?? preset.customPricing,
+        }
+        return applyPricingDisplay(mergedPreset, pricingDisplay)
+    })
+    const customModels = savedModels.filter((m: CustomModel) =>
+        !presetModels.find((preset) => encodeModelKey(preset.provider, preset.modelId) === m.modelKey)
+    ).map((m: CustomModel) => ({
+        ...applyPricingDisplay(m, pricingDisplay),
+        // 尊重服务端返回的 enabled 字段（后端对 disabled presets 会明确返回 enabled: false）
+        enabled: (m as CustomModel & { enabled?: boolean }).enabled !== false,
+    }))
+
+    return [...allModels, ...customModels]
+}
+
 export function useProviders(): UseProvidersReturn {
     const locale = useLocale()
     const t = useTranslations('apiConfig')
@@ -295,51 +363,12 @@ export function useProviders(): UseProvidersReturn {
             const data = await res.json()
             const pricingDisplay = parsePricingDisplayMap((data as { pricingDisplay?: unknown }).pricingDisplay)
 
-            // 合并预设和已保存的提供商，保持 savedProviders 的顺序不变（拖拽排序依赖）
-            const savedProviders: Provider[] = data.providers || []
+            // 合并预设和已保存的创作引擎，保持服务顺序不变（拖拽排序依赖）
+            const savedProviders = enginesToProviders(data.engines || [])
             setProviders(mergeProvidersForDisplay(savedProviders, presetProviders))
 
             // 合并预设和已保存的模型
-            const savedModelsRaw = data.models || []
-            const savedModelsNormalized = savedModelsRaw.map((m: CustomModel) => ({
-                ...m,
-                modelKey: m.modelKey || encodeModelKey(m.provider, m.modelId),
-            }))
-            const savedModels: CustomModel[] = []
-            const seen = new Set<string>()
-            for (const model of savedModelsNormalized) {
-                const key = model.modelKey
-                if (seen.has(key)) continue
-                seen.add(key)
-                savedModels.push(model)
-            }
-            const hasSavedModels = savedModels.length > 0
-            const allModels = PRESET_MODELS.map(preset => {
-                const presetModelKey = encodeModelKey(preset.provider, preset.modelId)
-                const saved = savedModels.find((m: CustomModel) =>
-                    m.modelKey === presetModelKey
-                )
-                const alwaysEnabledPreset = preset.type === 'lipsync'
-                const mergedPreset: CustomModel = {
-                    ...preset,
-                    modelKey: presetModelKey,
-                    enabled: isPresetComingSoonModelKey(presetModelKey)
-                        ? false
-                        : (hasSavedModels ? (alwaysEnabledPreset || !!saved) : false),
-                    price: 0,
-                    capabilities: saved?.capabilities ?? preset.capabilities,
-                }
-                return applyPricingDisplay(mergedPreset, pricingDisplay)
-            })
-            const customModels = savedModels.filter((m: CustomModel) =>
-                !PRESET_MODELS.find((preset) => encodeModelKey(preset.provider, preset.modelId) === m.modelKey)
-            ).map((m: CustomModel) => ({
-                ...applyPricingDisplay(m, pricingDisplay),
-                // 尊重服务端返回的 enabled 字段（后端对 disabled presets 会明确返回 enabled: false）
-                enabled: (m as CustomModel & { enabled?: boolean }).enabled !== false,
-            }))
-
-            setModels([...allModels, ...customModels])
+            setModels(mergeModelsForDisplay(data.models || [], PRESET_MODELS, pricingDisplay))
 
             // 加载默认模型配置
             if (data.defaultModels) {
@@ -602,12 +631,48 @@ export function useProviders(): UseProvidersReturn {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [t, performSave])
 
-    const deleteProvider = useCallback((providerId: string) => {
+    const addProviderWithModels = useCallback((
+        provider: Omit<Provider, 'hasApiKey'>,
+        modelsToAdd: Array<Omit<CustomModel, 'enabled'>>,
+    ) => {
+        const normalizedProviderId = provider.id.toLowerCase()
+        const currentProviders = latestProvidersRef.current
+        if (currentProviders.some((p) => p.id.toLowerCase() === normalizedProviderId)) {
+            alert(t('providerIdExists'))
+            return
+        }
+
+        const newProvider: Provider = { ...provider, hasApiKey: !!provider.apiKey }
+        const nextProviders = [...currentProviders, newProvider]
+        const existingModelKeys = new Set(latestModelsRef.current.map((model) => model.modelKey))
+        const normalizedModels = modelsToAdd
+            .map((model) => ({
+                ...model,
+                modelKey: model.modelKey || encodeModelKey(model.provider, model.modelId),
+                price: 0,
+                priceLabel: '--',
+                enabled: true,
+            }))
+            .filter((model) => {
+                if (existingModelKeys.has(model.modelKey)) return false
+                existingModelKeys.add(model.modelKey)
+                return true
+            })
+        const nextModels = [...latestModelsRef.current, ...normalizedModels]
+
+        latestProvidersRef.current = nextProviders
+        latestModelsRef.current = nextModels
+        setProviders(nextProviders)
+        setModels(nextModels)
+        void performSave(undefined, false)
+    }, [t, performSave])
+
+    const deleteProvider = useCallback((providerId: string, options?: { skipConfirm?: boolean }) => {
         if (PRESET_PROVIDERS.find(p => p.id === providerId)) {
             alert(t('presetProviderCannotDelete'))
             return
         }
-        if (confirm(t('confirmDeleteProvider'))) {
+        if (options?.skipConfirm || confirm(t('confirmDeleteProvider'))) {
             setProviders(prev => {
                 const next = prev.filter(p => p.id !== providerId)
                 latestProvidersRef.current = next
@@ -657,8 +722,28 @@ export function useProviders(): UseProvidersReturn {
         })
     }, [performSave])
 
+    const updateProviderConnection = useCallback((providerId: string, updates: { apiKey: string; baseUrl: string; name?: string }) => {
+        setProviders(prev => {
+            const next = prev.map(p =>
+                p.id === providerId
+                    ? {
+                        ...p,
+                        name: updates.name?.trim() || p.name,
+                        apiKey: updates.apiKey,
+                        hasApiKey: !!updates.apiKey,
+                        baseUrl: updates.baseUrl,
+                    }
+                    : p
+            )
+            latestProvidersRef.current = next
+            void performSave(undefined, true)
+            return next
+        })
+    }, [performSave])
+
     // 模型操作
-    const toggleModel = useCallback((modelKey: string, providerId?: string) => {
+    const toggleModel = useCallback((modelKey: string, providerId?: string, options?: { skipConfirm?: boolean }) => {
+        void options
         if (isPresetComingSoonModelKey(modelKey)) {
             return
         }
@@ -777,8 +862,10 @@ export function useProviders(): UseProvidersReturn {
         updateProviderHidden,
         updateProviderApiKey,
         updateProviderBaseUrl,
+        updateProviderConnection,
         reorderProviders,
         addProvider,
+        addProviderWithModels,
         deleteProvider,
         updateProviderInfo,
         toggleModel,

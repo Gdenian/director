@@ -81,6 +81,8 @@ describe('Navbar download logs entry', () => {
     expect(html).toContain('href="/api/admin/download-logs"')
     expect(html).toContain('download=""')
     expect(html).not.toContain('Beta v')
+    expect(html).not.toContain(['Beta', 'v'].join(' '))
+    expect(html).not.toContain('lucide-sparkles')
   })
 
   it('does not render the download logs entry for signed-out users', () => {

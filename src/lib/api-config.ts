@@ -14,11 +14,20 @@ import {
   parseModelKeyStrict,
   type UnifiedModelType,
 } from './model-config-contract'
+import {
+  parseCreativeEngines,
+  parseCreativeModels,
+  toRuntimeModel,
+  toRuntimeProvider,
+} from './creative-engine/persisted-config'
+import {
+  getMissingCreativeEngineModelMessage,
+  getUnavailableCreativeEngineModelMessage,
+} from './creative-engine/runtime-preflight'
 import type {
   OpenAICompatMediaTemplate,
   OpenAICompatMediaTemplateSource,
 } from './openai-compat-media-template'
-import { validateOpenAICompatMediaTemplate } from './user-api/model-template/validator'
 
 export interface CustomModel {
   modelId: string
@@ -31,6 +40,8 @@ export interface CustomModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  enabled?: boolean
+  status?: string
   // Non-authoritative display field; billing uses unified server pricing catalog.
   price: number
 }
@@ -57,8 +68,6 @@ interface CustomProvider {
   gatewayRoute?: GatewayRouteType
 }
 
-type LlmProtocolType = 'responses' | 'chat-completions'
-
 function normalizeProviderBaseUrl(providerId: string, rawBaseUrl?: string): string | undefined {
   const providerKey = getProviderKey(providerId)
   if (providerKey === 'minimax') {
@@ -84,30 +93,8 @@ function normalizeProviderBaseUrl(providerId: string, rawBaseUrl?: string): stri
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
 function readTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function isUnifiedModelType(value: unknown): value is UnifiedModelType {
-  return (
-    value === 'llm'
-    || value === 'image'
-    || value === 'video'
-    || value === 'audio'
-    || value === 'lipsync'
-  )
-}
-
-function isGatewayRoute(value: unknown): value is GatewayRouteType {
-  return value === 'official' || value === 'openai-compat'
-}
-
-function isLlmProtocol(value: unknown): value is LlmProtocolType {
-  return value === 'responses' || value === 'chat-completions'
 }
 
 function assertModelKey(value: string, field: string): { provider: string; modelId: string; modelKey: string } {
@@ -119,163 +106,13 @@ function assertModelKey(value: string, field: string): { provider: string; model
 }
 
 function parseCustomProviders(rawProviders: string | null | undefined): CustomProvider[] {
-  if (!rawProviders) return []
-
-  let parsedUnknown: unknown
-  try {
-    parsedUnknown = JSON.parse(rawProviders)
-  } catch {
-    throw new Error('PROVIDER_PAYLOAD_INVALID: customProviders is not valid JSON')
-  }
-
-  if (!Array.isArray(parsedUnknown)) {
-    throw new Error('PROVIDER_PAYLOAD_INVALID: customProviders must be an array')
-  }
-
-  const providers: CustomProvider[] = []
-  for (let index = 0; index < parsedUnknown.length; index += 1) {
-    const raw = parsedUnknown[index]
-    if (!isRecord(raw)) {
-      throw new Error(`PROVIDER_PAYLOAD_INVALID: providers[${index}] must be an object`)
-    }
-
-    const id = readTrimmedString(raw.id)
-    const name = readTrimmedString(raw.name)
-    if (!id || !name) {
-      throw new Error(`PROVIDER_PAYLOAD_INVALID: providers[${index}] missing id or name`)
-    }
-    const normalizedId = id.toLowerCase()
-    if (providers.some((provider) => provider.id.toLowerCase() === normalizedId)) {
-      throw new Error(`PROVIDER_DUPLICATE: providers[${index}].id duplicates id ${id}`)
-    }
-
-    const providerKey = getProviderKey(id).toLowerCase()
-    const apiModeRaw = raw.apiMode
-    let apiMode: 'gemini-sdk' | 'openai-official' | undefined
-    if (apiModeRaw === undefined) {
-      apiMode = undefined
-    } else if (apiModeRaw === 'gemini-sdk' || apiModeRaw === 'openai-official') {
-      if (providerKey === 'gemini-compatible' && apiModeRaw === 'openai-official') {
-        throw new Error(`PROVIDER_API_MODE_INVALID: providers[${index}].apiMode`)
-      }
-      apiMode = apiModeRaw
-    } else {
-      throw new Error(`PROVIDER_API_MODE_INVALID: providers[${index}].apiMode`)
-    }
-
-    const gatewayRouteRaw = raw.gatewayRoute
-    let gatewayRoute: GatewayRouteType | undefined
-    if (gatewayRouteRaw === undefined) {
-      gatewayRoute = undefined
-    } else if (!isGatewayRoute(gatewayRouteRaw)) {
-      throw new Error(`PROVIDER_GATEWAY_ROUTE_INVALID: providers[${index}].gatewayRoute`)
-    } else if (providerKey === 'openai-compatible' && gatewayRouteRaw === 'official') {
-      throw new Error(`PROVIDER_GATEWAY_ROUTE_INVALID: providers[${index}].gatewayRoute`)
-    } else if (providerKey !== 'openai-compatible' && gatewayRouteRaw === 'openai-compat') {
-      throw new Error(`PROVIDER_GATEWAY_ROUTE_INVALID: providers[${index}].gatewayRoute`)
-    } else {
-      gatewayRoute = gatewayRouteRaw
-    }
-
-    providers.push({
-      id,
-      name,
-      baseUrl: readTrimmedString(raw.baseUrl) || undefined,
-      apiKey: readTrimmedString(raw.apiKey) || undefined,
-      apiMode,
-      gatewayRoute,
-    })
-  }
-
-  return providers
-}
-
-function normalizeStoredModel(raw: unknown, index: number): CustomModel {
-  if (!isRecord(raw)) {
-    throw new Error(`MODEL_PAYLOAD_INVALID: models[${index}] must be an object`)
-  }
-
-  if (!isUnifiedModelType(raw.type)) {
-    throw new Error(`MODEL_TYPE_INVALID: models[${index}].type is invalid`)
-  }
-
-  const providerFromField = readTrimmedString(raw.provider)
-  const modelIdFromField = readTrimmedString(raw.modelId)
-  const modelKeyFromField = readTrimmedString(raw.modelKey)
-
-  const parsedFromKey = modelKeyFromField ? parseModelKeyStrict(modelKeyFromField) : null
-  const provider = providerFromField || parsedFromKey?.provider || ''
-  const modelId = modelIdFromField || parsedFromKey?.modelId || ''
-  const modelKey = composeModelKey(provider, modelId)
-
-  if (!modelKey) {
-    throw new Error(`MODEL_KEY_INVALID: models[${index}] must include provider and modelId`)
-  }
-
-  if (parsedFromKey && parsedFromKey.modelKey !== modelKey) {
-    throw new Error(`MODEL_KEY_MISMATCH: models[${index}].modelKey conflicts with provider/modelId`)
-  }
-
-  const llmProtocolRaw = raw.llmProtocol
-  let llmProtocol: LlmProtocolType | undefined
-  if (llmProtocolRaw !== undefined && llmProtocolRaw !== null) {
-    if (!isLlmProtocol(llmProtocolRaw)) {
-      throw new Error(`MODEL_LLM_PROTOCOL_INVALID: models[${index}].llmProtocol`)
-    }
-    llmProtocol = llmProtocolRaw
-  }
-  const llmProtocolCheckedAt = readTrimmedString(raw.llmProtocolCheckedAt) || undefined
-
-  const compatMediaTemplateRaw = raw.compatMediaTemplate
-  let compatMediaTemplate: OpenAICompatMediaTemplate | undefined
-  if (compatMediaTemplateRaw !== undefined && compatMediaTemplateRaw !== null) {
-    const validated = validateOpenAICompatMediaTemplate(compatMediaTemplateRaw)
-    if (!validated.ok || !validated.template) {
-      throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_INVALID: models[${index}].compatMediaTemplate`)
-    }
-    compatMediaTemplate = validated.template
-  }
-  const compatMediaTemplateCheckedAt = readTrimmedString(raw.compatMediaTemplateCheckedAt) || undefined
-  const compatMediaTemplateSourceRaw = readTrimmedString(raw.compatMediaTemplateSource)
-  const compatMediaTemplateSource = compatMediaTemplateSourceRaw === 'ai' || compatMediaTemplateSourceRaw === 'manual'
-    ? compatMediaTemplateSourceRaw
-    : undefined
-
-  return {
-    modelId,
-    modelKey,
-    provider,
-    type: raw.type,
-    name: readTrimmedString(raw.name) || modelId,
-    ...(llmProtocol ? { llmProtocol } : {}),
-    ...(llmProtocolCheckedAt ? { llmProtocolCheckedAt } : {}),
-    ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
-    ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
-    ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
-    price: 0,
-  }
+  return parseCreativeEngines(rawProviders).map(toRuntimeProvider)
 }
 
 function parseCustomModels(rawModels: string | null | undefined): CustomModel[] {
-  if (!rawModels) return []
-
-  let parsedUnknown: unknown
-  try {
-    parsedUnknown = JSON.parse(rawModels)
-  } catch {
-    throw new Error('MODEL_PAYLOAD_INVALID: customModels is not valid JSON')
-  }
-
-  if (!Array.isArray(parsedUnknown)) {
-    throw new Error('MODEL_PAYLOAD_INVALID: customModels must be an array')
-  }
-
-  const models: CustomModel[] = []
-  for (let index = 0; index < parsedUnknown.length; index += 1) {
-    models.push(normalizeStoredModel(parsedUnknown[index], index))
-  }
-
-  return models
+  return parseCreativeModels(rawModels)
+    .filter((model) => model.enabled && model.status !== 'disabled' && model.status !== 'failed')
+    .map(toRuntimeModel)
 }
 
 function pickProviderStrict(
@@ -288,7 +125,11 @@ function pickProviderStrict(
   throw new Error(`PROVIDER_NOT_FOUND: ${providerId} is not configured`)
 }
 
-async function readUserConfig(userId: string): Promise<{ models: CustomModel[]; providers: CustomProvider[] }> {
+async function readUserConfig(userId: string): Promise<{
+  models: CustomModel[]
+  providers: CustomProvider[]
+  allModels: CustomModel[]
+}> {
   const pref = await prisma.userPreference.findUnique({
     where: { userId },
     select: {
@@ -297,8 +138,10 @@ async function readUserConfig(userId: string): Promise<{ models: CustomModel[]; 
     },
   })
 
+  const allModels = parseCreativeModels(pref?.customModels).map(toRuntimeModel)
   return {
     models: parseCustomModels(pref?.customModels),
+    allModels,
     providers: parseCustomProviders(pref?.customProviders),
   }
 }
@@ -326,10 +169,19 @@ export async function resolveModelSelection(
   mediaType: ModelMediaType,
 ): Promise<ModelSelection> {
   const parsed = assertModelKey(model, `${mediaType} model`)
-  const models = await getModelsByType(userId, mediaType)
+  const { allModels } = await readUserConfig(userId)
+  const models = allModels.filter((candidate) => candidate.enabled && candidate.status !== 'disabled' && candidate.status !== 'failed' && candidate.type === mediaType)
 
   const exact = findModelByKey(models, parsed.modelKey)
   if (!exact) {
+    const configuredButUnavailable = allModels.some((candidate) =>
+      candidate.modelKey === parsed.modelKey
+      && candidate.type === mediaType
+      && (candidate.enabled === false || candidate.status === 'disabled' || candidate.status === 'failed')
+    )
+    if (configuredButUnavailable) {
+      throw new Error(getUnavailableCreativeEngineModelMessage())
+    }
     throw new Error(`MODEL_NOT_FOUND: ${parsed.modelKey} is not enabled for ${mediaType}`)
   }
 
@@ -357,7 +209,7 @@ async function resolveSingleModelSelection(
 ): Promise<ModelSelection> {
   const models = await getModelsByType(userId, mediaType)
   if (models.length === 0) {
-    throw new Error(`MODEL_NOT_CONFIGURED: no ${mediaType} model is enabled`)
+    throw new Error(getMissingCreativeEngineModelMessage(mediaType))
   }
   if (models.length > 1) {
     throw new Error(`MODEL_SELECTION_REQUIRED: multiple ${mediaType} models are enabled, provide model_key explicitly`)
