@@ -3,6 +3,7 @@ import { parseCreativeModels } from '@/lib/creative-engine/persisted-config'
 import { mediaCapabilityStatusKey } from '@/lib/media-contract/status'
 import type { MediaContract } from '@/lib/media-contract/types'
 import type { SaveMediaContractTestResultInput } from './types'
+import { assertMediaContractTestCapability } from './validate'
 
 export async function saveMediaContractTestResult(input: SaveMediaContractTestResultInput): Promise<void> {
   const pref = await prisma.userPreference.findUnique({
@@ -22,6 +23,7 @@ export async function saveMediaContractTestResult(input: SaveMediaContractTestRe
   if (!model?.mediaContract) {
     throw new Error('MEDIA_TEST_MODEL_NOT_FOUND')
   }
+  assertMediaContractTestCapability(model.mediaContract, input.capability)
 
   const checkedAt = new Date().toISOString()
   const statusKey = mediaCapabilityStatusKey(input.capability)

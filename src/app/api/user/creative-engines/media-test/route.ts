@@ -6,6 +6,7 @@ import { parseCreativeEngines, parseCreativeModels } from '@/lib/creative-engine
 import { prisma } from '@/lib/prisma'
 import { runMediaContractTest } from '@/lib/user-api/media-contract-test/runner'
 import { saveMediaContractTestResult } from '@/lib/user-api/media-contract-test/save-result'
+import { isMediaContractCapabilitySupported } from '@/lib/user-api/media-contract-test/validate'
 import type { MediaCapability } from '@/lib/media-contract/types'
 
 type MediaTestRequestBody = {
@@ -53,6 +54,21 @@ function readOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
+function parseMediaTestModels(rawModels: string | null | undefined) {
+  try {
+    return parseCreativeModels(rawModels)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('CREATIVE_MODEL_MEDIA_CONTRACT_INVALID') && message.includes('mediaContract.executor')) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MEDIA_TEST_COMPAT_TEMPLATE_REQUIRED',
+        field: 'modelKey',
+      })
+    }
+    throw error
+  }
+}
+
 export const POST = apiHandler(async (request: NextRequest) => {
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
@@ -81,7 +97,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
       customModels: true,
     },
   })
-  const models = parseCreativeModels(pref?.customModels)
+  const models = parseMediaTestModels(pref?.customModels)
   const model = models.find((candidate) => candidate.modelKey === modelKey)
   if (!model) {
     throw new ApiError('INVALID_PARAMS', {
@@ -95,12 +111,42 @@ export const POST = apiHandler(async (request: NextRequest) => {
       field: 'modelKey',
     })
   }
+  if (!model.mediaContract) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_MEDIA_CONTRACT_REQUIRED',
+      field: 'modelKey',
+    })
+  }
+  if (model.mediaContract.executor === 'openai-compat-template' && !model.compatMediaTemplate) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_COMPAT_TEMPLATE_REQUIRED',
+      field: 'modelKey',
+    })
+  }
+  if (model.mediaContract.executor !== 'openai-compat-template') {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_EXECUTOR_UNSUPPORTED',
+      field: 'modelKey',
+    })
+  }
+  if (!isMediaContractCapabilitySupported(model.mediaContract, capability)) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_CAPABILITY_UNSUPPORTED',
+      field: 'capability',
+    })
+  }
 
   const providers = parseCreativeEngines(pref?.customProviders)
   const provider = providers.find((candidate) => candidate.id === model.engineId)
   if (!provider) {
     throw new ApiError('INVALID_PARAMS', {
       code: 'MEDIA_TEST_PROVIDER_NOT_FOUND',
+      field: 'modelKey',
+    })
+  }
+  if (!provider.serviceUrl) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'MEDIA_TEST_BASE_URL_ERROR',
       field: 'modelKey',
     })
   }

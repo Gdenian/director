@@ -42,9 +42,9 @@ export function redactMediaTestSecrets(value: string): string {
     .replace(/(["']Authorization["']\s*:\s*["']Bearer\s+)([^"']+)(["'])/gi, '$1[REDACTED]$3')
     .replace(/(["']Authorization["']\s*:\s*["'])([^"']+)(["'])/gi, '$1[REDACTED]$3')
     .replace(/(["'](?:api_key|key)["']\s*:\s*["'])([^"']+)(["'])/gi, '$1[REDACTED]$3')
-    .replace(/(Authorization\s*[:=]\s*Bearer\s+)[^\s"',}]+/gi, '$1[REDACTED]')
-    .replace(/(Authorization\s*[:=]\s*)[^\s"',}]+/gi, '$1[REDACTED]')
-    .replace(/(["']?(?:api_key|key)["']?\s*[:=]\s*["']?)([^"',}\s]+)/gi, '$1[REDACTED]')
+    .replace(/(Authorization\s*[:=]\s*Bearer\s+)[^\s"',}&]+/gi, '$1[REDACTED]')
+    .replace(/(Authorization\s*[:=]\s*)[^\s"',}&]+/gi, '$1[REDACTED]')
+    .replace(/(["']?(?:api_key|key)["']?\s*[:=]\s*["']?)([^"',}\s&]+)/gi, '$1[REDACTED]')
     .replace(/sk-[A-Za-z0-9_-]+/g, 'sk-[REDACTED]')
 }
 
@@ -62,8 +62,8 @@ export function classifyMediaTestError(input: ClassificationInput): MediaTestDia
   } else if (input.status === 401) {
     code = 'MEDIA_TEST_INVALID_KEY'
   } else if (input.status === 403) {
-    code = normalized.includes('balance') || normalized.includes('quota')
-      ? 'MEDIA_TEST_PERMISSION_OR_PLAN'
+    code = normalized.includes('balance')
+      ? 'MEDIA_TEST_BALANCE_INSUFFICIENT'
       : 'MEDIA_TEST_PERMISSION_OR_PLAN'
   } else if (input.status === 429) {
     code = 'MEDIA_TEST_RATE_LIMIT'

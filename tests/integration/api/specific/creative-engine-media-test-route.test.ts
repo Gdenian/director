@@ -26,13 +26,19 @@ const runnerState = vi.hoisted(() => ({
 }))
 
 const prismaMock = vi.hoisted(() => ({
+  state: {
+    omitMediaContract: false,
+    omitCompatMediaTemplate: false,
+    omitProviderServiceUrl: false,
+    executor: 'openai-compat-template',
+  },
   userPreference: {
     findUnique: vi.fn(async () => ({
       customProviders: JSON.stringify([{
         id: 'openai-compatible:relay',
         name: 'Relay',
         providerKey: 'openai-compatible',
-        serviceUrl: 'https://api.aisenyu.test/v1',
+        ...(prismaMock.state.omitProviderServiceUrl ? {} : { serviceUrl: 'https://api.aisenyu.test/v1' }),
         apiKey: 'enc:sk-route-secret',
         protocolType: 'openai-compatible',
         status: 'available',
@@ -47,7 +53,7 @@ const prismaMock = vi.hoisted(() => ({
         purpose: 'image-generation',
         enabled: true,
         status: 'available',
-        compatMediaTemplate: {
+        ...(prismaMock.state.omitCompatMediaTemplate ? {} : { compatMediaTemplate: {
           version: 1,
           mediaType: 'image',
           mode: 'sync',
@@ -63,19 +69,21 @@ const prismaMock = vi.hoisted(() => ({
           response: {
             outputUrlPath: '$.data[0].url',
           },
-        },
-        compatMediaTemplateSource: 'manual',
-        mediaContract: {
-          version: 1,
-          mediaType: 'image',
-          executor: 'openai-compat-template',
-          capabilities: ['text-to-image'],
-          input: {},
-          output: {
-            kind: 'url',
-            urlPath: '$.data[0].url',
+        } }),
+        ...(prismaMock.state.omitCompatMediaTemplate ? {} : { compatMediaTemplateSource: 'manual' }),
+        ...(prismaMock.state.omitMediaContract ? {} : {
+          mediaContract: {
+            version: 1,
+            mediaType: 'image',
+            executor: prismaMock.state.executor,
+            capabilities: ['text-to-image'],
+            input: {},
+            output: {
+              kind: 'url',
+              urlPath: '$.data[0].url',
+            },
           },
-        },
+        }),
         mediaContractSource: 'manual',
       }]),
     })),
@@ -99,6 +107,10 @@ describe('api specific - creative engine media-test route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    prismaMock.state.omitMediaContract = false
+    prismaMock.state.omitCompatMediaTemplate = false
+    prismaMock.state.omitProviderServiceUrl = false
+    prismaMock.state.executor = 'openai-compat-template'
     resetAuthMockState()
   })
 
@@ -196,5 +208,86 @@ describe('api specific - creative engine media-test route', () => {
       capability: 'text-to-image',
       status: 'passed',
     }))
+  })
+
+  it('rejects unsupported capabilities before running or saving', async () => {
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/creative-engines/media-test/route')
+
+    const res = await route.POST(buildMockRequest({
+      path: '/api/user/creative-engines/media-test',
+      method: 'POST',
+      body: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        capability: 'image-to-video',
+        confirmedCost: true,
+        sample: { prompt: '生成一张简单测试图' },
+      },
+    }), routeContext)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error?.details).toMatchObject({
+      code: 'MEDIA_TEST_CAPABILITY_UNSUPPORTED',
+      field: 'capability',
+    })
+    expect(runnerState.runMediaContractTest).not.toHaveBeenCalled()
+    expect(runnerState.saveMediaContractTestResult).not.toHaveBeenCalled()
+  })
+
+  it('rejects missing media contract as a config error before running or saving', async () => {
+    prismaMock.state.omitMediaContract = true
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/creative-engines/media-test/route')
+
+    const res = await route.POST(buildMockRequest({
+      path: '/api/user/creative-engines/media-test',
+      method: 'POST',
+      body: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        capability: 'text-to-image',
+        confirmedCost: true,
+        sample: { prompt: '生成一张简单测试图' },
+      },
+    }), routeContext)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error?.details).toMatchObject({
+      code: 'MEDIA_TEST_MEDIA_CONTRACT_REQUIRED',
+      field: 'modelKey',
+    })
+    expect(runnerState.runMediaContractTest).not.toHaveBeenCalled()
+    expect(runnerState.saveMediaContractTestResult).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['missing compat template', { omitCompatMediaTemplate: true }, 'MEDIA_TEST_COMPAT_TEMPLATE_REQUIRED'],
+    ['unsupported executor', { executor: 'openai-standard' }, 'MEDIA_TEST_EXECUTOR_UNSUPPORTED'],
+    ['missing provider base url', { omitProviderServiceUrl: true }, 'MEDIA_TEST_BASE_URL_ERROR'],
+  ])('rejects %s as a config error before running or saving', async (_name, statePatch, code) => {
+    Object.assign(prismaMock.state, statePatch)
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/creative-engines/media-test/route')
+
+    const res = await route.POST(buildMockRequest({
+      path: '/api/user/creative-engines/media-test',
+      method: 'POST',
+      body: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        capability: 'text-to-image',
+        confirmedCost: true,
+        sample: { prompt: '生成一张简单测试图' },
+      },
+    }), routeContext)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error?.details).toMatchObject({ code })
+    expect(runnerState.runMediaContractTest).not.toHaveBeenCalled()
+    expect(runnerState.saveMediaContractTestResult).not.toHaveBeenCalled()
   })
 })

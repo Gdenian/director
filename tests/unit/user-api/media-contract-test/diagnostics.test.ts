@@ -16,6 +16,11 @@ describe('media test diagnostics', () => {
       .toMatchObject({ code: 'MEDIA_TEST_RESPONSE_JSON_PATH_MISMATCH' })
   })
 
+  it('maps balance-like provider messages to insufficient balance', () => {
+    expect(classifyMediaTestError({ status: 403, body: 'insufficient balance' }))
+      .toMatchObject({ code: 'MEDIA_TEST_BALANCE_INSUFFICIENT' })
+  })
+
   it('redacts json-shaped secrets from messages and snippets', () => {
     const result = classifyMediaTestError({
       status: 500,

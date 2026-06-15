@@ -67,6 +67,7 @@ describe('media contract test runner', () => {
       sample: {
         prompt: '生成一张简单测试图',
       },
+      limits: { fetchTimeoutMs: 0 },
     })
 
     expect(result.status).toBe('passed')
@@ -86,5 +87,137 @@ describe('media contract test runner', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://cdn.test/image.png', expect.objectContaining({
       method: 'HEAD',
     }))
+  })
+
+  it('rejects capabilities not listed by the selected media contract', async () => {
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract,
+        compatMediaTemplate,
+      },
+      capability: 'image-to-video',
+      sample: { prompt: '生成一张简单测试图' },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.status).toBe('failed')
+    expect(result.diagnostic).toMatchObject({ code: 'MEDIA_TEST_REQUEST_SCHEMA_MISMATCH' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('redacts secret query params and sk values from preview endpoint url', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: 'https://cdn.test/image.png' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract,
+        compatMediaTemplate: {
+          ...compatMediaTemplate,
+          create: {
+            ...compatMediaTemplate.create,
+            path: '/images/generations?api_key=plain-api-key&token=sk-token-secret&ok=1',
+          },
+        },
+      },
+      capability: 'text-to-image',
+      sample: { prompt: '生成一张简单测试图' },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.preview?.endpointUrl).toBe('https://api.aisenyu.test/v1/images/generations?api_key=%5BREDACTED%5D&token=%5BREDACTED%5D&ok=1')
+    expect(JSON.stringify(result.preview)).not.toContain('plain-api-key')
+    expect(JSON.stringify(result.preview)).not.toContain('sk-token-secret')
+  })
+
+  it('caps async polling timeout and interval for media tests', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'task-1' }), { status: 200 }))
+      .mockImplementation(async () => new Response(JSON.stringify({ status: 'running' }), { status: 200 }))
+
+    const resultPromise = runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::video-1',
+        modelId: 'video-1',
+        mediaType: 'video',
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['text-to-video'],
+          input: {},
+          output: {
+            kind: 'asyncTask',
+            urlPath: '$.url',
+          },
+        },
+        compatMediaTemplate: {
+          version: 1,
+          mediaType: 'video',
+          mode: 'async',
+          create: {
+            method: 'POST',
+            path: '/videos',
+            contentType: 'application/json',
+            bodyTemplate: {
+              model: '{{model}}',
+              prompt: '{{prompt}}',
+            },
+          },
+          status: {
+            method: 'GET',
+            path: '/videos/{{task_id}}',
+          },
+          response: {
+            taskIdPath: '$.id',
+            statusPath: '$.status',
+            outputUrlPath: '$.url',
+          },
+          polling: {
+            intervalMs: 600_000,
+            timeoutMs: 600_000,
+            doneStates: ['done'],
+            failStates: ['failed'],
+          },
+        },
+      },
+      capability: 'text-to-video',
+      sample: { prompt: '生成一段简单测试视频' },
+      limits: {
+        maxPollTimeoutMs: 1,
+        maxPollIntervalMs: 1,
+        fetchTimeoutMs: 0,
+      },
+    })
+    const result = await resultPromise
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      diagnostic: { code: 'MEDIA_TEST_PROVIDER_TIMEOUT' },
+    })
   })
 })

@@ -49,6 +49,11 @@ export type RunMediaContractTestInput = {
   model: MediaContractTestModel
   capability: MediaCapability
   sample?: MediaContractTestSample
+  limits?: {
+    maxPollTimeoutMs?: number
+    maxPollIntervalMs?: number
+    fetchTimeoutMs?: number
+  }
 }
 
 export type SaveMediaContractTestResultInput = {

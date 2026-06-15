@@ -5,6 +5,7 @@ import {
   readJsonPath,
 } from '@/lib/openai-compat-template-runtime'
 import { classifyMediaTestError, redactMediaTestSecrets } from '@/lib/media-contract/test-diagnostics'
+import { assertMediaContractTestCapability } from './validate'
 import type {
   MediaContractTestOutput,
   MediaContractTestPreview,
@@ -12,9 +13,29 @@ import type {
   RunMediaContractTestInput,
 } from './types'
 
+const DEFAULT_FETCH_TIMEOUT_MS = 30_000
+const DEFAULT_MAX_POLL_TIMEOUT_MS = 30_000
+const DEFAULT_MAX_POLL_INTERVAL_MS = 1_000
+const SECRET_QUERY_KEYS = new Set(['key', 'api_key', 'token', 'access_token'])
+
 function contentTypeFromHeaders(headers: Record<string, string>): string | undefined {
   const key = Object.keys(headers).find((name) => name.toLowerCase() === 'content-type')
   return key ? headers[key] : undefined
+}
+
+function redactEndpointUrl(value: string): string {
+  const redactedSk = redactMediaTestSecrets(value)
+  try {
+    const url = new URL(redactedSk)
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (SECRET_QUERY_KEYS.has(key.toLowerCase())) {
+        url.searchParams.set(key, '[REDACTED]')
+      }
+    }
+    return url.toString()
+  } catch {
+    return redactedSk.replace(/([?&](?:key|api_key|token|access_token)=)[^&]+/gi, '$1[REDACTED]')
+  }
 }
 
 async function bodyToPreview(body: BodyInit | undefined): Promise<string | undefined> {
@@ -41,15 +62,15 @@ function readOutput(payload: unknown, input: RunMediaContractTestInput): MediaCo
   return null
 }
 
-async function verifyOutputUrl(url: string): Promise<boolean> {
-  const head = await fetch(url, { method: 'HEAD' })
+async function verifyOutputUrl(url: string, input: RunMediaContractTestInput): Promise<boolean> {
+  const head = await mediaTestFetch(url, { method: 'HEAD' }, input)
   if (head.ok) return true
   if (head.status !== 405) return false
 
-  const ranged = await fetch(url, {
+  const ranged = await mediaTestFetch(url, {
     method: 'GET',
     headers: { Range: 'bytes=0-0' },
-  })
+  }, input)
   return ranged.ok
 }
 
@@ -75,21 +96,36 @@ async function previewFromRequest(request: Awaited<ReturnType<typeof renderCreat
   const contentType = contentTypeFromHeaders(request.headers)
   const bodyPreview = await bodyToPreview(request.body)
   return {
-    endpointUrl: request.endpointUrl,
+    endpointUrl: redactEndpointUrl(request.endpointUrl),
     method: request.method,
     ...(contentType ? { contentType } : {}),
     ...(bodyPreview ? { bodyPreview } : {}),
   }
 }
 
+function buildFetchInit(init: RequestInit, timeoutMs: number): RequestInit {
+  if (timeoutMs > 0 && typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+    }
+  }
+  return init
+}
+
+async function mediaTestFetch(url: string, init: RequestInit, input: RunMediaContractTestInput): Promise<Response> {
+  const timeoutMs = input.limits?.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  return await fetch(url, buildFetchInit(init, timeoutMs))
+}
+
 async function runSyncTemplate(input: RunMediaContractTestInput): Promise<MediaContractTestResult> {
   const request = await renderCreateRequest(input)
   const preview = await previewFromRequest(request)
-  const response = await fetch(request.endpointUrl, {
+  const response = await mediaTestFetch(request.endpointUrl, {
     method: request.method,
     headers: request.headers,
     ...(request.body ? { body: request.body } : {}),
-  })
+  }, input)
   const rawText = await response.text().catch(() => '')
   const payload = normalizeResponseJson(rawText)
   if (!response.ok) {
@@ -109,7 +145,7 @@ async function runSyncTemplate(input: RunMediaContractTestInput): Promise<MediaC
     }
   }
 
-  if (output.url && !(await verifyOutputUrl(output.url))) {
+  if (output.url && !(await verifyOutputUrl(output.url, input))) {
     return {
       status: 'failed',
       preview,
@@ -137,11 +173,11 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
   const template = input.model.compatMediaTemplate
   const createRequest = await renderCreateRequest(input)
   const preview = await previewFromRequest(createRequest)
-  const createResponse = await fetch(createRequest.endpointUrl, {
+  const createResponse = await mediaTestFetch(createRequest.endpointUrl, {
     method: createRequest.method,
     headers: createRequest.headers,
     ...(createRequest.body ? { body: createRequest.body } : {}),
-  })
+  }, input)
   const createText = await createResponse.text().catch(() => '')
   const createPayload = normalizeResponseJson(createText)
   if (!createResponse.ok) {
@@ -163,8 +199,10 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
     }
   }
 
+  const timeoutMs = Math.min(template.polling.timeoutMs, input.limits?.maxPollTimeoutMs ?? DEFAULT_MAX_POLL_TIMEOUT_MS)
+  const intervalMs = Math.min(template.polling.intervalMs, input.limits?.maxPollIntervalMs ?? DEFAULT_MAX_POLL_INTERVAL_MS)
   const startedAt = Date.now()
-  while (Date.now() - startedAt <= template.polling.timeoutMs) {
+  while (Date.now() - startedAt <= timeoutMs) {
     const statusRequest = await buildRenderedTemplateRequest({
       baseUrl: input.provider.baseUrl || '',
       endpoint: template.status,
@@ -175,11 +213,11 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
       }),
       defaultAuthHeader: input.provider.apiKey ? `Bearer ${input.provider.apiKey}` : undefined,
     })
-    const statusResponse = await fetch(statusRequest.endpointUrl, {
+    const statusResponse = await mediaTestFetch(statusRequest.endpointUrl, {
       method: statusRequest.method,
       headers: statusRequest.headers,
       ...(statusRequest.body ? { body: statusRequest.body } : {}),
-    })
+    }, input)
     const statusText = await statusResponse.text().catch(() => '')
     const statusPayload = normalizeResponseJson(statusText)
     if (!statusResponse.ok) {
@@ -221,7 +259,7 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
           diagnostic: classifyMediaTestError({ status: statusResponse.status, body: statusText, extraction: 'output-url-missing' }),
         }
       }
-      if (output.url && !(await verifyOutputUrl(output.url))) {
+      if (output.url && !(await verifyOutputUrl(output.url, input))) {
         return {
           status: 'failed',
           preview,
@@ -239,7 +277,7 @@ async function runAsyncTemplate(input: RunMediaContractTestInput): Promise<Media
         diagnostic: { message: 'Media test passed' },
       }
     }
-    await delay(template.polling.intervalMs)
+    await delay(intervalMs)
   }
 
   return {
@@ -270,6 +308,17 @@ export async function runMediaContractTest(input: RunMediaContractTestInput): Pr
       diagnostic: {
         code: 'MEDIA_TEST_REQUEST_SCHEMA_MISMATCH',
         message: `Unsupported media test executor: ${contract.executor}`,
+      },
+    }
+  }
+  try {
+    assertMediaContractTestCapability(contract, input.capability)
+  } catch (error) {
+    return {
+      status: 'failed',
+      diagnostic: {
+        code: 'MEDIA_TEST_REQUEST_SCHEMA_MISMATCH',
+        message: error instanceof Error ? error.message : 'Media test capability is unsupported',
       },
     }
   }
