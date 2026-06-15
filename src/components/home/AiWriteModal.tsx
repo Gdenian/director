@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * AI 帮我写 — 首页轻量模态框
+ * AI创意加速 — 首页轻量模态框
  *
  * 用户输入创意/关键词/大纲，直接生成结果并回填首页主输入框
  */
@@ -55,9 +55,9 @@ export default function AiWriteModal({
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15))' }}
+                style={{ background: 'linear-gradient(135deg, rgba(250,204,21,0.18), rgba(124,58,237,0.16))' }}
               >
-                <AppIcon name="sparkles" className="w-5 h-5 text-[#7c3aed]" />
+                <AppIcon name="sparkles" className="w-5 h-5 text-[#facc15]" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-[var(--glass-text-primary)]">
@@ -95,7 +95,7 @@ export default function AiWriteModal({
           {/* 提示文案 */}
           <div
             className="px-3 py-2 rounded-lg text-xs text-[var(--glass-text-tertiary)] leading-relaxed"
-            style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.06))' }}
+            style={{ background: 'linear-gradient(135deg, rgba(250,204,21,0.08), rgba(124,58,237,0.07))' }}
           >
             {t('hint')}
           </div>
@@ -112,8 +112,8 @@ export default function AiWriteModal({
             <button
               onClick={handleStart}
               disabled={!promptText.trim() || loading}
-              className="flex-1 py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }}
+              className="flex-1 py-3 rounded-xl text-[#140f05] font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #facc15, #f59e0b)' }}
             >
               <AppIcon name="sparkles" className="w-4 h-4" />
               <span>{loading ? '...' : t('startAiWrite')}</span>

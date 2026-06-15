@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### ✨ 新功能
+- 个人中心新增创作引擎与模型选择体验，支持接入官方服务、OpenAI Compatible 和 Gemini Compatible 服务。
+- 创作引擎支持服务识别、模型用途分类、文本模型轻量检测和删除/停用影响确认。
+
+### ⚙️ 优化
+- 自定义模型配置改为 canonical 创作引擎结构，并让计费、模板助手和旧 API 配置保存路径保留新的模型元数据。
+
+---
+
 ## [v0.2] - 2026-02-28
 
 ### ✨ 新功能

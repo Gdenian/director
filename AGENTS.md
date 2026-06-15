@@ -38,6 +38,8 @@
 - `src/lib/task`、`src/lib/run-runtime`：任务状态、提交、回放和运行时桥接。
 - `src/lib/home`：首页快速创建项目、最近项目和工作区跳转逻辑。
 - `src/lib/styles`：风格资产、默认风格和风格快照逻辑。
+- `src/lib/creative-engine`：创作引擎 canonical 配置、用途分类、模型选择过滤和影响检查。
+- `src/lib/user-api/creative-engine-detection`：创作引擎服务识别、模型读取、用途分类和识别兜底。
 - `prisma/schema.prisma`：MySQL 主 schema。
 - `tests`：单元、集成、系统、回归测试。
 
@@ -46,6 +48,8 @@
 - 站内本地化导航统一使用 `@/i18n/navigation` 导出的 `Link`、`useRouter`、`usePathname`，不要直接混用 `next/link` 处理业务路由。
 - 工作区的当前阶段和当前剧集以 URL 参数为单一真相源，`/workspace/[projectId]` 依赖 `stage`、`episode` 查询参数驱动。
 - 风格能力以快照字段为真相源；提交任务后不要在 worker 执行阶段重新读取全局风格来替代任务快照。
+- 创作引擎以 `CreativeEngineConfig` / `CreativeModelConfig` canonical shape 为真相源；兼容旧 API 配置、模板助手或计费路径时必须保留 `engineId`、`callName`、`purpose`、`status`、`pricing` 等字段。
+- 创作引擎只负责接入、识别和提供模型池；默认模型仍由用户在“模型选择”里显式指定，不要自动替换已有工作流选择。
 - 首页快速创建项目通过 `src/lib/home/create-project-launch.ts` 串联“创建项目 -> 保存项目配置 -> 创建第一集 -> 带 `episode` 参数跳转工作区”。
 - 首页最近项目画廊不是 DOM 卡片列表，而是 `src/components/home/CircularGallery.tsx` 的 OGL canvas。点击、拖拽和卡片命中检测都在这个组件里，改交互时要一起考虑。
 - `editor` 阶段在 `src/app/[locale]/workspace/[projectId]/page.tsx` 中仍会回退到 `videos`，不要把 AI 剪辑当成已完全开放的稳定流程。
@@ -56,4 +60,5 @@
 - `docs/README.md`：开发总览、入口命令、模块地图、测试入口、风险点。
 - `docs/superpowers/specs/2026-05-28-style-management-design.md`：风格资产与风格快照设计。
 - `docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md`：参考图生成风格提示词设计。
-- `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`：创作引擎、服务探测、模型用途和模型选择设计。
+- `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`：创作引擎产品边界、检测编排和 canonical 数据结构。
+- `docs/superpowers/plans/2026-06-11-creative-engine-redesign.md`：创作引擎实施计划归档；正文较长，优先看任务范围和验收标准。

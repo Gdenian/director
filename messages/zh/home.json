@@ -1,6 +1,6 @@
 {
-  "title": "从灵感到银幕",
-  "subtitle": "描述你想要创作的故事，AI 为你智能生成影视短剧",
+  "title": "创意像星光流动",
+  "subtitle": "捕捉一闪而过的灵感，让故事在这里被点亮、延展，并找到通往画面的第一束光。",
   "inputPlaceholder": "输入你的故事创意、小说片段或剧本大纲...",
   "defaultProjectName": "新项目 {timestamp}",
   "startCreation": "开始创作",
@@ -14,13 +14,13 @@
     "daysAgo": "{n}天前"
   },
   "aiWrite": {
-    "trigger": "AI 帮我写",
-    "modalTitle": "AI 创作助手",
-    "modalSubtitle": "输入你的创意，让 AI 帮你生成完整故事",
-    "inputLabel": "输入你的创意内容",
-    "placeholder": "输入关键词、故事大纲或简短创意...\n\n例如：\n• 古代宫廷 复仇 悬疑 女主角\n• 第一幕：女主回到京城，暗访旧宅；第二幕：宫廷宴会偶遇仇人之子",
-    "hint": "💡 可以输入关键词、故事大纲、创意描述，AI 会根据你的输入扩展生成完整的故事内容",
-    "startAiWrite": "开始 AI 创作",
+    "trigger": "AI创意加速",
+    "modalTitle": "AI创意加速",
+    "modalSubtitle": "把零散灵感扩展成更有画面感的故事种子",
+    "inputLabel": "写下你的创意火花",
+    "placeholder": "输入一个人物、一段情绪、一个冲突或几句故事种子...\n\n例如：\n• 古代宫廷 复仇 悬疑 女主角\n• 第一幕：女主回到京城，暗访旧宅；第二幕：宫廷宴会偶遇仇人之子",
+    "hint": "给 AI 一个方向，它会帮你打开更多人物动机、情节转折和视觉化表达。",
+    "startAiWrite": "加速生成创意",
     "cancel": "取消"
   }
 }

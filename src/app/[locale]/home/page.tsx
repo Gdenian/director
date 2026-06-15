@@ -140,7 +140,7 @@ export default function HomePage() {
     }
   }
 
-  // AI 帮我写 — 直接生成文本并回填首页输入框
+  // AI创意加速 — 直接生成文本并回填首页输入框
   const handleAiWriteStart = async (prompt: string) => {
     if (aiWriteLoading) return
     setAiWriteLoading(true)
@@ -323,13 +323,13 @@ export default function HomePage() {
                 <button
                   onClick={() => setAiWriteOpen(true)}
                   disabled={createLoading}
-                  className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[var(--glass-tone-info-fg)]/40"
+                  className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
                 >
-                  <AppIcon name="sparkles" className="w-4 h-4 text-[#7c3aed]" />
+                  <AppIcon name="sparkles" className="w-4 h-4 text-[#facc15]" />
                   <span
                     className="font-medium"
                     style={{
-                      background: 'linear-gradient(135deg, #3b82f6, #7c3aed)',
+                      background: 'linear-gradient(135deg, #facc15, #7c3aed)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                     }}
@@ -346,7 +346,7 @@ export default function HomePage() {
             />
           </div>
         </div>
-        {/* AI 帮我写模态框 */}
+        {/* AI创意加速模态框 */}
         <AiWriteModal
           open={aiWriteOpen}
           loading={aiWriteLoading}

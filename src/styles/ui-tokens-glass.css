@@ -9,7 +9,7 @@
   --glass-text-primary: #ffffff;
   --glass-text-secondary: #ffffff;
   --glass-text-tertiary: #ffffff;
-  --glass-text-on-accent: #ffffff;
+  --glass-text-on-accent: #140f05;
 
   /* Border strategy: default weak stroke, focus/error stronger */
   --glass-stroke-soft: rgba(255, 255, 255, 0.22);
@@ -67,10 +67,10 @@
   --glass-overlay-strong: rgba(10, 16, 30, 0.58);
 
   /* Accent + interactive rings */
-  --glass-accent-from: #2f7bff;
-  --glass-accent-to: #5ca8ff;
-  --glass-accent-shadow-soft: rgba(47, 123, 255, 0.24);
-  --glass-accent-shadow-strong: rgba(47, 123, 255, 0.32);
+  --glass-accent-from: #facc15;
+  --glass-accent-to: #f59e0b;
+  --glass-accent-shadow-soft: rgba(250, 204, 21, 0.24);
+  --glass-accent-shadow-strong: rgba(245, 158, 11, 0.32);
   --glass-focus-ring: rgba(47, 123, 255, 0.16);
   --glass-focus-ring-strong: rgba(47, 123, 255, 0.22);
   --glass-danger-ring: rgba(239, 68, 68, 0.14);
