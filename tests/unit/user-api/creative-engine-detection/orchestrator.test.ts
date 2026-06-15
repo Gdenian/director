@@ -473,6 +473,79 @@ describe('creative engine detection orchestrator', () => {
     })
   })
 
+  it('drops inspector media fields from non-media models during orchestration', async () => {
+    process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER = 'openai-compatible'
+    process.env.CREATIVE_ENGINE_INSPECTOR_MODEL = 'gpt-5-mini'
+    process.env.CREATIVE_ENGINE_INSPECTOR_API_KEY = 'inspector-key'
+    process.env.CREATIVE_ENGINE_INSPECTOR_BASE_URL = 'https://inspector.example.com/v1'
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not found', { status: 404 })))
+    inspectCreativeEngineMock.mockResolvedValueOnce({
+      source: 'custom-template',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://api.example.com/v1',
+      confidence: 'medium',
+      models: [{
+        name: 'Text With Bad Media Fields',
+        callName: 'vendor/text',
+        purpose: 'text',
+        confidence: 'medium',
+        compatMediaTemplate: {
+          version: 1,
+          mediaType: 'video',
+          mode: 'async',
+          create: {
+            method: 'POST',
+            path: '/videos',
+            contentType: 'application/json',
+            bodyTemplate: { model: '{{model}}', prompt: '{{prompt}}' },
+          },
+          status: { method: 'GET', path: '/tasks/{{task_id}}' },
+          response: {
+            taskIdPath: '$.id',
+            statusPath: '$.status',
+            outputUrlPath: '$.video.url',
+          },
+          polling: {
+            intervalMs: 1000,
+            timeoutMs: 120000,
+            doneStates: ['succeeded'],
+            failStates: ['failed'],
+          },
+        },
+        compatMediaTemplateSource: 'ai',
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.video.url' },
+          testStatus: { imageToVideo: 'unchecked' },
+          source: 'llm',
+        },
+        mediaContractSource: 'llm',
+      }],
+      warnings: ['INSPECTOR_USED'],
+    })
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://api.example.com',
+      apiKey: 'user-key',
+      allowKeyInInspector: false,
+    })
+
+    expect(result.models[0]).toMatchObject({
+      callName: 'vendor/text',
+      purpose: 'text',
+    })
+    expect(result.models[0]?.mediaContract).toBeUndefined()
+    expect(result.models[0]?.mediaContractSource).toBeUndefined()
+    expect(result.models[0]?.compatMediaTemplate).toBeUndefined()
+    expect(result.models[0]?.compatMediaTemplateSource).toBeUndefined()
+  })
+
   it('keeps manual-template inspector results in manual configuration mode', async () => {
     process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER = 'openai-compatible'
     process.env.CREATIVE_ENGINE_INSPECTOR_MODEL = 'gpt-5-mini'

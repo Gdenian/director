@@ -62,12 +62,25 @@ function withMediaContractDrafts(result: CreativeEngineDetectionResult): Creativ
   return {
     ...result,
     models: result.models.map((model): DetectedModelDraft => {
+      const {
+        mediaContract: _mediaContract,
+        mediaContractSource: _mediaContractSource,
+        compatMediaTemplate: _compatMediaTemplate,
+        compatMediaTemplateSource: _compatMediaTemplateSource,
+        ...baseModel
+      } = model
+      void _mediaContract
+      void _mediaContractSource
+      void _compatMediaTemplate
+      void _compatMediaTemplateSource
       const draft = buildMediaContractDraftForDetectedModel({
         protocolType: result.protocolType,
         model,
       })
       return {
-        ...model,
+        ...baseModel,
+        ...(draft.compatMediaTemplate ? { compatMediaTemplate: draft.compatMediaTemplate } : {}),
+        ...(draft.compatMediaTemplateSource ? { compatMediaTemplateSource: draft.compatMediaTemplateSource } : {}),
         ...(draft.mediaContract ? { mediaContract: draft.mediaContract } : {}),
         ...(draft.mediaContractSource ? { mediaContractSource: draft.mediaContractSource } : {}),
       }

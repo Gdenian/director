@@ -11,7 +11,7 @@ type MediaContractDraftInput = {
 
 type MediaContractDraftResult = Pick<
   DetectedModelDraft,
-  'mediaContract' | 'mediaContractSource'
+  'mediaContract' | 'mediaContractSource' | 'compatMediaTemplate' | 'compatMediaTemplateSource'
 >
 
 function buildImageContract(executor: MediaContract['executor'], source: MediaContract['source']): MediaContract {
@@ -61,6 +61,8 @@ export function buildMediaContractDraftForDetectedModel(input: MediaContractDraf
     return {
       mediaContract: input.model.mediaContract,
       mediaContractSource: input.model.mediaContractSource || input.model.mediaContract.source,
+      compatMediaTemplate: input.model.compatMediaTemplate,
+      compatMediaTemplateSource: input.model.compatMediaTemplateSource,
     }
   }
 

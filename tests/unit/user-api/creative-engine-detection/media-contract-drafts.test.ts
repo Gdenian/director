@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MediaContract } from '@/lib/media-contract/types'
+import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 import { buildMediaContractDraftForDetectedModel } from '@/lib/user-api/creative-engine-detection/media-contract-drafts'
 
 describe('creative engine media contract drafts', () => {
@@ -12,6 +13,29 @@ describe('creative engine media contract drafts', () => {
     output: { kind: 'asyncTask', urlPath: '$.video.url' },
     testStatus: { imageToVideo: 'unchecked' },
     source: 'llm',
+  }
+  const videoTemplate: OpenAICompatMediaTemplate = {
+    version: 1,
+    mediaType: 'video',
+    mode: 'async',
+    create: {
+      method: 'POST',
+      path: '/videos',
+      contentType: 'application/json',
+      bodyTemplate: { model: '{{model}}', prompt: '{{prompt}}' },
+    },
+    status: { method: 'GET', path: '/tasks/{{task_id}}' },
+    response: {
+      taskIdPath: '$.id',
+      statusPath: '$.status',
+      outputUrlPath: '$.video.url',
+    },
+    polling: {
+      intervalMs: 1000,
+      timeoutMs: 120000,
+      doneStates: ['succeeded'],
+      failStates: ['failed'],
+    },
   }
 
   it('creates unchecked OpenAI-compatible image draft', () => {
@@ -70,6 +94,8 @@ describe('creative engine media contract drafts', () => {
         purpose: 'video-generation',
         confidence: 'medium',
         mediaContract: videoContract,
+        compatMediaTemplate: videoTemplate,
+        compatMediaTemplateSource: 'ai',
       },
     })
 
@@ -78,6 +104,8 @@ describe('creative engine media contract drafts', () => {
       source: 'llm',
     })
     expect(draft.mediaContractSource).toBe('llm')
+    expect(draft.compatMediaTemplate).toBe(videoTemplate)
+    expect(draft.compatMediaTemplateSource).toBe('ai')
   })
 
   it('drops upstream media contracts from non-media model drafts', () => {
