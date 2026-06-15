@@ -183,4 +183,46 @@ describe('openai-compat template image media contract', () => {
         .rejects.toThrow('OPENAI_COMPAT_IMAGE_TEMPLATE_OUTPUT_NOT_FOUND')
     }
   })
+
+  it('rejects common error words from contract base64 output path', async () => {
+    for (const invalidBase64 of ['error', 'failed']) {
+      globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+        data: [{ b64_json: invalidBase64 }],
+      }), { status: 200 })) as unknown as typeof fetch
+
+      await expect(generateImageViaOpenAICompatTemplate({
+        userId: 'user-1',
+        providerId: 'openai-compatible:test-provider',
+        modelId: 'gpt-image-2',
+        modelKey: 'openai-compatible:test-provider::gpt-image-2',
+        prompt: 'make poster',
+        profile: 'openai-compatible',
+        template: {
+          version: 1,
+          mediaType: 'image',
+          mode: 'sync',
+          create: {
+            method: 'POST',
+            path: '/images/generations',
+            contentType: 'application/json',
+            bodyTemplate: {
+              model: '{{model}}',
+              prompt: '{{prompt}}',
+            },
+          },
+          response: {
+            outputUrlPath: '$.data[0].url',
+          },
+        },
+        mediaContract: {
+          ...imageToImageContract,
+          capabilities: ['text-to-image'],
+          input: {},
+          output: { kind: 'base64', base64Path: '$.data[0].b64_json' },
+          testStatus: { textToImage: 'passed' },
+        },
+      } as Parameters<typeof generateImageViaOpenAICompatTemplate>[0]))
+        .rejects.toThrow('OPENAI_COMPAT_IMAGE_TEMPLATE_OUTPUT_NOT_FOUND')
+    }
+  })
 })

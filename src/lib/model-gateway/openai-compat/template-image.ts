@@ -13,6 +13,7 @@ import { resolveOpenAICompatClientConfig } from './common'
 
 const OPENAI_COMPAT_PROVIDER_PREFIX = 'openai-compatible:'
 const PROVIDER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const BASE64_OUTPUT_ERROR_WORDS = new Set(['error', 'failed', 'invalid'])
 
 function encodeProviderToken(providerId: string): string {
   const value = providerId.trim()
@@ -68,8 +69,10 @@ function readPreparedImageOutput(value: unknown): {
       imageBase64: trimmed.slice(dataUrlPrefix.length),
     }
   }
+  const normalized = trimmed.toLowerCase()
   if (
-    /^https?:\/\//i.test(trimmed)
+    BASE64_OUTPUT_ERROR_WORDS.has(normalized)
+    || /^https?:\/\//i.test(trimmed)
     || /^[{[]/.test(trimmed)
     || /\s/.test(trimmed)
     || !/^[A-Za-z0-9+/=_-]+$/.test(trimmed)
