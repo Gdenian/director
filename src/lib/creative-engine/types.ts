@@ -3,6 +3,7 @@ import type {
   OpenAICompatMediaTemplate,
   OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
 
 export type CreativeEngineStatus = 'unchecked' | 'available' | 'partial' | 'failed' | 'disabled'
 export type CreativeModelStatus = 'unchecked' | 'available' | 'failed' | 'disabled'
@@ -93,6 +94,9 @@ export interface CreativeModelConfig {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  mediaContract?: MediaContract
+  mediaContractCheckedAt?: string
+  mediaContractSource?: MediaContractSource
   lastCheckedAt?: string
   detectionSource?: CreativeModelDetectionSource
   warningCodes?: string[]

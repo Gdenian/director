@@ -4,6 +4,7 @@ import {
   parseModelKeyStrict,
   type UnifiedModelType,
 } from '@/lib/model-config-contract'
+import { validateMediaContract } from '@/lib/media-contract/validator'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
 import type {
   CreativeAuthType,
@@ -201,6 +202,26 @@ function normalizeCompatMediaTemplate(value: unknown, index: number) {
   return validated.template
 }
 
+function normalizeMediaContract(
+  value: unknown,
+  index: number,
+  modelMediaType: UnifiedModelType,
+  hasCompatMediaTemplate: boolean,
+) {
+  if (value === undefined || value === null) return undefined
+  if (modelMediaType !== 'image' && modelMediaType !== 'video') {
+    throw new Error(`CREATIVE_MODEL_MEDIA_CONTRACT_INVALID: models[${index}].mediaContract`)
+  }
+  const validated = validateMediaContract(value, {
+    modelMediaType,
+    hasCompatMediaTemplate,
+  })
+  if (!validated.ok || !validated.contract) {
+    throw new Error(`CREATIVE_MODEL_MEDIA_CONTRACT_INVALID: models[${index}].mediaContract`)
+  }
+  return validated.contract
+}
+
 function readEnum<T extends string>(
   value: unknown,
   allowed: ReadonlySet<T>,
@@ -376,6 +397,15 @@ export function normalizeCreativeModelInput(raw: unknown, index: number): Creati
   const compatMediaTemplateSource = raw.compatMediaTemplateSource === 'ai' || raw.compatMediaTemplateSource === 'manual'
     ? raw.compatMediaTemplateSource
     : undefined
+  const mediaContract = normalizeMediaContract(raw.mediaContract, index, type, !!compatMediaTemplate)
+  const mediaContractCheckedAt = readOptionalString(raw.mediaContractCheckedAt) || mediaContract?.checkedAt
+  const mediaContractSource = raw.mediaContractSource === 'rule'
+    || raw.mediaContractSource === 'provider-list'
+    || raw.mediaContractSource === 'llm'
+    || raw.mediaContractSource === 'manual'
+    || raw.mediaContractSource === 'official-adapter'
+    ? raw.mediaContractSource
+    : mediaContract?.source
 
   return {
     id: rawId || modelKey,
@@ -395,6 +425,9 @@ export function normalizeCreativeModelInput(raw: unknown, index: number): Creati
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
     ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
     ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+    ...(mediaContract ? { mediaContract } : {}),
+    ...(mediaContractCheckedAt ? { mediaContractCheckedAt } : {}),
+    ...(mediaContractSource ? { mediaContractSource } : {}),
     ...(lastCheckedAt ? { lastCheckedAt } : {}),
     ...(detectionSource ? { detectionSource } : {}),
     ...(warningCodes ? { warningCodes } : {}),
@@ -462,6 +495,9 @@ export function toRuntimeModel(model: CreativeModelConfig) {
     compatMediaTemplate: model.compatMediaTemplate,
     compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt,
     compatMediaTemplateSource: model.compatMediaTemplateSource,
+    mediaContract: model.mediaContract,
+    mediaContractCheckedAt: model.mediaContractCheckedAt,
+    mediaContractSource: model.mediaContractSource,
     price: 0,
     enabled: model.enabled,
     purpose: model.purpose,

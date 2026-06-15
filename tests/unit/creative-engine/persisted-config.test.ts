@@ -92,4 +92,44 @@ describe('creative engine persisted config', () => {
 
     expect(model.enabled).toBe(false)
   })
+
+  it('normalizes and exposes media contracts to runtime models', () => {
+    const model = normalizeCreativeModelInput({
+      id: 'm-1',
+      engineId: 'openai-compatible:abc',
+      name: 'Image Model',
+      callName: 'image-model',
+      type: 'image',
+      purpose: 'image-generation',
+      enabled: true,
+      status: 'available',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-standard',
+        capabilities: ['text-to-image', 'text-to-image', 'image-to-image'],
+        input: { image: 'dataUrlBase64' },
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed', imageToImage: 'unchecked' },
+        checkedAt: '2026-06-15T00:00:00.000Z',
+        source: 'manual',
+      },
+    }, 0)
+
+    expect(model.mediaContract).toMatchObject({
+      capabilities: ['text-to-image', 'image-to-image'],
+      checkedAt: '2026-06-15T00:00:00.000Z',
+      source: 'manual',
+    })
+    expect(model.mediaContractCheckedAt).toBe('2026-06-15T00:00:00.000Z')
+    expect(model.mediaContractSource).toBe('manual')
+    expect(toRuntimeModel(model)).toMatchObject({
+      mediaContract: {
+        mediaType: 'image',
+        capabilities: ['text-to-image', 'image-to-image'],
+      },
+      mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+      mediaContractSource: 'manual',
+    })
+  })
 })

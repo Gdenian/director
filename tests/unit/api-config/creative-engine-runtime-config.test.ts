@@ -101,4 +101,55 @@ describe('api-config creative engine runtime reader', () => {
       'llm',
     )).rejects.toThrow('当前选择的模型暂时不可用，请重新检测或更换模型。')
   })
+
+  it('exposes image media contracts from resolved model selections', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([{
+        id: 'fal:official',
+        name: 'FAL',
+        providerKey: 'fal',
+        apiKey: 'enc:sk-test',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([{
+        id: 'model-1',
+        engineId: 'fal:official',
+        name: 'FAL Image',
+        callName: 'fal-image',
+        modelKey: 'fal:official::fal-image',
+        type: 'image',
+        purpose: 'image-generation',
+        enabled: true,
+        status: 'available',
+        mediaContract: {
+          version: 1,
+          mediaType: 'image',
+          executor: 'official-adapter',
+          capabilities: ['text-to-image'],
+          input: {},
+          output: { kind: 'url', urlPath: '$.images[0].url' },
+          testStatus: { textToImage: 'passed' },
+          checkedAt: '2026-06-15T00:00:00.000Z',
+          source: 'official-adapter',
+        },
+      }]),
+    })
+    const { resolveModelSelection } = await import('@/lib/api-config')
+
+    await expect(resolveModelSelection(
+      'user-1',
+      'fal:official::fal-image',
+      'image',
+    )).resolves.toMatchObject({
+      provider: 'fal:official',
+      modelId: 'fal-image',
+      modelKey: 'fal:official::fal-image',
+      mediaType: 'image',
+      mediaContract: {
+        mediaType: 'image',
+        executor: 'official-adapter',
+        capabilities: ['text-to-image'],
+      },
+    })
+  })
 })

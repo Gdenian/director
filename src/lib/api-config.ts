@@ -28,6 +28,7 @@ import type {
   OpenAICompatMediaTemplate,
   OpenAICompatMediaTemplateSource,
 } from './openai-compat-media-template'
+import type { MediaContract, MediaContractSource } from './media-contract/types'
 
 export interface CustomModel {
   modelId: string
@@ -40,6 +41,9 @@ export interface CustomModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  mediaContract?: MediaContract
+  mediaContractCheckedAt?: string
+  mediaContractSource?: MediaContractSource
   enabled?: boolean
   status?: string
   // Non-authoritative display field; billing uses unified server pricing catalog.
@@ -55,6 +59,7 @@ export interface ModelSelection {
   mediaType: ModelMediaType
   llmProtocol?: 'responses' | 'chat-completions'
   compatMediaTemplate?: OpenAICompatMediaTemplate
+  mediaContract?: MediaContract
 }
 
 type GatewayRouteType = 'official' | 'openai-compat'
@@ -192,6 +197,9 @@ export async function resolveModelSelection(
   const compatMediaTemplate = (mediaType === 'image' || mediaType === 'video') && providerKey === 'openai-compatible'
     ? exact.compatMediaTemplate
     : undefined
+  const mediaContract = mediaType === 'image' || mediaType === 'video'
+    ? exact.mediaContract
+    : undefined
 
   return {
     provider: exact.provider,
@@ -200,6 +208,7 @@ export async function resolveModelSelection(
     mediaType,
     ...(llmProtocol ? { llmProtocol } : {}),
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
+    ...(mediaContract ? { mediaContract } : {}),
   }
 }
 
@@ -223,6 +232,9 @@ async function resolveSingleModelSelection(
   const compatMediaTemplate = (mediaType === 'image' || mediaType === 'video') && providerKey === 'openai-compatible'
     ? model.compatMediaTemplate
     : undefined
+  const mediaContract = mediaType === 'image' || mediaType === 'video'
+    ? model.mediaContract
+    : undefined
 
   return {
     provider: model.provider,
@@ -231,6 +243,7 @@ async function resolveSingleModelSelection(
     mediaType,
     ...(llmProtocol ? { llmProtocol } : {}),
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
+    ...(mediaContract ? { mediaContract } : {}),
   }
 }
 
