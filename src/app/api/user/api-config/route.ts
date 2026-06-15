@@ -870,13 +870,19 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
   const mediaContractCheckedAt = readTrimmedString(raw.mediaContractCheckedAt) || mediaContract?.checkedAt || undefined
   const mediaContractSourceRaw = raw.mediaContractSource
   let mediaContractSource: MediaContractSource | undefined
-  if (
-    mediaContractSourceRaw === 'rule'
-    || mediaContractSourceRaw === 'provider-list'
-    || mediaContractSourceRaw === 'llm'
-    || mediaContractSourceRaw === 'manual'
-    || mediaContractSourceRaw === 'official-adapter'
-  ) {
+  if (mediaContractSourceRaw !== undefined && mediaContractSourceRaw !== null) {
+    if (
+      mediaContractSourceRaw !== 'rule'
+      && mediaContractSourceRaw !== 'provider-list'
+      && mediaContractSourceRaw !== 'llm'
+      && mediaContractSourceRaw !== 'manual'
+      && mediaContractSourceRaw !== 'official-adapter'
+    ) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_MEDIA_CONTRACT_SOURCE_INVALID',
+        field: `models[${index}].mediaContractSource`,
+      })
+    }
     mediaContractSource = mediaContractSourceRaw
   } else {
     mediaContractSource = mediaContract?.source

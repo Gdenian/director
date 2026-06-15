@@ -76,10 +76,12 @@ function normalizeAssistantMediaContract(
     }
   }
   const testStatus = validated.contract.testStatus
-  if (!testStatus) return { contract: validated.contract }
+  const { checkedAt: _checkedAt, ...contractWithoutCheckedAt } = validated.contract
+  void _checkedAt
+  if (!testStatus) return { contract: contractWithoutCheckedAt }
   return {
     contract: {
-      ...validated.contract,
+      ...contractWithoutCheckedAt,
       testStatus: Object.fromEntries(
         Object.keys(testStatus).map((key) => [
           key,

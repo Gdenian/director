@@ -178,6 +178,7 @@ describe('assistant-platform api-config-template skill', () => {
           imageToVideo: 'passed',
           firstLastFrameVideo: 'unavailable',
         },
+        checkedAt: '2026-06-15T00:00:00.000Z',
         source: 'llm',
       },
     }, {} as never)
@@ -192,6 +193,7 @@ describe('assistant-platform api-config-template skill', () => {
         firstLastFrameVideo: 'unchecked',
       },
     })
+    expect(result.draftModel?.mediaContract?.checkedAt).toBeUndefined()
   })
 
   it('saves multiple templates when batch payload is valid', async () => {

@@ -320,4 +320,49 @@ describe('api-config creative engine runtime reader', () => {
       field: 'models[0].mediaContract',
     })
   })
+
+  it('rejects invalid media contract source values', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([{
+        id: 'openai-compatible:abc',
+        name: 'OpenAI Compatible',
+        providerKey: 'openai-compatible',
+        serviceUrl: 'https://example.test/v1',
+        apiKey: 'enc:sk-test',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([]),
+    })
+    const { PUT } = await import('@/app/api/user/api-config/route')
+    const { NextRequest } = await import('next/server')
+
+    const response = await PUT(new NextRequest('http://localhost/api/user/api-config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        models: [{
+          modelId: 'custom-image',
+          modelKey: 'openai-compatible:abc::custom-image',
+          name: 'Custom Image',
+          type: 'image',
+          provider: 'openai-compatible:abc',
+          mediaContract: {
+            version: 1,
+            mediaType: 'image',
+            executor: 'openai-standard',
+            capabilities: ['text-to-image'],
+            input: {},
+            output: { kind: 'url', urlPath: '$.data[0].url' },
+          },
+          mediaContractSource: 'assistant',
+        }],
+      }),
+    }) as never, { params: Promise.resolve({}) })
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body).toMatchObject({
+      code: 'MODEL_MEDIA_CONTRACT_SOURCE_INVALID',
+      field: 'models[0].mediaContractSource',
+    })
+  })
 })

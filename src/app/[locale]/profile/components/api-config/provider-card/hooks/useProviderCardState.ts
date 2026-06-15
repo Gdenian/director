@@ -351,6 +351,27 @@ export function getAssistantSavedModelLabel(event: AssistantSavedEvent): string 
   return modelId || event.savedModelKey
 }
 
+export function buildModelFromAssistantDraft(input: {
+  draft: AssistantDraftModel
+  checkedAt: string
+}): Omit<CustomModel, 'enabled'> {
+  const mediaContractSource = input.draft.mediaContract?.source
+  return {
+    modelId: input.draft.modelId,
+    modelKey: encodeModelKey(input.draft.provider, input.draft.modelId),
+    name: input.draft.name,
+    type: input.draft.type,
+    provider: input.draft.provider,
+    price: 0,
+    compatMediaTemplate: input.draft.compatMediaTemplate,
+    compatMediaTemplateCheckedAt: input.checkedAt,
+    compatMediaTemplateSource: 'ai',
+    ...(input.draft.mediaContract ? { mediaContract: input.draft.mediaContract } : {}),
+    ...(input.draft.mediaContract ? { mediaContractCheckedAt: input.checkedAt } : {}),
+    ...(mediaContractSource ? { mediaContractSource } : {}),
+  }
+}
+
 export function useProviderCardState({
   provider,
   models,
@@ -700,32 +721,26 @@ export function useProviderCardState({
   }
 
   const upsertModelFromAssistantDraft = useCallback((draft: AssistantDraftModel) => {
-    const modelKey = encodeModelKey(draft.provider, draft.modelId)
     const checkedAt = new Date().toISOString()
+    const modelFromDraft = buildModelFromAssistantDraft({ draft, checkedAt })
+    const modelKey = modelFromDraft.modelKey
     const currentModels = allModels || models
     const existed = currentModels.find((item) => item.modelKey === modelKey)
     if (existed) {
       onUpdateModel?.(modelKey, {
-        name: draft.name,
-        modelId: draft.modelId,
-        provider: draft.provider,
-        compatMediaTemplate: draft.compatMediaTemplate,
-        compatMediaTemplateCheckedAt: checkedAt,
-        compatMediaTemplateSource: 'ai',
+        name: modelFromDraft.name,
+        modelId: modelFromDraft.modelId,
+        provider: modelFromDraft.provider,
+        compatMediaTemplate: modelFromDraft.compatMediaTemplate,
+        compatMediaTemplateCheckedAt: modelFromDraft.compatMediaTemplateCheckedAt,
+        compatMediaTemplateSource: modelFromDraft.compatMediaTemplateSource,
+        ...(modelFromDraft.mediaContract ? { mediaContract: modelFromDraft.mediaContract } : {}),
+        ...(modelFromDraft.mediaContractCheckedAt ? { mediaContractCheckedAt: modelFromDraft.mediaContractCheckedAt } : {}),
+        ...(modelFromDraft.mediaContractSource ? { mediaContractSource: modelFromDraft.mediaContractSource } : {}),
       })
       return
     }
-    onAddModel({
-      modelId: draft.modelId,
-      modelKey,
-      name: draft.name,
-      type: draft.type,
-      provider: draft.provider,
-      price: 0,
-      compatMediaTemplate: draft.compatMediaTemplate,
-      compatMediaTemplateCheckedAt: checkedAt,
-      compatMediaTemplateSource: 'ai',
-    })
+    onAddModel(modelFromDraft)
   }, [allModels, models, onAddModel, onUpdateModel])
 
   const assistantChat = useAssistantChat({
