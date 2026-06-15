@@ -106,6 +106,15 @@ describe('generator-api gateway routing', () => {
         create: { method: 'POST', path: '/v1/images/generations' },
         response: { outputUrlPath: 'data[0].url' },
       },
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-compat-template',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed' },
+      },
     })
     resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
 
@@ -114,8 +123,128 @@ describe('generator-api gateway routing', () => {
     })
 
     expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: expect.objectContaining({ executor: 'openai-compat-template' }),
+    }))
     expect(createImageGeneratorMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, imageUrl: 'compat-template-image' })
+  })
+
+  it('routes openai-standard image contract to openai compat gateway without template', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-1',
+      modelKey: 'openai-compatible:oa-1::gpt-image-1',
+      mediaType: 'image',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-standard',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed' },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    const result = await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-1', 'draw cat')
+
+    expect(generateImageViaOpenAICompatMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, imageUrl: 'compat-image' })
+  })
+
+  it('routes official-adapter image contract to provider generator even when provider defaults to openai compat', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'official-image-model',
+      modelKey: 'openai-compatible:oa-1::official-image-model',
+      mediaType: 'image',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'official-adapter',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.url' },
+        testStatus: { textToImage: 'unchecked' },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    const result = await generateImage('user-1', 'openai-compatible:oa-1::official-image-model', 'draw cat')
+
+    expect(createImageGeneratorMock).toHaveBeenCalledWith('openai-compatible:oa-1', 'official-image-model')
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, imageUrl: 'official-image' })
+  })
+
+  it('routes template executor before provider-specific official adapters', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'bailian',
+      modelId: 'wanx-image',
+      modelKey: 'bailian::wanx-image',
+      mediaType: 'image',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'image',
+        mode: 'sync',
+        create: { method: 'POST', path: '/v1/images/generations' },
+        response: { outputUrlPath: 'data[0].url' },
+      },
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-compat-template',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed' },
+      },
+    })
+
+    const result = await generateImage('user-1', 'bailian::wanx-image', 'draw sky')
+
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: expect.objectContaining({ executor: 'openai-compat-template' }),
+    }))
+    expect(generateBailianImageMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, imageUrl: 'compat-template-image' })
+  })
+
+  it('routes gemini-standard video contract to provider generator even when provider defaults to openai compat', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'gemini-compatible:gm-1',
+      modelId: 'veo-3.1',
+      modelKey: 'gemini-compatible:gm-1::veo-3.1',
+      mediaType: 'video',
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'gemini-standard',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.name' },
+        testStatus: { imageToVideo: 'passed' },
+      },
+    })
+    getProviderConfigMock.mockResolvedValueOnce({
+      id: 'gemini-compatible:gm-1',
+      name: 'Gemini Compatible',
+      apiKey: 'gm-key',
+      baseUrl: 'https://gm.test',
+      apiMode: 'openai-official',
+      gatewayRoute: 'openai-compat',
+    })
+
+    const result = await generateVideo('user-1', 'gemini-compatible:gm-1::veo-3.1', 'https://example.com/source.png')
+
+    expect(createVideoGeneratorMock).toHaveBeenCalledWith('gemini-compatible:gm-1')
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, videoUrl: 'official-video' })
   })
 
   it('routes official image requests to provider generator', async () => {
@@ -175,6 +304,15 @@ describe('generator-api gateway routing', () => {
         create: { method: 'POST', path: '/v1/videos/generations' },
         response: { taskIdPath: 'id' },
       },
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+        testStatus: { imageToVideo: 'passed' },
+      },
     })
     resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
 
@@ -186,8 +324,48 @@ describe('generator-api gateway routing', () => {
     )
 
     expect(generateVideoViaOpenAICompatTemplateMock).toHaveBeenCalledTimes(1)
+    expect(generateVideoViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: expect.objectContaining({ executor: 'openai-compat-template' }),
+    }))
     expect(createVideoGeneratorMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, videoUrl: 'compat-template-video' })
+  })
+
+  it('blocks unchecked video media contract capability before dispatch', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'sora-2',
+      modelKey: 'openai-compatible:oa-1::sora-2',
+      mediaType: 'video',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: { method: 'POST', path: '/v1/videos/generations' },
+        response: { taskIdPath: 'id' },
+      },
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+        testStatus: { imageToVideo: 'unchecked' },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await expect(generateVideo(
+      'user-1',
+      'openai-compatible:oa-1::sora-2',
+      'https://example.com/source.png',
+      { prompt: 'animate' },
+    )).rejects.toThrow('MEDIA_CONTRACT_CAPABILITY_NOT_PASSED')
+
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(createVideoGeneratorMock).not.toHaveBeenCalled()
   })
 
   it('routes gemini-compatible video to official provider generator', async () => {
