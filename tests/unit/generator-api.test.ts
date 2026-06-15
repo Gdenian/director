@@ -155,6 +155,33 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, imageUrl: 'compat-image' })
   })
 
+  it('blocks openai-standard image contract for non openai-compatible provider before dispatch', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'google',
+      modelId: 'imagen-4.0',
+      modelKey: 'google::imagen-4.0',
+      mediaType: 'image',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-standard',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed' },
+      },
+    })
+
+    await expect(
+      generateImage('user-1', 'google::imagen-4.0', 'draw cat'),
+    ).rejects.toThrow('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-standard')
+
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(createImageGeneratorMock).not.toHaveBeenCalled()
+    expect(generateBailianImageMock).not.toHaveBeenCalled()
+  })
+
   it('blocks unchecked official-adapter contract for openai-compatible provider before dispatch', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'openai-compatible:oa-1',
@@ -304,6 +331,35 @@ describe('generator-api gateway routing', () => {
     expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
     expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, videoUrl: 'official-video' })
+  })
+
+  it('blocks openai-standard video contract for non openai-compatible provider before dispatch', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'siliconflow',
+      modelId: 'sf-video',
+      modelKey: 'siliconflow::sf-video',
+      mediaType: 'video',
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-standard',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.id' },
+        testStatus: { imageToVideo: 'passed' },
+      },
+    })
+
+    await expect(
+      generateVideo('user-1', 'siliconflow::sf-video', 'https://example.com/source.png', {
+        prompt: 'animate',
+      }),
+    ).rejects.toThrow('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-standard')
+
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(createVideoGeneratorMock).not.toHaveBeenCalled()
+    expect(generateSiliconFlowVideoMock).not.toHaveBeenCalled()
   })
 
   it('routes official image requests to provider generator', async () => {

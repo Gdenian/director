@@ -42,6 +42,9 @@ function assertMediaContractExecutorProviderSupported(input: {
     if (executor === 'openai-compat-template' && providerKey !== 'openai-compatible') {
         throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-compat-template')
     }
+    if (executor === 'openai-standard' && providerKey !== 'openai-compatible') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-standard')
+    }
     if (executor !== 'gemini-standard') {
         return
     }
