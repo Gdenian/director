@@ -860,13 +860,9 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
       hasCompatMediaTemplate: Boolean(compatMediaTemplate),
     })
     if (!validated.ok || !validated.contract) {
-      const firstIssue = validated.issues[0]
-      const field = firstIssue?.field && firstIssue.field !== 'mediaContract'
-        ? `models[${index}].mediaContract.${firstIssue.field}`
-        : `models[${index}].mediaContract`
       throw new ApiError('INVALID_PARAMS', {
         code: 'MODEL_MEDIA_CONTRACT_INVALID',
-        field,
+        field: `models[${index}].mediaContract`,
       })
     }
     mediaContract = validated.contract

@@ -198,7 +198,7 @@ describe('api-config creative engine runtime reader', () => {
         imageToImage: 'unchecked',
       },
       checkedAt: '2026-06-15T00:00:00.000Z',
-      source: 'manual',
+      source: 'llm',
     }
     prismaMock.userPreference.findUnique
       .mockResolvedValueOnce({
@@ -236,7 +236,7 @@ describe('api-config creative engine runtime reader', () => {
           compatMediaTemplateSource: 'manual',
           mediaContract,
           mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
-          mediaContractSource: 'manual',
+          mediaContractSource: 'llm',
         }]),
       })
     const { PUT, GET } = await import('@/app/api/user/api-config/route')
@@ -254,7 +254,7 @@ describe('api-config creative engine runtime reader', () => {
           compatMediaTemplate,
           mediaContract,
           mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
-          mediaContractSource: 'manual',
+          mediaContractSource: 'llm',
         }],
       }),
     }) as never, { params: Promise.resolve({}) })
@@ -264,7 +264,7 @@ describe('api-config creative engine runtime reader', () => {
       compatMediaTemplate,
       mediaContract,
       mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
-      mediaContractSource: 'manual',
+      mediaContractSource: 'llm',
     })
 
     const response = await GET(new NextRequest('http://localhost/api/user/api-config') as never, { params: Promise.resolve({}) })
@@ -273,7 +273,51 @@ describe('api-config creative engine runtime reader', () => {
       compatMediaTemplate,
       mediaContract,
       mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
-      mediaContractSource: 'manual',
+      mediaContractSource: 'llm',
+    })
+  })
+
+  it('reports invalid media contract on the top-level mediaContract field', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([{
+        id: 'openai-compatible:abc',
+        name: 'OpenAI Compatible',
+        providerKey: 'openai-compatible',
+        serviceUrl: 'https://example.test/v1',
+        apiKey: 'enc:sk-test',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([]),
+    })
+    const { PUT } = await import('@/app/api/user/api-config/route')
+    const { NextRequest } = await import('next/server')
+
+    const response = await PUT(new NextRequest('http://localhost/api/user/api-config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        models: [{
+          modelId: 'custom-image',
+          modelKey: 'openai-compatible:abc::custom-image',
+          name: 'Custom Image',
+          type: 'image',
+          provider: 'openai-compatible:abc',
+          mediaContract: {
+            version: 1,
+            mediaType: 'image',
+            executor: 'openai-standard',
+            capabilities: ['image-to-video'],
+            input: {},
+            output: { kind: 'url', urlPath: '$.data[0].url' },
+          },
+        }],
+      }),
+    }) as never, { params: Promise.resolve({}) })
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body).toMatchObject({
+      code: 'MODEL_MEDIA_CONTRACT_INVALID',
+      field: 'models[0].mediaContract',
     })
   })
 })

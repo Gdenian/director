@@ -170,10 +170,14 @@ describe('assistant-platform api-config-template skill', () => {
         version: 1,
         mediaType: 'video',
         executor: 'openai-compat-template',
-        capabilities: ['image-to-video'],
-        input: { image: 'publicUrl' },
+        capabilities: ['text-to-video', 'image-to-video', 'first-last-frame-video'],
+        input: { image: 'publicUrl', lastFrameImage: 'publicUrl' },
         output: { kind: 'asyncTask', urlPath: '$.video_url' },
-        testStatus: { imageToVideo: 'passed' },
+        testStatus: {
+          textToVideo: 'failed',
+          imageToVideo: 'passed',
+          firstLastFrameVideo: 'unavailable',
+        },
         source: 'llm',
       },
     }, {} as never)
@@ -182,7 +186,11 @@ describe('assistant-platform api-config-template skill', () => {
     expect(result.draftModel?.mediaContract).toMatchObject({
       mediaType: 'video',
       executor: 'openai-compat-template',
-      testStatus: { imageToVideo: 'unchecked' },
+      testStatus: {
+        textToVideo: 'unchecked',
+        imageToVideo: 'unchecked',
+        firstLastFrameVideo: 'unchecked',
+      },
     })
   })
 

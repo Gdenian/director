@@ -81,9 +81,9 @@ function normalizeAssistantMediaContract(
     contract: {
       ...validated.contract,
       testStatus: Object.fromEntries(
-        Object.entries(testStatus).map(([key, status]) => [
+        Object.keys(testStatus).map((key) => [
           key,
-          status === 'passed' ? 'unchecked' : status,
+          'unchecked',
         ]),
       ) as NonNullable<MediaContract['testStatus']>,
     },
