@@ -99,7 +99,7 @@ function appendTemplateOptionVariables(
     if (!trimmedKey) continue
     target[trimmedKey] = value
     const snakeKey = toSnakeCase(trimmedKey)
-    if (!(snakeKey in target)) {
+    if (!(snakeKey in target) || target[snakeKey] === '') {
       target[snakeKey] = value
     }
   }
@@ -427,6 +427,7 @@ export function buildTemplateVariables(input: {
   prompt: string
   image?: string
   images?: string[]
+  lastFrameImage?: string
   aspectRatio?: string
   duration?: number
   resolution?: string
@@ -439,6 +440,8 @@ export function buildTemplateVariables(input: {
     prompt: input.prompt,
     image: input.image || '',
     images: input.images || [],
+    lastFrameImage: input.lastFrameImage || '',
+    last_frame_image: input.lastFrameImage || '',
     aspect_ratio: input.aspectRatio || '',
     duration: input.duration ?? null,
     resolution: input.resolution || '',

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TEMPLATE_PLACEHOLDER_ALLOWLIST } from '@/lib/openai-compat-media-template'
 import {
   buildRenderedTemplateRequest,
   buildTemplateVariables,
@@ -10,6 +11,13 @@ import {
 } from '@/lib/openai-compat-template-runtime'
 
 describe('model-gateway openai-compat template renderer', () => {
+  it('allows media contract template placeholders used by image and video providers', () => {
+    expect(TEMPLATE_PLACEHOLDER_ALLOWLIST.has('num_frames')).toBe(true)
+    expect(TEMPLATE_PLACEHOLDER_ALLOWLIST.has('frame_rate')).toBe(true)
+    expect(TEMPLATE_PLACEHOLDER_ALLOWLIST.has('last_frame_image')).toBe(true)
+    expect(TEMPLATE_PLACEHOLDER_ALLOWLIST.has('lastFrameImage')).toBe(true)
+  })
+
   it('renders placeholders in strings and nested body values', () => {
     const variables = buildTemplateVariables({
       model: 'veo3.1',
@@ -141,6 +149,31 @@ describe('model-gateway openai-compat template renderer', () => {
     expect(request.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
     expect(request.body).toBeInstanceOf(URLSearchParams)
     expect((request.body as URLSearchParams).toString()).toBe('model=veo3.1&task_id=task_1')
+  })
+
+  it('renders numeric frame options and last frame aliases from template variables', () => {
+    const variables = buildTemplateVariables({
+      model: 'agnes-video-v2',
+      prompt: 'animate',
+      image: 'https://cdn.test/first.png',
+      extra: {
+        num_frames: 81,
+        frame_rate: 16,
+        lastFrameImage: 'https://cdn.test/last.png',
+      },
+    })
+
+    expect(renderTemplateValue({
+      num_frames: '{{num_frames}}',
+      frame_rate: '{{frame_rate}}',
+      lastFrameImage: '{{lastFrameImage}}',
+      last_frame_image: '{{last_frame_image}}',
+    }, variables)).toEqual({
+      num_frames: 81,
+      frame_rate: 16,
+      lastFrameImage: 'https://cdn.test/last.png',
+      last_frame_image: 'https://cdn.test/last.png',
+    })
   })
 
   it('reads json path for array/object outputs', () => {

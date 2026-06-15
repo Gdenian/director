@@ -21,6 +21,7 @@ export interface OpenAICompatImageRequest {
   options?: Record<string, unknown>
   profile: OpenAICompatImageProfile
   template?: import('@/lib/openai-compat-media-template').OpenAICompatMediaTemplate
+  mediaContract?: import('@/lib/media-contract/types').MediaContract
   modelKey?: string
 }
 
@@ -33,6 +34,7 @@ export interface OpenAICompatVideoRequest {
   options?: Record<string, unknown>
   profile: OpenAICompatVideoProfile
   template?: import('@/lib/openai-compat-media-template').OpenAICompatMediaTemplate
+  mediaContract?: import('@/lib/media-contract/types').MediaContract
   modelKey?: string
 }
 
