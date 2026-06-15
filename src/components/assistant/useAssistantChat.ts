@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type ChatStatus, type UIMessage } from 'ai'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
+import type { MediaContract } from '@/lib/media-contract/types'
 
 export type AssistantChatId = 'api-config-template' | 'tutorial'
 
@@ -13,6 +14,7 @@ export interface AssistantDraftModel {
   type: 'image' | 'video'
   provider: string
   compatMediaTemplate: OpenAICompatMediaTemplate
+  mediaContract?: MediaContract
 }
 
 export interface AssistantSavedEvent {
@@ -60,6 +62,7 @@ function parseDraftModel(value: unknown): AssistantDraftModel | undefined {
     type,
     provider,
     compatMediaTemplate: template as unknown as OpenAICompatMediaTemplate,
+    ...(isRecord(value.mediaContract) ? { mediaContract: value.mediaContract as unknown as MediaContract } : {}),
   }
 }
 

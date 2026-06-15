@@ -123,6 +123,69 @@ describe('assistant-platform api-config-template skill', () => {
     })
   })
 
+  it('preserves assistant media contract drafts and downgrades passed status to unchecked', async () => {
+    const tools = apiConfigTemplateSkill.tools?.(buildRuntimeContext())
+    expect(tools).toBeTruthy()
+    const saveTool = tools?.saveModelTemplate
+    expect(saveTool).toBeTruthy()
+    if (!saveTool?.execute) {
+      throw new Error('saveModelTemplate.execute is required for test')
+    }
+
+    const result = await saveTool.execute({
+      modelId: 'veo3.1',
+      name: 'Veo 3.1',
+      type: 'video',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: {
+          method: 'POST',
+          path: '/v2/videos/generations',
+          contentType: 'application/json',
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+            image: '{{image}}',
+          },
+        },
+        status: {
+          method: 'GET',
+          path: '/v2/videos/generations/{{task_id}}',
+        },
+        response: {
+          taskIdPath: '$.task_id',
+          statusPath: '$.status',
+          outputUrlPath: '$.video_url',
+        },
+        polling: {
+          intervalMs: 3000,
+          timeoutMs: 180000,
+          doneStates: ['done'],
+          failStates: ['failed'],
+        },
+      },
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.video_url' },
+        testStatus: { imageToVideo: 'passed' },
+        source: 'llm',
+      },
+    }, {} as never)
+
+    expect(result.status).toBe('saved')
+    expect(result.draftModel?.mediaContract).toMatchObject({
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      testStatus: { imageToVideo: 'unchecked' },
+    })
+  })
+
   it('saves multiple templates when batch payload is valid', async () => {
     const tools = apiConfigTemplateSkill.tools?.(buildRuntimeContext())
     expect(tools).toBeTruthy()

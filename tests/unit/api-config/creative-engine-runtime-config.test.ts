@@ -3,12 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const prismaMock = vi.hoisted(() => ({
   userPreference: {
     findUnique: vi.fn(),
+    upsert: vi.fn(),
   },
 }))
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/crypto-utils', () => ({
   decryptApiKey: vi.fn((value: string) => value.replace(/^enc:/, '')),
+  encryptApiKey: vi.fn((value: string) => `enc:${value}`),
+}))
+vi.mock('@/lib/api-auth', () => ({
+  requireUserAuth: vi.fn(async () => ({ session: { user: { id: 'user-1' } } })),
+  isErrorResponse: vi.fn(() => false),
+}))
+vi.mock('@/lib/billing/mode', () => ({
+  getBillingMode: vi.fn(async () => 'OFF'),
 }))
 
 describe('api-config creative engine runtime reader', () => {
@@ -150,6 +159,121 @@ describe('api-config creative engine runtime reader', () => {
         executor: 'official-adapter',
         capabilities: ['text-to-image'],
       },
+    })
+  })
+
+  it('preserves compat media template and media contract through api config save/read', async () => {
+    const compatMediaTemplate = {
+      version: 1,
+      mediaType: 'image',
+      mode: 'sync',
+      create: {
+        method: 'POST',
+        path: '/v1/images/generations',
+        contentType: 'application/json',
+        bodyTemplate: {
+          model: '{{model}}',
+          prompt: '{{prompt}}',
+          image: '{{image}}',
+        },
+      },
+      response: {
+        outputUrlPath: '$.data[0].url',
+      },
+    }
+    const mediaContract = {
+      version: 1,
+      mediaType: 'image',
+      executor: 'openai-compat-template',
+      capabilities: ['text-to-image', 'image-to-image'],
+      input: {
+        image: 'dataUrlBase64',
+      },
+      output: {
+        kind: 'url',
+        urlPath: '$.data[0].url',
+      },
+      testStatus: {
+        textToImage: 'unchecked',
+        imageToImage: 'unchecked',
+      },
+      checkedAt: '2026-06-15T00:00:00.000Z',
+      source: 'manual',
+    }
+    prismaMock.userPreference.findUnique
+      .mockResolvedValueOnce({
+        customProviders: JSON.stringify([{
+          id: 'openai-compatible:abc',
+          name: 'OpenAI Compatible',
+          providerKey: 'openai-compatible',
+          serviceUrl: 'https://example.test/v1',
+          apiKey: 'enc:sk-test',
+          status: 'available',
+        }]),
+        customModels: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({
+        customProviders: JSON.stringify([{
+          id: 'openai-compatible:abc',
+          name: 'OpenAI Compatible',
+          providerKey: 'openai-compatible',
+          serviceUrl: 'https://example.test/v1',
+          apiKey: 'enc:sk-test',
+          status: 'available',
+        }]),
+        customModels: JSON.stringify([{
+          id: 'openai-compatible:abc::custom-image',
+          engineId: 'openai-compatible:abc',
+          name: 'Custom Image',
+          callName: 'custom-image',
+          modelKey: 'openai-compatible:abc::custom-image',
+          type: 'image',
+          purpose: 'image-generation',
+          enabled: true,
+          status: 'unchecked',
+          compatMediaTemplate,
+          compatMediaTemplateCheckedAt: '2026-06-15T00:00:00.000Z',
+          compatMediaTemplateSource: 'manual',
+          mediaContract,
+          mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+          mediaContractSource: 'manual',
+        }]),
+      })
+    const { PUT, GET } = await import('@/app/api/user/api-config/route')
+
+    const { NextRequest } = await import('next/server')
+    await PUT(new NextRequest('http://localhost/api/user/api-config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        models: [{
+          modelId: 'custom-image',
+          modelKey: 'openai-compatible:abc::custom-image',
+          name: 'Custom Image',
+          type: 'image',
+          provider: 'openai-compatible:abc',
+          compatMediaTemplate,
+          mediaContract,
+          mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+          mediaContractSource: 'manual',
+        }],
+      }),
+    }) as never, { params: Promise.resolve({}) })
+
+    const savedModels = JSON.parse(prismaMock.userPreference.upsert.mock.calls[0]?.[0].update.customModels)
+    expect(savedModels[0]).toMatchObject({
+      compatMediaTemplate,
+      mediaContract,
+      mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+      mediaContractSource: 'manual',
+    })
+
+    const response = await GET(new NextRequest('http://localhost/api/user/api-config') as never, { params: Promise.resolve({}) })
+    const body = await response.json()
+    expect(body.models[0]).toMatchObject({
+      compatMediaTemplate,
+      mediaContract,
+      mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+      mediaContractSource: 'manual',
     })
   })
 })

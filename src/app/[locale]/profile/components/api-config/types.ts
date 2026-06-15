@@ -11,6 +11,7 @@ import type {
     OpenAICompatMediaTemplate,
     OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
 import type {
     CreativeDetectionConfidence,
     CreativeModelPurpose,
@@ -71,6 +72,9 @@ export interface CustomModel {
     compatMediaTemplate?: OpenAICompatMediaTemplate
     compatMediaTemplateCheckedAt?: string
     compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+    mediaContract?: MediaContract
+    mediaContractCheckedAt?: string
+    mediaContractSource?: MediaContractSource
     price: number
     priceMin?: number
     priceMax?: number
