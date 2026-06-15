@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prepareMediaInputs } from '@/lib/media-contract/input-preparation'
 
+type PrepareMediaInputsArgs = Parameters<typeof prepareMediaInputs>[0]
+
 const normalizeToOriginalMediaUrl = vi.hoisted(() => vi.fn(async (input: string) => `https://signed.test/${input}`))
 const normalizeToBase64ForGeneration = vi.hoisted(() => vi.fn(async () => 'data:image/png;base64,QUJD'))
 
@@ -116,5 +118,51 @@ describe('prepareMediaInputs', () => {
     })
 
     expect(result.values.lastFrameImage).toBe('https://signed.test/images/end.png')
+  })
+
+  it('fails explicitly when the contract image input format is unsupported', async () => {
+    const contract = {
+      version: 1,
+      mediaType: 'image',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-image'],
+      input: { image: 'unknownImageFormat' },
+      output: { kind: 'url', urlPath: '$.data[0].url' },
+    } as unknown as PrepareMediaInputsArgs['contract']
+
+    const result = await prepareMediaInputs({
+      capability: 'image-to-image',
+      contract,
+      image: 'images/ref.png',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+      field: 'image',
+    })
+  })
+
+  it('fails explicitly when the contract images input format is unsupported', async () => {
+    const contract = {
+      version: 1,
+      mediaType: 'image',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-image'],
+      input: { images: 'unknownImagesFormat' },
+      output: { kind: 'url', urlPath: '$.data[0].url' },
+    } as unknown as PrepareMediaInputsArgs['contract']
+
+    const result = await prepareMediaInputs({
+      capability: 'image-to-image',
+      contract,
+      images: ['images/ref-a.png'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+      field: 'images',
+    })
   })
 })

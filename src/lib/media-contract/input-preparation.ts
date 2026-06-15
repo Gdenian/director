@@ -44,12 +44,42 @@ export type PrepareMediaInputsResult = {
 
 type MediaInputField = MediaInputDiagnostic['field']
 
+const INPUT_FORMATS = new Set<MediaInputFormat>([
+  'publicUrl',
+  'dataUrlBase64',
+  'rawBase64',
+  'multipartFile',
+])
+
+const INPUT_ARRAY_FORMATS = new Set<MediaInputArrayFormat>([
+  'publicUrlArray',
+  'dataUrlBase64Array',
+  'rawBase64Array',
+  'multipartFiles',
+])
+
 function diagnostic(
   code: MediaInputDiagnosticCode,
   field: MediaInputField,
   message: string,
 ): MediaInputDiagnostic {
   return { code, field, message }
+}
+
+function unsupportedFormatDiagnostic(field: MediaInputField, format: unknown): MediaInputDiagnostic {
+  return diagnostic(
+    'MEDIA_INPUT_FORMAT_UNSUPPORTED_BY_CONTRACT',
+    field,
+    `Media contract declares unsupported ${field} input format: ${String(format)}.`,
+  )
+}
+
+function isMediaInputFormat(format: unknown): format is MediaInputFormat {
+  return typeof format === 'string' && INPUT_FORMATS.has(format as MediaInputFormat)
+}
+
+function isMediaInputArrayFormat(format: unknown): format is MediaInputArrayFormat {
+  return typeof format === 'string' && INPUT_ARRAY_FORMATS.has(format as MediaInputArrayFormat)
 }
 
 function rawBase64FromDataUrl(value: string): string {
@@ -125,6 +155,8 @@ export async function prepareMediaInputs(
         'image',
         'Media contract requires an image input.',
       ))
+    } else if (!isMediaInputFormat(contract.input.image)) {
+      diagnostics.push(unsupportedFormatDiagnostic('image', contract.input.image))
     } else {
       const result = await prepareSingleInput(contract.input.image, 'image', params.image)
       if (result.diagnostic) diagnostics.push(result.diagnostic)
@@ -133,7 +165,9 @@ export async function prepareMediaInputs(
   }
 
   if (contract.input.images) {
-    if (params.images?.length) {
+    if (!isMediaInputArrayFormat(contract.input.images)) {
+      diagnostics.push(unsupportedFormatDiagnostic('images', contract.input.images))
+    } else if (params.images?.length) {
       const format = arrayFormatToInputFormat(contract.input.images)
       const converted: string[] = []
       for (const image of params.images) {
@@ -152,6 +186,8 @@ export async function prepareMediaInputs(
         'lastFrameImage',
         'Media contract requires a last frame image input.',
       ))
+    } else if (!isMediaInputFormat(contract.input.lastFrameImage)) {
+      diagnostics.push(unsupportedFormatDiagnostic('lastFrameImage', contract.input.lastFrameImage))
     } else {
       const result = await prepareSingleInput(
         contract.input.lastFrameImage,
