@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { z } from 'zod'
 import type { MediaContract } from '@/lib/media-contract/types'
 import type { OpenAICompatMediaTemplate, TemplateBodyValue } from '@/lib/openai-compat-media-template'
+import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template'
 import type { CreativeEngineDetectionResult, CreativeEngineDetectRequest } from './types'
 
 type InspectorPurpose = 'llm' | 'image' | 'video' | 'audio' | 'lipsync' | 'voice-design' | 'unknown'
@@ -156,7 +157,12 @@ export function redactSecret(value: string, secret: string) {
 }
 
 export function redactKeyLikeSecrets(value: string) {
-  return value.replace(/\bsk-[A-Za-z0-9_-]{6,}\b/g, (secret) => shortSecret(secret))
+  return value
+    .replace(/\bsk-[A-Za-z0-9_-]{6,}\b/g, (secret) => shortSecret(secret))
+    .replace(/\bAIza[A-Za-z0-9_-]{6,}\b/g, (secret) => shortSecret(secret))
+    .replace(/\bxai-[A-Za-z0-9_-]{6,}\b/g, (secret) => shortSecret(secret))
+    .replace(/\bgsk_[A-Za-z0-9_-]{6,}\b/g, (secret) => shortSecret(secret))
+    .replace(/\bBearer\s+([A-Za-z0-9._~+/=-]{16,})\b/g, (_match, token: string) => `Bearer ${shortSecret(token)}`)
 }
 
 function redactInspectorText(value: string, secret = '') {
@@ -196,6 +202,10 @@ function sanitizeCompatMediaTemplate(template: OpenAICompatMediaTemplate): OpenA
   return sanitizeJsonStrings(template)
 }
 
+function isMediaPurpose(purpose: CreativeEngineDetectionResult['models'][number]['purpose']) {
+  return purpose === 'image-generation' || purpose === 'video-generation'
+}
+
 export function buildInspectorPayload(input: InspectorPayloadInput) {
   const safeProbeLogs = input.allowKeyInInspector
     ? input.probeLogs
@@ -233,15 +243,34 @@ export function parseInspectorOutput(rawOutput: string): CreativeEngineDetection
     normalizedBaseUrl: validated.data.normalizedBaseUrl,
     confidence: validated.data.confidence,
     models: validated.data.models.map((model) => {
-      const mediaContract = model.mediaContract ? sanitizeMediaContract(model.mediaContract) : undefined
-      const mediaContractSource = model.mediaContractSource || mediaContract?.source
+      const purpose = INSPECTOR_PURPOSE_MAP[model.purpose]
+      if (!isMediaPurpose(purpose)) {
+        return {
+          name: sanitizeString(model.name),
+          callName: sanitizeString(model.callName),
+          purpose,
+          confidence: model.confidence,
+        }
+      }
+
+      const validatedTemplate = model.compatMediaTemplate
+        ? validateOpenAICompatMediaTemplate(model.compatMediaTemplate)
+        : null
+      const compatMediaTemplate = validatedTemplate?.ok && validatedTemplate.template
+        ? sanitizeCompatMediaTemplate(validatedTemplate.template)
+        : undefined
+      const mediaContract = model.mediaContract
+        && (model.mediaContract.executor !== 'openai-compat-template' || compatMediaTemplate)
+        ? sanitizeMediaContract(model.mediaContract)
+        : undefined
+      const mediaContractSource = mediaContract ? (model.mediaContractSource || mediaContract.source) : undefined
       return {
         name: sanitizeString(model.name),
         callName: sanitizeString(model.callName),
-        purpose: INSPECTOR_PURPOSE_MAP[model.purpose],
+        purpose,
         confidence: model.confidence,
-        ...(model.compatMediaTemplate ? { compatMediaTemplate: sanitizeCompatMediaTemplate(model.compatMediaTemplate) } : {}),
-        ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+        ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
+        ...(compatMediaTemplate && model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
         ...(mediaContract ? { mediaContract } : {}),
         ...(mediaContractSource ? { mediaContractSource } : {}),
       }

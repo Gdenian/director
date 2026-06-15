@@ -6,8 +6,6 @@ import type { DetectedModelDraft } from './types'
 
 type MediaContractDraftInput = {
   protocolType: CreativeProtocolType
-  source: string
-  normalizedBaseUrl: string
   model: DetectedModelDraft
 }
 
@@ -55,6 +53,10 @@ function buildVideoContract(executor: MediaContract['executor'], source: MediaCo
 }
 
 export function buildMediaContractDraftForDetectedModel(input: MediaContractDraftInput): MediaContractDraftResult {
+  if (input.model.purpose !== 'image-generation' && input.model.purpose !== 'video-generation') {
+    return {}
+  }
+
   if (input.model.mediaContract) {
     return {
       mediaContract: input.model.mediaContract,

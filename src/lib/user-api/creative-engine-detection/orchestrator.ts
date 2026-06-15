@@ -64,8 +64,6 @@ function withMediaContractDrafts(result: CreativeEngineDetectionResult): Creativ
     models: result.models.map((model): DetectedModelDraft => {
       const draft = buildMediaContractDraftForDetectedModel({
         protocolType: result.protocolType,
-        source: result.source,
-        normalizedBaseUrl: result.normalizedBaseUrl,
         model,
       })
       return {

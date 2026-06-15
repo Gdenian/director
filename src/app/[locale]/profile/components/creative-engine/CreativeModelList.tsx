@@ -3,6 +3,11 @@
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
 import type { CreativeModelPurpose, CreativeModelStatus } from '@/lib/creative-engine/types'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
+import type {
+  OpenAICompatMediaTemplate,
+  OpenAICompatMediaTemplateSource,
+} from '@/lib/openai-compat-media-template'
 import type { CustomModel } from '../api-config'
 
 export interface CreativeModelListItem {
@@ -13,6 +18,10 @@ export interface CreativeModelListItem {
   purpose?: CreativeModelPurpose | 'unknown'
   status?: CreativeModelStatus | 'unchecked'
   enabled?: boolean
+  mediaContract?: MediaContract
+  mediaContractSource?: MediaContractSource
+  compatMediaTemplate?: OpenAICompatMediaTemplate
+  compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
 }
 
 interface CreativeModelListProps {

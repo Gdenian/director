@@ -112,6 +112,10 @@ export function buildDetectedModelDrafts(
       type,
       provider: providerId,
       ...llmProtocol,
+      ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
+      ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+      ...(model.mediaContract ? { mediaContract: model.mediaContract } : {}),
+      ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
       purpose,
       status: model.status === 'failed' || model.status === 'disabled'
         ? model.status

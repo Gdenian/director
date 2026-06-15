@@ -4,6 +4,8 @@ import {
   buildDetectedModelDrafts,
   resolveCreativeEngineDisplayName,
 } from '@/app/[locale]/profile/components/creative-engine/detection-save-draft'
+import type { MediaContract } from '@/lib/media-contract/types'
+import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 
 describe('creative engine detection save draft', () => {
   it('uses the user supplied service name before detected or fallback names', () => {
@@ -87,6 +89,64 @@ describe('creative engine detection save draft', () => {
         price: 0,
       },
     ])
+  })
+
+  it('keeps detected media contract and template fields on model drafts', () => {
+    const mediaContract: MediaContract = {
+      version: 1,
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+      input: { image: 'publicUrl' },
+      output: { kind: 'asyncTask', urlPath: '$.video.url' },
+      testStatus: { imageToVideo: 'unchecked' },
+      source: 'llm',
+    }
+    const compatMediaTemplate: OpenAICompatMediaTemplate = {
+      version: 1,
+      mediaType: 'video',
+      mode: 'async',
+      create: {
+        method: 'POST',
+        path: '/videos',
+        contentType: 'application/json',
+        bodyTemplate: { model: '{{model}}', prompt: '{{prompt}}' },
+      },
+      status: { method: 'GET', path: '/tasks/{{task_id}}' },
+      response: {
+        taskIdPath: '$.id',
+        statusPath: '$.status',
+        outputUrlPath: '$.video.url',
+      },
+      polling: {
+        intervalMs: 1000,
+        timeoutMs: 120000,
+        doneStates: ['succeeded'],
+        failStates: ['failed'],
+      },
+    }
+
+    const drafts = buildDetectedModelDrafts('openai-compatible:abc', [
+      {
+        id: 'video-1',
+        name: 'Video One',
+        callName: 'video-example',
+        purpose: 'video-generation',
+        status: 'unchecked',
+        mediaContract,
+        mediaContractSource: 'llm',
+        compatMediaTemplate,
+        compatMediaTemplateSource: 'ai',
+      },
+    ])
+
+    expect(drafts[0]).toMatchObject({
+      modelId: 'video-example',
+      mediaContract,
+      mediaContractSource: 'llm',
+      compatMediaTemplate,
+      compatMediaTemplateSource: 'ai',
+    })
   })
 
   it('keeps detected protocol routing when building the provider draft', () => {

@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest'
+import type { MediaContract } from '@/lib/media-contract/types'
 import { buildMediaContractDraftForDetectedModel } from '@/lib/user-api/creative-engine-detection/media-contract-drafts'
 
 describe('creative engine media contract drafts', () => {
+  const videoContract: MediaContract = {
+    version: 1,
+    mediaType: 'video',
+    executor: 'openai-compat-template',
+    capabilities: ['image-to-video'],
+    input: { image: 'publicUrl' },
+    output: { kind: 'asyncTask', urlPath: '$.video.url' },
+    testStatus: { imageToVideo: 'unchecked' },
+    source: 'llm',
+  }
+
   it('creates unchecked OpenAI-compatible image draft', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'openai-compatible',
-      source: 'unknown-relay',
-      normalizedBaseUrl: 'https://relay.test/v1',
       model: {
         name: 'GPT Image',
         callName: 'gpt-image-2',
@@ -26,8 +36,6 @@ describe('creative engine media contract drafts', () => {
   it('does not create video draft for relay text-only evidence', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'openai-compatible',
-      source: 'unknown-relay',
-      normalizedBaseUrl: 'https://relay.test/v1',
       model: {
         name: 'Text Model',
         callName: 'gpt-5.4',
@@ -42,8 +50,6 @@ describe('creative engine media contract drafts', () => {
   it('does not create OpenAI-compatible video draft without template evidence', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'openai-compatible',
-      source: 'unknown-relay',
-      normalizedBaseUrl: 'https://relay.test/v1',
       model: {
         name: 'Relay Video',
         callName: 'relay/video',
@@ -58,23 +64,12 @@ describe('creative engine media contract drafts', () => {
   it('keeps assistant-provided template-backed contracts unchanged', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'openai-compatible',
-      source: 'custom-template',
-      normalizedBaseUrl: 'https://relay.test/v1',
       model: {
         name: 'Template Video',
         callName: 'template/video',
         purpose: 'video-generation',
         confidence: 'medium',
-        mediaContract: {
-          version: 1,
-          mediaType: 'video',
-          executor: 'openai-compat-template',
-          capabilities: ['image-to-video'],
-          input: { image: 'publicUrl' },
-          output: { kind: 'asyncTask', urlPath: '$.video.url' },
-          testStatus: { imageToVideo: 'unchecked' },
-          source: 'llm',
-        },
+        mediaContract: videoContract,
       },
     })
 
@@ -85,11 +80,39 @@ describe('creative engine media contract drafts', () => {
     expect(draft.mediaContractSource).toBe('llm')
   })
 
+  it('drops upstream media contracts from non-media model drafts', () => {
+    const textDraft = buildMediaContractDraftForDetectedModel({
+      protocolType: 'openai-compatible',
+      model: {
+        name: 'Text Model',
+        callName: 'text/model',
+        purpose: 'text',
+        confidence: 'high',
+        mediaContract: videoContract,
+        mediaContractSource: 'llm',
+      },
+    })
+    const voiceDraft = buildMediaContractDraftForDetectedModel({
+      protocolType: 'openai-compatible',
+      model: {
+        name: 'Voice Model',
+        callName: 'voice/model',
+        purpose: 'voice-generation',
+        confidence: 'medium',
+        mediaContract: videoContract,
+        mediaContractSource: 'llm',
+      },
+    })
+
+    expect(textDraft.mediaContract).toBeUndefined()
+    expect(textDraft.mediaContractSource).toBeUndefined()
+    expect(voiceDraft.mediaContract).toBeUndefined()
+    expect(voiceDraft.mediaContractSource).toBeUndefined()
+  })
+
   it('creates Gemini-standard video draft for Gemini-compatible Veo model', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'gemini-compatible',
-      source: 'gemini-compatible',
-      normalizedBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
       model: {
         name: 'Veo',
         callName: 'veo-3.1-generate-preview',
@@ -108,8 +131,6 @@ describe('creative engine media contract drafts', () => {
   it('creates Gemini-standard image drafts and skips non-media Gemini models', () => {
     const imageDraft = buildMediaContractDraftForDetectedModel({
       protocolType: 'gemini-compatible',
-      source: 'gemini-compatible',
-      normalizedBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
       model: {
         name: 'Imagen',
         callName: 'models/imagen-4',
@@ -119,8 +140,6 @@ describe('creative engine media contract drafts', () => {
     })
     const textDraft = buildMediaContractDraftForDetectedModel({
       protocolType: 'gemini-compatible',
-      source: 'gemini-compatible',
-      normalizedBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
       model: {
         name: 'Gemini',
         callName: 'models/gemini-2.5-pro',
@@ -140,8 +159,6 @@ describe('creative engine media contract drafts', () => {
   it('creates official-adapter media drafts without passed test statuses', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'official',
-      source: 'fal',
-      normalizedBaseUrl: 'https://queue.fal.run',
       model: {
         name: 'Fal Video',
         callName: 'fal-ai/veo3.1/fast/image-to-video',
