@@ -68,6 +68,14 @@ function readPreparedImageOutput(value: unknown): {
       imageBase64: trimmed.slice(dataUrlPrefix.length),
     }
   }
+  if (
+    /^https?:\/\//i.test(trimmed)
+    || /^[{[]/.test(trimmed)
+    || /\s/.test(trimmed)
+    || !/^[A-Za-z0-9+/=_-]+$/.test(trimmed)
+  ) {
+    return null
+  }
   return {
     imageUrl: `data:image/png;base64,${trimmed}`,
     imageBase64: trimmed,

@@ -176,6 +176,53 @@ describe('model-gateway openai-compat template renderer', () => {
     })
   })
 
+  it('prevents extra options from overriding explicit core media variables', () => {
+    const variables = buildTemplateVariables({
+      model: 'gpt-image-2',
+      prompt: 'make poster',
+      image: 'data:image/png;base64,PREPARED',
+      images: ['data:image/png;base64,PREPARED'],
+      lastFrameImage: 'https://cdn.test/prepared-last.png',
+      taskId: 'task-prepared',
+      extra: {
+        model: 'overridden-model',
+        prompt: 'overridden prompt',
+        image: 'https://bad.test/raw.png',
+        images: ['https://bad.test/raw.png'],
+        lastFrameImage: 'https://bad.test/last.png',
+        last_frame_image: 'https://bad.test/snake-last.png',
+        task_id: 'task-overridden',
+        numFrames: 81,
+        frameRate: 16,
+        vendor_payload: { quality: 'high' },
+      },
+    })
+
+    expect(renderTemplateValue({
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      image: '{{image}}',
+      images: '{{images}}',
+      lastFrameImage: '{{lastFrameImage}}',
+      last_frame_image: '{{last_frame_image}}',
+      task_id: '{{task_id}}',
+      num_frames: '{{num_frames}}',
+      frame_rate: '{{frame_rate}}',
+      vendor_payload: '{{vendor_payload}}',
+    }, variables)).toEqual({
+      model: 'gpt-image-2',
+      prompt: 'make poster',
+      image: 'data:image/png;base64,PREPARED',
+      images: ['data:image/png;base64,PREPARED'],
+      lastFrameImage: 'https://cdn.test/prepared-last.png',
+      last_frame_image: 'https://cdn.test/prepared-last.png',
+      task_id: 'task-prepared',
+      num_frames: 81,
+      frame_rate: 16,
+      vendor_payload: { quality: 'high' },
+    })
+  })
+
   it('reads json path for array/object outputs', () => {
     const payload = {
       data: [{ url: 'https://cdn.test/1.png' }],
