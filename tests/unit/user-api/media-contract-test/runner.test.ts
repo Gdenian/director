@@ -113,6 +113,30 @@ describe('media contract test runner', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('rejects malformed provider base url before fetching', async () => {
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'not a url',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract,
+        compatMediaTemplate,
+      },
+      capability: 'text-to-image',
+      sample: { prompt: '生成一张简单测试图' },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.status).toBe('failed')
+    expect(result.diagnostic).toMatchObject({ code: 'MEDIA_TEST_BASE_URL_ERROR' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('redacts secret query params and sk values from preview endpoint url', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({

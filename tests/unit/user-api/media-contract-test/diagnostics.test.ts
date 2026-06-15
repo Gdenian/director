@@ -11,9 +11,23 @@ describe('media test diagnostics', () => {
     expect(classifyMediaTestError({ status, body })).toMatchObject({ code })
   })
 
-  it('maps missing json path to response path mismatch', () => {
+  it('maps missing output url to output url missing', () => {
     expect(classifyMediaTestError({ status: 200, body: '{"data":[]}', extraction: 'output-url-missing' }))
+      .toMatchObject({ code: 'MEDIA_TEST_OUTPUT_URL_MISSING' })
+  })
+
+  it('maps explicit json path mismatch to response path mismatch', () => {
+    expect(classifyMediaTestError({ status: 200, body: '{"data":[]}', extraction: 'json-path-mismatch' }))
       .toMatchObject({ code: 'MEDIA_TEST_RESPONSE_JSON_PATH_MISMATCH' })
+  })
+
+  it.each([
+    ['unsupported-input-format', 'MEDIA_TEST_UNSUPPORTED_INPUT_FORMAT'],
+    ['public-url-unavailable', 'MEDIA_TEST_PUBLIC_URL_UNAVAILABLE'],
+    ['multipart-field-mismatch', 'MEDIA_TEST_MULTIPART_FIELD_MISMATCH'],
+  ])('maps extraction %s to %s', (extraction, code) => {
+    expect(classifyMediaTestError({ status: 400, body: 'bad request', extraction }))
+      .toMatchObject({ code })
   })
 
   it('maps balance-like provider messages to insufficient balance', () => {

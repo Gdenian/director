@@ -54,7 +54,15 @@ export function classifyMediaTestError(input: ClassificationInput): MediaTestDia
   let code: MediaTestDiagnosticCode = 'MEDIA_TEST_UPSTREAM_POOL_UNAVAILABLE'
 
   if (input.extraction === 'output-url-missing') {
+    code = 'MEDIA_TEST_OUTPUT_URL_MISSING'
+  } else if (input.extraction === 'json-path-mismatch') {
     code = 'MEDIA_TEST_RESPONSE_JSON_PATH_MISMATCH'
+  } else if (input.extraction === 'unsupported-input-format') {
+    code = 'MEDIA_TEST_UNSUPPORTED_INPUT_FORMAT'
+  } else if (input.extraction === 'public-url-unavailable') {
+    code = 'MEDIA_TEST_PUBLIC_URL_UNAVAILABLE'
+  } else if (input.extraction === 'multipart-field-mismatch') {
+    code = 'MEDIA_TEST_MULTIPART_FIELD_MISMATCH'
   } else if (input.extraction === 'task-id-missing') {
     code = 'MEDIA_TEST_ASYNC_TASK_ID_PATH_MISMATCH'
   } else if (input.extraction === 'status-missing') {

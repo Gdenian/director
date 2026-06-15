@@ -18,6 +18,15 @@ const DEFAULT_MAX_POLL_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_POLL_INTERVAL_MS = 1_000
 const SECRET_QUERY_KEYS = new Set(['key', 'api_key', 'token', 'access_token'])
 
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function contentTypeFromHeaders(headers: Record<string, string>): string | undefined {
   const key = Object.keys(headers).find((name) => name.toLowerCase() === 'content-type')
   return key ? headers[key] : undefined
@@ -328,6 +337,15 @@ export async function runMediaContractTest(input: RunMediaContractTestInput): Pr
       diagnostic: {
         code: 'MEDIA_TEST_BASE_URL_ERROR',
         message: 'Provider base URL is missing',
+      },
+    }
+  }
+  if (!isValidHttpUrl(input.provider.baseUrl)) {
+    return {
+      status: 'failed',
+      diagnostic: {
+        code: 'MEDIA_TEST_BASE_URL_ERROR',
+        message: 'Provider base URL is invalid',
       },
     }
   }
