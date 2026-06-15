@@ -71,4 +71,44 @@ describe('media contract validator', () => {
       field: 'executor',
     })
   })
+
+  it('rejects undeclared or mismatched testStatus keys', () => {
+    const imageVideoStatus = validateMediaContract({
+      version: 1,
+      mediaType: 'image',
+      executor: 'openai-standard',
+      capabilities: ['text-to-image'],
+      input: {},
+      output: { kind: 'url', urlPath: '$.data[0].url' },
+      testStatus: { textToImage: 'passed', imageToVideo: 'passed' },
+    }, {
+      modelMediaType: 'image',
+      hasCompatMediaTemplate: false,
+    })
+
+    expect(imageVideoStatus.ok).toBe(false)
+    expect(imageVideoStatus.issues).toContainEqual(expect.objectContaining({
+      code: 'MEDIA_CONTRACT_INVALID',
+      field: 'testStatus.imageToVideo',
+    }))
+
+    const undeclaredImageStatus = validateMediaContract({
+      version: 1,
+      mediaType: 'image',
+      executor: 'openai-standard',
+      capabilities: ['text-to-image'],
+      input: {},
+      output: { kind: 'url', urlPath: '$.data[0].url' },
+      testStatus: { imageToImage: 'passed' },
+    }, {
+      modelMediaType: 'image',
+      hasCompatMediaTemplate: false,
+    })
+
+    expect(undeclaredImageStatus.ok).toBe(false)
+    expect(undeclaredImageStatus.issues).toContainEqual(expect.objectContaining({
+      code: 'MEDIA_CONTRACT_INVALID',
+      field: 'testStatus.imageToImage',
+    }))
+  })
 })

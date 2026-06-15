@@ -217,7 +217,9 @@ function normalizeMediaContract(
     hasCompatMediaTemplate,
   })
   if (!validated.ok || !validated.contract) {
-    throw new Error(`CREATIVE_MODEL_MEDIA_CONTRACT_INVALID: models[${index}].mediaContract`)
+    const field = validated.issues[0]?.field
+    const suffix = field && field !== 'mediaContract' ? `.${field}` : ''
+    throw new Error(`CREATIVE_MODEL_MEDIA_CONTRACT_INVALID: models[${index}].mediaContract${suffix}`)
   }
   return validated.contract
 }

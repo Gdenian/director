@@ -132,4 +132,25 @@ describe('creative engine persisted config', () => {
       mediaContractSource: 'manual',
     })
   })
+
+  it('includes nested media contract issue fields in invalid config errors', () => {
+    expect(() => normalizeCreativeModelInput({
+      id: 'm-1',
+      engineId: 'openai-compatible:abc',
+      name: 'Image Model',
+      callName: 'image-model',
+      type: 'image',
+      purpose: 'image-generation',
+      enabled: true,
+      status: 'available',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-standard',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url' },
+      },
+    }, 0)).toThrow('CREATIVE_MODEL_MEDIA_CONTRACT_INVALID: models[0].mediaContract.output.urlPath')
+  })
 })

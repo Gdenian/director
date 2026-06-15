@@ -56,7 +56,7 @@ describe('api-config creative engine runtime reader', () => {
       'user-1',
       'openai-compatible:abc::anthropic/claude-sonnet-4.5',
       'llm',
-    )).resolves.toMatchObject({
+    )).resolves.toStrictEqual({
       provider: 'openai-compatible:abc',
       modelId: 'anthropic/claude-sonnet-4.5',
       modelKey: 'openai-compatible:abc::anthropic/claude-sonnet-4.5',

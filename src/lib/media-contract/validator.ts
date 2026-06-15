@@ -67,6 +67,14 @@ const SOURCES = new Set<MediaContractSource>([
   'manual',
   'official-adapter',
 ])
+const TEST_STATUS_KEYS = new Set<keyof NonNullable<MediaContract['testStatus']>>([
+  'textToImage',
+  'imageToImage',
+  'imageEdit',
+  'textToVideo',
+  'imageToVideo',
+  'firstLastFrameVideo',
+])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -238,7 +246,17 @@ export function validateMediaContract(
       issues.push(issue('MEDIA_CONTRACT_INVALID', 'testStatus', 'Media contract testStatus must be an object.'))
     } else {
       const normalizedStatus: NonNullable<MediaContract['testStatus']> = {}
-      for (const capability of CAPABILITIES) {
+      const allowedStatusKeys = new Set(capabilities.map(mediaCapabilityStatusKey))
+      for (const key of Object.keys(raw.testStatus)) {
+        if (!TEST_STATUS_KEYS.has(key as keyof NonNullable<MediaContract['testStatus']>)) {
+          issues.push(issue('MEDIA_CONTRACT_INVALID', `testStatus.${key}`, `Invalid media contract test status key: ${key}`))
+          continue
+        }
+        if (!allowedStatusKeys.has(key as keyof NonNullable<MediaContract['testStatus']>)) {
+          issues.push(issue('MEDIA_CONTRACT_INVALID', `testStatus.${key}`, `Media contract test status ${key} is not declared in capabilities.`))
+        }
+      }
+      for (const capability of capabilities) {
         const key = mediaCapabilityStatusKey(capability)
         const status = readOptionalEnum(raw.testStatus[key], STATUSES, `testStatus.${key}`, issues)
         if (status) normalizedStatus[key] = status
