@@ -65,6 +65,7 @@ export function MediaCapabilityRows({
         const status = readCapabilityStatus(model, capability)
         const canRunTest = status === 'unchecked' || status === 'failed'
         const isPending = pendingCapability === capability
+        const isAnyTestPending = pendingCapability !== null
 
         return (
           <div
@@ -82,7 +83,7 @@ export function MediaCapabilityRows({
                 <button
                   type="button"
                   onClick={() => onRunTest(model.modelKey, capability)}
-                  disabled={isPending}
+                  disabled={isAnyTestPending}
                   className="glass-btn-base glass-btn-soft px-1.5 py-0.5 text-[11px] font-medium"
                 >
                   {isPending ? t('mediaCapabilityTesting') : t('mediaCapabilityRunTest')}

@@ -98,6 +98,33 @@ describe('MediaCapabilityRows', () => {
     expect(html).toContain('Contract not verified')
   })
 
+  it('disables all test buttons while any capability is pending for the model', () => {
+    const element = MediaCapabilityRows({
+      model: baseModel({
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video', 'text-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.video.url' },
+          testStatus: {
+            imageToVideo: 'unchecked',
+            textToVideo: 'failed',
+          },
+        },
+      }),
+      onRunTest: vi.fn(),
+      pendingCapability: 'image-to-video',
+      t,
+    })
+
+    const buttons = collectButtons(element)
+
+    expect(buttons).toHaveLength(2)
+    expect(buttons.every((button) => button.props.disabled === true)).toBe(true)
+  })
+
   it('renders nothing for text models', () => {
     const html = renderToStaticMarkup(
       <MediaCapabilityRows
