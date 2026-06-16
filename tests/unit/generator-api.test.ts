@@ -130,6 +130,101 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, imageUrl: 'compat-template-image' })
   })
 
+  it('uses matching image mediaModelSnapshot contract instead of latest selection contract', async () => {
+    const latestContract = {
+      version: 1 as const,
+      mediaType: 'image' as const,
+      executor: 'openai-standard' as const,
+      capabilities: ['text-to-image' as const],
+      input: {},
+      output: { kind: 'url' as const, urlPath: '$.data[0].url' },
+      testStatus: { textToImage: 'passed' as const },
+    }
+    const snapshotContract = {
+      version: 1 as const,
+      mediaType: 'image' as const,
+      executor: 'openai-compat-template' as const,
+      capabilities: ['text-to-image' as const],
+      input: {},
+      output: { kind: 'url' as const, urlPath: '$.snapshot.url' },
+      testStatus: { textToImage: 'passed' as const },
+    }
+    const snapshotTemplate = {
+      version: 1 as const,
+      mediaType: 'image' as const,
+      mode: 'sync' as const,
+      create: { method: 'POST' as const, path: '/snapshot/images' },
+      response: { outputUrlPath: '$.snapshot.url' },
+    }
+
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-1',
+      modelKey: 'openai-compatible:oa-1::gpt-image-1',
+      mediaType: 'image',
+      mediaContract: latestContract,
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-1', 'draw cat', {
+      mediaModelSnapshot: {
+        modelKey: 'openai-compatible:oa-1::gpt-image-1',
+        mediaContract: snapshotContract,
+        compatMediaTemplate: snapshotTemplate,
+      },
+    })
+
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: snapshotContract,
+      template: snapshotTemplate,
+    }))
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+  })
+
+  it('ignores image mediaModelSnapshot when modelKey differs', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-1',
+      modelKey: 'openai-compatible:oa-1::gpt-image-1',
+      mediaType: 'image',
+      mediaContract: {
+        version: 1,
+        mediaType: 'image',
+        executor: 'openai-standard',
+        capabilities: ['text-to-image'],
+        input: {},
+        output: { kind: 'url', urlPath: '$.data[0].url' },
+        testStatus: { textToImage: 'passed' },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-1', 'draw cat', {
+      mediaModelSnapshot: {
+        modelKey: 'openai-compatible:oa-1::other-image',
+        mediaContract: {
+          version: 1,
+          mediaType: 'image',
+          executor: 'openai-compat-template',
+          capabilities: ['text-to-image'],
+          input: {},
+          output: { kind: 'url', urlPath: '$.snapshot.url' },
+          testStatus: { textToImage: 'passed' },
+        },
+        compatMediaTemplate: {
+          version: 1,
+          mediaType: 'image',
+          mode: 'sync',
+          create: { method: 'POST', path: '/snapshot/images' },
+          response: { outputUrlPath: '$.snapshot.url' },
+        },
+      },
+    })
+
+    expect(generateImageViaOpenAICompatMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+  })
+
   it('routes openai-standard image contract to openai compat gateway without template', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'openai-compatible:oa-1',
@@ -378,6 +473,33 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, imageUrl: 'official-image' })
   })
 
+  it('keeps image models without mediaContract on the legacy provider route', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'fal',
+      modelId: 'flux-dev',
+      modelKey: 'fal::flux-dev',
+      mediaType: 'image',
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('official')
+
+    const result = await generateImage('user-1', 'fal::flux-dev', 'draw cat', {
+      aspectRatio: '1:1',
+    })
+
+    expect(createImageGeneratorMock).toHaveBeenCalledWith('fal', 'flux-dev')
+    expect(imageGeneratorGenerateMock).toHaveBeenCalledWith(expect.objectContaining({
+      options: expect.objectContaining({
+        aspectRatio: '1:1',
+        provider: 'fal',
+        modelId: 'flux-dev',
+        modelKey: 'fal::flux-dev',
+      }),
+    }))
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, imageUrl: 'official-image' })
+  })
+
   it('routes gemini-compatible image to official generator', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'gemini-compatible:gm-1',
@@ -446,6 +568,59 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, videoUrl: 'compat-template-video' })
   })
 
+  it('uses original video mediaModelSnapshot contract after latest selection changes', async () => {
+    const originalSnapshotContract = {
+      version: 1 as const,
+      mediaType: 'video' as const,
+      executor: 'openai-compat-template' as const,
+      capabilities: ['image-to-video' as const],
+      input: { image: 'publicUrl' as const },
+      output: { kind: 'asyncTask' as const, urlPath: '$.snapshot.id' },
+      testStatus: { imageToVideo: 'passed' as const },
+    }
+    const originalSnapshotTemplate = {
+      version: 1 as const,
+      mediaType: 'video' as const,
+      mode: 'async' as const,
+      create: { method: 'POST' as const, path: '/snapshot/videos' },
+      response: { taskIdPath: '$.snapshot.id' },
+    }
+    const mediaModelSnapshot = {
+      modelKey: 'openai-compatible:oa-1::sora-2',
+      mediaContract: originalSnapshotContract,
+      compatMediaTemplate: originalSnapshotTemplate,
+    }
+    const latestContract = {
+      version: 1 as const,
+      mediaType: 'video' as const,
+      executor: 'openai-standard' as const,
+      capabilities: ['image-to-video' as const],
+      input: { image: 'publicUrl' as const },
+      output: { kind: 'asyncTask' as const, urlPath: '$.id' },
+      testStatus: { imageToVideo: 'passed' as const },
+    }
+
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'sora-2',
+      modelKey: 'openai-compatible:oa-1::sora-2',
+      mediaType: 'video',
+      mediaContract: latestContract,
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await generateVideo('user-1', 'openai-compatible:oa-1::sora-2', 'https://example.com/source.png', {
+      prompt: 'animate',
+      mediaModelSnapshot,
+    })
+
+    expect(generateVideoViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: originalSnapshotContract,
+      template: originalSnapshotTemplate,
+    }))
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+  })
+
   it('blocks unchecked video media contract capability before dispatch', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'openai-compatible:oa-1',
@@ -512,6 +687,36 @@ describe('generator-api gateway routing', () => {
 
     expect(createVideoGeneratorMock).toHaveBeenCalledWith('fal')
     expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, videoUrl: 'official-video' })
+  })
+
+  it('keeps video models without mediaContract on the legacy provider route', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'fal',
+      modelId: 'kling',
+      modelKey: 'fal::kling',
+      mediaType: 'video',
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('official')
+
+    const result = await generateVideo('user-1', 'fal::kling', 'https://example.com/source.png', {
+      prompt: 'animate',
+      duration: 5,
+    })
+
+    expect(createVideoGeneratorMock).toHaveBeenCalledWith('fal')
+    expect(videoGeneratorGenerateMock).toHaveBeenCalledWith(expect.objectContaining({
+      imageUrl: 'https://example.com/source.png',
+      prompt: 'animate',
+      options: expect.objectContaining({
+        duration: 5,
+        provider: 'fal',
+        modelId: 'kling',
+        modelKey: 'fal::kling',
+      }),
+    }))
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, videoUrl: 'official-video' })
   })
 

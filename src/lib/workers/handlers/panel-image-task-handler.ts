@@ -6,6 +6,7 @@ import { resolvePayloadStylePrompt } from '@/lib/styles/payload'
 import { reportTaskProgress } from '../shared'
 import {
   assertTaskActive,
+  buildMediaModelSnapshot,
   getProjectModels,
   resolveImageSourceFromGeneration,
   uploadImageSourceToCos,
@@ -230,6 +231,11 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
     sourceText: panel.srtSegment || panel.description || '',
     contextJson,
   })
+  const mediaModelSnapshot = await buildMediaModelSnapshot({
+    userId: job.data.userId,
+    modelKey,
+    mediaType: 'image',
+  })
   logger.info({
     message: 'panel image prompt resolved',
     details: {
@@ -252,6 +258,7 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
       options: {
         referenceImages: normalizedRefs,
         aspectRatio,
+        mediaModelSnapshot,
       },
       // 单个任务内会串行生成多候选，若允许按 task.externalId 续接会复用上一候选外部任务结果。
       allowTaskExternalIdResume: candidateCount === 1,
