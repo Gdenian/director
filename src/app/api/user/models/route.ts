@@ -19,9 +19,11 @@ import {
   type ModelCapabilities,
   type UnifiedModelType,
 } from '@/lib/model-config-contract'
+import { mediaCapabilityStatusKey } from '@/lib/media-contract/status'
 import { findBuiltinCapabilities } from '@/lib/model-capabilities/catalog'
 import { findBuiltinPricingCatalogEntry } from '@/lib/model-pricing/catalog'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
+import type { MediaCapability, MediaContract } from '@/lib/media-contract/types'
 import type {
   CreativeDetectionConfidence,
   CreativeEngineConfig,
@@ -43,6 +45,13 @@ interface UserModelOption {
   modelStatus?: CreativeModelStatus
   source?: string
   confidence?: CreativeDetectionConfidence
+  mediaContract?: MediaContract
+  mediaCapabilitySummary?: {
+    available: MediaCapability[]
+    unchecked: MediaCapability[]
+    failed: MediaCapability[]
+    unavailable: MediaCapability[]
+  }
 }
 
 interface UserModelsPayload {
@@ -152,6 +161,31 @@ function findVideoPricingEntryWithProviderKey(
     || (providerKey !== provider ? findBuiltinPricingCatalogEntry('video', providerKey, modelId) : null)
 }
 
+function summarizeMediaCapabilities(contract: MediaContract): NonNullable<UserModelOption['mediaCapabilitySummary']> {
+  const summary: NonNullable<UserModelOption['mediaCapabilitySummary']> = {
+    available: [],
+    unchecked: [],
+    failed: [],
+    unavailable: [],
+  }
+
+  for (const capability of contract.capabilities) {
+    if (contract.executor === 'official-adapter') {
+      summary.available.push(capability)
+      continue
+    }
+
+    const status = contract.testStatus?.[mediaCapabilityStatusKey(capability)] || 'unchecked'
+    if (status === 'passed') {
+      summary.available.push(capability)
+    } else {
+      summary[status].push(capability)
+    }
+  }
+
+  return summary
+}
+
 export const GET = apiHandler(async () => {
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
@@ -220,6 +254,11 @@ export const GET = apiHandler(async () => {
           option.videoPricingTiers = cloneVideoPricingTiers(pricingEntry.pricing.tiers)
         }
       }
+    }
+
+    if (model.mediaContract) {
+      option.mediaContract = model.mediaContract
+      option.mediaCapabilitySummary = summarizeMediaCapabilities(model.mediaContract)
     }
 
     grouped[getModelGroup(modelType, model.purpose)].push(option)

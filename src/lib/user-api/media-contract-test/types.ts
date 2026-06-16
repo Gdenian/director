@@ -1,4 +1,9 @@
-import type { MediaCapability, MediaCapabilityStatus, MediaContract } from '@/lib/media-contract/types'
+import type {
+  MediaCapability,
+  MediaCapabilityStatus,
+  MediaContract,
+  MediaContractSource,
+} from '@/lib/media-contract/types'
 import type { MediaTestDiagnostic } from '@/lib/media-contract/test-diagnostics'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 
@@ -62,4 +67,10 @@ export type SaveMediaContractTestResultInput = {
   capability: MediaCapability
   status: Extract<MediaCapabilityStatus, 'passed' | 'failed'>
   diagnostic?: MediaContractTestDiagnostic
+}
+
+export type SaveMediaContractTestResultOutput = {
+  mediaContract: MediaContract
+  mediaContractCheckedAt: string
+  mediaContractSource?: MediaContractSource
 }

@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppIcon } from '@/components/ui/icons'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { apiFetch } from '@/lib/api-fetch'
+import type { MediaCapability, MediaContract, MediaContractSource } from '@/lib/media-contract/types'
 import { getProviderKey, isPresetComingSoonModel, type CustomModel } from '../types'
+import { MediaCapabilityRows } from './MediaCapabilityRows'
 import type { UseProviderCardStateResult } from './hooks/useProviderCardState'
 import type {
   ProviderCardModelType,
@@ -163,6 +166,46 @@ export function ProviderAdvancedFields({
   const defaultAddType: ProviderCardModelType = providerKey === 'openrouter' ? 'llm' : 'image'
   const useTabbedLayout = state.hasModels || shouldShowDefaultTabs(provider.id)
   const shouldShowVideoHint = shouldShowOpenAICompatVideoHint(provider.id, currentType)
+  const [pendingMediaTests, setPendingMediaTests] = useState<Record<string, MediaCapability | null>>({})
+
+  const handleRunMediaTest = async (modelKey: string, capability: MediaCapability) => {
+    if (!onUpdateModel) return
+    if (!window.confirm(t('mediaTestConfirm'))) return
+
+    setPendingMediaTests((prev) => ({ ...prev, [modelKey]: capability }))
+    try {
+      const response = await apiFetch('/api/user/creative-engines/media-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelKey,
+          capability,
+          confirmedCost: true,
+          sample: { prompt: t('mediaTestSamplePrompt') },
+        }),
+      })
+      const payload = await response.json().catch(() => null) as {
+        mediaContract?: MediaContract
+        mediaContractCheckedAt?: string
+        mediaContractSource?: MediaContractSource
+      } | null
+
+      if (!response.ok) {
+        alert(t('mediaTestFailed'))
+        return
+      }
+
+      if (payload?.mediaContract) {
+        onUpdateModel(modelKey, {
+          mediaContract: payload.mediaContract,
+          ...(payload.mediaContractCheckedAt ? { mediaContractCheckedAt: payload.mediaContractCheckedAt } : {}),
+          ...(payload.mediaContractSource ? { mediaContractSource: payload.mediaContractSource } : {}),
+        })
+      }
+    } finally {
+      setPendingMediaTests((prev) => ({ ...prev, [modelKey]: null }))
+    }
+  }
 
   return useTabbedLayout ? (
     <div className="space-y-2.5 p-3">
@@ -275,6 +318,8 @@ export function ProviderAdvancedFields({
                 onDeleteModel={onDeleteModel}
                 onUpdateModel={onUpdateModel}
                 hasApiKey={!!provider.hasApiKey}
+                pendingMediaCapability={pendingMediaTests[model.modelKey] ?? null}
+                onRunMediaTest={handleRunMediaTest}
               />
             ))}
           </div>
@@ -350,6 +395,8 @@ interface ModelRowProps {
   onDeleteModel: ProviderCardProps['onDeleteModel']
   onUpdateModel: ProviderCardProps['onUpdateModel']
   hasApiKey: boolean
+  pendingMediaCapability?: MediaCapability | null
+  onRunMediaTest: (modelKey: string, capability: MediaCapability) => void
 }
 
 function ModelRow({
@@ -360,6 +407,8 @@ function ModelRow({
   onDeleteModel,
   onUpdateModel,
   hasApiKey,
+  pendingMediaCapability,
+  onRunMediaTest,
 }: ModelRowProps) {
   const priceTexts = getModelPriceTexts(model, t)
   const priceText = priceTexts.join(' / ')
@@ -432,6 +481,12 @@ function ModelRow({
               )}
             </div>
             <span className="break-all text-[11px] text-[var(--glass-text-tertiary)]">{model.modelId}</span>
+            <MediaCapabilityRows
+              model={model}
+              onRunTest={onRunMediaTest}
+              pendingCapability={pendingMediaCapability}
+              t={t}
+            />
           </div>
 
           <div className="flex items-center gap-1.5">

@@ -2,10 +2,12 @@ import { prisma } from '@/lib/prisma'
 import { parseCreativeModels } from '@/lib/creative-engine/persisted-config'
 import { mediaCapabilityStatusKey } from '@/lib/media-contract/status'
 import type { MediaContract } from '@/lib/media-contract/types'
-import type { SaveMediaContractTestResultInput } from './types'
+import type { SaveMediaContractTestResultInput, SaveMediaContractTestResultOutput } from './types'
 import { assertMediaContractTestCapability } from './validate'
 
-export async function saveMediaContractTestResult(input: SaveMediaContractTestResultInput): Promise<void> {
+export async function saveMediaContractTestResult(
+  input: SaveMediaContractTestResultInput,
+): Promise<SaveMediaContractTestResultOutput> {
   const pref = await prisma.userPreference.findUnique({
     where: { userId: input.userId },
     select: {
@@ -54,4 +56,10 @@ export async function saveMediaContractTestResult(input: SaveMediaContractTestRe
       customModels: JSON.stringify(nextModels),
     },
   })
+
+  return {
+    mediaContract,
+    mediaContractCheckedAt: checkedAt,
+    ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
+  }
 }

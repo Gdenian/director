@@ -187,7 +187,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     },
   })
 
-  await saveMediaContractTestResult({
+  const saved = await saveMediaContractTestResult({
     userId,
     modelKey,
     capability,
@@ -195,5 +195,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
     diagnostic: result.diagnostic,
   })
 
-  return NextResponse.json(result)
+  return NextResponse.json({
+    ...result,
+    ...saved,
+  })
 })
