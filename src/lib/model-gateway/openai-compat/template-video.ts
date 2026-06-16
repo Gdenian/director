@@ -1,4 +1,5 @@
 import type { GenerateResult } from '@/lib/generators/base'
+import { prepareMediaInputs } from '@/lib/media-contract/input-preparation'
 import type { OpenAICompatVideoRequest } from '../types'
 import {
   buildRenderedTemplateRequest,
@@ -40,6 +41,11 @@ function resolveModelRef(request: OpenAICompatVideoRequest): string {
   throw new Error('OPENAI_COMPAT_VIDEO_MODEL_REF_REQUIRED')
 }
 
+function readStringOption(options: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = options?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
 export async function generateVideoViaOpenAICompatTemplate(
   request: OpenAICompatVideoRequest,
 ): Promise<GenerateResult> {
@@ -51,11 +57,31 @@ export async function generateVideoViaOpenAICompatTemplate(
   }
 
   const config = await resolveOpenAICompatClientConfig(request.userId, request.providerId)
+  let image = request.imageUrl
+  let images = [request.imageUrl]
+  const lastFrameImage = readStringOption(request.options, 'lastFrameImageUrl')
+  let preparedLastFrameImage = lastFrameImage
+  if (request.mediaContract) {
+    const prepared = await prepareMediaInputs({
+      capability: lastFrameImage ? 'first-last-frame-video' : 'image-to-video',
+      contract: request.mediaContract,
+      image: request.imageUrl,
+      images,
+      lastFrameImage,
+    })
+    if (!prepared.ok) {
+      throw new Error(`MEDIA_INPUT_PREPARATION_FAILED: ${prepared.diagnostics[0]?.code || 'UNKNOWN'}`)
+    }
+    image = prepared.values.image ?? image
+    images = prepared.values.images ?? images
+    preparedLastFrameImage = prepared.values.lastFrameImage ?? preparedLastFrameImage
+  }
   const variables = buildTemplateVariables({
     model: request.modelId || '',
     prompt: request.prompt,
-    image: request.imageUrl,
-    images: [request.imageUrl],
+    image,
+    images,
+    lastFrameImage: preparedLastFrameImage,
     aspectRatio: typeof request.options?.aspectRatio === 'string' ? request.options.aspectRatio : undefined,
     resolution: typeof request.options?.resolution === 'string' ? request.options.resolution : undefined,
     size: typeof request.options?.size === 'string' ? request.options.size : undefined,

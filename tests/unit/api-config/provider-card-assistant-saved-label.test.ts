@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getAssistantSavedModelLabel } from '@/app/[locale]/profile/components/api-config/provider-card/hooks/useProviderCardState'
+import {
+  buildModelFromAssistantDraft,
+  getAssistantSavedModelLabel,
+} from '@/app/[locale]/profile/components/api-config/provider-card/hooks/useProviderCardState'
 
 describe('provider card assistant saved label', () => {
   it('prefers draft model name when available', () => {
@@ -45,5 +48,62 @@ describe('provider card assistant saved label', () => {
     })
 
     expect(label).toBe('veo_3_1-fast-4K')
+  })
+
+  it('preserves media contract fields when merging assistant draft models', () => {
+    const result = buildModelFromAssistantDraft({
+      draft: {
+        modelId: 'veo3-fast',
+        name: 'Veo 3 Fast',
+        type: 'video',
+        provider: 'openai-compatible:oa-1',
+        compatMediaTemplate: {
+          version: 1,
+          mediaType: 'video',
+          mode: 'async',
+          create: {
+            method: 'POST',
+            path: '/v1/video/create',
+          },
+          status: {
+            method: 'GET',
+            path: '/v1/video/query?id={{task_id}}',
+          },
+          response: {
+            taskIdPath: '$.id',
+            statusPath: '$.status',
+          },
+          polling: {
+            intervalMs: 5000,
+            timeoutMs: 600000,
+            doneStates: ['completed'],
+            failStates: ['failed'],
+          },
+        },
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.video_url' },
+          testStatus: { imageToVideo: 'unchecked' },
+          source: 'llm',
+        },
+      },
+      checkedAt: '2026-06-15T00:00:00.000Z',
+    })
+
+    expect(result).toMatchObject({
+      modelKey: 'openai-compatible:oa-1::veo3-fast',
+      compatMediaTemplateSource: 'ai',
+      mediaContract: {
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        source: 'llm',
+      },
+      mediaContractCheckedAt: '2026-06-15T00:00:00.000Z',
+      mediaContractSource: 'llm',
+    })
   })
 })

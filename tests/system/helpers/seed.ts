@@ -13,6 +13,33 @@ function nextSuffix() {
 
 export async function seedMinimalDomainState() {
   const user = await createFixtureUser()
+  await prisma.userPreference.create({
+    data: {
+      userId: user.id,
+      customProviders: JSON.stringify([
+        {
+          id: 'fal',
+          name: 'FAL',
+          providerKey: 'fal',
+          status: 'available',
+          apiKey: 'test-fal-key',
+        },
+      ]),
+      customModels: JSON.stringify([
+        {
+          id: 'fal::seedance/video',
+          engineId: 'fal',
+          name: 'Seedance Video',
+          callName: 'seedance/video',
+          modelKey: 'fal::seedance/video',
+          type: 'video',
+          purpose: 'video-generation',
+          enabled: true,
+          status: 'available',
+        },
+      ]),
+    },
+  })
   const project = await createFixtureProject(user.id)
   const novelProject = await createFixtureNovelProject(project.id)
   await prisma.novelPromotionProject.update({

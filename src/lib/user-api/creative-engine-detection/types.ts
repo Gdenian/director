@@ -3,6 +3,11 @@ import type {
   CreativeModelDraftPurpose,
   CreativeProtocolType,
 } from '@/lib/creative-engine/types'
+import type {
+  OpenAICompatMediaTemplate,
+  OpenAICompatMediaTemplateSource,
+} from '@/lib/openai-compat-media-template'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
 
 export type DetectionFailureCategory =
   | 'key-invalid'
@@ -37,6 +42,10 @@ export interface DetectedModelDraft {
   callName: string
   purpose: CreativeModelDraftPurpose
   confidence: CreativeDetectionConfidence
+  mediaContract?: MediaContract
+  compatMediaTemplate?: OpenAICompatMediaTemplate
+  mediaContractSource?: MediaContractSource
+  compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
 }
 
 export interface CreativeEngineDetectionResult {

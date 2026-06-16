@@ -27,6 +27,16 @@ describe('assistant chat saved events parser', () => {
               response: { taskIdPath: '$.id', statusPath: '$.status' },
               polling: { intervalMs: 5000, timeoutMs: 600000, doneStates: ['completed'], failStates: ['failed'] },
             },
+            mediaContract: {
+              version: 1,
+              mediaType: 'video',
+              executor: 'openai-compat-template',
+              capabilities: ['image-to-video'],
+              input: { image: 'publicUrl' },
+              output: { kind: 'asyncTask', urlPath: '$.video_url' },
+              testStatus: { imageToVideo: 'unchecked' },
+              source: 'llm',
+            },
           },
         },
       }],
@@ -37,6 +47,11 @@ describe('assistant chat saved events parser', () => {
     expect(events).toHaveLength(1)
     expect(events[0]?.savedModelKey).toBe('openai-compatible:oa-1::veo3-fast')
     expect(events[0]?.draftModel?.modelId).toBe('veo3-fast')
+    expect(events[0]?.draftModel?.mediaContract).toMatchObject({
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+    })
   })
 
   it('parses batch save tool output events', () => {

@@ -8,6 +8,7 @@ import { reportTaskProgress, withTaskLifecycle } from './shared'
 import { withUserConcurrencyGate } from './user-concurrency-gate'
 import {
   assertTaskActive,
+  buildMediaModelSnapshot,
   getProjectModels,
   resolveLipSyncVideoSource,
   resolveVideoSourceFromGeneration,
@@ -142,6 +143,12 @@ async function generateVideoForPanel(
     }
   }
 
+  const mediaModelSnapshot = await buildMediaModelSnapshot({
+    userId: job.data.userId,
+    modelKey: model,
+    mediaType: 'video',
+  })
+
   const generatedVideo = await resolveVideoSourceFromGeneration(job, {
     userId: job.data.userId,
     modelId: model,
@@ -151,6 +158,7 @@ async function generateVideoForPanel(
       ...(projectVideoRatio ? { aspectRatio: projectVideoRatio } : {}),
       ...generationOptions,
       generationMode,
+      mediaModelSnapshot,
       ...(typeof requestedGenerateAudio === 'boolean' ? { generateAudio: requestedGenerateAudio } : {}),
       ...(lastFrameImageBase64 ? { lastFrameImageUrl: lastFrameImageBase64 } : {}),
     },

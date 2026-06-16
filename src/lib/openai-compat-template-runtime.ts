@@ -8,6 +8,16 @@ import { toUploadFile } from '@/lib/model-gateway/openai-compat/common'
 
 export type TemplateVariableMap = Record<string, TemplateBodyValue | undefined>
 
+const CORE_TEMPLATE_VARIABLES = new Set([
+  'model',
+  'prompt',
+  'image',
+  'images',
+  'lastFrameImage',
+  'last_frame_image',
+  'task_id',
+])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -97,9 +107,14 @@ function appendTemplateOptionVariables(
     if (value === undefined) continue
     const trimmedKey = rawKey.trim()
     if (!trimmedKey) continue
-    target[trimmedKey] = value
+    if (!CORE_TEMPLATE_VARIABLES.has(trimmedKey) || target[trimmedKey] === undefined || target[trimmedKey] === '') {
+      target[trimmedKey] = value
+    }
     const snakeKey = toSnakeCase(trimmedKey)
-    if (!(snakeKey in target)) {
+    if (
+      (!CORE_TEMPLATE_VARIABLES.has(snakeKey) || target[snakeKey] === undefined || target[snakeKey] === '')
+      && (!(snakeKey in target) || target[snakeKey] === '')
+    ) {
       target[snakeKey] = value
     }
   }
@@ -427,6 +442,7 @@ export function buildTemplateVariables(input: {
   prompt: string
   image?: string
   images?: string[]
+  lastFrameImage?: string
   aspectRatio?: string
   duration?: number
   resolution?: string
@@ -439,6 +455,8 @@ export function buildTemplateVariables(input: {
     prompt: input.prompt,
     image: input.image || '',
     images: input.images || [],
+    lastFrameImage: input.lastFrameImage || '',
+    last_frame_image: input.lastFrameImage || '',
     aspect_ratio: input.aspectRatio || '',
     duration: input.duration ?? null,
     resolution: input.resolution || '',

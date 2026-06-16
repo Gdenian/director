@@ -1,5 +1,6 @@
 import type { ToolSet } from 'ai'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
+import type { MediaContract } from '@/lib/media-contract/types'
 
 export type AssistantId = 'api-config-template' | 'tutorial'
 
@@ -39,6 +40,7 @@ export interface AssistantToolResult {
     type: 'image' | 'video'
     provider: string
     compatMediaTemplate: OpenAICompatMediaTemplate
+    mediaContract?: MediaContract
   }
   draftModels?: Array<{
     modelId: string
@@ -46,6 +48,7 @@ export interface AssistantToolResult {
     type: 'image' | 'video'
     provider: string
     compatMediaTemplate: OpenAICompatMediaTemplate
+    mediaContract?: MediaContract
   }>
 }
 

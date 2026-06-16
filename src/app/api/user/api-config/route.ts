@@ -55,6 +55,8 @@ import type {
   OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
+import { validateMediaContract } from '@/lib/media-contract/validator'
 
 type ApiModeType = 'gemini-sdk' | 'openai-official'
 type GatewayRouteType = 'official' | 'openai-compat'
@@ -108,6 +110,9 @@ interface StoredModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  mediaContract?: MediaContract
+  mediaContractCheckedAt?: string
+  mediaContractSource?: MediaContractSource
   // Non-authoritative display field; billing always uses server pricing catalog.
   price: number
   priceMin?: number
@@ -842,6 +847,46 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
     }
     compatMediaTemplateSource = compatMediaTemplateSourceRaw
   }
+  let mediaContract: MediaContract | undefined
+  if (raw.mediaContract !== undefined && raw.mediaContract !== null) {
+    if (modelType !== 'image' && modelType !== 'video') {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_MEDIA_CONTRACT_INVALID',
+        field: `models[${index}].mediaContract`,
+      })
+    }
+    const validated = validateMediaContract(raw.mediaContract, {
+      modelMediaType: modelType,
+      hasCompatMediaTemplate: Boolean(compatMediaTemplate),
+    })
+    if (!validated.ok || !validated.contract) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_MEDIA_CONTRACT_INVALID',
+        field: `models[${index}].mediaContract`,
+      })
+    }
+    mediaContract = validated.contract
+  }
+  const mediaContractCheckedAt = readTrimmedString(raw.mediaContractCheckedAt) || mediaContract?.checkedAt || undefined
+  const mediaContractSourceRaw = raw.mediaContractSource
+  let mediaContractSource: MediaContractSource | undefined
+  if (mediaContractSourceRaw !== undefined && mediaContractSourceRaw !== null) {
+    if (
+      mediaContractSourceRaw !== 'rule'
+      && mediaContractSourceRaw !== 'provider-list'
+      && mediaContractSourceRaw !== 'llm'
+      && mediaContractSourceRaw !== 'manual'
+      && mediaContractSourceRaw !== 'official-adapter'
+    ) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_MEDIA_CONTRACT_SOURCE_INVALID',
+        field: `models[${index}].mediaContractSource`,
+      })
+    }
+    mediaContractSource = mediaContractSourceRaw
+  } else {
+    mediaContractSource = mediaContract?.source
+  }
 
   return {
     modelId,
@@ -854,6 +899,9 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
     ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
     ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+    ...(mediaContract ? { mediaContract } : {}),
+    ...(mediaContractCheckedAt ? { mediaContractCheckedAt } : {}),
+    ...(mediaContractSource ? { mediaContractSource } : {}),
     price: 0,
     ...(customPricing ? { customPricing } : {}),
   }
@@ -1060,6 +1108,9 @@ function runtimeModelToCreativeModel(model: StoredModel): CreativeModelConfig {
     ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
     ...(model.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt } : {}),
     ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+    ...(model.mediaContract ? { mediaContract: model.mediaContract } : {}),
+    ...(model.mediaContractCheckedAt ? { mediaContractCheckedAt: model.mediaContractCheckedAt } : {}),
+    ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
   }
 }
 
@@ -1086,6 +1137,9 @@ function mergeRuntimeModelIntoCreativeModel(
     ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
     ...(model.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt } : {}),
     ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+    ...(model.mediaContract ? { mediaContract: model.mediaContract } : {}),
+    ...(model.mediaContractCheckedAt ? { mediaContractCheckedAt: model.mediaContractCheckedAt } : {}),
+    ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
   }
 }
 
@@ -1121,6 +1175,9 @@ function syncCreativeModelsFromRuntime(
       ...(runtime.compatMediaTemplate ? { compatMediaTemplate: runtime.compatMediaTemplate } : {}),
       ...(runtime.compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt: runtime.compatMediaTemplateCheckedAt } : {}),
       ...(runtime.compatMediaTemplateSource ? { compatMediaTemplateSource: runtime.compatMediaTemplateSource } : {}),
+      ...(runtime.mediaContract ? { mediaContract: runtime.mediaContract } : {}),
+      ...(runtime.mediaContractCheckedAt ? { mediaContractCheckedAt: runtime.mediaContractCheckedAt } : {}),
+      ...(runtime.mediaContractSource ? { mediaContractSource: runtime.mediaContractSource } : {}),
       ...(runtime.customPricing ? { pricing: runtime.customPricing } : {}),
     }
   })

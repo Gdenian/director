@@ -25,6 +25,18 @@ const withTaskLifecycleMock = vi.hoisted(() =>
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
+  buildMediaModelSnapshot: vi.fn(async () => ({
+    modelKey: 'openai-compatible:oa-1::sora-2',
+    mediaContract: {
+      version: 1,
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+      input: { image: 'publicUrl' },
+      output: { kind: 'asyncTask', urlPath: '$.video_url' },
+      testStatus: { imageToVideo: 'passed' },
+    },
+  })),
   getProjectModels: vi.fn(async () => ({ videoRatio: '16:9' })),
   resolveLipSyncVideoSource: vi.fn(async () => 'https://provider.example/lipsync.mp4'),
   resolveVideoSourceFromGeneration: vi.fn<(...args: unknown[]) => Promise<{ url: string; actualVideoTokens?: number; downloadHeaders?: Record<string, string> }>>(async () => ({ url: 'https://provider.example/video.mp4' })),
@@ -222,6 +234,52 @@ describe('worker video processor behavior', () => {
       videoUrl: 'cos/lip-sync/video.mp4',
       actualVideoTokens: 108000,
     })
+  })
+
+  it('VIDEO_PANEL: 生成前快照当前视频模型并传给生成工具', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    const snapshot = {
+      modelKey: 'openai-compatible:oa-1::sora-2',
+      mediaContract: {
+        version: 1 as const,
+        mediaType: 'video' as const,
+        executor: 'openai-compat-template' as const,
+        capabilities: ['image-to-video' as const],
+        input: { image: 'publicUrl' as const },
+        output: { kind: 'asyncTask' as const, urlPath: '$.old_video_url' },
+        testStatus: { imageToVideo: 'passed' as const },
+      },
+    }
+    utilsMock.buildMediaModelSnapshot.mockResolvedValueOnce(snapshot)
+
+    const job = buildJob({
+      type: TASK_TYPE.VIDEO_PANEL,
+      payload: {
+        videoModel: 'openai-compatible:oa-1::sora-2',
+        generationOptions: {
+          duration: 8,
+        },
+      },
+    })
+
+    await processor!(job)
+
+    expect(utilsMock.buildMediaModelSnapshot).toHaveBeenCalledWith({
+      userId: 'user-1',
+      modelKey: 'openai-compatible:oa-1::sora-2',
+      mediaType: 'video',
+    })
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        modelId: 'openai-compatible:oa-1::sora-2',
+        options: expect.objectContaining({
+          mediaModelSnapshot: snapshot,
+        }),
+      }),
+    )
   })
 
   it('LIP_SYNC: 缺少 panel 时显式失败', async () => {

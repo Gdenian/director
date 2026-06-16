@@ -1,4 +1,5 @@
 import type { GenerateResult } from '@/lib/generators/base'
+import { prepareMediaInputs } from '@/lib/media-contract/input-preparation'
 import type { OpenAICompatImageRequest } from '../types'
 import {
   buildRenderedTemplateRequest,
@@ -12,6 +13,7 @@ import { resolveOpenAICompatClientConfig } from './common'
 
 const OPENAI_COMPAT_PROVIDER_PREFIX = 'openai-compatible:'
 const PROVIDER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const BASE64_OUTPUT_ERROR_WORDS = new Set(['error', 'failed', 'invalid'])
 
 function encodeProviderToken(providerId: string): string {
   const value = providerId.trim()
@@ -53,6 +55,36 @@ function readTemplateOutputUrls(value: unknown): string[] {
   return urls
 }
 
+function readPreparedImageOutput(value: unknown): {
+  imageUrl: string
+  imageBase64: string
+} | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const dataUrlPrefix = trimmed.match(/^data:image\/[^;]+;base64,/i)?.[0]
+  if (dataUrlPrefix) {
+    return {
+      imageUrl: trimmed,
+      imageBase64: trimmed.slice(dataUrlPrefix.length),
+    }
+  }
+  const normalized = trimmed.toLowerCase()
+  if (
+    BASE64_OUTPUT_ERROR_WORDS.has(normalized)
+    || /^https?:\/\//i.test(trimmed)
+    || /^[{[]/.test(trimmed)
+    || /\s/.test(trimmed)
+    || !/^[A-Za-z0-9+/=_-]+$/.test(trimmed)
+  ) {
+    return null
+  }
+  return {
+    imageUrl: `data:image/png;base64,${trimmed}`,
+    imageBase64: trimmed,
+  }
+}
+
 export async function generateImageViaOpenAICompatTemplate(
   request: OpenAICompatImageRequest,
 ): Promise<GenerateResult> {
@@ -67,11 +99,27 @@ export async function generateImageViaOpenAICompatTemplate(
   const firstReference = Array.isArray(request.referenceImages) && request.referenceImages.length > 0
     ? request.referenceImages[0]
     : ''
+  let image = firstReference
+  let images = request.referenceImages || []
+  if (request.mediaContract) {
+    const prepared = await prepareMediaInputs({
+      capability: firstReference ? 'image-to-image' : 'text-to-image',
+      contract: request.mediaContract,
+      image: firstReference || undefined,
+      images,
+      lastFrameImage: undefined,
+    })
+    if (!prepared.ok) {
+      throw new Error(`MEDIA_INPUT_PREPARATION_FAILED: ${prepared.diagnostics[0]?.code || 'UNKNOWN'}`)
+    }
+    image = prepared.values.image ?? image
+    images = prepared.values.images ?? images
+  }
   const variables = buildTemplateVariables({
     model: request.modelId || 'gpt-image-1',
     prompt: request.prompt,
-    image: firstReference,
-    images: request.referenceImages || [],
+    image,
+    images,
     aspectRatio: typeof request.options?.aspectRatio === 'string' ? request.options.aspectRatio : undefined,
     resolution: typeof request.options?.resolution === 'string' ? request.options.resolution : undefined,
     size: typeof request.options?.size === 'string' ? request.options.size : undefined,
@@ -116,6 +164,16 @@ export async function generateImageViaOpenAICompatTemplate(
       return {
         success: true,
         imageUrl: outputUrl.trim(),
+      }
+    }
+    const outputBase64 = readPreparedImageOutput(
+      readJsonPath(payload, request.mediaContract?.output.base64Path),
+    )
+    if (outputBase64) {
+      return {
+        success: true,
+        imageUrl: outputBase64.imageUrl,
+        imageBase64: outputBase64.imageBase64,
       }
     }
     throw new Error('OPENAI_COMPAT_IMAGE_TEMPLATE_OUTPUT_NOT_FOUND')

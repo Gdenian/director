@@ -13,6 +13,9 @@ import {
   getUserModelConfig,
   resolveProjectModelCapabilityGenerationOptions,
 } from '@/lib/config-service'
+import { resolveModelSelection } from '@/lib/api-config'
+import type { MediaContract } from '@/lib/media-contract/types'
+import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 import { TaskTerminatedError } from '@/lib/task/errors'
 import { isTaskActive, trySetTaskExternalId } from '@/lib/task/service'
 import { type TaskJobData } from '@/lib/task/types'
@@ -21,6 +24,12 @@ import { prisma } from '@/lib/prisma'
 
 const DEFAULT_POLL_TIMEOUT_MS = Number.parseInt(process.env.WORKER_EXTERNAL_TIMEOUT_MS || String(20 * 60 * 1000), 10)
 const DEFAULT_POLL_INTERVAL_MS = Number.parseInt(process.env.WORKER_EXTERNAL_POLL_MS || '3000', 10)
+
+export type MediaModelSnapshot = {
+  modelKey: string
+  mediaContract?: MediaContract
+  compatMediaTemplate?: OpenAICompatMediaTemplate
+}
 
 /**
  * 查询 DB 中任务是否已有 externalId（服务重启后续接轮询用，避免重复提交外部 API）
@@ -69,6 +78,19 @@ export async function assertTaskActive(job: Job<TaskJobData>, stage: string) {
   const active = await isTaskActive(job.data.taskId)
   if (active) return
   throw new TaskTerminatedError(job.data.taskId, `Task terminated during ${stage}`)
+}
+
+export async function buildMediaModelSnapshot(params: {
+  userId: string
+  modelKey: string
+  mediaType: 'image' | 'video'
+}): Promise<MediaModelSnapshot> {
+  const selection = await resolveModelSelection(params.userId, params.modelKey, params.mediaType)
+  return {
+    modelKey: selection.modelKey,
+    ...(selection.mediaContract ? { mediaContract: selection.mediaContract } : {}),
+    ...(selection.compatMediaTemplate ? { compatMediaTemplate: selection.compatMediaTemplate } : {}),
+  }
 }
 
 function normalizeExternalId(result: {
@@ -177,6 +199,7 @@ export async function resolveImageSourceFromGeneration(
       resolution?: string
       size?: string
       provider?: string
+      mediaModelSnapshot?: MediaModelSnapshot
     }
     allowTaskExternalIdResume?: boolean
     pollProgress?: { start?: number; end?: number }
@@ -303,6 +326,7 @@ export async function resolveImageSourcesFromGeneration(
       resolution?: string
       size?: string
       provider?: string
+      mediaModelSnapshot?: MediaModelSnapshot
     }
     allowTaskExternalIdResume?: boolean
     pollProgress?: { start?: number; end?: number }
@@ -420,7 +444,8 @@ export async function resolveVideoSourceFromGeneration(
       generateAudio?: boolean
       lastFrameImageUrl?: string
       generationMode?: 'normal' | 'firstlastframe'
-      [key: string]: string | number | boolean | undefined
+      mediaModelSnapshot?: MediaModelSnapshot
+      [key: string]: string | number | boolean | MediaModelSnapshot | undefined
     }
     pollProgress?: { start?: number; end?: number }
   },
@@ -485,7 +510,7 @@ export async function resolveVideoSourceFromGeneration(
 
   const providerCapabilityOptions: Record<string, string | number | boolean> = { ...capabilityOptions }
   delete providerCapabilityOptions.generationMode
-  const providerRequestOptions: Record<string, string | number | boolean> = {}
+  const providerRequestOptions: Record<string, string | number | boolean | MediaModelSnapshot> = {}
   for (const [key, value] of Object.entries(params.options || {})) {
     if (key === 'generationMode' || value === undefined) continue
     providerRequestOptions[key] = value

@@ -18,9 +18,12 @@ function isCreativeModelPurpose(value: unknown): value is CreativeModelPurpose {
   return typeof value === 'string' && CREATIVE_PURPOSES.has(value as CreativeModelPurpose)
 }
 
-function resolveDetectedModelPurpose(value: unknown): CreativeModelPurpose | null {
-  if (isCreativeModelPurpose(value)) return value
-  if (value === 'unknown') return 'text'
+function resolveDetectedModelPurpose(value: unknown): {
+  purpose: CreativeModelPurpose
+  confidence?: 'low'
+} | null {
+  if (isCreativeModelPurpose(value)) return { purpose: value }
+  if (value === 'unknown') return { purpose: 'text', confidence: 'low' }
   return null
 }
 
@@ -94,10 +97,11 @@ export function buildDetectedModelDrafts(
 ): Array<Omit<CustomModel, 'enabled'>> {
   const llmProtocolCheckedAt = new Date().toISOString()
   return models.flatMap((model) => {
-    const purpose = resolveDetectedModelPurpose(model.purpose)
-    if (!purpose) return []
+    const resolvedPurpose = resolveDetectedModelPurpose(model.purpose)
+    if (!resolvedPurpose) return []
     const modelId = (model.callName || model.id || '').trim()
     if (!modelId) return []
+    const { purpose } = resolvedPurpose
     const type = purposeToRuntimeType(purpose)
     const llmProtocol = type === 'llm' && providerId.startsWith('openai-compatible:')
       ? {
@@ -112,6 +116,11 @@ export function buildDetectedModelDrafts(
       type,
       provider: providerId,
       ...llmProtocol,
+      ...(model.compatMediaTemplate ? { compatMediaTemplate: model.compatMediaTemplate } : {}),
+      ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
+      ...(model.mediaContract ? { mediaContract: model.mediaContract } : {}),
+      ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
+      ...(resolvedPurpose.confidence ? { confidence: resolvedPurpose.confidence } : {}),
       purpose,
       status: model.status === 'failed' || model.status === 'disabled'
         ? model.status

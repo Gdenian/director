@@ -4,6 +4,8 @@ import { getProviderKey } from '@/lib/api-config'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 import { saveModelTemplateConfiguration } from '@/lib/user-api/model-template/save'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
+import type { MediaContract } from '@/lib/media-contract/types'
+import { validateMediaContract } from '@/lib/media-contract/validator'
 import type { AssistantRuntimeContext, AssistantSkillDefinition, AssistantToolResult } from '../types'
 import { AssistantPlatformError } from '../errors'
 import { renderAssistantSystemPrompt } from '../system-prompts'
@@ -13,6 +15,7 @@ interface SaveModelTemplateToolInput {
   name: string
   type: 'image' | 'video'
   compatMediaTemplate: unknown
+  mediaContract?: unknown
 }
 
 interface SaveModelTemplatesToolInput {
@@ -27,6 +30,7 @@ const saveModelTemplateItemSchema: JSONSchema7 = {
     name: { type: 'string', minLength: 1 },
     type: { type: 'string', enum: ['image', 'video'] },
     compatMediaTemplate: { type: 'object' },
+    mediaContract: { type: 'object' },
   },
   required: ['modelId', 'name', 'type', 'compatMediaTemplate'],
 }
@@ -53,6 +57,41 @@ function buildSystemPrompt(ctx: AssistantRuntimeContext): string {
   })
 }
 
+function normalizeAssistantMediaContract(
+  raw: unknown,
+  modelType: 'image' | 'video',
+  fieldPrefix: string,
+): { contract?: MediaContract; issues?: NonNullable<AssistantToolResult['issues']> } {
+  if (raw === undefined || raw === null) return {}
+  const validated = validateMediaContract(raw, {
+    modelMediaType: modelType,
+    hasCompatMediaTemplate: true,
+  })
+  if (!validated.ok || !validated.contract) {
+    return {
+      issues: validated.issues.map((issue) => ({
+        ...issue,
+        field: issue.field === 'mediaContract' ? fieldPrefix : `${fieldPrefix}.${issue.field}`,
+      })),
+    }
+  }
+  const testStatus = validated.contract.testStatus
+  const { checkedAt: _checkedAt, ...contractWithoutCheckedAt } = validated.contract
+  void _checkedAt
+  if (!testStatus) return { contract: contractWithoutCheckedAt }
+  return {
+    contract: {
+      ...contractWithoutCheckedAt,
+      testStatus: Object.fromEntries(
+        Object.keys(testStatus).map((key) => [
+          key,
+          'unchecked',
+        ]),
+      ) as NonNullable<MediaContract['testStatus']>,
+    },
+  }
+}
+
 function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
   const providerId = ctx.context.providerId?.trim() || ''
   if (!providerId) {
@@ -72,6 +111,7 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
           name: string
           type: 'image' | 'video'
           template: OpenAICompatMediaTemplate
+          mediaContract?: MediaContract
         }> = []
 
         for (let index = 0; index < input.models.length; index += 1) {
@@ -119,11 +159,26 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
             }
           }
 
+          const mediaContractResult = normalizeAssistantMediaContract(
+            item.mediaContract,
+            item.type,
+            `models[${index}].mediaContract`,
+          )
+          if (mediaContractResult.issues) {
+            return {
+              status: 'invalid',
+              code: 'MODEL_MEDIA_CONTRACT_INVALID',
+              message: `models[${index}] media contract validation failed`,
+              issues: mediaContractResult.issues,
+            }
+          }
+
           normalizedItems.push({
             modelId: normalizedModelId,
             name: normalizedName,
             type: item.type,
             template: validated.template,
+            ...(mediaContractResult.contract ? { mediaContract: mediaContractResult.contract } : {}),
           })
         }
 
@@ -150,6 +205,7 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
               type: item.type,
               provider: providerId,
               compatMediaTemplate: item.template,
+              ...(item.mediaContract ? { mediaContract: item.mediaContract } : {}),
             },
           })
         }
@@ -213,6 +269,16 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
           }
         }
 
+        const mediaContractResult = normalizeAssistantMediaContract(input.mediaContract, input.type, 'mediaContract')
+        if (mediaContractResult.issues) {
+          return {
+            status: 'invalid',
+            code: 'MODEL_MEDIA_CONTRACT_INVALID',
+            message: 'media contract validation failed',
+            issues: mediaContractResult.issues,
+          }
+        }
+
         const saved = await saveModelTemplateConfiguration({
           userId: ctx.userId,
           providerId,
@@ -233,6 +299,7 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
             type: input.type,
             provider: providerId,
             compatMediaTemplate: validated.template,
+            ...(mediaContractResult.contract ? { mediaContract: mediaContractResult.contract } : {}),
           },
         }
       },

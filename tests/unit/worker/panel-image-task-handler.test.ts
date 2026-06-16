@@ -11,6 +11,9 @@ const prismaMock = vi.hoisted(() => ({
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
+  buildMediaModelSnapshot: vi.fn(async () => ({
+    modelKey: 'storyboard-model-1',
+  })),
   getProjectModels: vi.fn(async () => ({ storyboardModel: 'storyboard-model-1' })),
   resolveImageSourceFromGeneration: vi.fn(),
   uploadImageSourceToCos: vi.fn(),
@@ -207,6 +210,37 @@ describe('worker panel-image-task-handler behavior', () => {
         style: '电影写实中文提示词',
       }),
     }))
+  })
+
+  it('passes storyboard model snapshot into image generation', async () => {
+    utilsMock.resolveImageSourceFromGeneration.mockReset()
+    utilsMock.uploadImageSourceToCos.mockReset()
+    utilsMock.resolveImageSourceFromGeneration.mockResolvedValueOnce('generated-source-1')
+    utilsMock.uploadImageSourceToCos.mockResolvedValueOnce('cos/panel-candidate-1.png')
+    utilsMock.buildMediaModelSnapshot.mockResolvedValueOnce({
+      modelKey: 'storyboard-model-1',
+    })
+
+    const job = buildJob({ candidateCount: 1 })
+
+    await handlePanelImageTask(job)
+
+    expect(utilsMock.buildMediaModelSnapshot).toHaveBeenCalledWith({
+      userId: 'user-1',
+      modelKey: 'storyboard-model-1',
+      mediaType: 'image',
+    })
+    expect(utilsMock.resolveImageSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        modelId: 'storyboard-model-1',
+        options: expect.objectContaining({
+          mediaModelSnapshot: expect.objectContaining({
+            modelKey: 'storyboard-model-1',
+          }),
+        }),
+      }),
+    )
   })
 
   it('missing payload styleSnapshot -> explicit error', async () => {

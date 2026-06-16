@@ -18,10 +18,73 @@ import {
     generateVideoViaOpenAICompatTemplate,
     resolveModelGatewayRoute,
 } from './model-gateway'
+import {
+    assertMediaContractCapability,
+    resolveRequestedImageCapability,
+    resolveRequestedVideoCapability,
+} from './media-contract/runtime'
 import { generateBailianAudio, generateBailianImage, generateBailianVideo } from './providers/bailian'
 import { generateSiliconFlowAudio, generateSiliconFlowImage, generateSiliconFlowVideo } from './providers/siliconflow'
+import type { MediaContract } from './media-contract/types'
+import type { OpenAICompatMediaTemplate } from './openai-compat-media-template'
+
+type MediaModelSnapshot = {
+    modelKey: string
+    mediaContract?: MediaContract
+    compatMediaTemplate?: OpenAICompatMediaTemplate
+}
+
+type GenerateImageOptions = {
+    referenceImages?: string[]
+    aspectRatio?: string
+    resolution?: string
+    outputFormat?: string
+    keepOriginalAspectRatio?: boolean
+    size?: string
+    mediaModelSnapshot?: MediaModelSnapshot
+}
+
+type GenerateVideoOptions = {
+    prompt?: string
+    duration?: number
+    fps?: number
+    resolution?: string
+    aspectRatio?: string
+    generateAudio?: boolean
+    lastFrameImageUrl?: string
+    mediaModelSnapshot?: MediaModelSnapshot
+    [key: string]: string | number | boolean | MediaModelSnapshot | undefined
+}
 
 const OFFICIAL_ONLY_PROVIDER_KEYS = new Set(['bailian', 'siliconflow'])
+const OFFICIAL_CONTRACT_EXECUTORS = new Set(['official-adapter', 'gemini-standard'])
+
+function isTrustedOfficialAdapterProvider(providerKey: string): boolean {
+    return providerKey === 'bailian' || providerKey === 'siliconflow'
+}
+
+function assertMediaContractExecutorProviderSupported(input: {
+    executor: string
+    providerKey: string
+    providerConfig?: { apiMode?: string | null }
+}): void {
+    const { executor, providerKey, providerConfig } = input
+    if (executor === 'openai-compat-template' && providerKey !== 'openai-compatible') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-compat-template')
+    }
+    if (executor === 'openai-standard' && providerKey !== 'openai-compatible') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: openai-standard')
+    }
+    if (executor !== 'gemini-standard') {
+        return
+    }
+    if (providerKey !== 'gemini-compatible' && providerKey !== 'google') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: gemini-standard')
+    }
+    if (providerKey === 'gemini-compatible' && providerConfig?.apiMode === 'openai-official') {
+        throw new Error('MEDIA_CONTRACT_EXECUTOR_PROVIDER_UNSUPPORTED: gemini-standard')
+    }
+}
 
 /**
  * 将 aspectRatio 映射为 OpenAI 兼容的 size
@@ -40,6 +103,23 @@ function aspectRatioToOpenAISize(aspectRatio: string | undefined): string | unde
     return mapping[ratio] || undefined
 }
 
+function resolveMediaSnapshot(input: {
+    selection: { modelKey: string; mediaContract?: MediaContract; compatMediaTemplate?: OpenAICompatMediaTemplate }
+    snapshot?: MediaModelSnapshot
+}) {
+    const { selection, snapshot } = input
+    if (snapshot?.modelKey === selection.modelKey) {
+        return {
+            mediaContract: snapshot.mediaContract,
+            compatMediaTemplate: snapshot.compatMediaTemplate,
+        }
+    }
+    return {
+        mediaContract: selection.mediaContract,
+        compatMediaTemplate: selection.compatMediaTemplate,
+    }
+}
+
 /**
  * 生成图片（简化版）
  * 
@@ -52,45 +132,65 @@ export async function generateImage(
     userId: string,
     modelKey: string,
     prompt: string,
-    options?: {
-        referenceImages?: string[]
-        aspectRatio?: string
-        resolution?: string
-        outputFormat?: string
-        keepOriginalAspectRatio?: boolean  // 🔥 编辑时保持原图比例
-        size?: string  // 🔥 直接指定像素尺寸如 "5016x3344"（优先于 aspectRatio）
-    }
+    options?: GenerateImageOptions
 ): Promise<GenerateResult> {
     const selection = await resolveModelSelection(userId, modelKey, 'image')
     _ulogInfo(`[generateImage] resolved model selection: ${selection.modelKey}`)
-    const providerConfig = await getProviderConfig(userId, selection.provider)
+    const { mediaContract, compatMediaTemplate } = resolveMediaSnapshot({
+        selection,
+        snapshot: options?.mediaModelSnapshot,
+    })
     const providerKey = getProviderKey(selection.provider).toLowerCase()
-    if (providerKey === 'bailian') {
+    let providerConfig: Awaited<ReturnType<typeof getProviderConfig>> | undefined
+    const resolveProviderConfig = async () => {
+        providerConfig = providerConfig || await getProviderConfig(userId, selection.provider)
+        return providerConfig
+    }
+    const { referenceImages, ...generatorOptions } = options || {}
+    delete generatorOptions.mediaModelSnapshot
+    if (mediaContract) {
+        const executorProviderConfig = mediaContract.executor === 'gemini-standard' && providerKey === 'gemini-compatible'
+            ? await resolveProviderConfig()
+            : undefined
+        assertMediaContractCapability({
+            contract: mediaContract,
+            capability: resolveRequestedImageCapability(options?.referenceImages),
+            trustedOfficialAdapter: isTrustedOfficialAdapterProvider(providerKey),
+        })
+        assertMediaContractExecutorProviderSupported({
+            executor: mediaContract.executor,
+            providerKey,
+            providerConfig: executorProviderConfig,
+        })
+    }
+    const shouldUseOfficialProvider = !mediaContract || OFFICIAL_CONTRACT_EXECUTORS.has(mediaContract.executor)
+    if (shouldUseOfficialProvider && providerKey === 'bailian') {
         return await generateBailianImage({
             userId,
             prompt,
-            referenceImages: options?.referenceImages,
+            referenceImages,
             options: {
-                ...(options || {}),
+                ...generatorOptions,
                 provider: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,
             },
         })
     }
-    if (providerKey === 'siliconflow') {
+    if (shouldUseOfficialProvider && providerKey === 'siliconflow') {
         return await generateSiliconFlowImage({
             userId,
             prompt,
-            referenceImages: options?.referenceImages,
+            referenceImages,
             options: {
-                ...(options || {}),
+                ...generatorOptions,
                 provider: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,
             },
         })
     }
+    providerConfig = await resolveProviderConfig()
     const defaultGatewayRoute = resolveModelGatewayRoute(selection.provider)
     let gatewayRoute = OFFICIAL_ONLY_PROVIDER_KEYS.has(providerKey)
         ? 'official'
@@ -102,9 +202,56 @@ export async function generateImage(
     }
 
     // 调用生成（提取 referenceImages 单独传递，其余选项合并进 options）
-    const { referenceImages, ...generatorOptions } = options || {}
-    if (gatewayRoute === 'openai-compat') {
-        const compatTemplate = selection.compatMediaTemplate
+    if (mediaContract?.executor === 'openai-compat-template') {
+        const compatTemplate = compatMediaTemplate
+        if (!compatTemplate) {
+            throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
+        }
+        return await generateImageViaOpenAICompatTemplate({
+            userId,
+            providerId: selection.provider,
+            modelId: selection.modelId,
+            modelKey: selection.modelKey,
+            prompt,
+            referenceImages,
+            options: {
+                ...generatorOptions,
+                provider: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+            },
+            profile: 'openai-compatible',
+            template: compatTemplate,
+            mediaContract,
+        })
+    }
+    if (mediaContract?.executor === 'openai-standard') {
+        let openaiCompatOptions = { ...generatorOptions }
+        if (openaiCompatOptions.aspectRatio) {
+            const mappedSize = aspectRatioToOpenAISize(openaiCompatOptions.aspectRatio)
+            if (mappedSize && !openaiCompatOptions.size) {
+                openaiCompatOptions = { ...openaiCompatOptions, size: mappedSize }
+            }
+            delete openaiCompatOptions.aspectRatio
+        }
+
+        return await generateImageViaOpenAICompat({
+            userId,
+            providerId: selection.provider,
+            modelId: selection.modelId,
+            prompt,
+            referenceImages,
+            options: {
+                ...openaiCompatOptions,
+                provider: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+            },
+            profile: 'openai-compatible',
+        })
+    }
+    if (!mediaContract && gatewayRoute === 'openai-compat') {
+        const compatTemplate = compatMediaTemplate
         if (providerKey === 'openai-compatible' && !compatTemplate) {
             throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
         }
@@ -180,55 +327,117 @@ export async function generateVideo(
     userId: string,
     modelKey: string,
     imageUrl: string,
-    options?: {
-        prompt?: string
-        duration?: number
-        fps?: number
-        resolution?: string      // '720p' | '1080p'
-        aspectRatio?: string     // '16:9' | '9:16'
-        generateAudio?: boolean  // 仅 Seedance 1.5 Pro 支持
-        lastFrameImageUrl?: string  // 首尾帧模式的尾帧图片
-        [key: string]: string | number | boolean | undefined
-    }
+    options?: GenerateVideoOptions
 ): Promise<GenerateResult> {
     const selection = await resolveModelSelection(userId, modelKey, 'video')
     _ulogInfo(`[generateVideo] resolved model selection: ${selection.modelKey}`)
+    const { mediaContract, compatMediaTemplate } = resolveMediaSnapshot({
+        selection,
+        snapshot: options?.mediaModelSnapshot,
+    })
     const providerKey = getProviderKey(selection.provider).toLowerCase()
-    if (providerKey === 'bailian') {
+    let providerConfig: Awaited<ReturnType<typeof getProviderConfig>> | undefined
+    const resolveProviderConfig = async () => {
+        providerConfig = providerConfig || await getProviderConfig(userId, selection.provider)
+        return providerConfig
+    }
+    const { prompt, ...providerOptions } = options || {}
+    delete providerOptions.mediaModelSnapshot
+    if (mediaContract) {
+        const executorProviderConfig = mediaContract.executor === 'gemini-standard' && providerKey === 'gemini-compatible'
+            ? await resolveProviderConfig()
+            : undefined
+        assertMediaContractCapability({
+            contract: mediaContract,
+            capability: resolveRequestedVideoCapability(options),
+            trustedOfficialAdapter: isTrustedOfficialAdapterProvider(providerKey),
+        })
+        assertMediaContractExecutorProviderSupported({
+            executor: mediaContract.executor,
+            providerKey,
+            providerConfig: executorProviderConfig,
+        })
+    }
+    const shouldUseOfficialProvider = !mediaContract || OFFICIAL_CONTRACT_EXECUTORS.has(mediaContract.executor)
+    if (shouldUseOfficialProvider && providerKey === 'bailian') {
         return await generateBailianVideo({
             userId,
             imageUrl,
-            prompt: options?.prompt,
+            prompt,
             options: {
-                ...(options || {}),
+                ...providerOptions,
                 provider: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,
             },
         })
     }
-    if (providerKey === 'siliconflow') {
+    if (shouldUseOfficialProvider && providerKey === 'siliconflow') {
         return await generateSiliconFlowVideo({
             userId,
             imageUrl,
-            prompt: options?.prompt,
+            prompt,
             options: {
-                ...(options || {}),
+                ...providerOptions,
                 provider: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,
             },
         })
     }
-    const providerConfig = await getProviderConfig(userId, selection.provider)
+    providerConfig = await resolveProviderConfig()
     const defaultGatewayRoute = resolveModelGatewayRoute(selection.provider)
-    const gatewayRoute = OFFICIAL_ONLY_PROVIDER_KEYS.has(providerKey)
+    let gatewayRoute = OFFICIAL_ONLY_PROVIDER_KEYS.has(providerKey)
         ? 'official'
         : (providerConfig.gatewayRoute || defaultGatewayRoute)
+    if (providerKey === 'gemini-compatible') {
+        // DEPRECATED: historical rows persisted gemini-compatible as openai-compat by default.
+        // Runtime now resolves route by apiMode to avoid requiring data migration SQL.
+        gatewayRoute = providerConfig.apiMode === 'openai-official' ? 'openai-compat' : 'official'
+    }
 
-    const { prompt, ...providerOptions } = options || {}
-    if (gatewayRoute === 'openai-compat') {
-        const compatTemplate = selection.compatMediaTemplate
+    if (mediaContract?.executor === 'openai-compat-template') {
+        const compatTemplate = compatMediaTemplate
+        if (!compatTemplate) {
+            throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
+        }
+        return await generateVideoViaOpenAICompatTemplate({
+            userId,
+            providerId: selection.provider,
+            modelId: selection.modelId,
+            modelKey: selection.modelKey,
+            imageUrl,
+            prompt: prompt || '',
+            options: {
+                ...providerOptions,
+                provider: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+            },
+            profile: 'openai-compatible',
+            template: compatTemplate,
+            mediaContract,
+        })
+    }
+    if (mediaContract?.executor === 'openai-standard') {
+        return await generateVideoViaOpenAICompat({
+            userId,
+            providerId: selection.provider,
+            modelId: selection.modelId,
+            modelKey: selection.modelKey,
+            imageUrl,
+            prompt: prompt || '',
+            options: {
+                ...providerOptions,
+                provider: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+            },
+            profile: 'openai-compatible',
+        })
+    }
+    if (!mediaContract && gatewayRoute === 'openai-compat') {
+        const compatTemplate = compatMediaTemplate
         if (providerKey === 'openai-compatible' && !compatTemplate) {
             throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
         }

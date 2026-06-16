@@ -31,6 +31,20 @@ function readString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback
 }
 
+function readMediaContractSource(value: unknown) {
+  return value === 'rule'
+    || value === 'provider-list'
+    || value === 'llm'
+    || value === 'manual'
+    || value === 'official-adapter'
+    ? value
+    : undefined
+}
+
+function readCompatMediaTemplateSource(value: unknown) {
+  return value === 'ai' || value === 'manual' ? value : undefined
+}
+
 function normalizeDetectionResult(raw: unknown, fallbackUrl: string): CreativeEngineDetectionResult {
   const payload = isRecord(raw) ? raw : {}
   const models = Array.isArray(payload.models) ? payload.models.filter(isRecord) : []
@@ -41,14 +55,22 @@ function normalizeDetectionResult(raw: unknown, fallbackUrl: string): CreativeEn
     normalizedBaseUrl: readString(payload.normalizedBaseUrl, fallbackUrl),
     protocolType: readString(payload.protocolType, ''),
     status: readString(payload.status, 'unchecked'),
-    models: models.map((model, index) => ({
-      id: readString(model.id, `model-${index}`),
-      name: readString(model.name, readString(model.callName, `Model ${index + 1}`)),
-      callName: readString(model.callName, readString(model.id, `model-${index}`)),
-      modelKey: readString(model.modelKey, ''),
-      purpose: readString(model.purpose, 'unknown') as CreativeEngineDetectionResult['models'][number]['purpose'],
-      status: readString(model.status, 'unchecked') as CreativeEngineDetectionResult['models'][number]['status'],
-    })),
+    models: models.map((model, index) => {
+      const mediaContractSource = readMediaContractSource(model.mediaContractSource)
+      const compatMediaTemplateSource = readCompatMediaTemplateSource(model.compatMediaTemplateSource)
+      return {
+        id: readString(model.id, `model-${index}`),
+        name: readString(model.name, readString(model.callName, `Model ${index + 1}`)),
+        callName: readString(model.callName, readString(model.id, `model-${index}`)),
+        modelKey: readString(model.modelKey, ''),
+        purpose: readString(model.purpose, 'unknown') as CreativeEngineDetectionResult['models'][number]['purpose'],
+        status: readString(model.status, 'unchecked') as CreativeEngineDetectionResult['models'][number]['status'],
+        ...(isRecord(model.mediaContract) ? { mediaContract: model.mediaContract as unknown as CreativeEngineDetectionResult['models'][number]['mediaContract'] } : {}),
+        ...(mediaContractSource ? { mediaContractSource } : {}),
+        ...(isRecord(model.compatMediaTemplate) ? { compatMediaTemplate: model.compatMediaTemplate as unknown as CreativeEngineDetectionResult['models'][number]['compatMediaTemplate'] } : {}),
+        ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+      }
+    }),
   }
 }
 

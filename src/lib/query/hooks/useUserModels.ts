@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import type { ModelCapabilities } from '@/lib/model-config-contract'
+import type { MediaCapability, MediaContract } from '@/lib/media-contract/types'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
 import { queryKeys } from '../keys'
 import { apiFetch } from '@/lib/api-fetch'
@@ -13,6 +14,13 @@ export interface UserModelOption {
     providerName?: string
     capabilities?: ModelCapabilities
     videoPricingTiers?: VideoPricingTier[]
+    mediaContract?: MediaContract
+    mediaCapabilitySummary?: {
+        available: MediaCapability[]
+        unchecked: MediaCapability[]
+        failed: MediaCapability[]
+        unavailable: MediaCapability[]
+    }
 }
 
 export interface UserModelsPayload {
@@ -21,6 +29,7 @@ export interface UserModelsPayload {
     video: UserModelOption[]
     audio: UserModelOption[]
     lipsync: UserModelOption[]
+    voiceDesign: UserModelOption[]
 }
 
 export function useUserModels() {
@@ -38,6 +47,7 @@ export function useUserModels() {
                 video: Array.isArray(data?.video) ? data.video : [],
                 audio: Array.isArray(data?.audio) ? data.audio : [],
                 lipsync: Array.isArray(data?.lipsync) ? data.lipsync : [],
+                voiceDesign: Array.isArray(data?.voiceDesign) ? data.voiceDesign : [],
             } as UserModelsPayload
         },
     })
