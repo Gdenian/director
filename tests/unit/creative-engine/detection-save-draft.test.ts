@@ -28,7 +28,7 @@ describe('creative engine detection save draft', () => {
     })).toBe('Example Service')
   })
 
-  it('converts detected models into config-center model drafts without dropping unknown purpose entries', () => {
+  it('keeps unknown purpose entries as low-confidence unchecked text fallback drafts', () => {
     const drafts = buildDetectedModelDrafts('openai-compatible:abc', [
       {
         id: 'text-1',
@@ -49,6 +49,7 @@ describe('creative engine detection save draft', () => {
         name: 'Mystery',
         callName: 'mystery-model',
         purpose: 'unknown',
+        confidence: 'high',
         status: 'unchecked',
       },
     ])
@@ -85,6 +86,7 @@ describe('creative engine detection save draft', () => {
         llmProtocol: 'chat-completions',
         llmProtocolCheckedAt: expect.any(String),
         purpose: 'text',
+        confidence: 'low',
         status: 'unchecked',
         price: 0,
       },

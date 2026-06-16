@@ -109,6 +109,7 @@
   "mediaCapabilityImageToVideo": "图生视频",
   "mediaCapabilityFirstLastFrameVideo": "首尾帧视频",
   "mediaCapabilityStatusPassed": "已通过",
+  "mediaCapabilityStatusBuiltin": "内建支持",
   "mediaCapabilityStatusUnchecked": "未检测",
   "mediaCapabilityStatusFailed": "未通过",
   "mediaCapabilityStatusUnavailable": "不可用",

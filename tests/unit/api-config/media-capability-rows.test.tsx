@@ -13,6 +13,7 @@ const labels: Record<string, string> = {
   mediaCapabilityImageToVideo: 'Image to video',
   mediaCapabilityFirstLastFrameVideo: 'First and last frame',
   mediaCapabilityStatusPassed: 'Passed',
+  mediaCapabilityStatusBuiltin: 'Built in',
   mediaCapabilityStatusUnchecked: 'Unchecked',
   mediaCapabilityStatusFailed: 'Failed',
   mediaCapabilityStatusUnavailable: 'Unavailable',
@@ -96,6 +97,29 @@ describe('MediaCapabilityRows', () => {
     )
 
     expect(html).toContain('Contract not verified')
+  })
+
+  it('labels official-adapter capabilities as built in instead of tested passed', () => {
+    const html = renderToStaticMarkup(
+      <MediaCapabilityRows
+        model={baseModel({
+          mediaContract: {
+            version: 1,
+            mediaType: 'video',
+            executor: 'official-adapter',
+            capabilities: ['text-to-video'],
+            input: {},
+            output: { kind: 'url', urlPath: '$.video.url' },
+          },
+        })}
+        onRunTest={vi.fn()}
+        t={t}
+      />,
+    )
+
+    expect(html).toContain('Built in')
+    expect(html).not.toContain('Passed')
+    expect(html).not.toContain('Test')
   })
 
   it('disables all test buttons while any capability is pending for the model', () => {

@@ -22,17 +22,20 @@ const CAPABILITY_LABEL_KEYS: Record<MediaCapability, string> = {
   'first-last-frame-video': 'mediaCapabilityFirstLastFrameVideo',
 }
 
-const STATUS_LABEL_KEYS: Record<MediaCapabilityStatus, string> = {
+type DisplayCapabilityStatus = MediaCapabilityStatus | 'builtin'
+
+const STATUS_LABEL_KEYS: Record<DisplayCapabilityStatus, string> = {
   passed: 'mediaCapabilityStatusPassed',
+  builtin: 'mediaCapabilityStatusBuiltin',
   unchecked: 'mediaCapabilityStatusUnchecked',
   failed: 'mediaCapabilityStatusFailed',
   unavailable: 'mediaCapabilityStatusUnavailable',
 }
 
-function readCapabilityStatus(model: CustomModel, capability: MediaCapability): MediaCapabilityStatus {
+function readCapabilityStatus(model: CustomModel, capability: MediaCapability): DisplayCapabilityStatus {
   const contract = model.mediaContract
   if (!contract?.capabilities.includes(capability)) return 'unavailable'
-  if (contract.executor === 'official-adapter') return 'passed'
+  if (contract.executor === 'official-adapter') return 'builtin'
   return contract.testStatus?.[mediaCapabilityStatusKey(capability)] || 'unchecked'
 }
 

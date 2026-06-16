@@ -109,6 +109,7 @@
   "mediaCapabilityImageToVideo": "Image to video",
   "mediaCapabilityFirstLastFrameVideo": "First/last frame video",
   "mediaCapabilityStatusPassed": "Passed",
+  "mediaCapabilityStatusBuiltin": "Built in",
   "mediaCapabilityStatusUnchecked": "Unchecked",
   "mediaCapabilityStatusFailed": "Failed",
   "mediaCapabilityStatusUnavailable": "Unavailable",

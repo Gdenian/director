@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { AppIcon } from '@/components/ui/icons'
-import type { CreativeModelPurpose, CreativeModelStatus } from '@/lib/creative-engine/types'
+import type { CreativeDetectionConfidence, CreativeModelPurpose, CreativeModelStatus } from '@/lib/creative-engine/types'
 import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
 import type {
   OpenAICompatMediaTemplate,
@@ -17,6 +17,7 @@ export interface CreativeModelListItem {
   modelKey?: string
   purpose?: CreativeModelPurpose | 'unknown'
   status?: CreativeModelStatus | 'unchecked'
+  confidence?: CreativeDetectionConfidence
   enabled?: boolean
   mediaContract?: MediaContract
   mediaContractSource?: MediaContractSource
