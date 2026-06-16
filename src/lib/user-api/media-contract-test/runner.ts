@@ -4,6 +4,7 @@ import {
   normalizeResponseJson,
   readJsonPath,
 } from '@/lib/openai-compat-template-runtime'
+import { prepareMediaInputs } from '@/lib/media-contract/input-preparation'
 import { classifyMediaTestError, redactMediaTestSecrets } from '@/lib/media-contract/test-diagnostics'
 import { assertMediaContractTestCapability } from './validate'
 import type {
@@ -86,12 +87,34 @@ async function verifyOutputUrl(url: string, input: RunMediaContractTestInput): P
 async function renderCreateRequest(input: RunMediaContractTestInput) {
   const template = input.model.compatMediaTemplate
   if (!template) throw new Error('MEDIA_TEST_COMPAT_TEMPLATE_REQUIRED')
+  const image = input.sample?.image || ''
+  const images = image ? [image] : []
+  const lastFrameImage = input.sample?.lastFrameImage || ''
+  let preparedImage = image
+  let preparedImages = images
+  let preparedLastFrameImage = lastFrameImage
+  const contract = input.model.mediaContract
+  if (contract) {
+    const prepared = await prepareMediaInputs({
+      capability: input.capability,
+      contract,
+      image: image || undefined,
+      images,
+      lastFrameImage: lastFrameImage || undefined,
+    })
+    if (!prepared.ok) {
+      throw new Error(`MEDIA_TEST_INPUT_PREPARATION_FAILED: ${prepared.diagnostics[0]?.code || 'UNKNOWN'}`)
+    }
+    preparedImage = prepared.values.image ?? preparedImage
+    preparedImages = prepared.values.images ?? preparedImages
+    preparedLastFrameImage = prepared.values.lastFrameImage ?? preparedLastFrameImage
+  }
   const variables = buildTemplateVariables({
     model: input.model.modelId,
     prompt: input.sample?.prompt || '生成一张简单测试图',
-    image: input.sample?.image || '',
-    images: input.sample?.image ? [input.sample.image] : [],
-    lastFrameImage: input.sample?.lastFrameImage || '',
+    image: preparedImage,
+    images: preparedImages,
+    lastFrameImage: preparedLastFrameImage,
   })
   return await buildRenderedTemplateRequest({
     baseUrl: input.provider.baseUrl || '',
@@ -359,9 +382,19 @@ export async function runMediaContractTest(input: RunMediaContractTestInput): Pr
       ? await runAsyncTemplate(input)
       : await runSyncTemplate(input)
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.startsWith('MEDIA_TEST_INPUT_PREPARATION_FAILED:')) {
+      return {
+        status: 'failed',
+        diagnostic: {
+          code: 'MEDIA_TEST_REQUEST_SCHEMA_MISMATCH',
+          message,
+        },
+      }
+    }
     return {
       status: 'failed',
-      diagnostic: classifyMediaTestError({ error, body: error instanceof Error ? error.message : String(error) }),
+      diagnostic: classifyMediaTestError({ error, body: message }),
     }
   }
 }

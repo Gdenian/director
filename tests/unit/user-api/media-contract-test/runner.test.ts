@@ -4,8 +4,14 @@ import type { MediaContract } from '@/lib/media-contract/types'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 
 const fetchMock = vi.fn()
+const normalizeToOriginalMediaUrlMock = vi.hoisted(() => vi.fn(async (input: string) => `https://signed.test/${input}`))
+const normalizeToBase64ForGenerationMock = vi.hoisted(() => vi.fn(async () => 'data:image/png;base64,QUJD'))
 
 vi.stubGlobal('fetch', fetchMock)
+vi.mock('@/lib/media/outbound-image', () => ({
+  normalizeToOriginalMediaUrl: normalizeToOriginalMediaUrlMock,
+  normalizeToBase64ForGeneration: normalizeToBase64ForGenerationMock,
+}))
 
 describe('media contract test runner', () => {
   const mediaContract: MediaContract = {
@@ -41,6 +47,8 @@ describe('media contract test runner', () => {
 
   beforeEach(() => {
     fetchMock.mockReset()
+    normalizeToOriginalMediaUrlMock.mockClear()
+    normalizeToBase64ForGenerationMock.mockClear()
   })
 
   it('renders an openai-compatible request and extracts downloadable output url', async () => {
@@ -260,6 +268,62 @@ describe('media contract test runner', () => {
     })
     const createCall = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(createCall.headers).not.toHaveProperty('Content-Type')
+  })
+
+  it('prepares media-test image variables with the same contract input rules as generation runtime', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: 'https://cdn.test/image.png' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+    const result = await runMediaContractTest({
+      provider: {
+        id: 'openai-compatible:relay',
+        baseUrl: 'https://api.aisenyu.test/v1',
+        apiKey: 'sk-secret-value',
+      },
+      model: {
+        modelKey: 'openai-compatible:relay::gpt-image-2',
+        modelId: 'gpt-image-2',
+        mediaType: 'image',
+        mediaContract: {
+          version: 1,
+          mediaType: 'image',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-image'],
+          input: { image: 'rawBase64' },
+          output: {
+            kind: 'url',
+            urlPath: '$.data[0].url',
+          },
+        },
+        compatMediaTemplate: {
+          ...compatMediaTemplate,
+          create: {
+            method: 'POST',
+            path: '/images/edits',
+            contentType: 'application/json',
+            bodyTemplate: {
+              model: '{{model}}',
+              prompt: '{{prompt}}',
+              image: '{{image}}',
+            },
+          },
+        },
+      },
+      capability: 'image-to-image',
+      sample: {
+        prompt: '基于参考图生成',
+        image: 'images/reference.png',
+      },
+      limits: { fetchTimeoutMs: 0 },
+    })
+
+    expect(result.status).toBe('passed')
+    const createBody = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))
+    expect(createBody.image).toBe('QUJD')
+    expect(createBody.image).not.toBe('images/reference.png')
   })
 
   it('caps async polling timeout and interval for media tests', async () => {

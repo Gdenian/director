@@ -674,6 +674,29 @@ describe('generator-api gateway routing', () => {
     expect(result).toEqual({ success: true, videoUrl: 'official-video' })
   })
 
+  it('routes historical gemini-compatible video openai-compat rows by apiMode', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'gemini-compatible:gm-1',
+      modelId: 'veo-3.1-generate-preview',
+      modelKey: 'gemini-compatible:gm-1::veo-3.1-generate-preview',
+      mediaType: 'video',
+    })
+    getProviderConfigMock.mockResolvedValueOnce({
+      id: 'gemini-compatible:gm-1',
+      name: 'Gemini Relay',
+      apiKey: 'gemini-key',
+      apiMode: 'gemini-sdk',
+      gatewayRoute: 'openai-compat',
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    const result = await generateVideo('user-1', 'gemini-compatible:gm-1::veo-3.1-generate-preview', 'https://example.com/source.png')
+
+    expect(createVideoGeneratorMock).toHaveBeenCalledWith('gemini-compatible:gm-1')
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, videoUrl: 'official-video' })
+  })
+
   it('routes official video requests to provider generator', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'fal',
