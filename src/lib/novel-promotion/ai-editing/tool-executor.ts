@@ -1,4 +1,4 @@
-import type { VideoClip, VideoClipSource, VideoEditorProject } from '@/features/video-editor/types/editor.types'
+import type { ClipMediaSourceType, VideoClip, VideoClipSource, VideoEditorProject } from '@/features/video-editor/types/editor.types'
 import { calculateTimelineDuration, computeClipPositions } from '@/features/video-editor/utils/time-utils'
 import type {
   AiEditableMediaEntry,
@@ -22,6 +22,8 @@ type MutationSnapshot = {
 const MEDIA_NOT_ELIGIBLE_ERROR = 'EDITOR_TOOL_MEDIA_NOT_ELIGIBLE'
 const TIMELINE_READ_REQUIRED_ERROR = 'EDITOR_TOOL_TIMELINE_READ_REQUIRED'
 const MEDIA_READ_REQUIRED_ERROR = 'EDITOR_TOOL_MEDIA_READ_REQUIRED'
+const CLIP_NOT_FOUND_ERROR = 'EDITOR_TOOL_CLIP_NOT_FOUND'
+const EMPTY_MEDIA_IDS_ERROR = 'EDITOR_TOOL_EMPTY_MEDIA_IDS'
 
 export class EditorToolExecutor {
   private project: VideoEditorProject
@@ -57,6 +59,10 @@ export class EditorToolExecutor {
     this.requireTimelineRead()
     this.requireMediaRead()
 
+    if (input.mediaIds.length === 0) {
+      throw new Error(EMPTY_MEDIA_IDS_ERROR)
+    }
+
     const mediaEntries = input.mediaIds.map((mediaId) => this.requireClipMedia(mediaId))
 
     const insertIndex = this.resolveInsertIndex(input)
@@ -88,7 +94,7 @@ export class EditorToolExecutor {
     this.operations = [
       ...this.operations,
       {
-        tool: 'insertClips',
+        tool: 'insert_clips',
         targetIds: clips.map((clip) => clip.id),
         before: { insertionFrame, insertIndex },
         after: { mediaIds: input.mediaIds },
@@ -138,11 +144,13 @@ export class EditorToolExecutor {
     if (input.beforeClipId) {
       const index = this.project.timeline.findIndex((clip) => clip.id === input.beforeClipId)
       if (index >= 0) return index
+      throw new Error(CLIP_NOT_FOUND_ERROR)
     }
 
     if (input.afterClipId) {
       const index = this.project.timeline.findIndex((clip) => clip.id === input.afterClipId)
       if (index >= 0) return index + 1
+      throw new Error(CLIP_NOT_FOUND_ERROR)
     }
 
     if (input.end) {
@@ -163,9 +171,10 @@ export class EditorToolExecutor {
 
   private createClip(entry: AiEditableMediaEntry): VideoClip {
     const assetId = entry.assetId || entry.id.split(':').at(1) || entry.id
+    const clipId = this.uniqueClipId(`clip_${assetId}`)
 
     return {
-      id: `clip_${assetId}`,
+      id: clipId,
       kind: entry.sourceType === 'generated_transition_bridge' ? 'transition_bridge' : 'source',
       src: entry.url || '',
       durationInFrames: entry.durationInFrames || this.media.fps * 3,
@@ -175,10 +184,25 @@ export class EditorToolExecutor {
         voiceLineId: entry.voiceLineId,
         storyOrder: entry.storyOrder,
         source: clipSourceFor(entry),
+        mediaSourceType: clipMediaSourceTypeFor(entry),
         description: entry.description,
         editorAssetId: assetId,
       },
     }
+  }
+
+  private uniqueClipId(baseId: string): string {
+    const existingIds = new Set(this.project.timeline.map((clip) => clip.id))
+    if (!existingIds.has(baseId)) return baseId
+
+    let suffix = 2
+    let candidate = `${baseId}_${suffix}`
+    while (existingIds.has(candidate)) {
+      suffix += 1
+      candidate = `${baseId}_${suffix}`
+    }
+
+    return candidate
   }
 
   private result(): EditorToolDraftResult {
@@ -196,6 +220,15 @@ function clone<T>(value: T): T {
 }
 
 function clipSourceFor(entry: AiEditableMediaEntry): VideoClipSource {
+  if (entry.sourceType === 'generated_panel_video') return 'panel'
+  if (entry.sourceType === 'generated_lip_sync_video') return 'lip_sync'
+  if (entry.sourceType === 'generated_transition_bridge') return 'ai_transition'
+  if (entry.sourceType === 'user_import_video' || entry.sourceType === 'user_import_image' || entry.sourceType === 'render_output') return 'imported'
+
+  throw new Error(MEDIA_NOT_ELIGIBLE_ERROR)
+}
+
+function clipMediaSourceTypeFor(entry: AiEditableMediaEntry): ClipMediaSourceType {
   if (
     entry.sourceType === 'generated_panel_video' ||
     entry.sourceType === 'generated_lip_sync_video' ||

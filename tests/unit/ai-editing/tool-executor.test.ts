@@ -30,6 +30,15 @@ function baseProject(): VideoEditorProject {
   }
 }
 
+function transitionProject(): VideoEditorProject {
+  const project = baseProject()
+  project.timeline[0].transition = { type: 'dissolve', durationInFrames: 30 }
+  project.audioTrack[0].startFrame = 75
+  project.subtitleCues[0].startFrame = 75
+  project.subtitleCues[0].endFrame = 165
+  return project
+}
+
 function completedVideoMedia(overrides: Partial<AiEditableMediaLibrary['entries'][number]> = {}): AiEditableMediaLibrary {
   return {
     fps: 30,
@@ -213,10 +222,34 @@ describe('EditorToolExecutor', () => {
     expect(result.project.timeline[1]).toMatchObject({
       src: '/m/import',
       durationInFrames: 45,
-      metadata: { editorAssetId: 'asset-1', source: 'user_import_video' },
+      metadata: { editorAssetId: 'asset-1', source: 'imported', mediaSourceType: 'user_import_video' },
     })
     expect(result.project.audioTrack[0].startFrame).toBe(135)
     expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 135, endFrame: 225 })
+  })
+
+  it('throws when the after clip anchor is missing', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.insertClips({ afterClipId: 'missing-clip', mediaIds: ['user_import_video:asset-1'] })).toThrow('EDITOR_TOOL_CLIP_NOT_FOUND')
+  })
+
+  it('throws when the before clip anchor is missing', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.insertClips({ beforeClipId: 'missing-clip', mediaIds: ['user_import_video:asset-1'] })).toThrow('EDITOR_TOOL_CLIP_NOT_FOUND')
   })
 
   it('inserts clips before the referenced clip', () => {
@@ -262,6 +295,38 @@ describe('EditorToolExecutor', () => {
     expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 90, endFrame: 180 })
   })
 
+  it('generates unique clip ids when inserting the same media multiple times', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    executor.insertClips({ end: true, mediaIds: ['user_import_video:asset-1'] })
+    const result = executor.insertClips({ end: true, mediaIds: ['user_import_video:asset-1'] })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2', 'clip_asset-1', 'clip_asset-1_2'])
+    expect(result.project.timeline[2].metadata.editorAssetId).toBe('asset-1')
+    expect(result.project.timeline[3].metadata.editorAssetId).toBe('asset-1')
+  })
+
+  it('rejects empty media ids without recording a mutation', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.insertClips({ end: true, mediaIds: [] })).toThrow('EDITOR_TOOL_EMPTY_MEDIA_IDS')
+
+    const result = executor.undo()
+    expect(result.changed).toBe(false)
+    expect(result.operations).toEqual([])
+  })
+
   it('uses fps times three as the default duration for images without duration', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),
@@ -285,6 +350,34 @@ describe('EditorToolExecutor', () => {
     })
   })
 
+  it('uses fps times three as the default duration for video with non-positive duration', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia({ durationInFrames: 0 }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.insertClips({ end: true, mediaIds: ['user_import_video:asset-1'] })
+
+    expect(result.project.timeline[2].durationInFrames).toBe(90)
+  })
+
+  it('uses computed positions when rippling through a transition timeline', () => {
+    const executor = new EditorToolExecutor({
+      project: transitionProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.insertClips({ beforeClipId: 'clip-2', mediaIds: ['user_import_video:asset-1'] })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip_asset-1', 'clip-2'])
+    expect(result.project.audioTrack[0].startFrame).toBe(120)
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 120, endFrame: 210 })
+  })
+
   it('returns operation log and changed state after inserting clips', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),
@@ -297,7 +390,7 @@ describe('EditorToolExecutor', () => {
 
     expect(result.changed).toBe(true)
     expect(result.operations).toEqual([expect.objectContaining({
-      tool: 'insertClips',
+      tool: 'insert_clips',
       targetIds: ['clip_asset-1'],
     })])
   })
@@ -319,10 +412,45 @@ describe('EditorToolExecutor', () => {
 
     expect(result.project.timeline[2].metadata).toMatchObject({
       editorAssetId: 'asset-from-field',
-      source: 'user_import_video',
+      source: 'imported',
+      mediaSourceType: 'user_import_video',
       description: 'Imported description',
       storyboardId: '',
     })
+  })
+
+  it('maps generated media source types to editor semantic sources', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: {
+        fps: 30,
+        entries: [
+          completedVideoMedia({ id: 'generated_panel_video:panel-asset', sourceType: 'generated_panel_video', assetId: undefined }).entries[0],
+          completedVideoMedia({ id: 'generated_lip_sync_video:lip-asset', sourceType: 'generated_lip_sync_video', assetId: undefined }).entries[0],
+          completedVideoMedia({ id: 'generated_transition_bridge:transition-asset', sourceType: 'generated_transition_bridge', assetId: 'transition-asset' }).entries[0],
+          completedVideoMedia({ id: 'render_output:render-asset', sourceType: 'render_output', assetId: 'render-asset' }).entries[0],
+        ],
+      },
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.insertClips({
+      end: true,
+      mediaIds: [
+        'generated_panel_video:panel-asset',
+        'generated_lip_sync_video:lip-asset',
+        'generated_transition_bridge:transition-asset',
+        'render_output:render-asset',
+      ],
+    })
+
+    expect(result.project.timeline.slice(2).map((clip) => clip.metadata)).toEqual([
+      expect.objectContaining({ source: 'panel', mediaSourceType: 'generated_panel_video' }),
+      expect.objectContaining({ source: 'lip_sync', mediaSourceType: 'generated_lip_sync_video' }),
+      expect.objectContaining({ source: 'ai_transition', mediaSourceType: 'generated_transition_bridge' }),
+      expect.objectContaining({ source: 'imported', mediaSourceType: 'render_output' }),
+    ])
   })
 
   it('preserves storyboard id when media provides one', () => {

@@ -74,13 +74,23 @@ function normalizeTransition(value: unknown): ClipTransition | undefined {
 
 function normalizeClipMetadata(value: unknown, index: number): VideoClip['metadata'] {
     const metadata = toRecord(value)
-    const source = metadata.source === 'lip_sync' || metadata.source === 'ai_transition' ? metadata.source : 'panel'
+    const source = metadata.source === 'lip_sync' || metadata.source === 'ai_transition' || metadata.source === 'imported' ? metadata.source : 'panel'
+    const mediaSourceType =
+        metadata.mediaSourceType === 'generated_panel_video' ||
+            metadata.mediaSourceType === 'generated_lip_sync_video' ||
+            metadata.mediaSourceType === 'generated_transition_bridge' ||
+            metadata.mediaSourceType === 'user_import_video' ||
+            metadata.mediaSourceType === 'user_import_image' ||
+            metadata.mediaSourceType === 'render_output'
+            ? metadata.mediaSourceType
+            : undefined
     return {
         sourcePanelId: readString(metadata.sourcePanelId) || readString(metadata.panelId),
         storyboardId: readString(metadata.storyboardId) || '',
         voiceLineId: readString(metadata.voiceLineId),
         storyOrder: readNumber(metadata.storyOrder, index),
         source,
+        mediaSourceType,
         description: readString(metadata.description),
         editorAssetId: readString(metadata.editorAssetId),
     }
