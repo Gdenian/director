@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   headers: vi.fn(),
   userFindUnique: vi.fn(),
+  projectFindUnique: vi.fn(),
   getLogContext: vi.fn(),
   setLogContext: vi.fn(),
 }))
@@ -26,6 +27,9 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: {
       findUnique: mocks.userFindUnique,
+    },
+    project: {
+      findUnique: mocks.projectFindUnique,
     },
   },
 }))
@@ -80,6 +84,42 @@ describe('api auth gates', () => {
 
     expect(result).toBeInstanceOf(NextResponse)
     expect(await responseStatus(result as NextResponse)).toBe(403)
+  })
+
+  it('rejects disabled users before full project auth queries the project', async () => {
+    const { requireProjectAuth } = await import('@/lib/api-auth')
+    mockSession()
+    mocks.userFindUnique.mockResolvedValue({
+      id: 'user-1',
+      name: 'Disabled User',
+      email: 'disabled@example.com',
+      role: ADMIN_ROLES.USER,
+      status: USER_STATUSES.DISABLED,
+    })
+
+    const result = await requireProjectAuth('project-1')
+
+    expect(result).toBeInstanceOf(NextResponse)
+    expect(await responseStatus(result as NextResponse)).toBe(403)
+    expect(mocks.projectFindUnique).not.toHaveBeenCalled()
+  })
+
+  it('rejects disabled users before light project auth queries the project', async () => {
+    const { requireProjectAuthLight } = await import('@/lib/api-auth')
+    mockSession()
+    mocks.userFindUnique.mockResolvedValue({
+      id: 'user-1',
+      name: 'Disabled User',
+      email: 'disabled@example.com',
+      role: ADMIN_ROLES.USER,
+      status: USER_STATUSES.DISABLED,
+    })
+
+    const result = await requireProjectAuthLight('project-1')
+
+    expect(result).toBeInstanceOf(NextResponse)
+    expect(await responseStatus(result as NextResponse)).toBe(403)
+    expect(mocks.projectFindUnique).not.toHaveBeenCalled()
   })
 
   it('returns normalized live session for active users in requireUserAuth', async () => {
