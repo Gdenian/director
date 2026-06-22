@@ -5,7 +5,7 @@
 
 export type VideoEditorSchemaVersion = '1.0' | '1.2'
 export type VideoClipKind = 'source' | 'transition_bridge'
-export type VideoClipSource = 'panel' | 'lip_sync' | 'ai_transition'
+export type VideoClipSource = 'panel' | 'lip_sync' | 'ai_transition' | 'generated_panel_video' | 'generated_lip_sync_video' | 'generated_transition_bridge' | 'user_import_video' | 'user_import_image' | 'render_output'
 export type SubtitleStyle = 'default' | 'cinematic'
 
 /**
