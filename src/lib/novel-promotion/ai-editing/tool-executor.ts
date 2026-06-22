@@ -271,15 +271,14 @@ export class EditorToolExecutor {
     secondClip.id = this.uniqueClipId(`${clip.id}_split_${atFrame}`, reservedClipIds)
     secondClip.durationInFrames = clip.durationInFrames - atFrame
 
-    if (clip.sourceTrim) {
-      firstClip.sourceTrim = {
-        fromFrame: clip.sourceTrim.fromFrame,
-        toFrame: clip.sourceTrim.fromFrame + atFrame,
-      }
-      secondClip.sourceTrim = {
-        fromFrame: clip.sourceTrim.fromFrame + atFrame,
-        toFrame: clip.sourceTrim.toFrame,
-      }
+    const sourceStart = clip.sourceTrim?.fromFrame ?? 0
+    firstClip.sourceTrim = {
+      fromFrame: sourceStart,
+      toFrame: sourceStart + atFrame,
+    }
+    secondClip.sourceTrim = {
+      fromFrame: sourceStart + atFrame,
+      toFrame: sourceStart + clip.durationInFrames,
     }
 
     this.project.timeline = [
@@ -311,28 +310,44 @@ export class EditorToolExecutor {
     const previousOperations = clone(this.operations)
     const positions = computeClipPositions(this.project.timeline)
     const nextTimeline: VideoClip[] = []
+    const reservedClipIds = new Set(this.project.timeline.map((clip) => clip.id))
+    let previousContributionEnd = 0
 
     positions.forEach((clip) => {
-      const deletedFrames = ranges.reduce((total, range) => total + overlapLength(clip.startFrame, clip.endFrame, range.startFrame, range.endFrame), 0)
-      if (deletedFrames >= clip.durationInFrames) return
+      const contributionStart = Math.max(clip.startFrame, previousContributionEnd)
+      const contributionEnd = Math.max(contributionStart, clip.endFrame)
+      previousContributionEnd = Math.max(previousContributionEnd, clip.endFrame)
+      const localDeleteRanges = ranges
+        .map((range) => ({
+          startFrame: Math.max(contributionStart, range.startFrame) - clip.startFrame,
+          endFrame: Math.min(contributionEnd, range.endFrame) - clip.startFrame,
+        }))
+        .filter((range) => range.endFrame > range.startFrame)
+      const remainingIntervals = removeRangesFromInterval(0, clip.durationInFrames, localDeleteRanges)
+      if (remainingIntervals.length === 0) return
 
-      const { startFrame: _startFrame, endFrame: _endFrame, ...clipWithoutPosition } = clip
-      const nextClip: VideoClip = clone(clipWithoutPosition)
-      nextClip.durationInFrames = clip.durationInFrames - deletedFrames
+      const sourceStart = clip.sourceTrim?.fromFrame ?? 0
+      const clipWithoutPosition: VideoClip & { startFrame?: number; endFrame?: number } = clone(clip)
+      delete clipWithoutPosition.startFrame
+      delete clipWithoutPosition.endFrame
 
-      if (nextClip.sourceTrim) {
-        const headDeleted = ranges.reduce((total, range) => (
-          range.startFrame <= clip.startFrame
-            ? total + overlapLength(clip.startFrame, clip.endFrame, range.startFrame, range.endFrame)
-            : total
-        ), 0)
-        nextClip.sourceTrim = {
-          fromFrame: nextClip.sourceTrim.fromFrame + headDeleted,
-          toFrame: nextClip.sourceTrim.fromFrame + headDeleted + nextClip.durationInFrames,
+      remainingIntervals.forEach((interval, intervalIndex) => {
+        const nextClip: VideoClip = clone(clipWithoutPosition)
+        if (intervalIndex > 0) {
+          nextClip.id = this.uniqueClipId(`${clip.id}_ripple_${clip.startFrame + interval.startFrame}`, reservedClipIds)
         }
-      }
+        reservedClipIds.add(nextClip.id)
+        nextClip.durationInFrames = interval.endFrame - interval.startFrame
+        nextClip.sourceTrim = {
+          fromFrame: sourceStart + interval.startFrame,
+          toFrame: sourceStart + interval.endFrame,
+        }
+        if (intervalIndex < remainingIntervals.length - 1) {
+          delete nextClip.transition
+        }
 
-      nextTimeline.push(nextClip)
+        nextTimeline.push(nextClip)
+      })
     })
 
     this.project.timeline = nextTimeline
@@ -528,11 +543,9 @@ export class EditorToolExecutor {
     const clipEnd = clipStart + newClip.durationInFrames
     const oldPanelId = oldClip.metadata.sourcePanelId
     const oldVoiceLineId = oldClip.metadata.voiceLineId
-    const newPanelId = newClip.metadata.sourcePanelId
-    const newVoiceLineId = newClip.metadata.voiceLineId
 
     this.project.audioTrack = this.project.audioTrack.map((audio) => {
-      if (!isLinkedAttachment(audio, oldClip.id, oldPanelId, oldVoiceLineId, newPanelId, newVoiceLineId)) return audio
+      if (!isLinkedAttachment(audio, oldClip.id, oldPanelId, oldVoiceLineId)) return audio
 
       return {
         ...audio,
@@ -542,7 +555,7 @@ export class EditorToolExecutor {
     })
 
     this.project.subtitleCues = this.project.subtitleCues.map((cue) => {
-      if (!isLinkedAttachment(cue, oldClip.id, oldPanelId, oldVoiceLineId, newPanelId, newVoiceLineId)) return cue
+      if (!isLinkedAttachment(cue, oldClip.id, oldPanelId, oldVoiceLineId)) return cue
 
       return {
         ...cue,
@@ -623,14 +636,10 @@ function isLinkedAttachment(
   clipId: string,
   oldPanelId?: string,
   oldVoiceLineId?: string,
-  newPanelId?: string,
-  newVoiceLineId?: string,
 ): boolean {
   return attachment.clipId === clipId
     || Boolean(oldPanelId && attachment.sourcePanelId === oldPanelId)
     || Boolean(oldVoiceLineId && attachment.sourceVoiceLineId === oldVoiceLineId)
-    || Boolean(newPanelId && attachment.sourcePanelId === newPanelId)
-    || Boolean(newVoiceLineId && attachment.sourceVoiceLineId === newVoiceLineId)
 }
 
 function findAttachmentAnchor(
@@ -654,6 +663,28 @@ function findAttachmentAnchor(
 
 function overlapLength(startFrame: number, endFrame: number, rangeStart: number, rangeEnd: number): number {
   return Math.max(0, Math.min(endFrame, rangeEnd) - Math.max(startFrame, rangeStart))
+}
+
+function removeRangesFromInterval(startFrame: number, endFrame: number, ranges: Array<{ startFrame: number; endFrame: number }>): Array<{ startFrame: number; endFrame: number }> {
+  let remainingIntervals = [{ startFrame, endFrame }]
+
+  ranges.forEach((range) => {
+    remainingIntervals = remainingIntervals.flatMap((interval) => {
+      const overlap = overlapLength(interval.startFrame, interval.endFrame, range.startFrame, range.endFrame)
+      if (overlap <= 0) return [interval]
+
+      const intervals: Array<{ startFrame: number; endFrame: number }> = []
+      if (interval.startFrame < range.startFrame) {
+        intervals.push({ startFrame: interval.startFrame, endFrame: Math.min(interval.endFrame, range.startFrame) })
+      }
+      if (interval.endFrame > range.endFrame) {
+        intervals.push({ startFrame: Math.max(interval.startFrame, range.endFrame), endFrame: interval.endFrame })
+      }
+      return intervals
+    })
+  })
+
+  return remainingIntervals
 }
 
 function transformAudioAttachment(audio: AudioAttachment, ranges: Array<{ startFrame: number; endFrame: number }>): AudioAttachment[] {

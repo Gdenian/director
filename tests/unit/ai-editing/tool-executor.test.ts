@@ -524,6 +524,35 @@ describe('EditorToolExecutor', () => {
     expect(result.operations[0]).toMatchObject({ tool: 'replace_clip', targetIds: ['clip_replacement'] })
   })
 
+  it('does not clamp attachments that only match replacement media metadata', () => {
+    const project = baseProject()
+    project.audioTrack = [
+      { id: 'audio-old', src: '/m/audio-a', startFrame: 0, durationInFrames: 90, sourcePanelId: 'panel-1', clipId: 'clip-1', volume: 1 },
+      { id: 'audio-2', src: '/m/audio-b', startFrame: 90, durationInFrames: 90, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', clipId: 'clip-2', volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-old', text: 'first', startFrame: 0, endFrame: 90, sourcePanelId: 'panel-1', style: 'default' },
+      { id: 'subtitle-2', text: 'second', startFrame: 90, endFrame: 180, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia({ assetId: 'replacement', durationInFrames: 45, sourcePanelId: 'panel-2', voiceLineId: 'voice-2' }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.replaceClip({ clipId: 'clip-1', mediaId: 'user_import_video:asset-1' })
+
+    expect(result.project.audioTrack).toEqual([
+      expect.objectContaining({ id: 'audio-old', clipId: 'clip_replacement', durationInFrames: 45 }),
+      expect.objectContaining({ id: 'audio-2', clipId: 'clip-2', startFrame: 90, durationInFrames: 90 }),
+    ])
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-old', startFrame: 0, endFrame: 45 }),
+      expect.objectContaining({ id: 'subtitle-2', startFrame: 90, endFrame: 180 }),
+    ])
+  })
+
   it('sets clip duration, source trim, and validates transition frame bounds', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),
@@ -587,6 +616,20 @@ describe('EditorToolExecutor', () => {
     expect(result.operations[0]).toMatchObject({ tool: 'split_clip', targetIds: ['clip-1', 'clip-1_split_30'] })
   })
 
+  it('adds source trim to both split segments when the original clip has none', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.splitClip({ clipId: 'clip-1', atFrame: 30 })
+
+    expect(result.project.timeline[0].sourceTrim).toEqual({ fromFrame: 0, toFrame: 30 })
+    expect(result.project.timeline[1].sourceTrim).toEqual({ fromFrame: 30, toFrame: 90 })
+  })
+
   it('ripple deletes ranges by removing, trimming, and shifting timeline attachments', () => {
     const project = baseProject()
     project.timeline = [
@@ -632,6 +675,55 @@ describe('EditorToolExecutor', () => {
       expect.objectContaining({ id: 'subtitle-later', startFrame: 30, endFrame: 60 }),
     ])
     expect(result.operations[0]).toMatchObject({ tool: 'ripple_delete_ranges' })
+  })
+
+  it('splits a single clip when ripple deleting its middle range', () => {
+    const project = baseProject()
+    project.timeline = [project.timeline[0]]
+    project.audioTrack = []
+    project.subtitleCues = []
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.rippleDeleteRanges({ ranges: [{ startFrame: 30, endFrame: 60 }] })
+
+    expect(result.project.timeline.map((clip) => ({
+      id: clip.id,
+      durationInFrames: clip.durationInFrames,
+      sourceTrim: clip.sourceTrim,
+    }))).toEqual([
+      { id: 'clip-1', durationInFrames: 30, sourceTrim: { fromFrame: 0, toFrame: 30 } },
+      { id: 'clip-1_ripple_60', durationInFrames: 30, sourceTrim: { fromFrame: 60, toFrame: 90 } },
+    ])
+    expect(result.project.timeline[0].src).toBe('/m/a')
+    expect(result.project.timeline[1].src).toBe('/m/a')
+  })
+
+  it('does not double-delete transition overlap frames during ripple delete', () => {
+    const project = transitionProject()
+    project.audioTrack = [
+      { id: 'audio-overlap', src: '/m/audio-overlap', startFrame: 80, durationInFrames: 10, volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-overlap', text: 'overlap', startFrame: 80, endFrame: 90, style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    executor.rippleDeleteRanges({ ranges: [{ startFrame: 80, endFrame: 85 }] })
+    const timeline = executor.getTimeline()
+
+    expect(timeline.totalFrames).toBe(160)
+    expect(timeline.audioTrack[0].durationInFrames).toBeGreaterThan(0)
+    expect(timeline.subtitleCues[0].endFrame).toBeGreaterThan(timeline.subtitleCues[0].startFrame)
   })
 
   it('rejects ripple delete ranges that are not sorted', () => {
