@@ -860,6 +860,43 @@ describe('EditorToolExecutor', () => {
     })
   })
 
+  it('clamps the preserved transition when ripple deleting before a short transition tail', () => {
+    const project = baseProject()
+    project.timeline = [
+      { ...project.timeline[0], durationInFrames: 100, transition: { type: 'dissolve', durationInFrames: 20 } },
+      { ...project.timeline[1], durationInFrames: 100 },
+    ]
+    project.audioTrack = []
+    project.subtitleCues = []
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    const beforeTotal = executor.getTimeline().totalFrames
+    executor.getMedia()
+    executor.rippleDeleteRanges({ ranges: [{ startFrame: 85, endFrame: 90 }] })
+    const timeline = executor.getTimeline()
+
+    expect(beforeTotal).toBe(190)
+    expect(timeline.totalFrames).toBe(185)
+    expect(timeline.clips.map((clip) => ({
+      id: clip.id,
+      startFrame: clip.startFrame,
+      endFrame: clip.endFrame,
+      durationInFrames: clip.durationInFrames,
+      transition: clip.transition,
+    }))).toEqual([
+      { id: 'clip-1', startFrame: 0, endFrame: 85, durationInFrames: 85, transition: undefined },
+      { id: 'clip-1_ripple_90', startFrame: 85, endFrame: 95, durationInFrames: 10, transition: { type: 'dissolve', durationInFrames: 20 } },
+      { id: 'clip-2', startFrame: 85, endFrame: 185, durationInFrames: 100, transition: undefined },
+    ])
+    timeline.clips.forEach((clip, index) => {
+      const nextClip = timeline.clips[index + 1]
+      if (nextClip) expect(nextClip.startFrame).toBeGreaterThanOrEqual(clip.startFrame)
+    })
+  })
+
   it('keeps computed clip positions monotonic after ripple deleting a short transition tail', () => {
     const project = baseProject()
     project.timeline = [

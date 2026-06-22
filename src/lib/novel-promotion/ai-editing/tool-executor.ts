@@ -366,10 +366,17 @@ export class EditorToolExecutor {
           fromFrame: sourceStart + interval.startFrame,
           toFrame: sourceStart + interval.endFrame,
         }
-        if (clip.transition && intervalIndex === remainingIntervals.length - 1 && nextClip.durationInFrames >= clip.transition.durationInFrames) {
+        const transitionOverlapStart = clip.transition
+          ? Math.max(0, clip.durationInFrames - Math.floor(clip.transition.durationInFrames / 2))
+          : null
+        const keepsTransitionStart = transitionOverlapStart !== null
+          && interval.startFrame <= transitionOverlapStart
+          && interval.endFrame > transitionOverlapStart
+
+        if (clip.transition && intervalIndex === remainingIntervals.length - 1 && keepsTransitionStart) {
           nextClip.transition = {
             ...clip.transition,
-            durationInFrames: Math.min(clip.transition.durationInFrames, nextClip.durationInFrames),
+            durationInFrames: Math.min(clip.transition.durationInFrames, nextClip.durationInFrames * 2),
           }
         } else {
           delete nextClip.transition
