@@ -311,6 +311,23 @@ describe('EditorToolExecutor', () => {
     expect(result.project.timeline[3].metadata.editorAssetId).toBe('asset-1')
   })
 
+  it('generates unique clip ids when inserting duplicate media in one operation', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.insertClips({
+      end: true,
+      mediaIds: ['user_import_video:asset-1', 'user_import_video:asset-1'],
+    })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2', 'clip_asset-1', 'clip_asset-1_2'])
+    expect(result.operations[0].targetIds).toEqual(['clip_asset-1', 'clip_asset-1_2'])
+  })
+
   it('rejects empty media ids without recording a mutation', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),

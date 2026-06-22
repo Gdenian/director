@@ -67,7 +67,8 @@ export class EditorToolExecutor {
 
     const insertIndex = this.resolveInsertIndex(input)
     const insertionFrame = this.frameAtIndex(insertIndex)
-    const clips = mediaEntries.map((entry) => this.createClip(entry))
+    const reservedClipIds = new Set(this.project.timeline.map((clip) => clip.id))
+    const clips = mediaEntries.map((entry) => this.createClip(entry, reservedClipIds))
     const insertedDuration = clips.reduce((total, clip) => total + clip.durationInFrames, 0)
     const previousProject = clone(this.project)
     const previousOperations = clone(this.operations)
@@ -169,9 +170,10 @@ export class EditorToolExecutor {
     return positions[index]?.startFrame ?? 0
   }
 
-  private createClip(entry: AiEditableMediaEntry): VideoClip {
+  private createClip(entry: AiEditableMediaEntry, reservedClipIds?: Set<string>): VideoClip {
     const assetId = entry.assetId || entry.id.split(':').at(1) || entry.id
-    const clipId = this.uniqueClipId(`clip_${assetId}`)
+    const clipId = this.uniqueClipId(`clip_${assetId}`, reservedClipIds)
+    reservedClipIds?.add(clipId)
 
     return {
       id: clipId,
@@ -191,8 +193,8 @@ export class EditorToolExecutor {
     }
   }
 
-  private uniqueClipId(baseId: string): string {
-    const existingIds = new Set(this.project.timeline.map((clip) => clip.id))
+  private uniqueClipId(baseId: string, reservedClipIds?: Set<string>): string {
+    const existingIds = reservedClipIds || new Set(this.project.timeline.map((clip) => clip.id))
     if (!existingIds.has(baseId)) return baseId
 
     let suffix = 2
