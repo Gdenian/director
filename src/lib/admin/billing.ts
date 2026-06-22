@@ -19,6 +19,13 @@ function decimalToString(value: unknown) {
     : '0'
 }
 
+function sanitizeTransactionDescription(value: string | null) {
+  if (!value) return null
+  const [summary] = value.split(/\s+\|\s+audit=/)
+  const text = summary.trim()
+  return text || null
+}
+
 export async function getAdminBillingSummary(params: AdminBillingSummaryParams = {}) {
   const page = clampPage(params.page)
   const pageSize = clampPageSize(params.pageSize)
@@ -68,7 +75,7 @@ export async function getAdminBillingSummary(params: AdminBillingSummaryParams =
         type: transaction.type,
         amount: transaction.amount.toString(),
         balanceAfter: transaction.balanceAfter.toString(),
-        description: transaction.description,
+        description: sanitizeTransactionDescription(transaction.description),
         projectId: transaction.projectId,
         episodeId: transaction.episodeId,
         taskType: transaction.taskType,

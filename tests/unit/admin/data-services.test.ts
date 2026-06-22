@@ -96,4 +96,33 @@ describe('admin data services', () => {
       },
     }))
   })
+
+  it('removes embedded audit metadata from admin billing descriptions', async () => {
+    const amount = { toString: () => '12.340000' }
+    const balanceAfter = { toString: () => '99.000000' }
+    prismaMock.balanceTransaction.findMany.mockResolvedValueOnce([{
+      id: 'tx-1',
+      userId: 'user-1',
+      type: 'recharge',
+      amount,
+      balanceAfter,
+      description: 'manual recharge | audit={"reason":"manual recharge","operatorId":"owner-1","externalOrderId":"order-secret","idempotencyKey":"idem-secret"}',
+      projectId: null,
+      episodeId: null,
+      taskType: null,
+      createdAt: new Date('2026-06-22T00:00:00.000Z'),
+    }] as never)
+    const { getAdminBillingSummary } = await import('@/lib/admin/billing')
+
+    const result = await getAdminBillingSummary({ page: 1, pageSize: 10 })
+    const jsonText = JSON.stringify(result)
+
+    expect(result.recentTransactions.items[0].description).toBe('manual recharge')
+    expect(jsonText).not.toContain('operatorId')
+    expect(jsonText).not.toContain('externalOrderId')
+    expect(jsonText).not.toContain('idempotencyKey')
+    expect(jsonText).not.toContain('owner-1')
+    expect(jsonText).not.toContain('order-secret')
+    expect(jsonText).not.toContain('idem-secret')
+  })
 })
