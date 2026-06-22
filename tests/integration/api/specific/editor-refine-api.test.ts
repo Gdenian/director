@@ -98,7 +98,7 @@ describe('api specific - editor refine routes', () => {
     const req = buildMockRequest({
       path: '/api/novel-promotion/project-1/editor/refine',
       method: 'POST',
-      body: { episodeId: 'episode-1', editorProjectId: 'editor-1', instruction: '节奏更快' },
+      body: { episodeId: 'episode-1', editorProjectId: 'editor-1', instruction: '节奏更快', targetDurationSeconds: 12 },
     })
 
     const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
@@ -109,7 +109,11 @@ describe('api specific - editor refine routes', () => {
       type: 'ai_edit_refine',
       targetId: 'editor-1',
       dedupeKey: 'ai_edit_refine:editor-1',
-      payload: expect.objectContaining({ instruction: '节奏更快' }),
+      payload: expect.objectContaining({
+        editorProjectId: 'editor-1',
+        instruction: '节奏更快',
+        targetDurationSeconds: 12,
+      }),
     }))
     expect(body).toEqual(expect.objectContaining({ taskId: 'task-refine-1' }))
   })
