@@ -128,6 +128,7 @@ export class EditorToolExecutor {
     const previousOperations = clone(this.operations)
     const positions = computeClipPositions(this.project.timeline)
     const clipStart = positions[clipIndex]?.startFrame ?? this.frameAtIndex(clipIndex)
+    const beforeAnchors = this.clipAnchorMap()
     const reservedClipIds = new Set(this.project.timeline.map((clip) => clip.id))
     reservedClipIds.delete(oldClip.id)
     const newClip = this.createClip(mediaEntry, reservedClipIds)
@@ -141,6 +142,7 @@ export class EditorToolExecutor {
       newClip,
       ...this.project.timeline.slice(clipIndex + 1),
     ]
+    this.reanchorAttachments(beforeAnchors, this.clipAnchorMap())
     this.clampLinkedAttachments(oldClip, newClip, clipStart)
 
     this.recordMutation(previousProject, previousOperations, {
@@ -162,15 +164,20 @@ export class EditorToolExecutor {
     const clip = this.project.timeline[clipIndex]
     const fps = this.project.config.fps
 
-    if (typeof input.durationInFrames === 'number' && (input.durationInFrames < 1 || input.durationInFrames > fps * 600)) {
+    if (typeof input.durationInFrames === 'number' && (!Number.isFinite(input.durationInFrames) || input.durationInFrames < 1 || input.durationInFrames > fps * 600)) {
       throw new Error(INVALID_DURATION_ERROR)
     }
 
-    if (input.sourceTrim && (input.sourceTrim.fromFrame < 0 || input.sourceTrim.toFrame <= input.sourceTrim.fromFrame)) {
+    if (input.sourceTrim && (
+      !Number.isFinite(input.sourceTrim.fromFrame)
+      || !Number.isFinite(input.sourceTrim.toFrame)
+      || input.sourceTrim.fromFrame < 0
+      || input.sourceTrim.toFrame <= input.sourceTrim.fromFrame
+    )) {
       throw new Error(INVALID_SOURCE_TRIM_ERROR)
     }
 
-    if (input.transition && (input.transition.durationInFrames < 0 || input.transition.durationInFrames > fps)) {
+    if (input.transition && (!Number.isFinite(input.transition.durationInFrames) || input.transition.durationInFrames < 0 || input.transition.durationInFrames > fps)) {
       throw new Error(INVALID_TRANSITION_ERROR)
     }
 
@@ -178,6 +185,7 @@ export class EditorToolExecutor {
     const previousOperations = clone(this.operations)
     const positions = computeClipPositions(this.project.timeline)
     const clipStart = positions[clipIndex]?.startFrame ?? this.frameAtIndex(clipIndex)
+    const beforeAnchors = this.clipAnchorMap()
     const nextClip = clone(clip)
 
     if (typeof input.durationInFrames === 'number') {
@@ -201,6 +209,7 @@ export class EditorToolExecutor {
     this.project.timeline[clipIndex] = nextClip
 
     if (typeof input.durationInFrames === 'number') {
+      this.reanchorAttachments(beforeAnchors, this.clipAnchorMap())
       this.clampLinkedAttachments(clip, nextClip, clipStart)
     }
 
@@ -222,6 +231,9 @@ export class EditorToolExecutor {
     const selectedIds = new Set(input.clipIds)
     const movingClips = this.project.timeline.filter((clip) => selectedIds.has(clip.id))
     if (movingClips.length !== input.clipIds.length) {
+      throw new Error(CLIP_NOT_FOUND_ERROR)
+    }
+    if (!Number.isFinite(input.toIndex)) {
       throw new Error(CLIP_NOT_FOUND_ERROR)
     }
 
@@ -256,6 +268,9 @@ export class EditorToolExecutor {
 
     const clipIndex = this.findClipIndex(input.clipId)
     const clip = this.project.timeline[clipIndex]
+    if (!Number.isFinite(input.atFrame)) {
+      throw new Error(INVALID_SPLIT_ERROR)
+    }
     const atFrame = Math.floor(input.atFrame)
     if (atFrame < 1 || atFrame >= clip.durationInFrames) {
       throw new Error(INVALID_SPLIT_ERROR)
@@ -342,7 +357,7 @@ export class EditorToolExecutor {
           fromFrame: sourceStart + interval.startFrame,
           toFrame: sourceStart + interval.endFrame,
         }
-        if (intervalIndex < remainingIntervals.length - 1) {
+        if (localDeleteRanges.length > 0) {
           delete nextClip.transition
         }
 
@@ -471,6 +486,9 @@ export class EditorToolExecutor {
 
   private resolveInsertIndex(input: InsertClipsInput): number {
     if (typeof input.atIndex === 'number') {
+      if (!Number.isFinite(input.atIndex)) {
+        throw new Error(CLIP_NOT_FOUND_ERROR)
+      }
       return Math.max(0, Math.min(this.project.timeline.length, Math.floor(input.atIndex)))
     }
 
@@ -606,7 +624,11 @@ export class EditorToolExecutor {
       .map((range) => ({ startFrame: Math.floor(range.startFrame), endFrame: Math.floor(range.endFrame) }))
 
     let previousEnd = 0
-    normalizedRanges.forEach((range) => {
+    normalizedRanges.forEach((range, index) => {
+      const inputRange = ranges[index]
+      if (!Number.isFinite(inputRange.startFrame) || !Number.isFinite(inputRange.endFrame)) {
+        throw new Error(INVALID_RANGES_ERROR)
+      }
       if (range.startFrame < 0 || range.endFrame <= range.startFrame || range.endFrame > totalFrames || range.startFrame < previousEnd) {
         throw new Error(INVALID_RANGES_ERROR)
       }

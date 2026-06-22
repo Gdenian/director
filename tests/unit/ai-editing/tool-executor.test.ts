@@ -545,12 +545,28 @@ describe('EditorToolExecutor', () => {
 
     expect(result.project.audioTrack).toEqual([
       expect.objectContaining({ id: 'audio-old', clipId: 'clip_replacement', durationInFrames: 45 }),
-      expect.objectContaining({ id: 'audio-2', clipId: 'clip-2', startFrame: 90, durationInFrames: 90 }),
+      expect.objectContaining({ id: 'audio-2', clipId: 'clip-2', startFrame: 45, durationInFrames: 90 }),
     ])
     expect(result.project.subtitleCues).toEqual([
       expect.objectContaining({ id: 'subtitle-old', startFrame: 0, endFrame: 45 }),
-      expect.objectContaining({ id: 'subtitle-2', startFrame: 90, endFrame: 180 }),
+      expect.objectContaining({ id: 'subtitle-2', startFrame: 45, endFrame: 135 }),
     ])
+  })
+
+  it('reanchors later attachments when replacing an upstream clip with a shorter clip', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia({ assetId: 'replacement', durationInFrames: 45, sourcePanelId: 'panel-1' }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.replaceClip({ clipId: 'clip-1', mediaId: 'user_import_video:asset-1' })
+
+    expect(result.project.timeline.map((clip) => clip.durationInFrames)).toEqual([45, 90])
+    expect(executor.getTimeline().clips[1]).toMatchObject({ id: 'clip-2', startFrame: 45, endFrame: 135 })
+    expect(result.project.audioTrack[0]).toMatchObject({ clipId: 'clip-2', startFrame: 45, durationInFrames: 90 })
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 45, endFrame: 135 })
   })
 
   it('sets clip duration, source trim, and validates transition frame bounds', () => {
@@ -579,6 +595,36 @@ describe('EditorToolExecutor', () => {
 
     expect(() => executor.setClipProperties({ clipId: 'clip-2', transition: { type: 'fade', durationInFrames: 31 } })).toThrow('EDITOR_TOOL_INVALID_TRANSITION')
     expect(() => executor.setClipProperties({ clipId: 'clip-2', sourceTrim: { fromFrame: 10, toFrame: 10 } })).toThrow('EDITOR_TOOL_INVALID_SOURCE_TRIM')
+  })
+
+  it('reanchors later attachments when shortening an upstream clip duration', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.setClipProperties({ clipId: 'clip-1', durationInFrames: 45 })
+
+    expect(executor.getTimeline().clips[1]).toMatchObject({ id: 'clip-2', startFrame: 45, endFrame: 135 })
+    expect(result.project.audioTrack[0]).toMatchObject({ clipId: 'clip-2', startFrame: 45, durationInFrames: 90 })
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 45, endFrame: 135 })
+  })
+
+  it('rejects non-finite clip property numbers without mutating the timeline', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.setClipProperties({ clipId: 'clip-1', durationInFrames: Number.NaN })).toThrow('EDITOR_TOOL_INVALID_DURATION')
+    expect(() => executor.setClipProperties({ clipId: 'clip-1', sourceTrim: { fromFrame: 0, toFrame: Number.POSITIVE_INFINITY } })).toThrow('EDITOR_TOOL_INVALID_SOURCE_TRIM')
+    expect(() => executor.setClipProperties({ clipId: 'clip-1', transition: { type: 'fade', durationInFrames: Number.NaN } })).toThrow('EDITOR_TOOL_INVALID_TRANSITION')
+    expect(executor.getTimeline().clips[0]).toMatchObject({ id: 'clip-1', durationInFrames: 90, startFrame: 0, endFrame: 90 })
   })
 
   it('moves clips and recalculates anchored attachments', () => {
@@ -721,9 +767,49 @@ describe('EditorToolExecutor', () => {
     executor.rippleDeleteRanges({ ranges: [{ startFrame: 80, endFrame: 85 }] })
     const timeline = executor.getTimeline()
 
-    expect(timeline.totalFrames).toBe(160)
+    expect(timeline.totalFrames).toBe(175)
+    timeline.clips.forEach((clip, index) => {
+      const nextClip = timeline.clips[index + 1]
+      if (nextClip) expect(nextClip.startFrame).toBeGreaterThanOrEqual(clip.startFrame)
+    })
     expect(timeline.audioTrack[0].durationInFrames).toBeGreaterThan(0)
     expect(timeline.subtitleCues[0].endFrame).toBeGreaterThan(timeline.subtitleCues[0].startFrame)
+  })
+
+  it('keeps computed clip positions monotonic after ripple deleting a short transition tail', () => {
+    const project = baseProject()
+    project.timeline = [
+      { ...project.timeline[0], transition: { type: 'dissolve', durationInFrames: 30 } },
+      project.timeline[1],
+      {
+        id: 'clip-3',
+        kind: 'source',
+        src: '/m/c',
+        durationInFrames: 60,
+        metadata: { storyboardId: 'storyboard-3', sourcePanelId: 'panel-3', storyOrder: 2, source: 'panel' },
+      },
+    ]
+    project.audioTrack = []
+    project.subtitleCues = []
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    executor.rippleDeleteRanges({ ranges: [{ startFrame: 5, endFrame: 90 }] })
+    const timeline = executor.getTimeline()
+
+    expect(timeline.clips.map((clip) => ({ id: clip.id, startFrame: clip.startFrame, endFrame: clip.endFrame }))).toEqual([
+      { id: 'clip-1', startFrame: 0, endFrame: 5 },
+      { id: 'clip-2', startFrame: 5, endFrame: 95 },
+      { id: 'clip-3', startFrame: 95, endFrame: 155 },
+    ])
+    timeline.clips.forEach((clip, index) => {
+      const nextClip = timeline.clips[index + 1]
+      if (nextClip) expect(nextClip.startFrame).toBeGreaterThanOrEqual(clip.startFrame)
+    })
   })
 
   it('rejects ripple delete ranges that are not sorted', () => {
@@ -740,6 +826,20 @@ describe('EditorToolExecutor', () => {
         { startFrame: 90, endFrame: 100 },
         { startFrame: 30, endFrame: 40 },
       ],
+    })).toThrow('EDITOR_TOOL_INVALID_RANGES')
+  })
+
+  it('rejects non-finite ripple delete range frames', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.rippleDeleteRanges({
+      ranges: [{ startFrame: Number.NaN, endFrame: 40 }],
     })).toThrow('EDITOR_TOOL_INVALID_RANGES')
   })
 
