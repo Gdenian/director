@@ -53,6 +53,16 @@ describe('parseEditorToolPlan', () => {
     }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
   })
 
+  it('rejects empty ripple delete ranges', () => {
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'ripple_delete_ranges', input: { ranges: [] } },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  })
+
   it('rejects insert clips without media ids', () => {
     expect(() => parseEditorToolPlan(JSON.stringify({
       toolCalls: [
@@ -69,6 +79,32 @@ describe('parseEditorToolPlan', () => {
         { tool: 'get_timeline', input: {} },
         { tool: 'get_media', input: {} },
         { tool: 'remove_clips', input: {} },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  })
+
+  it('rejects invalid optional enum inputs', () => {
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'add_captions', input: { placement: 'top' } },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'set_clip_properties', input: { clipId: 'clip-1', subtitlePlacement: 'top' } },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'set_clip_properties', input: { clipId: 'clip-1', transition: { type: 'wipe', durationInFrames: 12 } } },
       ],
     }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
   })

@@ -292,8 +292,8 @@ export class EditorToolExecutor {
     this.project.timeline = this.project.timeline.filter((clip) => !selectedIds.has(clip.id))
 
     if (input.removeLinkedAudioAndSubtitles) {
-      this.project.audioTrack = this.project.audioTrack.filter((audio) => !isLinkedToAnyClip(audio, removedClips))
-      this.project.subtitleCues = this.project.subtitleCues.filter((cue) => !isLinkedToAnyClip(cue, removedClips))
+      this.project.audioTrack = this.project.audioTrack.filter((audio) => !isRemovedAttachment(audio, removedClips, this.project.timeline))
+      this.project.subtitleCues = this.project.subtitleCues.filter((cue) => !isRemovedAttachment(cue, removedClips, this.project.timeline))
     }
 
     this.reanchorAttachments(beforeAnchors, this.clipAnchorMap())
@@ -725,13 +725,27 @@ function isLinkedAttachment(
     || Boolean(oldVoiceLineId && attachment.sourceVoiceLineId === oldVoiceLineId)
 }
 
-function isLinkedToAnyClip(
+function isRemovedAttachment(
   attachment: { clipId?: string; sourcePanelId?: string; sourceVoiceLineId?: string },
-  clips: VideoClip[],
+  removedClips: VideoClip[],
+  remainingClips: VideoClip[],
 ): boolean {
-  return clips.some((clip) => (
-    isLinkedAttachment(attachment, clip.id, clip.metadata.sourcePanelId, clip.metadata.voiceLineId)
-  ))
+  if (attachment.clipId && removedClips.some((clip) => clip.id === attachment.clipId)) {
+    return true
+  }
+
+  return removedClips.some((clip) => {
+    const sourcePanelId = clip.metadata.sourcePanelId
+    const voiceLineId = clip.metadata.voiceLineId
+    const matchesPanel = Boolean(sourcePanelId && attachment.sourcePanelId === sourcePanelId)
+    const matchesVoiceLine = Boolean(voiceLineId && attachment.sourceVoiceLineId === voiceLineId)
+    if (!matchesPanel && !matchesVoiceLine) return false
+
+    return !remainingClips.some((remainingClip) => (
+      (matchesPanel && remainingClip.metadata.sourcePanelId === sourcePanelId)
+      || (matchesVoiceLine && remainingClip.metadata.voiceLineId === voiceLineId)
+    ))
+  })
 }
 
 function isSubtitleCueLinkedToClip(cue: SubtitleCue, clip: VideoClip): boolean {

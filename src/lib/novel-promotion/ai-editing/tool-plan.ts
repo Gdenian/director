@@ -33,6 +33,9 @@ const MUTATION_TOOLS = new Set<EditorToolName>([
   'undo',
 ])
 
+const SUBTITLE_PLACEMENTS = new Set(['bottom', 'lower', 'middle'])
+const TRANSITION_TYPES = new Set(['none', 'dissolve', 'fade', 'slide'])
+
 export function parseEditorToolPlan(content: string): EditorToolPlan {
   const parsed = safeParseJsonObject(content)
   const summary = typeof parsed.summary === 'string' && parsed.summary.trim()
@@ -95,6 +98,20 @@ function validateToolInput(tool: EditorToolName, input: Record<string, unknown>)
       return
     case 'set_clip_properties':
       requireString(input.clipId)
+      if (input.subtitlePlacement !== undefined) {
+        requireEnum(input.subtitlePlacement, SUBTITLE_PLACEMENTS)
+      }
+      if (input.transition !== undefined) {
+        if (!isPlainObject(input.transition)) {
+          throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+        }
+        if (input.transition.type !== undefined) {
+          requireEnum(input.transition.type, TRANSITION_TYPES)
+        }
+        if (input.transition.durationInFrames !== undefined) {
+          requireNumber(input.transition.durationInFrames)
+        }
+      }
       return
     case 'split_clip':
       requireString(input.clipId)
@@ -105,6 +122,11 @@ function validateToolInput(tool: EditorToolName, input: Record<string, unknown>)
       return
     case 'inspect_media':
       requireString(input.mediaId)
+      return
+    case 'add_captions':
+      if (input.placement !== undefined) {
+        requireEnum(input.placement, SUBTITLE_PLACEMENTS)
+      }
       return
     default:
       return
@@ -129,8 +151,14 @@ function requireStringArray(value: unknown): void {
   }
 }
 
+function requireEnum(value: unknown, allowedValues: Set<string>): void {
+  if (typeof value !== 'string' || !allowedValues.has(value)) {
+    throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  }
+}
+
 function requireRanges(value: unknown): void {
-  if (!Array.isArray(value) || value.some((range) => (
+  if (!Array.isArray(value) || value.length === 0 || value.some((range) => (
     !isPlainObject(range)
     || typeof range.startFrame !== 'number'
     || !Number.isFinite(range.startFrame)
