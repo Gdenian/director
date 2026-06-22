@@ -7,6 +7,17 @@ import { getServerSession } from 'next-auth/next'
 import { NextResponse } from 'next/server'
 import { headers as readHeaders } from 'next/headers'
 import { authOptions } from '@/lib/auth'
+import {
+    ADMIN_ROLES,
+    USER_STATUSES,
+    isAdminRole,
+    isActiveUserStatus,
+    isOwnerRole,
+    normalizeUserRole,
+    normalizeUserStatus,
+    type AdminRole,
+    type UserStatus,
+} from '@/lib/admin/roles'
 import { prisma } from '@/lib/prisma'
 import { withPrismaRetry } from '@/lib/prisma-retry'
 import { extractModelKey } from '@/lib/config-service'
@@ -22,6 +33,8 @@ export interface AuthSession {
         id: string
         name?: string | null
         email?: string | null
+        role?: AdminRole
+        status?: UserStatus
     }
 }
 
@@ -310,6 +323,54 @@ export async function requireUserAuth(): Promise<{ session: AuthSession } | Next
     }
     bindAuthLogContext(session)
     return { session }
+}
+
+export interface AdminSession extends AuthSession {
+    user: AuthSession['user'] & {
+        role: typeof ADMIN_ROLES.ADMIN | typeof ADMIN_ROLES.OWNER
+        status: typeof USER_STATUSES.ACTIVE
+    }
+}
+
+async function resolveLiveUserAccess(session: AuthSession) {
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { id: true, name: true, email: true, role: true, status: true },
+    })
+    if (!user) return null
+    return {
+        ...user,
+        role: normalizeUserRole(user.role),
+        status: normalizeUserStatus(user.status),
+    }
+}
+
+export async function requireAdminAuth(): Promise<{ session: AdminSession } | NextResponse> {
+    const session = await getAuthSession()
+    if (!session?.user?.id) return unauthorized()
+
+    const liveUser = await resolveLiveUserAccess(session)
+    if (!liveUser || !isActiveUserStatus(liveUser.status)) return forbidden()
+    if (!isAdminRole(liveUser.role)) return forbidden()
+
+    const adminSession: AdminSession = {
+        user: {
+            id: liveUser.id,
+            name: liveUser.name,
+            email: liveUser.email,
+            role: liveUser.role as typeof ADMIN_ROLES.ADMIN | typeof ADMIN_ROLES.OWNER,
+            status: USER_STATUSES.ACTIVE,
+        },
+    }
+    bindAuthLogContext(adminSession)
+    return { session: adminSession }
+}
+
+export async function requireOwnerAuth(): Promise<{ session: AdminSession } | NextResponse> {
+    const authResult = await requireAdminAuth()
+    if (authResult instanceof NextResponse) return authResult
+    if (!isOwnerRole(authResult.session.user.role)) return forbidden()
+    return authResult
 }
 
 /**
