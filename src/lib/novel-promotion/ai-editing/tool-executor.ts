@@ -47,10 +47,10 @@ export class EditorToolExecutor {
   }
 
   insertClips(input: InsertClipsInput): EditorToolDraftResult {
-    const mediaEntries = input.mediaIds.map((mediaId) => this.requireClipMedia(mediaId))
-
     this.requireTimelineRead()
     this.requireMediaRead()
+
+    const mediaEntries = input.mediaIds.map((mediaId) => this.requireClipMedia(mediaId))
 
     const insertIndex = this.resolveInsertIndex(input)
     const insertionFrame = this.frameAtIndex(insertIndex)

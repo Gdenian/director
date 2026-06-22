@@ -47,6 +47,21 @@ function completedVideoMedia(overrides: Partial<AiEditableMediaLibrary['entries'
   }
 }
 
+function pendingVideoMedia(): AiEditableMediaLibrary {
+  return {
+    fps: 30,
+    entries: [{
+      id: 'user_import_video:asset-pending',
+      sourceType: 'user_import_video',
+      kind: 'video',
+      status: 'pending',
+      eligibleForTimeline: false,
+      url: null,
+      label: 'pending',
+    }],
+  }
+}
+
 describe('EditorToolExecutor', () => {
   it('clones constructor inputs before draft reads and mutations', () => {
     const project = baseProject()
@@ -64,11 +79,34 @@ describe('EditorToolExecutor', () => {
     expect(result.project.timeline[2].src).toBe('/m/import')
   })
 
-  it('rejects pending media when inserting clips', () => {
+  it('requires reading the timeline before validating pending media', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),
-      media: { fps: 30, entries: [{ id: 'user_import_video:asset-pending', sourceType: 'user_import_video', kind: 'video', status: 'pending', eligibleForTimeline: false, url: null, label: 'pending' }] },
+      media: pendingVideoMedia(),
     })
+
+    expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_video:asset-pending'] })).toThrow('EDITOR_TOOL_TIMELINE_READ_REQUIRED')
+  })
+
+  it('requires reading media before validating pending media', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: pendingVideoMedia(),
+    })
+
+    executor.getTimeline()
+
+    expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_video:asset-pending'] })).toThrow('EDITOR_TOOL_MEDIA_READ_REQUIRED')
+  })
+
+  it('rejects pending media after timeline and media reads', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: pendingVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
 
     expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_video:asset-pending'] })).toThrow('EDITOR_TOOL_MEDIA_NOT_ELIGIBLE')
   })
