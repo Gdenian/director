@@ -1,4 +1,5 @@
 export type RouteCategory =
+  | 'admin'
   | 'assets'
   | 'asset-hub'
   | 'novel-promotion'
@@ -10,6 +11,7 @@ export type RouteCategory =
   | 'system'
 
 export type RouteContractGroup =
+  | 'admin-routes'
   | 'llm-observe-routes'
   | 'direct-submit-routes'
   | 'crud-assets-routes'
@@ -27,7 +29,16 @@ export type RouteCatalogEntry = {
 }
 
 const ROUTE_FILES = [
+  'src/app/api/admin/audit-logs/route.ts',
+  'src/app/api/admin/billing/route.ts',
   'src/app/api/admin/download-logs/route.ts',
+  'src/app/api/admin/models/route.ts',
+  'src/app/api/admin/overview/route.ts',
+  'src/app/api/admin/system-health/route.ts',
+  'src/app/api/admin/tasks/[taskId]/route.ts',
+  'src/app/api/admin/tasks/route.ts',
+  'src/app/api/admin/users/[userId]/route.ts',
+  'src/app/api/admin/users/route.ts',
   'src/app/api/asset-hub/ai-design-character/route.ts',
   'src/app/api/asset-hub/ai-design-location/route.ts',
   'src/app/api/asset-hub/ai-design-style/route.ts',
@@ -185,6 +196,7 @@ const ROUTE_FILES = [
 ] as const
 
 function resolveCategory(routeFile: string): RouteCategory {
+  if (routeFile.startsWith('src/app/api/admin/')) return 'admin'
   if (routeFile.startsWith('src/app/api/assets/')) return 'assets'
   if (routeFile.startsWith('src/app/api/asset-hub/')) return 'asset-hub'
   if (routeFile.startsWith('src/app/api/novel-promotion/')) return 'novel-promotion'
@@ -203,6 +215,7 @@ function resolveCategory(routeFile: string): RouteCategory {
 }
 
 function resolveContractGroup(routeFile: string): RouteContractGroup {
+  if (routeFile.startsWith('src/app/api/admin/')) return 'admin-routes'
   if (
     routeFile.includes('/ai-')
     || routeFile.includes('/analyze')

@@ -1,0 +1,276 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { ROUTE_CATALOG } from '../../../contracts/route-catalog'
+import {
+  installAuthMocks,
+  mockAuthenticatedRole,
+  mockUnauthenticated,
+  resetAuthMockState,
+} from '../../../helpers/auth'
+import { buildMockRequest } from '../../../helpers/request'
+
+installAuthMocks()
+
+const overviewMock = vi.hoisted(() => ({
+  getAdminOverview: vi.fn(async () => ({ totalUsers: 2 })),
+}))
+
+const usersMock = vi.hoisted(() => ({
+  listAdminUsers: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+  updateAdminUserAccess: vi.fn(async (_userId: string, input: { role?: string, status?: string }) => ({
+    id: 'user-2',
+    role: input.role ?? 'user',
+    status: input.status ?? 'active',
+  })),
+}))
+
+const billingMock = vi.hoisted(() => ({
+  getAdminBillingSummary: vi.fn(async () => ({
+    totals: { balance: '0', frozenAmount: '0', totalSpent: '0' },
+    recentTransactions: { items: [], total: 0, page: 1, pageSize: 20 },
+    freezesByStatus: [],
+  })),
+}))
+
+const tasksMock = vi.hoisted(() => ({
+  listAdminTasks: vi.fn(async () => ({
+    items: [{
+      id: 'task-1',
+      status: 'queued',
+      type: 'image',
+      hasPayload: true,
+      hasResult: true,
+      billingModel: 'model-a',
+    }],
+    total: 1,
+    page: 1,
+    pageSize: 50,
+  })),
+  cancelAdminTask: vi.fn(async () => ({
+    cancelled: true,
+    task: { id: 'task-1', hasPayload: true, hasResult: false },
+  })),
+}))
+
+const modelsMock = vi.hoisted(() => ({
+  getAdminModelHealth: vi.fn(async () => ({ usageByModel: [], taskHealthByType: [] })),
+}))
+
+const systemHealthMock = vi.hoisted(() => ({
+  getAdminSystemHealth: vi.fn(async () => ({
+    database: { status: 'ok' },
+    logs: { status: 'ok' },
+    checkedAt: '2026-06-22T00:00:00.000Z',
+  })),
+}))
+
+const auditMock = vi.hoisted(() => ({
+  writeAdminAuditLog: vi.fn(async () => ({ id: 'audit-1' })),
+}))
+
+const prismaMock = vi.hoisted(() => ({
+  adminAuditLog: {
+    findMany: vi.fn(async () => [
+      {
+        id: 'audit-1',
+        actorUserId: 'admin-1',
+        actorRole: 'admin',
+        action: 'task.cancel',
+        targetType: 'task',
+        targetId: 'task-1',
+        beforeJson: null,
+        afterJson: { cancelled: true },
+        reason: 'stuck',
+        createdAt: new Date('2026-06-22T00:00:00.000Z'),
+      },
+    ]),
+    count: vi.fn(async () => 1),
+  },
+}))
+
+vi.mock('@/lib/admin/overview', () => overviewMock)
+vi.mock('@/lib/admin/users', () => usersMock)
+vi.mock('@/lib/admin/billing', () => billingMock)
+vi.mock('@/lib/admin/tasks', () => tasksMock)
+vi.mock('@/lib/admin/models', () => modelsMock)
+vi.mock('@/lib/admin/system-health', () => systemHealthMock)
+vi.mock('@/lib/admin/audit', () => auditMock)
+vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+
+describe('api contract - admin routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resetAuthMockState()
+    installAuthMocks()
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    resetAuthMockState()
+    vi.resetModules()
+  })
+
+  it('admin route group exists in route catalog', () => {
+    const adminRoutes = ROUTE_CATALOG
+      .filter((entry) => entry.contractGroup === 'admin-routes')
+      .map((entry) => entry.routeFile)
+
+    expect(adminRoutes).toEqual(expect.arrayContaining([
+      'src/app/api/admin/overview/route.ts',
+      'src/app/api/admin/users/route.ts',
+      'src/app/api/admin/users/[userId]/route.ts',
+      'src/app/api/admin/billing/route.ts',
+      'src/app/api/admin/tasks/route.ts',
+      'src/app/api/admin/tasks/[taskId]/route.ts',
+      'src/app/api/admin/models/route.ts',
+      'src/app/api/admin/system-health/route.ts',
+      'src/app/api/admin/audit-logs/route.ts',
+    ]))
+  })
+
+  it('GET /api/admin/overview enforces admin auth and calls overview service', async () => {
+    const mod = await import('@/app/api/admin/overview/route')
+    const req = buildMockRequest({ path: '/api/admin/overview', method: 'GET' })
+
+    mockUnauthenticated()
+    expect((await mod.GET(req, { params: Promise.resolve({}) })).status).toBe(401)
+
+    mockAuthenticatedRole('user-1', 'user')
+    expect((await mod.GET(req, { params: Promise.resolve({}) })).status).toBe(403)
+
+    mockAuthenticatedRole('admin-1', 'admin')
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ totalUsers: 2 })
+    expect(overviewMock.getAdminOverview).toHaveBeenCalledTimes(1)
+  })
+
+  it('GET /api/admin/users passes normalized query params to listAdminUsers', async () => {
+    mockAuthenticatedRole('admin-1', 'admin')
+    const mod = await import('@/app/api/admin/users/route')
+    const req = buildMockRequest({
+      path: '/api/admin/users?search=alice&role=admin&status=active&page=2&pageSize=10',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+
+    expect(res.status).toBe(200)
+    expect(usersMock.listAdminUsers).toHaveBeenCalledWith({
+      search: 'alice',
+      role: 'admin',
+      status: 'active',
+      page: 2,
+      pageSize: 10,
+    })
+  })
+
+  it('PATCH /api/admin/users/[userId] requires owner and writes audit log', async () => {
+    const mod = await import('@/app/api/admin/users/[userId]/route')
+    const context = { params: Promise.resolve({ userId: 'user-2' }) }
+
+    mockAuthenticatedRole('admin-1', 'admin')
+    const adminRes = await mod.PATCH(
+      buildMockRequest({ path: '/api/admin/users/user-2', method: 'PATCH', body: { role: 'admin' } }),
+      context,
+    )
+    expect(adminRes.status).toBe(403)
+
+    mockAuthenticatedRole('owner-1', 'owner')
+    const ownerRes = await mod.PATCH(
+      buildMockRequest({
+        path: '/api/admin/users/user-2',
+        method: 'PATCH',
+        body: { role: 'admin', status: 'disabled', reason: 'policy' },
+      }),
+      context,
+    )
+
+    expect(ownerRes.status).toBe(200)
+    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {
+      role: 'admin',
+      status: 'disabled',
+    })
+    expect(auditMock.writeAdminAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      actor: { id: 'owner-1', role: 'owner' },
+      action: 'user.access.update',
+      targetType: 'user',
+      targetId: 'user-2',
+      before: null,
+      after: { role: 'admin', status: 'disabled' },
+      reason: 'policy',
+    }))
+  })
+
+  it('GET /api/admin/tasks returns redacted task summaries', async () => {
+    mockAuthenticatedRole('admin-1', 'admin')
+    const mod = await import('@/app/api/admin/tasks/route')
+    const req = buildMockRequest({
+      path: '/api/admin/tasks?status=queued,failed&type=image,video&userId=user-1&projectId=project-1&page=3&pageSize=25',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const jsonText = JSON.stringify(await res.json())
+
+    expect(res.status).toBe(200)
+    expect(tasksMock.listAdminTasks).toHaveBeenCalledWith({
+      status: ['queued', 'failed'],
+      type: ['image', 'video'],
+      userId: 'user-1',
+      projectId: 'project-1',
+      page: 3,
+      pageSize: 25,
+    })
+    expect(jsonText).not.toContain('payload')
+    expect(jsonText).not.toContain('result')
+    expect(jsonText).not.toContain('dedupeKey')
+    expect(jsonText).not.toContain('private prompt')
+  })
+
+  it('POST /api/admin/tasks/[taskId] requires owner, cancels task, and audits', async () => {
+    const mod = await import('@/app/api/admin/tasks/[taskId]/route')
+    const context = { params: Promise.resolve({ taskId: 'task-1' }) }
+
+    mockAuthenticatedRole('admin-1', 'admin')
+    const adminRes = await mod.POST(
+      buildMockRequest({ path: '/api/admin/tasks/task-1', method: 'POST', body: { reason: 'stuck' } }),
+      context,
+    )
+    expect(adminRes.status).toBe(403)
+
+    mockAuthenticatedRole('owner-1', 'owner')
+    const ownerRes = await mod.POST(
+      buildMockRequest({ path: '/api/admin/tasks/task-1', method: 'POST', body: { reason: 'stuck' } }),
+      context,
+    )
+
+    expect(ownerRes.status).toBe(200)
+    expect(tasksMock.cancelAdminTask).toHaveBeenCalledWith('task-1', 'stuck')
+    expect(auditMock.writeAdminAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      actor: { id: 'owner-1', role: 'owner' },
+      action: 'task.cancel',
+      targetType: 'task',
+      targetId: 'task-1',
+      after: { cancelled: true },
+      reason: 'stuck',
+    }))
+  })
+
+  it('GET /api/admin/audit-logs returns admin-readable paginated audit logs', async () => {
+    mockAuthenticatedRole('admin-1', 'admin')
+    const mod = await import('@/app/api/admin/audit-logs/route')
+    const req = buildMockRequest({ path: '/api/admin/audit-logs?page=2&pageSize=5', method: 'GET' })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toMatchObject({ total: 1, page: 2, pageSize: 5 })
+    expect(prismaMock.adminAuditLog.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: 'desc' },
+      skip: 5,
+      take: 5,
+    })
+  })
+})
