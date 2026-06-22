@@ -589,19 +589,18 @@ export class EditorToolExecutor {
 
   private validateDeleteRanges(ranges: RippleDeleteRangesInput['ranges']): Array<{ startFrame: number; endFrame: number }> {
     const totalFrames = calculateTimelineDuration(this.project.timeline)
-    const sortedRanges = ranges
+    const normalizedRanges = ranges
       .map((range) => ({ startFrame: Math.floor(range.startFrame), endFrame: Math.floor(range.endFrame) }))
-      .sort((left, right) => left.startFrame - right.startFrame)
 
     let previousEnd = 0
-    sortedRanges.forEach((range) => {
+    normalizedRanges.forEach((range) => {
       if (range.startFrame < 0 || range.endFrame <= range.startFrame || range.endFrame > totalFrames || range.startFrame < previousEnd) {
         throw new Error(INVALID_RANGES_ERROR)
       }
       previousEnd = range.endFrame
     })
 
-    return sortedRanges
+    return normalizedRanges
   }
 
   private recordMutation(previousProject: VideoEditorProject, previousOperations: EditorToolOperation[], operation: EditorToolOperation): void {
@@ -682,45 +681,45 @@ function transformSubtitleCue(cue: SubtitleCue, ranges: Array<{ startFrame: numb
 }
 
 function transformSegment(startFrame: number, endFrame: number, ranges: Array<{ startFrame: number; endFrame: number }>): { startFrame: number; endFrame: number; truncated: boolean } | null {
-  let start = startFrame
-  let end = endFrame
+  let remainingIntervals = [{ startFrame, endFrame }]
   let truncated = false
 
   ranges.forEach((range) => {
-    const deleteLength = range.endFrame - range.startFrame
-    if (end <= range.startFrame) return
-    if (start >= range.endFrame) {
-      start -= deleteLength
-      end -= deleteLength
-      return
-    }
+    remainingIntervals = remainingIntervals.flatMap((interval) => {
+      const overlap = overlapLength(interval.startFrame, interval.endFrame, range.startFrame, range.endFrame)
+      if (overlap <= 0) return [interval]
 
-    const overlap = overlapLength(start, end, range.startFrame, range.endFrame)
-    if (overlap <= 0) return
-    truncated = true
-
-    if (start >= range.startFrame && end <= range.endFrame) {
-      start = range.startFrame
-      end = range.startFrame
-      return
-    }
-
-    if (start < range.startFrame && end > range.endFrame) {
-      end -= deleteLength
-      return
-    }
-
-    if (start < range.startFrame) {
-      end = range.startFrame
-      return
-    }
-
-    start = range.startFrame
-    end -= deleteLength
+      truncated = true
+      const intervals: Array<{ startFrame: number; endFrame: number }> = []
+      if (interval.startFrame < range.startFrame) {
+        intervals.push({ startFrame: interval.startFrame, endFrame: Math.min(interval.endFrame, range.startFrame) })
+      }
+      if (interval.endFrame > range.endFrame) {
+        intervals.push({ startFrame: Math.max(interval.startFrame, range.endFrame), endFrame: interval.endFrame })
+      }
+      return intervals
+    })
   })
+
+  if (remainingIntervals.length === 0) return null
+
+  const firstInterval = remainingIntervals[0]
+  const lastInterval = remainingIntervals[remainingIntervals.length - 1]
+  const start = mapFrameAfterDeletes(firstInterval.startFrame, ranges)
+  const end = mapFrameAfterDeletes(lastInterval.endFrame, ranges)
 
   if (end <= start) return null
   return { startFrame: start, endFrame: end, truncated }
+}
+
+function mapFrameAfterDeletes(frame: number, ranges: Array<{ startFrame: number; endFrame: number }>): number {
+  const deletedBeforeFrame = ranges.reduce((total, range) => {
+    if (range.endFrame <= frame) return total + (range.endFrame - range.startFrame)
+    if (range.startFrame < frame) return total + (frame - range.startFrame)
+    return total
+  }, 0)
+
+  return frame - deletedBeforeFrame
 }
 
 function uniqueId(baseId: string, reservedIds: Set<string>): string {

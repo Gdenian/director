@@ -634,6 +634,53 @@ describe('EditorToolExecutor', () => {
     expect(result.operations[0]).toMatchObject({ tool: 'ripple_delete_ranges' })
   })
 
+  it('rejects ripple delete ranges that are not sorted', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.rippleDeleteRanges({
+      ranges: [
+        { startFrame: 90, endFrame: 100 },
+        { startFrame: 30, endFrame: 40 },
+      ],
+    })).toThrow('EDITOR_TOOL_INVALID_RANGES')
+  })
+
+  it('transforms attachments against multiple delete ranges in original timeline coordinates', () => {
+    const project = baseProject()
+    project.audioTrack = [
+      { id: 'audio-multi-range', src: '/m/audio', startFrame: 95, durationInFrames: 30, volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-multi-range', text: 'multi', startFrame: 95, endFrame: 125, style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.rippleDeleteRanges({
+      ranges: [
+        { startFrame: 30, endFrame: 40 },
+        { startFrame: 90, endFrame: 100 },
+      ],
+    })
+
+    expect(result.project.audioTrack).toEqual([
+      expect.objectContaining({ id: 'audio-multi-range', startFrame: 80, durationInFrames: 25 }),
+    ])
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-multi-range', startFrame: 80, endFrame: 105 }),
+    ])
+  })
+
   it('returns transcript cues ordered by start frame', () => {
     const project = baseProject()
     project.subtitleCues = [
