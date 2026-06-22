@@ -3,10 +3,40 @@
 import { useCallback } from 'react'
 import { AudioAttachment, SubtitleCue, VideoClip, VideoEditorProject } from '../types/editor.types'
 import { apiFetch } from '@/lib/api-fetch'
+import type { AiEditableMediaLibrary } from '@/lib/novel-promotion/ai-editing/tool-types'
 
 interface UseEditorActionsProps {
     projectId: string
     episodeId: string
+}
+
+interface ImportMediaFileInput {
+    editorProjectId: string
+    file: File
+    label?: string
+}
+
+interface ImportMediaUrlInput {
+    editorProjectId: string
+    url: string
+    mimeType: string
+    label?: string
+}
+
+interface RefineProjectInput {
+    editorProjectId: string
+    instruction: string
+    targetDurationSeconds?: number
+    selectedClipId?: string
+}
+
+interface PendingVersionInput {
+    editorProjectId: string
+    pendingVersionId: string
+}
+
+interface EditorProjectInput {
+    editorProjectId: string
 }
 
 /**
@@ -111,6 +141,12 @@ export function createProjectFromPanels(
 }
 
 export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps) {
+    const editorQuery = useCallback((editorProjectId?: string) => {
+        const params = new URLSearchParams({ episodeId })
+        if (editorProjectId) params.set('editorProjectId', editorProjectId)
+        return params.toString()
+    }, [episodeId])
+
     /**
      * 保存项目到服务器
      */
@@ -179,10 +215,123 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
         return response.json()
     }, [projectId])
 
+    const listMedia = useCallback(async (editorProjectId: string): Promise<AiEditableMediaLibrary> => {
+        const response = await apiFetch(
+            `/api/novel-promotion/${projectId}/editor/media?${editorQuery(editorProjectId)}`
+        )
+
+        if (!response.ok) {
+            throw new Error('Failed to list editor media')
+        }
+
+        const data = await response.json()
+        return data.media
+    }, [editorQuery, projectId])
+
+    const importMediaFile = useCallback(async ({ editorProjectId, file, label }: ImportMediaFileInput) => {
+        const body = new FormData()
+        body.set('episodeId', episodeId)
+        body.set('editorProjectId', editorProjectId)
+        body.set('file', file)
+        if (label) body.set('label', label)
+
+        const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/media`, {
+            method: 'POST',
+            body
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to import editor media file')
+        }
+
+        return response.json()
+    }, [episodeId, projectId])
+
+    const importMediaUrl = useCallback(async ({ editorProjectId, url, mimeType, label }: ImportMediaUrlInput) => {
+        const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episodeId, editorProjectId, url, mimeType, label })
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to import editor media URL')
+        }
+
+        return response.json()
+    }, [episodeId, projectId])
+
+    const refineProject = useCallback(async ({
+        editorProjectId,
+        instruction,
+        targetDurationSeconds,
+        selectedClipId
+    }: RefineProjectInput) => {
+        const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/refine`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                episodeId,
+                editorProjectId,
+                instruction,
+                targetDurationSeconds,
+                selectedClipId
+            })
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to submit AI edit refinement')
+        }
+
+        return response.json()
+    }, [episodeId, projectId])
+
+    const applyPendingVersion = useCallback(async ({ editorProjectId, pendingVersionId }: PendingVersionInput): Promise<{
+        success: boolean
+        editorProjectId: string
+        projectData?: VideoEditorProject
+    }> => {
+        const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/refine/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episodeId, editorProjectId, pendingVersionId })
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to apply pending editor version')
+        }
+
+        return response.json()
+    }, [episodeId, projectId])
+
+    const discardPendingVersion = useCallback(async ({ editorProjectId }: EditorProjectInput): Promise<{
+        success: boolean
+        editorProjectId: string
+        projectData?: VideoEditorProject
+    }> => {
+        const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/refine/discard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episodeId, editorProjectId })
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to discard pending editor version')
+        }
+
+        return response.json()
+    }, [episodeId, projectId])
+
     return {
         saveProject,
         loadProject,
         startRender,
-        getRenderStatus
+        getRenderStatus,
+        listMedia,
+        importMediaFile,
+        importMediaUrl,
+        refineProject,
+        applyPendingVersion,
+        discardPendingVersion
     }
 }

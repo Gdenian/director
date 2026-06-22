@@ -153,6 +153,33 @@ describe('api specific - editor refine routes', () => {
     expect(body).toEqual(expect.objectContaining({ success: true, editorProjectId: 'editor-1' }))
   })
 
+  it('POST /refine/discard clears only the pending version pointer', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/editor/refine/discard/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/editor/refine/discard',
+      method: 'POST',
+      body: { episodeId: 'episode-1', editorProjectId: 'editor-1' },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(prismaMock.videoEditorProject.update).toHaveBeenCalledWith({
+      where: { id: 'editor-1' },
+      data: {
+        projectData: expect.stringContaining('"pendingVersion":null'),
+        updatedAt: expect.any(Date),
+      },
+    })
+    const updateArg = prismaMock.videoEditorProject.update.mock.calls[0]?.[0]
+    const persisted = JSON.parse(updateArg.data.projectData)
+    expect(persisted.timeline).toEqual([])
+    expect(persisted.pendingVersion).toBeNull()
+    expect(body).toEqual(expect.objectContaining({ success: true, editorProjectId: 'editor-1' }))
+    expect(body.projectData.pendingVersion).toBeNull()
+  })
+
   it('POST /rollback restores a scoped version', async () => {
     const mod = await import('@/app/api/novel-promotion/[projectId]/editor/rollback/route')
     const req = buildMockRequest({

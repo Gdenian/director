@@ -6,8 +6,11 @@ import React from 'react'
 import { AppIcon } from '@/components/ui/icons'
 import { useEditorState } from '../hooks/useEditorState'
 import { useEditorActions } from '../hooks/useEditorActions'
+import { useAiEditing } from '../hooks/useAiEditing'
 import { VideoEditorProject } from '../types/editor.types'
 import { calculateTimelineDuration, framesToTime } from '../utils/time-utils'
+import { AiEditAssistant } from './AiEditAssistant'
+import { EditorMediaPanel } from './EditorMediaPanel'
 import { RemotionPreview } from './Preview'
 import { Timeline } from './Timeline'
 import { TransitionPicker, TransitionType } from './TransitionPicker'
@@ -55,10 +58,18 @@ export function VideoEditorStage({
         seek,
         selectClip,
         setZoom,
-        markSaved
+        markSaved,
+        setProject
     } = useEditorState({ episodeId, initialProject })
 
     const { saveProject, startRender } = useEditorActions({ projectId, episodeId })
+    const aiEditing = useAiEditing({
+        projectId,
+        episodeId,
+        editorProjectId: project.id,
+        selectedClipId: timelineState.selectedClipId,
+        onProjectChange: setProject
+    })
 
     const totalDuration = calculateTimelineDuration(project.timeline)
     const totalTime = framesToTime(totalDuration, project.config.fps)
@@ -142,17 +153,20 @@ export function VideoEditorStage({
             }}>
                 {/* Left Panel - Media Library */}
                 <div style={{
-                    width: '200px',
+                    width: '260px',
                     borderRight: '1px solid var(--glass-stroke-base)',
                     padding: '12px',
-                    background: 'var(--glass-bg-surface-strong)'
+                    background: 'var(--glass-bg-surface-strong)',
+                    overflowY: 'auto'
                 }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: 'var(--glass-text-secondary)' }}>
-                        {t('editor.left.title')}
-                    </h3>
-                    <p style={{ fontSize: '12px', color: 'var(--glass-text-tertiary)' }}>
-                        {t('editor.left.description')}
-                    </p>
+                    <EditorMediaPanel
+                        media={aiEditing.media}
+                        isLoading={aiEditing.isLoadingMedia}
+                        isImporting={aiEditing.isImportingMedia}
+                        onImportFile={aiEditing.importFile}
+                        onImportUrl={aiEditing.importUrl}
+                        onRefresh={aiEditing.refreshMedia}
+                    />
                 </div>
 
                 {/* Center - Preview + Properties */}
@@ -219,7 +233,7 @@ export function VideoEditorStage({
 
                 {/* Right Panel - Properties */}
                 <div style={{
-                    width: '280px',
+                    width: '320px',
                     borderLeft: '1px solid var(--glass-stroke-base)',
                     padding: '12px',
                     background: 'var(--glass-bg-surface-strong)',
@@ -274,6 +288,28 @@ export function VideoEditorStage({
                             {t('editor.right.selectClipHint')}
                         </p>
                     )}
+
+                    <div style={{
+                        marginTop: '16px',
+                        paddingTop: '16px',
+                        borderTop: '1px solid var(--glass-stroke-base)'
+                    }}>
+                        <AiEditAssistant
+                            pendingVersion={project.pendingVersion}
+                            isSubmitting={aiEditing.isRefining}
+                            isApplying={aiEditing.isApplying}
+                            isDiscarding={aiEditing.isDiscarding}
+                            error={aiEditing.error}
+                            onSubmitInstruction={aiEditing.refine}
+                            onApplyPending={() => {
+                                if (project.pendingVersion) {
+                                    return aiEditing.applyPending(project.pendingVersion.versionId)
+                                }
+                            }}
+                            onDiscardPending={aiEditing.discardPending}
+                            onClearError={aiEditing.clearError}
+                        />
+                    </div>
                 </div>
             </div>
 
