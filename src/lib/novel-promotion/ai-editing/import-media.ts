@@ -1,4 +1,6 @@
 import { lookup } from 'node:dns/promises'
+import * as http from 'node:http'
+import * as https from 'node:https'
 import net from 'node:net'
 import path from 'node:path'
 import type { VideoEditorAsset } from '@prisma/client'
@@ -57,6 +59,15 @@ const MAX_IMPORT_BYTES_BY_KIND: Record<EditorImportAssetKind, number> = {
   user_import_video: 500 * 1024 * 1024,
   user_import_audio: 100 * 1024 * 1024,
   user_import_image: 25 * 1024 * 1024,
+}
+
+export type SafeEditorImportUrl = {
+  url: string
+  hostname: string
+  resolved: {
+    address: string
+    family: 4 | 6
+  }
 }
 
 export class EditorImportError extends Error {
@@ -170,28 +181,46 @@ export async function importEditorMediaFromUrl(input: {
   }
 }
 
-async function downloadEditorImport(sourceUrl: string, maxBytes: number): Promise<Buffer> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), IMPORT_TIMEOUT_MS)
+async function downloadEditorImport(sourceUrl: SafeEditorImportUrl, maxBytes: number): Promise<Buffer> {
   try {
-    const response = await fetch(toFetchableUrl(sourceUrl), {
-      redirect: 'manual',
-      signal: controller.signal,
-    })
-    if (response.status >= 300 && response.status < 400) {
+    const response = await requestEditorImport(sourceUrl)
+    const statusCode = response.statusCode ?? 0
+    if (statusCode >= 300 && statusCode < 400) {
       throw new EditorImportError('EDITOR_IMPORT_URL_INVALID')
     }
-    if (!response.ok) {
+    if (statusCode < 200 || statusCode >= 300) {
       throw new EditorImportError('EDITOR_IMPORT_DOWNLOAD_FAILED')
     }
-    const contentLength = parseContentLength(response.headers.get('content-length'))
+    const contentLength = parseContentLength(headerValue(response.headers['content-length']))
     if (contentLength != null) assertImportSizeAllowed(maxBytes, contentLength)
     return await readResponseBodyWithinLimit(response, maxBytes)
   } catch (error) {
     throw normalizeImportDownloadError(error)
-  } finally {
-    clearTimeout(timeout)
   }
+}
+
+function requestEditorImport(sourceUrl: SafeEditorImportUrl): Promise<http.IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(sourceUrl.url)
+    const transport = url.protocol === 'https:' ? https : http
+    const request = transport.request({
+      protocol: url.protocol,
+      hostname: sourceUrl.resolved.address,
+      port: url.port || undefined,
+      method: 'GET',
+      path: `${url.pathname}${url.search}`,
+      family: sourceUrl.resolved.family,
+      servername: url.protocol === 'https:' ? sourceUrl.hostname : undefined,
+      headers: {
+        host: url.host,
+      },
+    }, resolve)
+    request.setTimeout(IMPORT_TIMEOUT_MS, () => {
+      request.destroy(new EditorImportError('EDITOR_IMPORT_TIMEOUT'))
+    })
+    request.on('error', reject)
+    request.end()
+  })
 }
 
 async function completeImportedAsset(input: {
@@ -227,21 +256,33 @@ function requireImportKind(mimeType: string | null | undefined): EditorImportAss
   return kind
 }
 
-export async function assertSafeEditorImportUrl(value: string): Promise<string> {
+export async function assertSafeEditorImportUrl(value: string): Promise<SafeEditorImportUrl> {
   const url = parseHttpUrl(value)
-  if (isBlockedHostname(url.hostname)) {
+  const hostname = url.hostname.replace(/^\[|\]$/g, '')
+  if (isBlockedHostname(hostname)) {
     throw new EditorImportError('EDITOR_IMPORT_URL_INVALID')
   }
-  let resolved: Array<{ address: string }>
+  let resolved: Array<{ address: string, family: number }>
   try {
-    resolved = await lookup(url.hostname, { all: true, verbatim: true })
+    resolved = net.isIP(hostname)
+      ? [{ address: hostname, family: net.isIP(hostname) }]
+      : await lookup(hostname, { all: true, verbatim: true })
   } catch {
     throw new EditorImportError('EDITOR_IMPORT_URL_INVALID')
   }
   if (resolved.length === 0 || resolved.some((address) => isBlockedIpAddress(address.address))) {
     throw new EditorImportError('EDITOR_IMPORT_URL_INVALID')
   }
-  return url.toString()
+  const selected = resolved.find((address): address is { address: string, family: 4 | 6 } => (
+    (address.family === 4 || address.family === 6) && !isBlockedIpAddress(address.address)
+  ))
+  if (!selected) throw new EditorImportError('EDITOR_IMPORT_URL_INVALID')
+
+  return {
+    url: url.toString(),
+    hostname,
+    resolved: selected,
+  }
 }
 
 function parseHttpUrl(value: string): URL {
@@ -284,7 +325,8 @@ function isBlockedIpv6(address: string): boolean {
   if (mappedIpv4) return isBlockedIpv4(mappedIpv4)
   const firstSegment = Number.parseInt(normalized.split(':', 1)[0] || '0', 16)
   return (
-    normalized === '::1'
+    normalized === '::'
+    || normalized === '::1'
     || normalized.startsWith('fc')
     || normalized.startsWith('fd')
     || (firstSegment >= 0xfe80 && firstSegment <= 0xfebf)
@@ -313,16 +355,10 @@ function parseContentLength(value: string | null): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
 }
 
-async function readResponseBodyWithinLimit(response: Response, maxBytes: number): Promise<Buffer> {
-  if (!response.body) {
-    const buffer = Buffer.from(await response.arrayBuffer())
-    assertImportSizeAllowed(maxBytes, buffer.length)
-    return buffer
-  }
-
+async function readResponseBodyWithinLimit(response: http.IncomingMessage, maxBytes: number): Promise<Buffer> {
   const chunks: Buffer[] = []
   let total = 0
-  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+  for await (const chunk of response as AsyncIterable<Uint8Array>) {
     const buffer = Buffer.from(chunk)
     total += buffer.length
     if (total > maxBytes) {
@@ -331,6 +367,12 @@ async function readResponseBodyWithinLimit(response: Response, maxBytes: number)
     chunks.push(buffer)
   }
   return Buffer.concat(chunks, total)
+}
+
+function headerValue(value: string | string[] | number | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  if (typeof value === 'number') return String(value)
+  return value ?? null
 }
 
 function normalizeImportDownloadError(error: unknown): Error {

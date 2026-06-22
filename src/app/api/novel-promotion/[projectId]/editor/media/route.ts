@@ -11,6 +11,8 @@ import {
 import { buildEditorManifest } from '@/lib/novel-promotion/ai-editing/manifest'
 import { buildAiEditableMediaLibrary } from '@/lib/novel-promotion/ai-editing/media-library'
 
+const MAX_MULTIPART_IMPORT_BYTES = 500 * 1024 * 1024
+
 function readString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
@@ -105,6 +107,11 @@ async function handleJsonPost(request: NextRequest, projectId: string) {
 }
 
 async function handleMultipartPost(request: NextRequest, projectId: string) {
+  const contentLength = parseContentLength(request.headers.get('content-length'))
+  if (contentLength != null && contentLength > MAX_MULTIPART_IMPORT_BYTES) {
+    apiErrorFromImportError(new EditorImportError('EDITOR_IMPORT_TOO_LARGE'))
+  }
+
   const form = await request.formData()
   const episodeId = readString(form.get('episodeId'))
   const editorProjectId = readString(form.get('editorProjectId'))
@@ -126,6 +133,12 @@ async function handleMultipartPost(request: NextRequest, projectId: string) {
   } catch (error) {
     apiErrorFromImportError(error)
   }
+}
+
+function parseContentLength(value: string | null): number | null {
+  if (!value) return null
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
 }
 
 function readEditorFps(projectData: string | null | undefined) {

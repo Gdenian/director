@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventEmitter } from 'node:events'
+import { PassThrough } from 'node:stream'
 
 const editorAssetsMock = vi.hoisted(() => ({
   completeEditorAsset: vi.fn(async (input) => ({
@@ -35,12 +37,22 @@ const dnsMock = vi.hoisted(() => ({
   lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
 }))
 
+const httpMock = vi.hoisted(() => ({
+  request: vi.fn(),
+}))
+
+const httpsMock = vi.hoisted(() => ({
+  request: vi.fn(),
+}))
+
 vi.mock('./editor-assets', () => editorAssetsMock)
 vi.mock('@/lib/novel-promotion/ai-editing/editor-assets', () => editorAssetsMock)
 vi.mock('@/lib/storage', () => storageMock)
 vi.mock('@/lib/media/service', () => mediaServiceMock)
 vi.mock('@/lib/novel-promotion/ai-editing/media-probe', () => probeMock)
 vi.mock('node:dns/promises', () => dnsMock)
+vi.mock('node:http', () => httpMock)
+vi.mock('node:https', () => httpsMock)
 
 import {
   EditorImportError,
@@ -55,13 +67,30 @@ describe('AI editing media import helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     dnsMock.lookup.mockResolvedValue([{ address: '203.0.113.10', family: 4 }])
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(Buffer.from('video-data'), {
-      status: 200,
-      headers: {
-        'content-type': 'video/mp4',
-        'content-length': '10',
-      },
-    })))
+    httpMock.request.mockImplementation((options, callback) => {
+      const response = new PassThrough() as PassThrough & {
+        statusCode?: number
+        headers: Record<string, string>
+        setEncoding: (encoding: string) => void
+      }
+      response.statusCode = 200
+      response.headers = { 'content-length': '10' }
+      response.setEncoding = vi.fn()
+      queueMicrotask(() => {
+        callback(response)
+        response.end(Buffer.from('video-data'))
+      })
+      const request = new EventEmitter() as EventEmitter & {
+        setTimeout: (ms: number, callback: () => void) => void
+        destroy: (error?: Error) => void
+        end: () => void
+      }
+      request.setTimeout = vi.fn()
+      request.destroy = vi.fn()
+      request.end = vi.fn()
+      return request
+    })
+    httpsMock.request.mockImplementation(httpMock.request)
   })
 
   it('accepts supported video, audio, and image mime types', () => {
@@ -98,6 +127,8 @@ describe('AI editing media import helpers', () => {
       .rejects.toMatchObject({ code: 'EDITOR_IMPORT_URL_INVALID' })
     await expect(assertSafeEditorImportUrl('http://[fe90::1]/video.mp4'))
       .rejects.toMatchObject({ code: 'EDITOR_IMPORT_URL_INVALID' })
+    await expect(assertSafeEditorImportUrl('http://[::]/video.mp4'))
+      .rejects.toMatchObject({ code: 'EDITOR_IMPORT_URL_INVALID' })
     await expect(assertSafeEditorImportUrl('http://[::ffff:127.0.0.1]/video.mp4'))
       .rejects.toMatchObject({ code: 'EDITOR_IMPORT_URL_INVALID' })
 
@@ -122,18 +153,95 @@ describe('AI editing media import helpers', () => {
   })
 
   it('rejects oversized URL imports from content-length', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(null, {
-      status: 200,
-      headers: {
-        'content-type': 'image/png',
-        'content-length': String(25 * 1024 * 1024 + 1),
-      },
-    }))
+    httpsMock.request.mockImplementationOnce((options, callback) => {
+      const response = new PassThrough() as PassThrough & {
+        statusCode?: number
+        headers: Record<string, string>
+        setEncoding: (encoding: string) => void
+      }
+      response.statusCode = 200
+      response.headers = { 'content-length': String(25 * 1024 * 1024 + 1) }
+      response.setEncoding = vi.fn()
+      queueMicrotask(() => callback(response))
+      const request = new EventEmitter() as EventEmitter & {
+        setTimeout: (ms: number, callback: () => void) => void
+        destroy: (error?: Error) => void
+        end: () => void
+      }
+      request.setTimeout = vi.fn()
+      request.destroy = vi.fn()
+      request.end = vi.fn()
+      return request
+    })
 
     await expect(importEditorMediaFromUrl({
       editorProjectId: 'editor-1',
       episodeId: 'episode-1',
       url: 'https://media.example.com/large.png',
+      mimeType: 'image/png',
+    })).rejects.toMatchObject({ code: 'EDITOR_IMPORT_TOO_LARGE' })
+  })
+
+  it('rejects URL imports that redirect', async () => {
+    httpsMock.request.mockImplementationOnce((options, callback) => {
+      const response = new PassThrough() as PassThrough & {
+        statusCode?: number
+        headers: Record<string, string>
+        setEncoding: (encoding: string) => void
+      }
+      response.statusCode = 302
+      response.headers = { location: 'https://example.com/next.mp4' }
+      response.setEncoding = vi.fn()
+      queueMicrotask(() => callback(response))
+      const request = new EventEmitter() as EventEmitter & {
+        setTimeout: (ms: number, callback: () => void) => void
+        destroy: (error?: Error) => void
+        end: () => void
+      }
+      request.setTimeout = vi.fn()
+      request.destroy = vi.fn()
+      request.end = vi.fn()
+      return request
+    })
+
+    await expect(importEditorMediaFromUrl({
+      editorProjectId: 'editor-1',
+      episodeId: 'episode-1',
+      url: 'https://media.example.com/redirect.mp4',
+      mimeType: 'video/mp4',
+    })).rejects.toMatchObject({ code: 'EDITOR_IMPORT_URL_INVALID' })
+  })
+
+  it('rejects chunked URL imports that exceed the byte cap', async () => {
+    httpsMock.request.mockImplementationOnce((options, callback) => {
+      const response = new PassThrough() as PassThrough & {
+        statusCode?: number
+        headers: Record<string, string>
+        setEncoding: (encoding: string) => void
+      }
+      response.statusCode = 200
+      response.headers = {}
+      response.setEncoding = vi.fn()
+      queueMicrotask(() => {
+        callback(response)
+        response.write(Buffer.alloc(25 * 1024 * 1024))
+        response.end(Buffer.alloc(1))
+      })
+      const request = new EventEmitter() as EventEmitter & {
+        setTimeout: (ms: number, callback: () => void) => void
+        destroy: (error?: Error) => void
+        end: () => void
+      }
+      request.setTimeout = vi.fn()
+      request.destroy = vi.fn()
+      request.end = vi.fn()
+      return request
+    })
+
+    await expect(importEditorMediaFromUrl({
+      editorProjectId: 'editor-1',
+      episodeId: 'episode-1',
+      url: 'https://media.example.com/chunked.png',
       mimeType: 'image/png',
     })).rejects.toMatchObject({ code: 'EDITOR_IMPORT_TOO_LARGE' })
   })
@@ -147,9 +255,6 @@ describe('AI editing media import helpers', () => {
       label: 'Imported clip',
     })
 
-    expect(fetch).toHaveBeenCalledWith('https://media.example.com/video.mp4', expect.objectContaining({
-      redirect: 'manual',
-    }))
     expect(mediaServiceMock.ensureMediaObjectFromStorageKey).toHaveBeenCalledWith(
       'stored/imported.mp4',
       expect.objectContaining({ label: 'Imported clip' }),
@@ -161,5 +266,11 @@ describe('AI editing media import helpers', () => {
     }))
     expect(asset.url).toBe('/media/stored-imported.mp4')
     expect(asset.url).not.toBe('https://media.example.com/video.mp4')
+    expect(httpsMock.request).toHaveBeenCalledWith(expect.objectContaining({
+      hostname: '203.0.113.10',
+      servername: 'media.example.com',
+      path: '/video.mp4',
+      headers: expect.objectContaining({ host: 'media.example.com' }),
+    }), expect.any(Function))
   })
 })

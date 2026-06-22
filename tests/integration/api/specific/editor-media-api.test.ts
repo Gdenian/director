@@ -111,4 +111,28 @@ describe('api specific - editor media route', () => {
     })
     expect(body).toEqual({ asset: expect.objectContaining({ id: 'asset-1' }) })
   })
+
+  it('POST multipart rejects huge content-length before parsing form data', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/editor/media/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/editor/media',
+      method: 'POST',
+      headers: {
+        'content-type': 'multipart/form-data; boundary=test',
+        'content-length': String(500 * 1024 * 1024 + 1),
+      },
+    })
+    const formDataSpy = vi.spyOn(req, 'formData')
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body).toMatchObject({
+      code: 'INVALID_PARAMS',
+      importCode: 'EDITOR_IMPORT_TOO_LARGE',
+    })
+    expect(formDataSpy).not.toHaveBeenCalled()
+    expect(importMediaMock.importEditorMediaFromBuffer).not.toHaveBeenCalled()
+  })
 })
