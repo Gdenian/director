@@ -651,6 +651,9 @@ export class EditorToolExecutor {
       if (clip.metadata.sourcePanelId) {
         appendClipAnchor(anchors, `panel:${clip.metadata.sourcePanelId}`, anchor)
       }
+      if (clip.metadata.voiceLineId) {
+        appendClipAnchor(anchors, `voice:${clip.metadata.voiceLineId}`, anchor)
+      }
     })
     return anchors
   }
@@ -768,7 +771,7 @@ function appendClipAnchor(anchors: ClipAnchorMap, key: string, anchor: ClipAncho
 }
 
 function findAttachmentAnchor(
-  attachment: { clipId?: string; sourcePanelId?: string; startFrame?: number },
+  attachment: { clipId?: string; sourcePanelId?: string; sourceVoiceLineId?: string; startFrame?: number },
   beforeAnchors: ClipAnchorMap,
   afterAnchors: ClipAnchorMap,
 ): { before: ClipAnchor; after: ClipAnchor } | null {
@@ -779,22 +782,38 @@ function findAttachmentAnchor(
   }
 
   if (attachment.sourcePanelId) {
-    const key = `panel:${attachment.sourcePanelId}`
-    const beforeCandidates = beforeAnchors.get(key) ?? []
-    const afterCandidates = afterAnchors.get(key) ?? []
-    const afterByClipId = new Map(afterCandidates.map((anchor) => [anchor.clipId, anchor]))
-    const startFrame = attachmentStartFrame(attachment)
-    const before = beforeCandidates.find((candidate) => (
-      candidate.startFrame <= startFrame
-      && startFrame < candidate.endFrame
-    )) ?? nearestAnchor(startFrame, beforeCandidates)
-    if (!before) return null
+    const anchor = findMetadataAttachmentAnchor(`panel:${attachment.sourcePanelId}`, attachment, beforeAnchors, afterAnchors)
+    if (anchor) return anchor
+  }
 
-    const after = afterByClipId.get(before.clipId) ?? nearestAnchor(startFrame, afterCandidates)
-    if (after) return { before, after }
+  if (attachment.sourceVoiceLineId) {
+    const anchor = findMetadataAttachmentAnchor(`voice:${attachment.sourceVoiceLineId}`, attachment, beforeAnchors, afterAnchors)
+    if (anchor) return anchor
   }
 
   return null
+}
+
+function findMetadataAttachmentAnchor(
+  key: string,
+  attachment: { startFrame?: number },
+  beforeAnchors: ClipAnchorMap,
+  afterAnchors: ClipAnchorMap,
+): { before: ClipAnchor; after: ClipAnchor } | null {
+  const beforeCandidates = beforeAnchors.get(key) ?? []
+  const afterCandidates = afterAnchors.get(key) ?? []
+  const afterByClipId = new Map(afterCandidates.map((anchor) => [anchor.clipId, anchor]))
+  const startFrame = attachmentStartFrame(attachment)
+  const before = beforeCandidates.find((candidate) => (
+    candidate.startFrame <= startFrame
+    && startFrame < candidate.endFrame
+  )) ?? nearestAnchor(startFrame, beforeCandidates)
+  if (!before) return null
+
+  const after = afterByClipId.get(before.clipId) ?? nearestAnchor(startFrame, afterCandidates)
+  if (!after) return null
+
+  return { before, after }
 }
 
 function attachmentStartFrame(attachment: { startFrame?: number }): number {

@@ -794,6 +794,36 @@ describe('EditorToolExecutor', () => {
     ])
   })
 
+  it('reanchors shared voice-only attachments when deleting a duplicate voice clip', () => {
+    const project = baseProject()
+    project.timeline[0].metadata = { ...project.timeline[0].metadata, sourcePanelId: 'panel-1', voiceLineId: 'voice-1' }
+    project.timeline[1].metadata = { ...project.timeline[1].metadata, sourcePanelId: 'panel-2', voiceLineId: 'voice-1' }
+    project.timeline = [project.timeline[1], project.timeline[0]]
+    project.audioTrack = [
+      { id: 'audio-explicit-clip', src: '/m/audio-clip', startFrame: 90, durationInFrames: 20, clipId: 'clip-1', volume: 1 },
+      { id: 'audio-shared-voice', src: '/m/audio-voice', startFrame: 90, durationInFrames: 20, sourceVoiceLineId: 'voice-1', volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-shared-voice', text: 'voice', startFrame: 90, endFrame: 110, sourceVoiceLineId: 'voice-1', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.removeClips({ clipIds: ['clip-1'], removeLinkedAudioAndSubtitles: true })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-2'])
+    expect(result.project.audioTrack).toEqual([
+      expect.objectContaining({ id: 'audio-shared-voice', startFrame: 0, durationInFrames: 20, sourceVoiceLineId: 'voice-1' }),
+    ])
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-shared-voice', startFrame: 0, endFrame: 20, sourceVoiceLineId: 'voice-1' }),
+    ])
+  })
+
   it('splits a clip at the requested frame and adjusts source trim', () => {
     const project = baseProject()
     project.timeline[0].sourceTrim = { fromFrame: 10, toFrame: 100 }
