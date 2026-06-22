@@ -1,6 +1,4 @@
 <p align="center">
-  <a href="https://www.director.com/">
-    <img src="images/cta-banner.png" alt="🚀 探索 AI 影视的下一代创作流 | 立即加入 director 在线网页版内测候补" width="800">
   </a>
 </p>
 
