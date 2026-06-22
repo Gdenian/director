@@ -9,6 +9,7 @@ import type {
   InsertClipsInput,
   MoveClipsInput,
   ReplaceClipInput,
+  RemoveClipsInput,
   RippleDeleteRangesInput,
   SetClipPropertiesInput,
   SplitClipInput,
@@ -264,6 +265,44 @@ export class EditorToolExecutor {
       targetIds: movingClips.map((clip) => clip.id),
       before: { clipIds: input.clipIds },
       after: { toIndex: insertIndex },
+      warnings: [],
+    })
+
+    return this.result()
+  }
+
+  removeClips(input: RemoveClipsInput): EditorToolDraftResult {
+    this.requireTimelineRead()
+    this.requireMediaRead()
+
+    if (!Array.isArray(input.clipIds) || input.clipIds.length === 0) {
+      throw new Error(CLIP_NOT_FOUND_ERROR)
+    }
+
+    const selectedIds = new Set(input.clipIds)
+    const removedClips = this.project.timeline.filter((clip) => selectedIds.has(clip.id))
+    if (removedClips.length !== selectedIds.size) {
+      throw new Error(CLIP_NOT_FOUND_ERROR)
+    }
+
+    const previousProject = clone(this.project)
+    const previousOperations = clone(this.operations)
+    const beforeAnchors = this.clipAnchorMap()
+
+    this.project.timeline = this.project.timeline.filter((clip) => !selectedIds.has(clip.id))
+
+    if (input.removeLinkedAudioAndSubtitles) {
+      this.project.audioTrack = this.project.audioTrack.filter((audio) => !isLinkedToAnyClip(audio, removedClips))
+      this.project.subtitleCues = this.project.subtitleCues.filter((cue) => !isLinkedToAnyClip(cue, removedClips))
+    }
+
+    this.reanchorAttachments(beforeAnchors, this.clipAnchorMap())
+
+    this.recordMutation(previousProject, previousOperations, {
+      tool: 'remove_clips',
+      targetIds: input.clipIds,
+      before: { clipIds: input.clipIds },
+      after: { removeLinkedAudioAndSubtitles: input.removeLinkedAudioAndSubtitles === true },
       warnings: [],
     })
 
@@ -684,6 +723,15 @@ function isLinkedAttachment(
   return attachment.clipId === clipId
     || Boolean(oldPanelId && attachment.sourcePanelId === oldPanelId)
     || Boolean(oldVoiceLineId && attachment.sourceVoiceLineId === oldVoiceLineId)
+}
+
+function isLinkedToAnyClip(
+  attachment: { clipId?: string; sourcePanelId?: string; sourceVoiceLineId?: string },
+  clips: VideoClip[],
+): boolean {
+  return clips.some((clip) => (
+    isLinkedAttachment(attachment, clip.id, clip.metadata.sourcePanelId, clip.metadata.voiceLineId)
+  ))
 }
 
 function isSubtitleCueLinkedToClip(cue: SubtitleCue, clip: VideoClip): boolean {

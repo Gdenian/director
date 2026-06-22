@@ -15,6 +15,12 @@ function baseProject(): VideoEditorProject {
       src: '/m/a',
       durationInFrames: 90,
       metadata: { storyboardId: 'storyboard-1', sourcePanelId: 'panel-1', storyOrder: 0, source: 'panel' },
+    }, {
+      id: 'clip-2',
+      kind: 'source',
+      src: '/m/b',
+      durationInFrames: 90,
+      metadata: { storyboardId: 'storyboard-2', sourcePanelId: 'panel-2', storyOrder: 1, source: 'panel' },
     }],
     audioTrack: [],
     subtitleCues: [],
@@ -60,7 +66,7 @@ describe('runEditorToolOrchestrator', () => {
 
     expect(result.changed).toBe(true)
     expect(result.summary).toBe('已插入导入视频')
-    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip_asset-1'])
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2', 'clip_asset-1'])
     expect(result.operations).toHaveLength(1)
     expect(result.operations[0]?.tool).toBe('insert_clips')
   })
@@ -83,6 +89,27 @@ describe('runEditorToolOrchestrator', () => {
     expect(result.changed).toBe(false)
     expect(result.summary).toBe('查看时间线')
     expect(result.warnings).toContain('EDITOR_TOOL_PLAN_TRUNCATED_TO_20_CALLS')
+  })
+
+  it('executes remove_clips through the executor without converting it to ripple delete', async () => {
+    const result = await runEditorToolOrchestrator({
+      project: baseProject(),
+      media: mediaLibrary(),
+      instruction: '删除第二段',
+      userId: 'user-1',
+      model: 'test-model',
+      complete: async () => JSON.stringify({
+        summary: '已删除第二段',
+        toolCalls: [
+          { tool: 'get_timeline', input: {} },
+          { tool: 'get_media', input: {} },
+          { tool: 'remove_clips', input: { clipIds: ['clip-2'] } },
+        ],
+      }),
+    })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1'])
+    expect(result.operations[0]?.tool).toBe('remove_clips')
   })
 
   it('surfaces plan errors clearly', async () => {

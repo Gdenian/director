@@ -12,9 +12,10 @@ import type {
   InsertClipsInput,
   MoveClipsInput,
   ReplaceClipInput,
-  RippleDeleteRangesInput,
+  RemoveClipsInput,
   SetClipPropertiesInput,
   SplitClipInput,
+  RippleDeleteRangesInput,
 } from './tool-types'
 
 const MAX_TOOL_CALLS = 20
@@ -133,7 +134,7 @@ function executeCall(executor: EditorToolExecutor, call: EditorToolPlanCall): Ed
     case 'split_clip':
       return executor.splitClip(call.input as SplitClipInput)
     case 'remove_clips':
-      return removeClips(executor, call.input)
+      return executor.removeClips(call.input as RemoveClipsInput)
     case 'ripple_delete_ranges':
       return executor.rippleDeleteRanges(call.input as RippleDeleteRangesInput)
     case 'add_captions':
@@ -141,18 +142,6 @@ function executeCall(executor: EditorToolExecutor, call: EditorToolPlanCall): Ed
     case 'undo':
       return executor.undo()
   }
-}
-
-function removeClips(executor: EditorToolExecutor, input: Record<string, unknown>): EditorToolDraftResult {
-  const clipIds = Array.isArray(input.clipIds)
-    ? input.clipIds.filter((clipId): clipId is string => typeof clipId === 'string')
-    : []
-  const timeline = executor.getTimeline()
-  const ranges = timeline.clips
-    .filter((clip) => clipIds.includes(clip.id))
-    .map((clip) => ({ startFrame: clip.startFrame, endFrame: clip.endFrame }))
-
-  return executor.rippleDeleteRanges({ ranges })
 }
 
 function unchangedDraft(project: VideoEditorProject, warnings: string[]): EditorToolDraftResult {

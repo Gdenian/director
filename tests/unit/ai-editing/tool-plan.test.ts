@@ -43,6 +43,36 @@ describe('parseEditorToolPlan', () => {
     }))).toThrow('EDITOR_TOOL_PLAN_INVALID_TOOL')
   })
 
+  it('rejects ripple delete ranges without ranges input', () => {
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'ripple_delete_ranges', input: {} },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  })
+
+  it('rejects insert clips without media ids', () => {
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'insert_clips', input: {} },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  })
+
+  it('rejects remove clips without clip ids', () => {
+    expect(() => parseEditorToolPlan(JSON.stringify({
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+        { tool: 'remove_clips', input: {} },
+      ],
+    }))).toThrow('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  })
+
   it('repairs mixed LLM text and single quoted JSON', () => {
     const result = parseEditorToolPlan(`
 Here is the plan:

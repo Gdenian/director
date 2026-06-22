@@ -64,13 +64,81 @@ export function parseEditorToolPlan(content: string): EditorToolPlan {
     if (tool === 'get_timeline') hasTimelineRead = true
     if (tool === 'get_media') hasMediaRead = true
 
+    const input = isPlainObject(rawCall.input) ? rawCall.input : {}
+    validateToolInput(tool, input)
+
     return {
       tool,
-      input: isPlainObject(rawCall.input) ? rawCall.input : {},
+      input,
     }
   })
 
   return { summary, toolCalls }
+}
+
+function validateToolInput(tool: EditorToolName, input: Record<string, unknown>): void {
+  switch (tool) {
+    case 'add_clips':
+    case 'insert_clips':
+      requireStringArray(input.mediaIds)
+      return
+    case 'remove_clips':
+      requireStringArray(input.clipIds)
+      return
+    case 'move_clips':
+      requireStringArray(input.clipIds)
+      requireNumber(input.toIndex)
+      return
+    case 'replace_clip':
+      requireString(input.clipId)
+      requireString(input.mediaId)
+      return
+    case 'set_clip_properties':
+      requireString(input.clipId)
+      return
+    case 'split_clip':
+      requireString(input.clipId)
+      requireNumber(input.atFrame)
+      return
+    case 'ripple_delete_ranges':
+      requireRanges(input.ranges)
+      return
+    case 'inspect_media':
+      requireString(input.mediaId)
+      return
+    default:
+      return
+  }
+}
+
+function requireString(value: unknown): void {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  }
+}
+
+function requireNumber(value: unknown): void {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  }
+}
+
+function requireStringArray(value: unknown): void {
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== 'string' || item.length === 0)) {
+    throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  }
+}
+
+function requireRanges(value: unknown): void {
+  if (!Array.isArray(value) || value.some((range) => (
+    !isPlainObject(range)
+    || typeof range.startFrame !== 'number'
+    || !Number.isFinite(range.startFrame)
+    || typeof range.endFrame !== 'number'
+    || !Number.isFinite(range.endFrame)
+  ))) {
+    throw new Error('EDITOR_TOOL_PLAN_INVALID_INPUT')
+  }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

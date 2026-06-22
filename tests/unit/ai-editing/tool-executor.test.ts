@@ -673,6 +673,75 @@ describe('EditorToolExecutor', () => {
     expect(result.operations[0]).toMatchObject({ tool: 'move_clips', targetIds: ['clip-2'] })
   })
 
+  it('removes clips by id without deleting preserved timeline clips', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.removeClips({ clipIds: ['clip-2'] })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1'])
+    expect(result.project.timeline[0].durationInFrames).toBe(90)
+    expect(result.operations[0]).toMatchObject({ tool: 'remove_clips', targetIds: ['clip-2'] })
+  })
+
+  it('does not ripple-trim the previous clip when removing a clip after a transition overlap', () => {
+    const executor = new EditorToolExecutor({
+      project: transitionProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.removeClips({ clipIds: ['clip-2'] })
+
+    expect(result.project.timeline.map((clip) => ({ id: clip.id, durationInFrames: clip.durationInFrames }))).toEqual([
+      { id: 'clip-1', durationInFrames: 90 },
+    ])
+  })
+
+  it('throws when removing an unknown clip id', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.removeClips({ clipIds: ['missing-clip'] })).toThrow('EDITOR_TOOL_CLIP_NOT_FOUND')
+  })
+
+  it('optionally removes audio and subtitles linked to removed clips', () => {
+    const project = baseProject()
+    project.timeline[1].metadata.voiceLineId = 'voice-2'
+    project.audioTrack = [
+      { id: 'audio-by-clip', src: '/m/audio-clip', startFrame: 90, durationInFrames: 20, clipId: 'clip-2', volume: 1 },
+      { id: 'audio-by-panel', src: '/m/audio-panel', startFrame: 100, durationInFrames: 20, sourcePanelId: 'panel-2', volume: 1 },
+      { id: 'audio-by-voice', src: '/m/audio-voice', startFrame: 110, durationInFrames: 20, sourceVoiceLineId: 'voice-2', volume: 1 },
+      { id: 'audio-unlinked', src: '/m/audio-other', startFrame: 0, durationInFrames: 20, sourcePanelId: 'panel-1', volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-by-panel', text: 'panel', startFrame: 90, endFrame: 110, sourcePanelId: 'panel-2', style: 'default' },
+      { id: 'subtitle-by-voice', text: 'voice', startFrame: 110, endFrame: 130, sourceVoiceLineId: 'voice-2', style: 'default' },
+      { id: 'subtitle-unlinked', text: 'other', startFrame: 0, endFrame: 20, sourcePanelId: 'panel-1', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.removeClips({ clipIds: ['clip-2'], removeLinkedAudioAndSubtitles: true })
+
+    expect(result.project.audioTrack.map((audio) => audio.id)).toEqual(['audio-unlinked'])
+    expect(result.project.subtitleCues.map((cue) => cue.id)).toEqual(['subtitle-unlinked'])
+  })
+
   it('splits a clip at the requested frame and adjusts source trim', () => {
     const project = baseProject()
     project.timeline[0].sourceTrim = { fromFrame: 10, toFrame: 100 }
