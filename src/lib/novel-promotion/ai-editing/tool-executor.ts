@@ -208,6 +208,14 @@ export class EditorToolExecutor {
 
     this.project.timeline[clipIndex] = nextClip
 
+    if (input.subtitlePlacement) {
+      this.project.subtitleCues = this.project.subtitleCues.map((cue) => (
+        isSubtitleCueLinkedToClip(cue, nextClip)
+          ? { ...cue, placement: input.subtitlePlacement }
+          : cue
+      ))
+    }
+
     if (typeof input.durationInFrames === 'number') {
       this.reanchorAttachments(beforeAnchors, this.clipAnchorMap())
       this.clampLinkedAttachments(clip, nextClip, clipStart)
@@ -217,7 +225,7 @@ export class EditorToolExecutor {
       tool: 'set_clip_properties',
       targetIds: [nextClip.id],
       before: { clip },
-      after: { durationInFrames: input.durationInFrames, sourceTrim: input.sourceTrim, transition: input.transition },
+      after: { durationInFrames: input.durationInFrames, sourceTrim: input.sourceTrim, transition: input.transition, subtitlePlacement: input.subtitlePlacement },
       warnings: [],
     })
 
@@ -285,6 +293,7 @@ export class EditorToolExecutor {
     firstClip.durationInFrames = atFrame
     secondClip.id = this.uniqueClipId(`${clip.id}_split_${atFrame}`, reservedClipIds)
     secondClip.durationInFrames = clip.durationInFrames - atFrame
+    delete firstClip.transition
 
     const sourceStart = clip.sourceTrim?.fromFrame ?? 0
     firstClip.sourceTrim = {
@@ -357,7 +366,12 @@ export class EditorToolExecutor {
           fromFrame: sourceStart + interval.startFrame,
           toFrame: sourceStart + interval.endFrame,
         }
-        if (localDeleteRanges.length > 0) {
+        if (clip.transition && intervalIndex === remainingIntervals.length - 1 && nextClip.durationInFrames >= clip.transition.durationInFrames) {
+          nextClip.transition = {
+            ...clip.transition,
+            durationInFrames: Math.min(clip.transition.durationInFrames, nextClip.durationInFrames),
+          }
+        } else {
           delete nextClip.transition
         }
 
@@ -392,7 +406,7 @@ export class EditorToolExecutor {
       }))
   }
 
-  addCaptions(_input: { placement?: 'bottom' | 'lower' | 'middle' }): EditorToolDraftResult {
+  addCaptions(input: { placement?: 'bottom' | 'lower' | 'middle' }): EditorToolDraftResult {
     this.requireTimelineRead()
     this.requireMediaRead()
 
@@ -420,6 +434,7 @@ export class EditorToolExecutor {
         sourcePanelId: entry.sourcePanelId,
         sourceVoiceLineId: entry.voiceLineId,
         style: 'default',
+        ...(input.placement ? { placement: input.placement } : {}),
       })
     })
 
@@ -662,6 +677,11 @@ function isLinkedAttachment(
   return attachment.clipId === clipId
     || Boolean(oldPanelId && attachment.sourcePanelId === oldPanelId)
     || Boolean(oldVoiceLineId && attachment.sourceVoiceLineId === oldVoiceLineId)
+}
+
+function isSubtitleCueLinkedToClip(cue: SubtitleCue, clip: VideoClip): boolean {
+  return Boolean(clip.metadata.sourcePanelId && cue.sourcePanelId === clip.metadata.sourcePanelId)
+    || Boolean(clip.metadata.voiceLineId && cue.sourceVoiceLineId === clip.metadata.voiceLineId)
 }
 
 function findAttachmentAnchor(

@@ -597,6 +597,36 @@ describe('EditorToolExecutor', () => {
     expect(() => executor.setClipProperties({ clipId: 'clip-2', sourceTrim: { fromFrame: 10, toFrame: 10 } })).toThrow('EDITOR_TOOL_INVALID_SOURCE_TRIM')
   })
 
+  it('sets subtitle placement only on cues linked to the target clip metadata', () => {
+    const project = baseProject()
+    project.timeline[1].metadata.voiceLineId = 'voice-2'
+    project.subtitleCues = [
+      { id: 'subtitle-1', text: 'first', startFrame: 0, endFrame: 90, sourcePanelId: 'panel-1', style: 'default' },
+      { id: 'subtitle-panel-2', text: 'panel match', startFrame: 90, endFrame: 120, sourcePanelId: 'panel-2', style: 'default' },
+      { id: 'subtitle-voice-2', text: 'voice match', startFrame: 120, endFrame: 150, sourceVoiceLineId: 'voice-2', style: 'default' },
+      { id: 'subtitle-other', text: 'other', startFrame: 150, endFrame: 180, sourcePanelId: 'panel-3', sourceVoiceLineId: 'voice-3', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.setClipProperties({ clipId: 'clip-2', subtitlePlacement: 'lower' })
+
+    expect(result.project.subtitleCues[0]).toMatchObject({ id: 'subtitle-1' })
+    expect(result.project.subtitleCues[0]).not.toHaveProperty('placement')
+    expect(result.project.subtitleCues[1]).toMatchObject({ id: 'subtitle-panel-2', placement: 'lower' })
+    expect(result.project.subtitleCues[2]).toMatchObject({ id: 'subtitle-voice-2', placement: 'lower' })
+    expect(result.project.subtitleCues[3]).toMatchObject({ id: 'subtitle-other' })
+    expect(result.project.subtitleCues[3]).not.toHaveProperty('placement')
+    expect(result.operations[0]).toMatchObject({
+      tool: 'set_clip_properties',
+      after: expect.objectContaining({ subtitlePlacement: 'lower' }),
+    })
+  })
+
   it('reanchors later attachments when shortening an upstream clip duration', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),
@@ -660,6 +690,29 @@ describe('EditorToolExecutor', () => {
     expect(result.project.timeline[0].sourceTrim).toEqual({ fromFrame: 10, toFrame: 40 })
     expect(result.project.timeline[1].sourceTrim).toEqual({ fromFrame: 40, toFrame: 100 })
     expect(result.operations[0]).toMatchObject({ tool: 'split_clip', targetIds: ['clip-1', 'clip-1_split_30'] })
+  })
+
+  it('keeps the original transition only on the second segment when splitting a clip', () => {
+    const project = baseProject()
+    project.timeline[0].transition = { type: 'dissolve', durationInFrames: 20 }
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    const beforeFrames = executor.getTimeline().totalFrames
+    executor.getMedia()
+    const result = executor.splitClip({ clipId: 'clip-1', atFrame: 30 })
+    const timeline = executor.getTimeline()
+
+    expect(result.project.timeline[0].transition).toBeUndefined()
+    expect(result.project.timeline[1].transition).toEqual({ type: 'dissolve', durationInFrames: 20 })
+    expect(timeline.totalFrames).toBe(beforeFrames)
+    expect(timeline.clips.map((clip) => ({ id: clip.id, startFrame: clip.startFrame, endFrame: clip.endFrame }))).toEqual([
+      { id: 'clip-1', startFrame: 0, endFrame: 30 },
+      { id: 'clip-1_split_30', startFrame: 30, endFrame: 90 },
+      { id: 'clip-2', startFrame: 80, endFrame: 170 },
+    ])
   })
 
   it('adds source trim to both split segments when the original clip has none', () => {
@@ -774,6 +827,37 @@ describe('EditorToolExecutor', () => {
     })
     expect(timeline.audioTrack[0].durationInFrames).toBeGreaterThan(0)
     expect(timeline.subtitleCues[0].endFrame).toBeGreaterThan(timeline.subtitleCues[0].startFrame)
+  })
+
+  it('preserves a trimmed clip transition when ripple deleting a non-transition range', () => {
+    const project = baseProject()
+    project.timeline = [
+      { ...project.timeline[0], durationInFrames: 100, transition: { type: 'dissolve', durationInFrames: 20 } },
+      { ...project.timeline[1], durationInFrames: 100 },
+    ]
+    project.audioTrack = []
+    project.subtitleCues = []
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    const beforeFrames = executor.getTimeline().totalFrames
+    executor.getMedia()
+    executor.rippleDeleteRanges({ ranges: [{ startFrame: 10, endFrame: 20 }] })
+    const timeline = executor.getTimeline()
+
+    expect(beforeFrames).toBe(190)
+    expect(timeline.totalFrames).toBe(beforeFrames - 10)
+    expect(timeline.clips.map((clip) => ({ id: clip.id, startFrame: clip.startFrame, durationInFrames: clip.durationInFrames, transition: clip.transition }))).toEqual([
+      { id: 'clip-1', startFrame: 0, durationInFrames: 10, transition: undefined },
+      { id: 'clip-1_ripple_20', startFrame: 10, durationInFrames: 80, transition: { type: 'dissolve', durationInFrames: 20 } },
+      { id: 'clip-2', startFrame: 80, durationInFrames: 100, transition: undefined },
+    ])
+    timeline.clips.forEach((clip, index) => {
+      const nextClip = timeline.clips[index + 1]
+      if (nextClip) expect(nextClip.startFrame).toBeGreaterThanOrEqual(clip.startFrame)
+    })
   })
 
   it('keeps computed clip positions monotonic after ripple deleting a short transition tail', () => {
@@ -924,11 +1008,11 @@ describe('EditorToolExecutor', () => {
 
     executor.getTimeline()
     executor.getMedia()
-    const result = executor.addCaptions({})
+    const result = executor.addCaptions({ placement: 'middle' })
 
     expect(result.project.subtitleCues).toEqual([
       expect.objectContaining({ id: 'subtitle-2', sourceVoiceLineId: 'voice-existing' }),
-      expect.objectContaining({ text: 'New line', startFrame: 90, endFrame: 132, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', style: 'default' }),
+      expect.objectContaining({ text: 'New line', startFrame: 90, endFrame: 132, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', style: 'default', placement: 'middle' }),
     ])
     expect(result.operations[0]).toMatchObject({ tool: 'add_captions', targetIds: ['caption_voice-2'] })
   })
