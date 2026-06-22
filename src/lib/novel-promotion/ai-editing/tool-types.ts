@@ -1,4 +1,4 @@
-import type { VideoEditorProject } from '@/features/video-editor/types/editor.types'
+import type { AudioAttachment, ComputedClip, EditorConfig, SubtitleCue, VideoEditorProject } from '@/features/video-editor/types/editor.types'
 
 export type AiEditableMediaSourceType =
   | 'generated_panel_video'
@@ -52,6 +52,14 @@ export type EditorToolDraftResult = {
   operations: EditorToolOperation[]
   warnings: string[]
   changed: boolean
+}
+
+export type EditorTimelineToolResult = {
+  config: EditorConfig
+  clips: ComputedClip[]
+  audioTrack: AudioAttachment[]
+  subtitleCues: SubtitleCue[]
+  totalFrames: number
 }
 
 export type InsertClipsInput = { afterClipId?: string; beforeClipId?: string; atIndex?: number; end?: boolean; mediaIds: string[] }

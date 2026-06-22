@@ -1,10 +1,11 @@
 import type { VideoClip, VideoClipSource, VideoEditorProject } from '@/features/video-editor/types/editor.types'
-import { computeClipPositions } from '@/features/video-editor/utils/time-utils'
+import { calculateTimelineDuration, computeClipPositions } from '@/features/video-editor/utils/time-utils'
 import type {
   AiEditableMediaEntry,
   AiEditableMediaLibrary,
   EditorToolDraftResult,
   EditorToolOperation,
+  EditorTimelineToolResult,
   InsertClipsInput,
 } from './tool-types'
 
@@ -36,14 +37,20 @@ export class EditorToolExecutor {
     this.media = clone(input.media)
   }
 
-  getTimeline(): EditorToolDraftResult {
+  getTimeline(): EditorTimelineToolResult {
     this.timelineRead = true
-    return this.result()
+    return {
+      config: clone(this.project.config),
+      clips: clone(computeClipPositions(this.project.timeline)),
+      audioTrack: clone(this.project.audioTrack),
+      subtitleCues: clone(this.project.subtitleCues),
+      totalFrames: calculateTimelineDuration(this.project.timeline),
+    }
   }
 
-  getMedia(): EditorToolDraftResult {
+  getMedia(): AiEditableMediaLibrary {
     this.mediaRead = true
-    return this.result()
+    return clone(this.media)
   }
 
   insertClips(input: InsertClipsInput): EditorToolDraftResult {

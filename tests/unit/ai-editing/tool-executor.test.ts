@@ -63,6 +63,42 @@ function pendingVideoMedia(): AiEditableMediaLibrary {
 }
 
 describe('EditorToolExecutor', () => {
+  it('returns readable computed timeline context', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    const result = executor.getTimeline()
+
+    expect(result.config).toEqual({ fps: 30, width: 1920, height: 1080, videoRatio: '16:9', burnSubtitlesDefault: true })
+    expect(result.clips[0]).toMatchObject({ id: 'clip-1', startFrame: 0, endFrame: 90 })
+    expect(result.clips[1]).toMatchObject({ id: 'clip-2', startFrame: 90, endFrame: 180 })
+    expect(result.audioTrack).toEqual(baseProject().audioTrack)
+    expect(result.subtitleCues).toEqual(baseProject().subtitleCues)
+    expect(result.totalFrames).toBe(180)
+  })
+
+  it('returns readable media context with status and timeline eligibility', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: {
+        fps: 30,
+        entries: [
+          completedVideoMedia().entries[0],
+          pendingVideoMedia().entries[0],
+        ],
+      },
+    })
+
+    const result = executor.getMedia()
+
+    expect(result.entries).toEqual([
+      expect.objectContaining({ id: 'user_import_video:asset-1', status: 'completed', eligibleForTimeline: true }),
+      expect.objectContaining({ id: 'user_import_video:asset-pending', status: 'pending', eligibleForTimeline: false }),
+    ])
+  })
+
   it('clones constructor inputs before draft reads and mutations', () => {
     const project = baseProject()
     const media = completedVideoMedia()
@@ -109,6 +145,38 @@ describe('EditorToolExecutor', () => {
     executor.getMedia()
 
     expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_video:asset-pending'] })).toThrow('EDITOR_TOOL_MEDIA_NOT_ELIGIBLE')
+  })
+
+  it('rejects completed audio media after timeline and media reads', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia({
+        id: 'user_import_audio:audio-1',
+        sourceType: 'user_import_audio',
+        kind: 'audio',
+        url: '/m/audio',
+      }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_audio:audio-1'] })).toThrow('EDITOR_TOOL_MEDIA_NOT_ELIGIBLE')
+  })
+
+  it('rejects completed media without url after timeline and media reads', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia({
+        url: null,
+        eligibleForTimeline: true,
+      }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+
+    expect(() => executor.insertClips({ afterClipId: 'clip-1', mediaIds: ['user_import_video:asset-1'] })).toThrow('EDITOR_TOOL_MEDIA_NOT_ELIGIBLE')
   })
 
   it('requires reading the timeline before inserting completed media', () => {
