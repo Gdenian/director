@@ -10,6 +10,12 @@ export type DurationFrameResult = {
   source: DurationSource
 }
 
+export type MediaProbeMetadata = {
+  durationMs?: number
+  width?: number
+  height?: number
+}
+
 export async function ffprobeDurationMs(url: string): Promise<number | null> {
   try {
     const { stdout } = await execFileAsync('ffprobe', [
@@ -27,6 +33,56 @@ export async function ffprobeDurationMs(url: string): Promise<number | null> {
   } catch {
     return null
   }
+}
+
+export async function probeMediaMetadata(pathOrUrl: string, mimeType?: string | null): Promise<MediaProbeMetadata> {
+  if (mimeType?.startsWith('image/')) {
+    try {
+      const sharp = (await import('sharp')).default
+      const metadata = await sharp(pathOrUrl).metadata()
+      return {
+        ...(typeof metadata.width === 'number' ? { width: metadata.width } : {}),
+        ...(typeof metadata.height === 'number' ? { height: metadata.height } : {}),
+      }
+    } catch {
+      return {}
+    }
+  }
+
+  if (mimeType?.startsWith('video/') || mimeType?.startsWith('audio/') || !mimeType) {
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v',
+        'error',
+        '-print_format',
+        'json',
+        '-show_format',
+        '-show_streams',
+        pathOrUrl,
+      ])
+      const parsed = JSON.parse(stdout) as {
+        format?: { duration?: unknown }
+        streams?: Array<{ codec_type?: unknown; width?: unknown; height?: unknown }>
+      }
+      const seconds = typeof parsed.format?.duration === 'string'
+        ? Number.parseFloat(parsed.format.duration)
+        : typeof parsed.format?.duration === 'number'
+          ? parsed.format.duration
+          : null
+      const videoStream = parsed.streams?.find((stream) => stream.codec_type === 'video')
+      return {
+        ...(typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0
+          ? { durationMs: Math.round(seconds * 1000) }
+          : {}),
+        ...(typeof videoStream?.width === 'number' ? { width: videoStream.width } : {}),
+        ...(typeof videoStream?.height === 'number' ? { height: videoStream.height } : {}),
+      }
+    } catch {
+      return {}
+    }
+  }
+
+  return {}
 }
 
 function framesFromMs(ms: number, fps: number): number {
