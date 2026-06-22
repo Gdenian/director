@@ -71,8 +71,8 @@ const auditMock = vi.hoisted(() => ({
 
 const prismaMock = vi.hoisted(() => ({
   adminAuditLog: {
-    findMany: vi.fn(async () => [
-      {
+    findMany: vi.fn(async (args?: { select?: Record<string, boolean> }) => {
+      const row = {
         id: 'audit-1',
         actorUserId: 'admin-1',
         actorRole: 'admin',
@@ -82,9 +82,17 @@ const prismaMock = vi.hoisted(() => ({
         beforeJson: null,
         afterJson: { cancelled: true },
         reason: 'stuck',
+        ip: '203.0.113.12',
+        userAgent: 'vitest-admin-client',
         createdAt: new Date('2026-06-22T00:00:00.000Z'),
-      },
-    ]),
+      }
+
+      if (!args?.select) return [row]
+
+      return [Object.fromEntries(
+        Object.entries(row).filter(([key]) => args.select?.[key]),
+      )]
+    }),
     count: vi.fn(async () => 1),
   },
 }))
@@ -381,10 +389,24 @@ describe('api contract - admin routes', () => {
 
     expect(res.status).toBe(200)
     expect(json).toMatchObject({ total: 1, page: 2, pageSize: 5 })
+    expect(JSON.stringify(json)).not.toContain('beforeJson')
+    expect(JSON.stringify(json)).not.toContain('afterJson')
     expect(prismaMock.adminAuditLog.findMany).toHaveBeenCalledWith({
       orderBy: { createdAt: 'desc' },
       skip: 5,
       take: 5,
+      select: {
+        id: true,
+        actorUserId: true,
+        actorRole: true,
+        action: true,
+        targetType: true,
+        targetId: true,
+        reason: true,
+        ip: true,
+        userAgent: true,
+        createdAt: true,
+      },
     })
   })
 })

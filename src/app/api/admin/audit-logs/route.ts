@@ -28,6 +28,18 @@ export const GET = apiHandler(async (request: NextRequest) => {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      select: {
+        id: true,
+        actorUserId: true,
+        actorRole: true,
+        action: true,
+        targetType: true,
+        targetId: true,
+        reason: true,
+        ip: true,
+        userAgent: true,
+        createdAt: true,
+      },
     }),
     prisma.adminAuditLog.count(),
   ])
