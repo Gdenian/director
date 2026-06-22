@@ -40,6 +40,7 @@
 - `src/lib/styles`：风格资产、默认风格和风格快照逻辑。
 - `src/lib/creative-engine`：创作引擎 canonical 配置、用途分类、模型选择过滤和影响检查。
 - `src/lib/user-api/creative-engine-detection`：创作引擎服务识别、模型读取、用途分类和识别兜底。
+- `src/lib/admin`：后台角色、审计、脱敏和运营数据服务。
 - `prisma/schema.prisma`：MySQL 主 schema。
 - `tests`：单元、集成、系统、回归测试。
 
@@ -56,6 +57,8 @@
 - `director` 是部署在服务器上的网站，不是需要自检升级的客户端 app；不要在站内加入 GitHub Release 轮询、版本升级按钮或升级弹窗。
 - `editor` 阶段在 `src/app/[locale]/workspace/[projectId]/page.tsx` 中仍会回退到 `videos`，不要把 AI 剪辑当成已完全开放的稳定流程。
 - 创作引擎探测模型类型时，`/models` 返回的元数据优先于模型名关键词；无法识别的模型也要保留为未检查、低置信度的文本模型，不能在保存时静默丢弃。
+- 管理端是运营控制台，不是用户创作内容管理后台；admin DTO 必须白名单和脱敏，不能返回任务 `payload`、`result`、`dedupeKey`、`billingInfo` 或审计内部 JSON。
+- 后台页面和 `/api/admin/**` 必须服务端校验 `role/status`；管理员能力走 `requireAdminAuth()`，owner-only 高危操作走 `requireOwnerAuth()`，不能只靠前端隐藏入口。
 
 ## 深入文档
 
@@ -64,3 +67,5 @@
 - `docs/superpowers/specs/2026-05-28-style-prompt-generation-design.md`：参考图生成风格提示词设计。
 - `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`：创作引擎产品边界、检测编排和 canonical 数据结构。
 - `docs/superpowers/plans/2026-06-11-creative-engine-redesign.md`：创作引擎实施计划归档；正文较长，优先看任务范围和验收标准。
+- `docs/superpowers/specs/2026-06-22-admin-operations-console-design.md`：管理者运营控制台边界、角色和信息架构。
+- `docs/superpowers/plans/2026-06-22-admin-operations-console-implementation.md`：管理端一期实施计划归档。

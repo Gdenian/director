@@ -52,6 +52,7 @@ npm run dev
 - `src/app/[locale]/home/page.tsx`：登录后的首页创作入口和最近项目画廊。
 - `src/app/[locale]/workspace/page.tsx`：作品图册式列表、搜索、排序、创建、编辑、删除。
 - `src/app/[locale]/profile/page.tsx`：设置中心，包含创作引擎、模型选择和扣费记录三个同级入口。
+- `src/app/[locale]/admin/page.tsx`：运营控制台入口，仅 `admin` / `owner` 可访问。
 - `src/app/[locale]/workspace/[projectId]/page.tsx`：项目工作区容器，按 `stage` 和 `episode` URL 参数切换视图。
 - `src/app/[locale]/workspace/asset-hub/page.tsx`：资产中心。
 - `src/app/api/**`：服务端接口。
@@ -70,6 +71,7 @@ npm run dev
 - `src/lib/styles/**`：风格资产、默认风格、风格快照。
 - `src/lib/creative-engine/**`：创作引擎 canonical 配置、用途分类、模型选择过滤、运行前检查和使用影响分析。
 - `src/lib/user-api/creative-engine-detection/**`：OpenAI/Gemini/official 服务识别、模型列表读取、用途分类和内置识别模型兜底。
+- `src/lib/admin/**`：后台角色、审计、脱敏、概览、用户、账单、任务、模型和系统健康数据服务。
 - `src/lib/task/**`：任务提交、状态、发布与对账。
 - `src/lib/run-runtime/**`：运行时桥接、任务目标状态和事件发布。
 - `src/lib/workers/**`：四类 worker 入口与处理器：
@@ -83,6 +85,7 @@ npm run dev
 - `prisma/schema.prisma`：MySQL 主 schema。
 - `src/lib/storage/**`：对象存储初始化与访问。
 - `src/app/api/user/creative-engines/**`：创作引擎检测、轻量测试和使用影响检查接口。
+- `src/app/api/admin/**`：管理端运营接口，必须由服务端校验 `admin` / `owner` 权限。
 
 ## 关键业务事实
 
@@ -94,6 +97,8 @@ npm run dev
 - 设置中心把“服务接入”和“默认模型选择”拆开：创作引擎只负责接入、识别、保存可用模型，模型选择由用户显式指定，不自动替换现有工作流选择。
 - OpenAI-compatible 文本模型支持用户点击后的轻量检测；图片、视频、语音、口型同步等高消耗模型不在识别阶段自动发起付费测试。
 - `editor` 阶段仍会在工作区容器中回退到 `videos`，说明 AI 剪辑流程还不是完全开放状态。
+- 管理端是平台运营控制台，不是用户创作内容管理后台。后台可以查看系统健康、用户状态、额度、账单、任务元数据和模型状态，但不能返回或管理用户创作正文、提示词、生成媒体、任务 `payload` / `result` / `dedupeKey` / `billingInfo`。
+- `User.role` 使用 `user` / `admin` / `owner`，`User.status` 使用 `active` / `disabled`。后台页面、导航入口和 `/api/admin/**` 都要做服务端权限校验；owner-only 操作需要写入 `AdminAuditLog`。
 
 ## 测试与构建入口
 
@@ -143,6 +148,10 @@ npm run dev
 
 `/models` 探测要优先保留并读取模型对象里的元数据，例如 `capabilities`、`modalities`、`supportedGenerationMethods`、`type` 和 `supported_endpoints`。只有元数据无法判断时，才使用模型调用名的关键词规则。无法识别的模型也要保留为低置信度、未检查的文本模型，避免用户保存后模型静默消失。
 
+### 8. 管理端不能泄露创作内容
+
+管理端接口要返回白名单 DTO，并继续使用 `src/lib/admin/redaction.ts` 这类集中脱敏逻辑。即使是 owner，也只处理平台运营和高危配置，不应在后台加入查看或编辑用户作品内容的能力。
+
 ## 现有设计文档
 
 - `docs/superpowers/specs/2026-05-28-style-management-design.md`
@@ -150,3 +159,5 @@ npm run dev
 - `docs/superpowers/specs/2026-06-10-ai-video-editing-design.md`
 - `docs/superpowers/specs/2026-06-11-creative-engine-redesign.md`
 - `docs/superpowers/plans/2026-06-11-creative-engine-redesign.md`：创作引擎实施计划归档，正文较长；优先按任务标题、范围和验收标准阅读。
+- `docs/superpowers/specs/2026-06-22-admin-operations-console-design.md`：管理者运营控制台设计。
+- `docs/superpowers/plans/2026-06-22-admin-operations-console-implementation.md`：管理端一期实施计划归档。
