@@ -139,7 +139,11 @@ export async function buildEditorManifest(input: {
   }))
 
   const editorAssets = (episode.editorProject?.assets || [])
-    .filter((asset) => asset.status === 'completed' && asset.url)
+    .filter((asset) => (
+      asset.status === 'completed'
+      && asset.url
+      && (asset.kind === 'transition_bridge' || asset.kind === 'render_output')
+    ))
     .map((asset) => ({
       id: asset.id,
       kind: asset.kind === 'render_output' ? 'render_output' as const : 'transition_bridge' as const,

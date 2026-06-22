@@ -35,11 +35,15 @@ export async function ffprobeDurationMs(url: string): Promise<number | null> {
   }
 }
 
-export async function probeMediaMetadata(pathOrUrl: string, mimeType?: string | null): Promise<MediaProbeMetadata> {
+export async function probeMediaMetadata(
+  pathOrUrl: string,
+  mimeType?: string | null,
+  options?: { buffer?: Buffer },
+): Promise<MediaProbeMetadata> {
   if (mimeType?.startsWith('image/')) {
     try {
       const sharp = (await import('sharp')).default
-      const metadata = await sharp(pathOrUrl).metadata()
+      const metadata = await sharp(options?.buffer || pathOrUrl).metadata()
       return {
         ...(typeof metadata.width === 'number' ? { width: metadata.width } : {}),
         ...(typeof metadata.height === 'number' ? { height: metadata.height } : {}),
