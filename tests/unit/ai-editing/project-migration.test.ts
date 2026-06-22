@@ -129,4 +129,54 @@ describe('editor project migration', () => {
     expect(migrated.timeline[1].metadata).toMatchObject({ source: 'imported' })
     expect(migrated.timeline[1].metadata.mediaSourceType).toBeUndefined()
   })
+
+  it('preserves imported asset metadata and subtitle placement in schema 1.2 projects', () => {
+    const migrated = migrateProjectData({
+      id: 'editor-4',
+      episodeId: 'episode-4',
+      schemaVersion: '1.2',
+      config: { fps: 30, width: 1920, height: 1080, videoRatio: '16:9', burnSubtitlesDefault: true },
+      timeline: [{
+        id: 'clip-import',
+        kind: 'source',
+        src: '/m/import',
+        durationInFrames: 60,
+        metadata: {
+          storyboardId: 'storyboard-import',
+          source: 'imported',
+          editorAssetId: 'asset-1',
+          description: 'uploaded clip',
+        },
+      }],
+      audioTrack: [],
+      subtitleCues: [{
+        id: 'sub-1',
+        text: 'imported line',
+        startFrame: 0,
+        endFrame: 60,
+        style: 'default',
+        placement: 'lower',
+      }],
+      editorAssets: [{
+        id: 'asset-1',
+        kind: 'user_import_video',
+        status: 'completed',
+        url: '/m/import',
+        mediaObjectId: 'media-1',
+      }],
+      bgmTrack: [],
+      pendingVersion: null,
+    })
+
+    expect(migrated.timeline[0].metadata).toMatchObject({
+      source: 'imported',
+      editorAssetId: 'asset-1',
+      description: 'uploaded clip',
+    })
+    expect(migrated.subtitleCues[0]).toMatchObject({ placement: 'lower' })
+    expect(migrated.editorAssets[0]).toMatchObject({
+      kind: 'user_import_video',
+      mediaObjectId: 'media-1',
+    })
+  })
 })

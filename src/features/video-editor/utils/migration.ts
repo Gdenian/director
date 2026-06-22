@@ -134,6 +134,9 @@ function normalizeSubtitleCues(value: unknown): SubtitleCue[] {
         const subtitle = toRecord(item)
         const startFrame = Math.max(0, Math.floor(readNumber(subtitle.startFrame, 0)))
         const endFrame = Math.max(startFrame + 1, Math.floor(readNumber(subtitle.endFrame, startFrame + 1)))
+        const placement = subtitle.placement === 'bottom' || subtitle.placement === 'lower' || subtitle.placement === 'middle'
+            ? subtitle.placement
+            : undefined
         return {
             id: readString(subtitle.id) || `subtitle_${index}`,
             text: readString(subtitle.text) || '',
@@ -142,6 +145,7 @@ function normalizeSubtitleCues(value: unknown): SubtitleCue[] {
             sourcePanelId: readString(subtitle.sourcePanelId),
             sourceVoiceLineId: readString(subtitle.sourceVoiceLineId),
             style: subtitle.style === 'cinematic' ? 'cinematic' : 'default',
+            placement,
             truncated: subtitle.truncated === true ? true : undefined,
         }
     })
@@ -151,12 +155,19 @@ function normalizeEditorAssets(value: unknown): EditorAssetRef[] {
     if (!Array.isArray(value)) return []
     return value.map((item, index): EditorAssetRef => {
         const asset = toRecord(item)
+        const kind = asset.kind === 'render_output'
+            || asset.kind === 'transition_bridge'
+            || asset.kind === 'user_import_video'
+            || asset.kind === 'user_import_audio'
+            || asset.kind === 'user_import_image'
+            ? asset.kind
+            : 'transition_bridge'
         const status = asset.status === 'pending' || asset.status === 'failed' || asset.status === 'canceled'
             ? asset.status
             : 'completed'
         return {
             id: readString(asset.id) || `asset_${index}`,
-            kind: asset.kind === 'render_output' ? 'render_output' : 'transition_bridge',
+            kind,
             url: readString(asset.url),
             status,
             taskId: readString(asset.taskId),

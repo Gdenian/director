@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, interpolate } from 'remotion'
+import { AbsoluteFill, Sequence, Video, Audio, Img, useCurrentFrame, interpolate } from 'remotion'
 import { AudioAttachment, BgmClip, EditorConfig, SubtitleCue, VideoClip } from '../types/editor.types'
 import { computeClipPositions } from '../utils/time-utils'
 
@@ -70,7 +70,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
                     durationInFrames={Math.max(1, cue.endFrame - cue.startFrame)}
                     name={`Subtitle: ${cue.id}`}
                 >
-                    <SubtitleOverlay text={cue.text} style={cue.style} />
+                    <SubtitleOverlay text={cue.text} style={cue.style} placement={cue.placement} />
                 </Sequence>
             ))}
 
@@ -142,6 +142,7 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
     void config
     const frame = useCurrentFrame()
     const clipDuration = clip.durationInFrames
+    const isImportedImage = clip.metadata.mediaSourceType === 'user_import_image' || /\.(png|jpe?g|webp)(\?|$)/i.test(clip.src)
 
     // 计算转场效果
     let opacity = 1
@@ -191,16 +192,26 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
 
     return (
         <AbsoluteFill style={{ opacity, transform }}>
-            {/* 视频 */}
-            <Video
-                src={clip.src}
-                startFrom={clip.sourceTrim?.fromFrame || 0}
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                }}
-            />
+            {isImportedImage ? (
+                <Img
+                    src={clip.src}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                    }}
+                />
+            ) : (
+                <Video
+                    src={clip.src}
+                    startFrom={clip.sourceTrim?.fromFrame || 0}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                    }}
+                />
+            )}
         </AbsoluteFill>
     )
 }
@@ -211,9 +222,16 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
 interface SubtitleOverlayProps {
     text: string
     style: 'default' | 'cinematic'
+    placement?: SubtitleCue['placement']
 }
 
-const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({ text, style }) => {
+const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({ text, style, placement = 'bottom' }) => {
+    const layout = {
+        bottom: { justifyContent: 'flex-end', paddingBottom: '60px' },
+        lower: { justifyContent: 'flex-end', paddingBottom: '32px' },
+        middle: { justifyContent: 'center', paddingBottom: '0px' },
+    }[placement]
+
     const styles = {
         default: {
             background: 'rgba(0, 0, 0, 0.7)',
@@ -235,9 +253,9 @@ const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({ text, style }) => {
     return (
         <AbsoluteFill
             style={{
-                justifyContent: 'flex-end',
+                justifyContent: layout.justifyContent,
                 alignItems: 'center',
-                paddingBottom: '60px'
+                paddingBottom: layout.paddingBottom
             }}
         >
             <div style={styles[style]}>
