@@ -125,6 +125,7 @@ describe('api contract - admin routes', () => {
       'src/app/api/admin/models/route.ts',
       'src/app/api/admin/system-health/route.ts',
       'src/app/api/admin/audit-logs/route.ts',
+      'src/app/api/admin/download-logs/route.ts',
     ]))
   })
 
@@ -182,6 +183,10 @@ describe('api contract - admin routes', () => {
         path: '/api/admin/users/user-2',
         method: 'PATCH',
         body: { role: 'admin', status: 'disabled', reason: 'policy' },
+        headers: {
+          'x-forwarded-for': '203.0.113.10, 10.0.0.1',
+          'user-agent': 'vitest-admin-client',
+        },
       }),
       context,
     )
@@ -199,7 +204,21 @@ describe('api contract - admin routes', () => {
       before: null,
       after: { role: 'admin', status: 'disabled' },
       reason: 'policy',
+      ip: '203.0.113.10',
+      userAgent: 'vitest-admin-client',
     }))
+  })
+
+  it('PATCH /api/admin/users/[userId] treats non-object JSON bodies as empty objects', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/users/[userId]/route')
+    const res = await mod.PATCH(
+      buildMockRequest({ path: '/api/admin/users/user-2', method: 'PATCH', body: null }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+
+    expect(res.status).toBe(200)
+    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {})
   })
 
   it('GET /api/admin/tasks returns redacted task summaries', async () => {
@@ -241,7 +260,15 @@ describe('api contract - admin routes', () => {
 
     mockAuthenticatedRole('owner-1', 'owner')
     const ownerRes = await mod.POST(
-      buildMockRequest({ path: '/api/admin/tasks/task-1', method: 'POST', body: { reason: 'stuck' } }),
+      buildMockRequest({
+        path: '/api/admin/tasks/task-1',
+        method: 'POST',
+        body: { reason: 'stuck' },
+        headers: {
+          'x-forwarded-for': '198.51.100.7, 10.0.0.2',
+          'user-agent': 'vitest-owner-client',
+        },
+      }),
       context,
     )
 
@@ -254,7 +281,21 @@ describe('api contract - admin routes', () => {
       targetId: 'task-1',
       after: { cancelled: true },
       reason: 'stuck',
+      ip: '198.51.100.7',
+      userAgent: 'vitest-owner-client',
     }))
+  })
+
+  it('POST /api/admin/tasks/[taskId] treats non-object JSON bodies as empty objects', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/tasks/[taskId]/route')
+    const res = await mod.POST(
+      buildMockRequest({ path: '/api/admin/tasks/task-1', method: 'POST', body: null }),
+      { params: Promise.resolve({ taskId: 'task-1' }) },
+    )
+
+    expect(res.status).toBe(200)
+    expect(tasksMock.cancelAdminTask).toHaveBeenCalledWith('task-1', '')
   })
 
   it('GET /api/admin/audit-logs returns admin-readable paginated audit logs', async () => {

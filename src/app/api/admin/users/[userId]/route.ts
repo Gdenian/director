@@ -13,6 +13,20 @@ type UserAccessBody = {
   reason?: string | null
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function readJsonObject(request: NextRequest): Promise<Record<string, unknown>> {
+  const body = await request.json().catch(() => ({}))
+  return isRecord(body) ? body : {}
+}
+
+function getRequestIp(request: NextRequest) {
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  return forwardedFor || request.headers.get('x-real-ip') || null
+}
+
 export const PATCH = apiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> },
@@ -21,7 +35,8 @@ export const PATCH = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
 
   const { userId } = await params
-  const body = await request.json().catch(() => ({})) as UserAccessBody
+  const body = await readJsonObject(request) as UserAccessBody
+  const reason = typeof body.reason === 'string' ? body.reason : null
   const input = {
     ...('role' in body ? { role: body.role } : {}),
     ...('status' in body ? { status: body.status } : {}),
@@ -41,7 +56,9 @@ export const PATCH = apiHandler(async (
       role: user.role,
       status: user.status,
     },
-    reason: body.reason,
+    reason,
+    ip: getRequestIp(request),
+    userAgent: request.headers.get('user-agent'),
   })
 
   return NextResponse.json(user)

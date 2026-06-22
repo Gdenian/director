@@ -11,6 +11,20 @@ type CancelTaskBody = {
   reason?: string | null
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function readJsonObject(request: NextRequest): Promise<Record<string, unknown>> {
+  const body = await request.json().catch(() => ({}))
+  return isRecord(body) ? body : {}
+}
+
+function getRequestIp(request: NextRequest) {
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  return forwardedFor || request.headers.get('x-real-ip') || null
+}
+
 export const POST = apiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> },
@@ -19,9 +33,9 @@ export const POST = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
 
   const { taskId } = await params
-  const body = await request.json().catch(() => ({})) as CancelTaskBody
-  const reason = typeof body.reason === 'string' ? body.reason : ''
-  const result = await cancelAdminTask(taskId, reason)
+  const body = await readJsonObject(request) as CancelTaskBody
+  const reason = typeof body.reason === 'string' ? body.reason : null
+  const result = await cancelAdminTask(taskId, reason ?? '')
 
   await writeAdminAuditLog({
     actor: {
@@ -33,7 +47,9 @@ export const POST = apiHandler(async (
     targetId: taskId,
     before: null,
     after: { cancelled: result.cancelled },
-    reason: body.reason,
+    reason,
+    ip: getRequestIp(request),
+    userAgent: request.headers.get('user-agent'),
   })
 
   return NextResponse.json(result)
