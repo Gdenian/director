@@ -5,7 +5,7 @@ import { ROUTE_CATALOG } from '../../../contracts/route-catalog'
 import { buildMockRequest } from '../../../helpers/request'
 
 const authState = vi.hoisted(() => ({
-  authenticated: false,
+  mode: 'unauthenticated' as 'unauthenticated' | 'user' | 'admin',
 }))
 
 const loggingMock = vi.hoisted(() => ({
@@ -21,12 +21,21 @@ vi.mock('@/lib/api-auth', () => {
     JSON.stringify({ error: { code: 'UNAUTHORIZED' } }),
     { status: 401, headers: { 'content-type': 'application/json' } },
   )
+  const forbidden = () => new Response(
+    JSON.stringify({ error: { code: 'FORBIDDEN' } }),
+    { status: 403, headers: { 'content-type': 'application/json' } },
+  )
 
   return {
     isErrorResponse: (value: unknown) => value instanceof Response,
     requireUserAuth: async () => {
-      if (!authState.authenticated) return unauthorized()
+      if (authState.mode === 'unauthenticated') return unauthorized()
       return { session: { user: { id: 'user-1' } } }
+    },
+    requireAdminAuth: async () => {
+      if (authState.mode === 'unauthenticated') return unauthorized()
+      if (authState.mode === 'user') return forbidden()
+      return { session: { user: { id: 'admin-1', role: 'admin' } } }
     },
   }
 })
@@ -44,7 +53,7 @@ describe('api contract - infra routes (behavior)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    authState.authenticated = false
+    authState.mode = 'unauthenticated'
     vi.resetModules()
   })
 
@@ -92,8 +101,22 @@ describe('api contract - infra routes (behavior)', () => {
     expect(loggingMock.readAllLogs).not.toHaveBeenCalled()
   })
 
-  it('GET /api/admin/download-logs returns attachment headers when authenticated', async () => {
-    authState.authenticated = true
+  it('GET /api/admin/download-logs rejects ordinary users without reading logs', async () => {
+    authState.mode = 'user'
+    const mod = await import('@/app/api/admin/download-logs/route')
+    const req = buildMockRequest({
+      path: '/api/admin/download-logs',
+      method: 'GET',
+    })
+
+    const res = await mod.GET(req, { params: Promise.resolve({}) })
+
+    expect(res.status).toBe(403)
+    expect(loggingMock.readAllLogs).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/admin/download-logs returns attachment headers for admin users', async () => {
+    authState.mode = 'admin'
     const mod = await import('@/app/api/admin/download-logs/route')
     const req = buildMockRequest({
       path: '/api/admin/download-logs',

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import LanguageSwitcher from './LanguageSwitcher'
 import { AppIcon } from '@/components/ui/icons'
 import { Link } from '@/i18n/navigation'
+import { isAdminRole } from '@/lib/admin/roles'
 import { buildAuthenticatedHomeTarget } from '@/lib/home/default-route'
 
 
@@ -13,7 +14,7 @@ export default function Navbar() {
   const { data: session, status } = useSession()
   const t = useTranslations('nav')
   const tc = useTranslations('common')
-  const downloadLogsHref = '/api/admin/download-logs'
+  const canAccessAdmin = isAdminRole(session?.user?.role)
 
   return (
     <nav className="glass-nav sticky top-0 z-50">
@@ -63,15 +64,15 @@ export default function Navbar() {
                   {t('profile')}
                 </Link>
                 <LanguageSwitcher />
-                <a
-                  href={downloadLogsHref}
-                  download
-                  className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
-                  title={t('downloadLogs')}
-                >
-                  <AppIcon name="download" className="w-4 h-4" />
-                  {t('downloadLogs')}
-                </a>
+                {canAccessAdmin && (
+                  <Link
+                    href={{ pathname: '/admin' }}
+                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                  >
+                    <AppIcon name="settingsHexAlt" className="w-4 h-4" />
+                    {t('adminConsole')}
+                  </Link>
+                )}
               </>
 
             ) : (
