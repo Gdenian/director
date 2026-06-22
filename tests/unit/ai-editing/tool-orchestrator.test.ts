@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { runEditorToolOrchestrator } from '@/lib/novel-promotion/ai-editing/tool-orchestrator'
+import { describe, expect, it, vi } from 'vitest'
+import { runEditorToolOrchestrator, type EditorToolComplete } from '@/lib/novel-promotion/ai-editing/tool-orchestrator'
 import type { VideoEditorProject } from '@/features/video-editor/types/editor.types'
 import type { AiEditableMediaLibrary } from '@/lib/novel-promotion/ai-editing/tool-types'
 
@@ -69,6 +69,34 @@ describe('runEditorToolOrchestrator', () => {
     expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2', 'clip_asset-1'])
     expect(result.operations).toHaveLength(1)
     expect(result.operations[0]?.tool).toBe('insert_clips')
+  })
+
+  it('passes refine intent fields into the user prompt JSON', async () => {
+    const complete = vi.fn<EditorToolComplete>(async () => JSON.stringify({
+      summary: '查看时间线',
+      toolCalls: [
+        { tool: 'get_timeline', input: {} },
+        { tool: 'get_media', input: {} },
+      ],
+    }))
+
+    await runEditorToolOrchestrator({
+      project: baseProject(),
+      media: mediaLibrary(),
+      instruction: '压缩到 12 秒并聚焦当前片段',
+      intent: { targetDurationSeconds: 12, selectedClipId: 'clip-2' },
+      userId: 'user-1',
+      model: 'test-model',
+      complete,
+    })
+
+    const messages = complete.mock.calls[0]?.[0].messages
+    const userMessage = messages?.find((message) => message.role === 'user')
+    expect(JSON.parse(userMessage?.content ?? '{}')).toEqual(expect.objectContaining({
+      instruction: '压缩到 12 秒并聚焦当前片段',
+      targetDurationSeconds: 12,
+      selectedClipId: 'clip-2',
+    }))
   })
 
   it('truncates plans after 20 tool calls and adds a warning', async () => {

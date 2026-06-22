@@ -17,6 +17,17 @@ export type RefineResult = {
   warnings: string[]
 }
 
+type RefineIntent = {
+  targetDurationSeconds?: number
+  selectedClipId?: string
+}
+
+type RefineBaseProject = {
+  project: VideoEditorProject
+  baseSource: 'active' | 'pending'
+  baseVersionId?: string
+}
+
 export async function refineAiEdit(input: {
   taskId: string
   projectId: string
@@ -41,15 +52,16 @@ export async function refineAiEdit(input: {
   }
 
   const activeProject = migrateProjectData(JSON.parse(editorProject.projectData))
-  const baseProject = await resolveBaseProject(editorProject.id, activeProject)
+  const base = await resolveBaseProject(editorProject.id, activeProject)
+  const refineIntent = buildRefineIntent(input.payload)
   const manifest = await buildEditorManifest({
     projectId: input.projectId,
     episodeId: input.episodeId,
-    fps: baseProject.config.fps,
+    fps: base.project.config.fps,
   })
   const importedAssets = await listImportedEditorAssets(editorProject.id)
   const media = await buildAiEditableMediaLibrary({
-    fps: baseProject.config.fps,
+    fps: base.project.config.fps,
     manifest,
     importedAssets,
   })
@@ -60,9 +72,10 @@ export async function refineAiEdit(input: {
   }
 
   const orchestrated = await runEditorToolOrchestrator({
-    project: baseProject,
+    project: base.project,
     media,
     instruction: input.instruction,
+    intent: refineIntent,
     userId: input.userId,
     model: analysisModel,
   })
@@ -82,7 +95,7 @@ export async function refineAiEdit(input: {
     reason: 'ai_refine',
     summary,
     snapshot: orchestrated.project,
-    diff: buildRefineDiff(input.instruction, orchestrated.operations, orchestrated.warnings, input.payload),
+    diff: buildRefineDiff(input.instruction, orchestrated.operations, orchestrated.warnings, refineIntent, base),
     createdByTaskId: input.taskId,
   })
 
@@ -109,30 +122,44 @@ export async function refineAiEdit(input: {
   }
 }
 
-async function resolveBaseProject(editorProjectId: string, activeProject: VideoEditorProject): Promise<VideoEditorProject> {
+async function resolveBaseProject(editorProjectId: string, activeProject: VideoEditorProject): Promise<RefineBaseProject> {
   const pendingVersionId = activeProject.pendingVersion?.versionId
-  if (!pendingVersionId) return activeProject
+  if (!pendingVersionId) return { project: activeProject, baseSource: 'active' }
 
   const pendingVersion = await prisma.videoEditorProjectVersion.findUnique({
     where: { id: pendingVersionId },
   })
   if (!pendingVersion || pendingVersion.editorProjectId !== editorProjectId) {
-    return activeProject
+    return { project: activeProject, baseSource: 'active' }
   }
 
-  return migrateProjectData(JSON.parse(pendingVersion.snapshotJson))
+  return {
+    project: migrateProjectData(JSON.parse(pendingVersion.snapshotJson)),
+    baseSource: 'pending',
+    baseVersionId: pendingVersion.id,
+  }
 }
 
 function buildRefineDiff(
   instruction: string,
   operations: unknown[],
   warnings: string[],
-  payload: Record<string, unknown>,
+  intent: RefineIntent,
+  base: RefineBaseProject,
 ) {
   return {
     instruction,
     operations,
     warnings,
+    baseSource: base.baseSource,
+    ...(base.baseVersionId ? { baseVersionId: base.baseVersionId } : {}),
+    ...(typeof intent.targetDurationSeconds === 'number' ? { targetDurationSeconds: intent.targetDurationSeconds } : {}),
+    ...(typeof intent.selectedClipId === 'string' ? { selectedClipId: intent.selectedClipId } : {}),
+  }
+}
+
+function buildRefineIntent(payload: Record<string, unknown>): RefineIntent {
+  return {
     ...(typeof payload.targetDurationSeconds === 'number' ? { targetDurationSeconds: payload.targetDurationSeconds } : {}),
     ...(typeof payload.selectedClipId === 'string' ? { selectedClipId: payload.selectedClipId } : {}),
   }

@@ -32,6 +32,10 @@ export type RunEditorToolOrchestratorInput = {
   project: VideoEditorProject
   media: AiEditableMediaLibrary
   instruction: string
+  intent?: {
+    targetDurationSeconds?: number
+    selectedClipId?: string
+  }
   userId: string
   model: string
   options?: ChatCompletionOptions
@@ -96,6 +100,8 @@ function buildEditorToolPrompt(input: RunEditorToolOrchestratorInput): ChatMessa
     role: 'user',
     content: JSON.stringify({
       instruction: input.instruction,
+      ...(typeof input.intent?.targetDurationSeconds === 'number' ? { targetDurationSeconds: input.intent.targetDurationSeconds } : {}),
+      ...(typeof input.intent?.selectedClipId === 'string' ? { selectedClipId: input.intent.selectedClipId } : {}),
       timeline: input.project.timeline,
       audioTrack: input.project.audioTrack,
       subtitleCues: input.project.subtitleCues,

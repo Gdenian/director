@@ -134,6 +134,7 @@ describe('refineAiEdit tool flow', () => {
       project: expect.objectContaining({ timeline: [expect.objectContaining({ id: 'clip-active' })] }),
       media: { fps: 30, entries: [{ id: 'user_import_video:asset-1' }] },
       instruction: '节奏更快',
+      intent: { targetDurationSeconds: 12, selectedClipId: 'clip-active' },
       userId: 'user-1',
       model: 'llm::analysis-model',
     }))
@@ -146,6 +147,7 @@ describe('refineAiEdit tool flow', () => {
         instruction: '节奏更快',
         operations: [{ tool: 'remove_clips', input: { clipIds: ['clip-active'] } }],
         warnings: ['tool warning'],
+        baseSource: 'active',
         targetDurationSeconds: 12,
         selectedClipId: 'clip-active',
       },
@@ -222,6 +224,64 @@ describe('refineAiEdit tool flow', () => {
     expect(orchestratorMock.runEditorToolOrchestrator).toHaveBeenCalledWith(expect.objectContaining({
       project: expect.objectContaining({ timeline: [expect.objectContaining({ id: 'clip-pending' })] }),
     }))
+    expect(versionsMock.createEditorVersion).toHaveBeenCalledWith(expect.objectContaining({
+      diff: expect.objectContaining({
+        baseSource: 'pending',
+        baseVersionId: 'version-existing',
+      }),
+    }))
+  })
+
+  it('falls back to the active project and records active base when pending version belongs to another editor project', async () => {
+    const activeProject = buildProject({
+      pendingVersion: { versionId: 'version-foreign', summary: '上一版', reason: 'ai_refine', createdAt: '2026-06-20T00:00:00.000Z' },
+    })
+    editorAuthMock.findScopedEditorProject.mockResolvedValue({
+      id: 'editor-1',
+      episodeId: 'episode-1',
+      projectData: JSON.stringify(activeProject),
+    })
+    prismaMock.videoEditorProjectVersion.findUnique.mockResolvedValue({
+      id: 'version-foreign',
+      editorProjectId: 'editor-2',
+      snapshotJson: JSON.stringify(buildProject({
+        timeline: [{
+          id: 'clip-foreign',
+          kind: 'source',
+          src: '/m/foreign.mp4',
+          durationInFrames: 80,
+          metadata: { storyboardId: 'storyboard-foreign', sourcePanelId: 'panel-foreign', source: 'panel', storyOrder: 0 },
+        }],
+      })),
+    })
+    orchestratorMock.runEditorToolOrchestrator.mockResolvedValue({
+      project: buildProject(),
+      operations: [{ tool: 'set_clip_properties', input: { clipId: 'clip-active' } }],
+      warnings: [],
+      changed: true,
+      summary: '回退后调整',
+    })
+
+    const { refineAiEdit } = await import('@/lib/novel-promotion/ai-editing/refine')
+    await refineAiEdit({
+      taskId: 'task-1',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userId: 'user-1',
+      locale: 'zh',
+      instruction: '继续调整',
+      payload: {},
+    })
+
+    expect(orchestratorMock.runEditorToolOrchestrator).toHaveBeenCalledWith(expect.objectContaining({
+      project: expect.objectContaining({ timeline: [expect.objectContaining({ id: 'clip-active' })] }),
+    }))
+    expect(versionsMock.createEditorVersion).toHaveBeenCalledWith(expect.objectContaining({
+      diff: expect.objectContaining({
+        baseSource: 'active',
+      }),
+    }))
+    expect(versionsMock.createEditorVersion.mock.calls[0]?.[0].diff).not.toHaveProperty('baseVersionId')
   })
 
   it('returns no-change without creating a version or updating the project', async () => {
@@ -252,5 +312,24 @@ describe('refineAiEdit tool flow', () => {
       summary: '未修改时间线',
       warnings: ['read-only plan', 'AI did not produce a timeline-changing edit.'],
     })
+  })
+
+  it('throws when analysis model is missing without creating a version or updating the project', async () => {
+    configMock.getUserModelConfig.mockResolvedValue({ analysisModel: '   ' })
+
+    const { refineAiEdit } = await import('@/lib/novel-promotion/ai-editing/refine')
+    await expect(refineAiEdit({
+      taskId: 'task-1',
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userId: 'user-1',
+      locale: 'zh',
+      instruction: '看一下',
+      payload: {},
+    })).rejects.toThrow('AI_EDIT_REFINE_ANALYSIS_MODEL_NOT_CONFIGURED')
+
+    expect(orchestratorMock.runEditorToolOrchestrator).not.toHaveBeenCalled()
+    expect(versionsMock.createEditorVersion).not.toHaveBeenCalled()
+    expect(prismaMock.videoEditorProject.update).not.toHaveBeenCalled()
   })
 })
