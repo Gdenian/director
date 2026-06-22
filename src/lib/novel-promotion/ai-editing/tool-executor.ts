@@ -643,18 +643,19 @@ export class EditorToolExecutor {
     })
   }
 
-  private clipAnchorMap(): Map<string, { startFrame: number; endFrame: number }> {
-    const anchors = new Map<string, { startFrame: number; endFrame: number }>()
+  private clipAnchorMap(): ClipAnchorMap {
+    const anchors: ClipAnchorMap = new Map()
     computeClipPositions(this.project.timeline).forEach((clip) => {
-      anchors.set(`clip:${clip.id}`, { startFrame: clip.startFrame, endFrame: clip.endFrame })
+      const anchor = { clipId: clip.id, startFrame: clip.startFrame, endFrame: clip.endFrame }
+      appendClipAnchor(anchors, `clip:${clip.id}`, anchor)
       if (clip.metadata.sourcePanelId) {
-        anchors.set(`panel:${clip.metadata.sourcePanelId}`, { startFrame: clip.startFrame, endFrame: clip.endFrame })
+        appendClipAnchor(anchors, `panel:${clip.metadata.sourcePanelId}`, anchor)
       }
     })
     return anchors
   }
 
-  private reanchorAttachments(beforeAnchors: Map<string, { startFrame: number; endFrame: number }>, afterAnchors: Map<string, { startFrame: number; endFrame: number }>): void {
+  private reanchorAttachments(beforeAnchors: ClipAnchorMap, afterAnchors: ClipAnchorMap): void {
     this.project.audioTrack = this.project.audioTrack.map((audio) => {
       const anchor = findAttachmentAnchor(audio, beforeAnchors, afterAnchors)
       if (!anchor) return audio
@@ -753,23 +754,63 @@ function isSubtitleCueLinkedToClip(cue: SubtitleCue, clip: VideoClip): boolean {
     || Boolean(clip.metadata.voiceLineId && cue.sourceVoiceLineId === clip.metadata.voiceLineId)
 }
 
-function findAttachmentAnchor(
-  attachment: { clipId?: string; sourcePanelId?: string },
-  beforeAnchors: Map<string, { startFrame: number; endFrame: number }>,
-  afterAnchors: Map<string, { startFrame: number; endFrame: number }>,
-): { before: { startFrame: number; endFrame: number }; after: { startFrame: number; endFrame: number } } | null {
-  const keys = [
-    attachment.clipId ? `clip:${attachment.clipId}` : null,
-    attachment.sourcePanelId ? `panel:${attachment.sourcePanelId}` : null,
-  ].filter((key): key is string => Boolean(key))
+type ClipAnchor = { clipId: string; startFrame: number; endFrame: number }
+type ClipAnchorMap = Map<string, ClipAnchor[]>
 
-  for (const key of keys) {
-    const before = beforeAnchors.get(key)
-    const after = afterAnchors.get(key)
+function appendClipAnchor(anchors: ClipAnchorMap, key: string, anchor: ClipAnchor): void {
+  const existing = anchors.get(key)
+  if (existing) {
+    existing.push(anchor)
+    return
+  }
+
+  anchors.set(key, [anchor])
+}
+
+function findAttachmentAnchor(
+  attachment: { clipId?: string; sourcePanelId?: string; startFrame?: number },
+  beforeAnchors: ClipAnchorMap,
+  afterAnchors: ClipAnchorMap,
+): { before: ClipAnchor; after: ClipAnchor } | null {
+  if (attachment.clipId) {
+    const before = beforeAnchors.get(`clip:${attachment.clipId}`)?.[0]
+    const after = afterAnchors.get(`clip:${attachment.clipId}`)?.[0]
     if (before && after) return { before, after }
   }
 
+  if (attachment.sourcePanelId) {
+    const key = `panel:${attachment.sourcePanelId}`
+    const beforeCandidates = beforeAnchors.get(key) ?? []
+    const afterCandidates = afterAnchors.get(key) ?? []
+    const afterByClipId = new Map(afterCandidates.map((anchor) => [anchor.clipId, anchor]))
+    const startFrame = attachmentStartFrame(attachment)
+    const before = beforeCandidates.find((candidate) => (
+      candidate.startFrame <= startFrame
+      && startFrame < candidate.endFrame
+    )) ?? nearestAnchor(startFrame, beforeCandidates)
+    if (!before) return null
+
+    const after = afterByClipId.get(before.clipId) ?? nearestAnchor(startFrame, afterCandidates)
+    if (after) return { before, after }
+  }
+
   return null
+}
+
+function attachmentStartFrame(attachment: { startFrame?: number }): number {
+  return typeof attachment.startFrame === 'number' ? attachment.startFrame : 0
+}
+
+function distanceToAnchor(frame: number, anchor: ClipAnchor): number {
+  if (frame < anchor.startFrame) return anchor.startFrame - frame
+  if (frame >= anchor.endFrame) return frame - anchor.endFrame
+  return 0
+}
+
+function nearestAnchor(frame: number, anchors: ClipAnchor[]): ClipAnchor | undefined {
+  return anchors.toSorted((left, right) => (
+    distanceToAnchor(frame, left) - distanceToAnchor(frame, right)
+  ))[0]
 }
 
 function overlapLength(startFrame: number, endFrame: number, rangeStart: number, rangeEnd: number): number {

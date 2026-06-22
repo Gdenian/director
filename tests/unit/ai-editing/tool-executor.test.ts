@@ -766,6 +766,34 @@ describe('EditorToolExecutor', () => {
     expect(result.project.subtitleCues.map((cue) => cue.id)).toEqual(['subtitle-shared-panel'])
   })
 
+  it('reanchors shared metadata-only attachments from duplicate source panels without negative drift', () => {
+    const project = baseProject()
+    project.timeline[1].metadata.sourcePanelId = 'panel-1'
+    project.audioTrack = [
+      { id: 'audio-explicit-clip', src: '/m/audio-clip', startFrame: 0, durationInFrames: 20, sourcePanelId: 'panel-1', clipId: 'clip-1', volume: 1 },
+      { id: 'audio-shared-panel', src: '/m/audio-panel', startFrame: 0, durationInFrames: 20, sourcePanelId: 'panel-1', volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-shared-panel', text: 'shared', startFrame: 0, endFrame: 20, sourcePanelId: 'panel-1', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.removeClips({ clipIds: ['clip-1'], removeLinkedAudioAndSubtitles: true })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-2'])
+    expect(result.project.audioTrack).toEqual([
+      expect.objectContaining({ id: 'audio-shared-panel', startFrame: 0, durationInFrames: 20, sourcePanelId: 'panel-1' }),
+    ])
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-shared-panel', startFrame: 0, endFrame: 20, sourcePanelId: 'panel-1' }),
+    ])
+  })
+
   it('splits a clip at the requested frame and adjusts source trim', () => {
     const project = baseProject()
     project.timeline[0].sourceTrim = { fromFrame: 10, toFrame: 100 }
