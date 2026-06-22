@@ -71,4 +71,31 @@ describe('AI editing media library', () => {
       eligibleForTimeline: false,
     })
   })
+
+  it('marks voice audio without a URL as failed and stores a null URL', async () => {
+    const library = await buildAiEditableMediaLibrary({
+      fps: 30,
+      manifest: {
+        episodeId: 'episode-1',
+        fps: 30,
+        dimensions: { width: 1920, height: 1080 },
+        clips: [],
+        voiceLines: [{
+          id: 'voice-missing',
+          sourcePanelId: 'panel-1',
+          durationInFrames: 72,
+          text: 'missing voice',
+        }],
+        editorAssets: [],
+      },
+      importedAssets: [],
+    })
+
+    expect(library.entries[0]).toMatchObject({
+      id: 'voice_audio:voice-missing',
+      status: 'failed',
+      eligibleForTimeline: false,
+      url: null,
+    })
+  })
 })

@@ -59,7 +59,7 @@ export async function buildAiEditableMediaLibrary(input: {
       kind: 'audio',
       status: hasAudio ? COMPLETED_STATUS : 'failed',
       eligibleForTimeline: hasAudio,
-      url: line.audioUrl,
+      url: line.audioUrl || null,
       durationInFrames: line.durationInFrames,
       sourcePanelId: line.sourcePanelId,
       voiceLineId: line.id,
