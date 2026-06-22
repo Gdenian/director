@@ -54,6 +54,32 @@ export type EditorToolDraftResult = {
   changed: boolean
 }
 
+export type EditorToolName =
+  | 'get_timeline'
+  | 'get_media'
+  | 'inspect_media'
+  | 'add_clips'
+  | 'insert_clips'
+  | 'replace_clip'
+  | 'set_clip_properties'
+  | 'move_clips'
+  | 'split_clip'
+  | 'remove_clips'
+  | 'ripple_delete_ranges'
+  | 'get_transcript'
+  | 'add_captions'
+  | 'undo'
+
+export type EditorToolPlanCall = {
+  tool: EditorToolName
+  input: Record<string, unknown>
+}
+
+export type EditorToolPlan = {
+  summary: string
+  toolCalls: EditorToolPlanCall[]
+}
+
 export type EditorTimelineToolResult = {
   config: EditorConfig
   clips: ComputedClip[]
