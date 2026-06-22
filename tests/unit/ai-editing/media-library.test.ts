@@ -98,4 +98,65 @@ describe('AI editing media library', () => {
       url: null,
     })
   })
+
+  it('ignores unsafe imported metadata values', async () => {
+    const library = await buildAiEditableMediaLibrary({
+      fps: 30,
+      manifest: {
+        episodeId: 'episode-1',
+        fps: 30,
+        dimensions: { width: 1920, height: 1080 },
+        clips: [],
+        voiceLines: [],
+        editorAssets: [],
+      },
+      importedAssets: [{
+        id: 'asset-zero-duration',
+        kind: 'user_import_video',
+        status: 'completed',
+        url: '/m/zero',
+        mediaObjectId: 'media-zero',
+        metadata: JSON.stringify({ durationMs: 0, label: '   ' }),
+      }, {
+        id: 'asset-array-metadata',
+        kind: 'user_import_video',
+        status: 'completed',
+        url: '/m/array',
+        mediaObjectId: 'media-array',
+        metadata: JSON.stringify([{ durationMs: 2400, label: 'array label' }]),
+      }, {
+        id: 'asset-invalid-json',
+        kind: 'user_import_video',
+        status: 'completed',
+        url: '/m/invalid',
+        mediaObjectId: 'media-invalid',
+        metadata: '{bad json',
+      }, {
+        id: 'asset-unknown-kind',
+        kind: 'unsupported_kind',
+        status: 'completed',
+        url: '/m/unknown',
+        mediaObjectId: 'media-unknown',
+        metadata: JSON.stringify({ durationMs: 2400 }),
+      }],
+    })
+
+    expect(library.entries.map((entry) => entry.id)).toEqual([
+      'user_import_video:asset-zero-duration',
+      'user_import_video:asset-array-metadata',
+      'user_import_video:asset-invalid-json',
+    ])
+    expect(library.entries[0]).toMatchObject({
+      durationInFrames: undefined,
+      label: '导入素材',
+    })
+    expect(library.entries[1]).toMatchObject({
+      durationInFrames: undefined,
+      label: '导入素材',
+    })
+    expect(library.entries[2]).toMatchObject({
+      durationInFrames: undefined,
+      label: '导入素材',
+    })
+  })
 })

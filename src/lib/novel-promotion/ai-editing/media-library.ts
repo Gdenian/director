@@ -152,7 +152,7 @@ function parseMetadata(metadata: string | null): ImportedAssetMetadata {
 
   try {
     const parsed = JSON.parse(metadata)
-    return parsed && typeof parsed === 'object' ? parsed : {}
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
     return {}
   }
@@ -160,9 +160,9 @@ function parseMetadata(metadata: string | null): ImportedAssetMetadata {
 
 function durationMsToFrames(durationMs: unknown, fps: number): number | undefined {
   const value = numericValue(durationMs)
-  if (value == null) return undefined
+  if (value == null || value <= 0) return undefined
 
-  return Math.round((value / 1000) * fps)
+  return Math.max(1, Math.round((value / 1000) * fps))
 }
 
 function numberOrNull(value: unknown): number | null {
