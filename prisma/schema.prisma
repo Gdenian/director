@@ -465,6 +465,8 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  role          String          @default("user")
+  status        String          @default("active")
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @default(now()) @updatedAt
   accounts      Account[]
@@ -485,7 +487,31 @@ model User {
   graphRuns          GraphRun[]
   graphEvents        GraphEvent[]
 
+  @@index([role])
+  @@index([status])
   @@map("user")
+}
+
+model AdminAuditLog {
+  id              String   @id @default(uuid())
+  actorUserId     String
+  actorRole       String
+  action          String
+  targetType      String
+  targetId        String?
+  beforeJson      Json?
+  afterJson       Json?
+  reason          String?  @db.Text
+  ip              String?  @db.VarChar(128)
+  userAgent       String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([actorRole])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 model UserPreference {

@@ -30,6 +30,28 @@ describe('api route contract guard', () => {
     expect(inspectRouteContract('src/app/api/user/secure/route.ts', content)).toEqual([])
   })
 
+  it('passes admin routes that use apiHandler and admin auth', () => {
+    const adminContent = `
+      import { requireAdminAuth } from '@/lib/api-auth'
+      import { apiHandler } from '@/lib/api-errors'
+      export const GET = apiHandler(async () => {
+        await requireAdminAuth()
+        return Response.json({ ok: true })
+      })
+    `
+    const ownerContent = `
+      import { requireOwnerAuth } from '@/lib/api-auth'
+      import { apiHandler } from '@/lib/api-errors'
+      export const POST = apiHandler(async () => {
+        await requireOwnerAuth()
+        return Response.json({ ok: true })
+      })
+    `
+
+    expect(inspectRouteContract('src/app/api/admin/overview/route.ts', adminContent)).toEqual([])
+    expect(inspectRouteContract('src/app/api/admin/users/[userId]/route.ts', ownerContent)).toEqual([])
+  })
+
   it('flags protected routes that skip apiHandler or auth', () => {
     const missingApiHandler = `
       import { requireUserAuth } from '@/lib/api-auth'
@@ -47,7 +69,7 @@ describe('api route contract guard', () => {
       'src/app/api/user/secure/route.ts missing apiHandler wrapper',
     ])
     expect(inspectRouteContract('src/app/api/user/secure/route.ts', missingAuth)).toEqual([
-      'src/app/api/user/secure/route.ts missing requireUserAuth/requireProjectAuth/requireProjectAuthLight',
+      'src/app/api/user/secure/route.ts missing requireUserAuth/requireProjectAuth/requireProjectAuthLight/requireAdminAuth/requireOwnerAuth',
     ])
   })
 })

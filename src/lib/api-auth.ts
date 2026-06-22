@@ -7,6 +7,17 @@ import { getServerSession } from 'next-auth/next'
 import { NextResponse } from 'next/server'
 import { headers as readHeaders } from 'next/headers'
 import { authOptions } from '@/lib/auth'
+import {
+    ADMIN_ROLES,
+    USER_STATUSES,
+    isAdminRole,
+    isActiveUserStatus,
+    isOwnerRole,
+    normalizeUserRole,
+    normalizeUserStatus,
+    type AdminRole,
+    type UserStatus,
+} from '@/lib/admin/roles'
 import { prisma } from '@/lib/prisma'
 import { withPrismaRetry } from '@/lib/prisma-retry'
 import { extractModelKey } from '@/lib/config-service'
@@ -22,6 +33,9 @@ export interface AuthSession {
         id: string
         name?: string | null
         email?: string | null
+        role?: AdminRole
+        status?: UserStatus
+        internal?: boolean
     }
 }
 
@@ -52,6 +66,7 @@ async function getInternalTaskSession(): Promise<AuthSession | null> {
             id: userId,
             name: 'internal-worker',
             email: null,
+            internal: true,
         }
     }
 }
@@ -190,6 +205,47 @@ export async function requireAuth(): Promise<AuthSession> {
     return session
 }
 
+async function resolveLiveUserAccess(session: AuthSession) {
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { id: true, name: true, email: true, role: true, status: true },
+    })
+    if (!user) return null
+    return {
+        ...user,
+        role: normalizeUserRole(user.role),
+        status: normalizeUserStatus(user.status),
+    }
+}
+
+async function requireActiveAuthSession(projectId?: string): Promise<AuthSession | NextResponse> {
+    const session = await getAuthSession()
+    if (!session?.user?.id) {
+        return unauthorized()
+    }
+    if (session.user.internal) {
+        bindAuthLogContext(session, projectId)
+        return session
+    }
+
+    const liveUser = await resolveLiveUserAccess(session)
+    if (!liveUser || !isActiveUserStatus(liveUser.status)) {
+        return forbidden()
+    }
+
+    const activeSession: AuthSession = {
+        user: {
+            id: liveUser.id,
+            name: liveUser.name,
+            email: liveUser.email,
+            role: liveUser.role,
+            status: liveUser.status,
+        },
+    }
+    bindAuthLogContext(activeSession, projectId)
+    return activeSession
+}
+
 /**
  * 验证项目访问权限
  * 包含：Session 验证 + 项目存在检查 + 所有权验证 + NovelPromotionData 检查
@@ -216,11 +272,8 @@ export async function requireProjectAuth<T extends ProjectAuthIncludes = Project
     options?: { include?: T }
 ): Promise<ProjectAuthContextWithIncludes<T> | NextResponse> {
     // 1. 验证 Session
-    const session = await getAuthSession()
-    if (!session?.user?.id) {
-        return unauthorized()
-    }
-    bindAuthLogContext(session, projectId)
+    const session = await requireActiveAuthSession(projectId)
+    if (session instanceof NextResponse) return session
 
     // 2. 构建动态 include 对象
     const novelPromotionIncludes: Record<string, boolean> = {}
@@ -304,12 +357,44 @@ export async function requireProjectAuth<T extends ProjectAuthIncludes = Project
  * ```
  */
 export async function requireUserAuth(): Promise<{ session: AuthSession } | NextResponse> {
-    const session = await getAuthSession()
-    if (!session?.user?.id) {
-        return unauthorized()
-    }
-    bindAuthLogContext(session)
+    const session = await requireActiveAuthSession()
+    if (session instanceof NextResponse) return session
     return { session }
+}
+
+export interface AdminSession extends AuthSession {
+    user: AuthSession['user'] & {
+        role: typeof ADMIN_ROLES.ADMIN | typeof ADMIN_ROLES.OWNER
+        status: typeof USER_STATUSES.ACTIVE
+    }
+}
+
+export async function requireAdminAuth(): Promise<{ session: AdminSession } | NextResponse> {
+    const session = await getAuthSession()
+    if (!session?.user?.id) return unauthorized()
+
+    const liveUser = await resolveLiveUserAccess(session)
+    if (!liveUser || !isActiveUserStatus(liveUser.status)) return forbidden()
+    if (!isAdminRole(liveUser.role)) return forbidden()
+
+    const adminSession: AdminSession = {
+        user: {
+            id: liveUser.id,
+            name: liveUser.name,
+            email: liveUser.email,
+            role: liveUser.role,
+            status: USER_STATUSES.ACTIVE,
+        },
+    }
+    bindAuthLogContext(adminSession)
+    return { session: adminSession }
+}
+
+export async function requireOwnerAuth(): Promise<{ session: AdminSession } | NextResponse> {
+    const authResult = await requireAdminAuth()
+    if (authResult instanceof NextResponse) return authResult
+    if (!isOwnerRole(authResult.session.user.role)) return forbidden()
+    return authResult
 }
 
 /**
@@ -319,11 +404,8 @@ export async function requireUserAuth(): Promise<{ session: AuthSession } | Next
 export async function requireProjectAuthLight(
     projectId: string
 ): Promise<{ session: AuthSession; project: { id: string; userId: string; name: string; [key: string]: unknown } } | NextResponse> {
-    const session = await getAuthSession()
-    if (!session?.user?.id) {
-        return unauthorized()
-    }
-    bindAuthLogContext(session, projectId)
+    const session = await requireActiveAuthSession(projectId)
+    if (session instanceof NextResponse) return session
 
     const project = await withPrismaRetry(() =>
         prisma.project.findUnique({

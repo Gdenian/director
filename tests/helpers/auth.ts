@@ -5,6 +5,8 @@ type SessionUser = {
   id: string
   name?: string | null
   email?: string | null
+  role?: 'user' | 'admin' | 'owner'
+  status?: 'active' | 'disabled'
 }
 
 type SessionPayload = {
@@ -94,6 +96,23 @@ export function installAuthMocks() {
         project: { id: projectId, userId: state.session.user.id, name: 'project' },
       }
     },
+    requireAdminAuth: async () => {
+      if (!state.session) return unauthorizedResponse()
+      if (
+        state.session.user.status !== 'active'
+        || (state.session.user.role !== 'admin' && state.session.user.role !== 'owner')
+      ) {
+        return forbiddenResponse()
+      }
+      return { session: state.session }
+    },
+    requireOwnerAuth: async () => {
+      if (!state.session) return unauthorizedResponse()
+      if (state.session.user.status !== 'active' || state.session.user.role !== 'owner') {
+        return forbiddenResponse()
+      }
+      return { session: state.session }
+    },
   }))
 }
 
@@ -104,6 +123,24 @@ export function mockAuthenticated(userId: string) {
       user: {
         ...defaultSession.user,
         id: userId,
+      },
+    },
+  }
+}
+
+export function mockAuthenticatedRole(
+  userId: string,
+  role: 'user' | 'admin' | 'owner',
+  status: 'active' | 'disabled' = 'active',
+) {
+  state = {
+    ...state,
+    session: {
+      user: {
+        ...defaultSession.user,
+        id: userId,
+        role,
+        status,
       },
     },
   }

@@ -8,6 +8,7 @@ export type RouteBehaviorMatrixEntry = {
 }
 
 const CONTRACT_TEST_BY_GROUP: Record<RouteCatalogEntry['contractGroup'], string> = {
+  'admin-routes': 'tests/integration/api/contract/admin-routes.test.ts',
   'llm-observe-routes': 'tests/integration/api/contract/llm-observe-routes.test.ts',
   'direct-submit-routes': 'tests/integration/api/contract/direct-submit-routes.test.ts',
   'crud-assets-routes': 'tests/integration/api/contract/crud-routes.test.ts',

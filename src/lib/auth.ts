@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
+import { normalizeUserRole, normalizeUserStatus, isActiveUserStatus } from '@/lib/admin/roles'
 import { logAuthAction } from './logging/semantic'
 import { prisma } from './prisma'
 
@@ -44,11 +45,20 @@ export const authOptions: any = {
           return null
         }
 
+        const status = normalizeUserStatus(user.status)
+        if (!isActiveUserStatus(status)) {
+          logAuthAction('LOGIN', user.name, { userId: user.id, error: 'User disabled' })
+          return null
+        }
+        const role = normalizeUserRole(user.role)
+
         logAuthAction('LOGIN', user.name, { userId: user.id, success: true })
 
         return {
           id: user.id,
           name: user.name,
+          role,
+          status,
         }
       }
     })
@@ -64,6 +74,8 @@ export const authOptions: any = {
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id
+        token.role = normalizeUserRole(user.role)
+        token.status = normalizeUserStatus(user.status)
       }
       return token
     },
@@ -71,6 +83,8 @@ export const authOptions: any = {
     async session({ session, token }: any) {
       if (token && session.user) {
         session.user.id = token.id as string
+        session.user.role = normalizeUserRole(token.role)
+        session.user.status = normalizeUserStatus(token.status)
       }
       return session
     }
