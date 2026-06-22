@@ -497,4 +497,214 @@ describe('EditorToolExecutor', () => {
     expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2'])
     expect(result.changed).toBe(false)
   })
+
+  it('replaces a clip with completed media and clamps linked attachments', () => {
+    const project = baseProject()
+    project.timeline[1].transition = { type: 'fade', durationInFrames: 12 }
+    project.audioTrack[0] = { ...project.audioTrack[0], durationInFrames: 90, sourceVoiceLineId: 'voice-2' }
+    project.subtitleCues[0] = { ...project.subtitleCues[0], endFrame: 180, sourceVoiceLineId: 'voice-2' }
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia({ assetId: 'replacement', durationInFrames: 45, sourcePanelId: 'panel-2', voiceLineId: 'voice-2' }),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.replaceClip({ clipId: 'clip-2', mediaId: 'user_import_video:asset-1' })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip_replacement'])
+    expect(result.project.timeline[1]).toMatchObject({
+      src: '/m/import',
+      durationInFrames: 45,
+      transition: { type: 'fade', durationInFrames: 12 },
+      metadata: { editorAssetId: 'replacement', source: 'imported', mediaSourceType: 'user_import_video' },
+    })
+    expect(result.project.audioTrack[0]).toMatchObject({ clipId: 'clip_replacement', startFrame: 90, durationInFrames: 45 })
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 90, endFrame: 135 })
+    expect(result.operations[0]).toMatchObject({ tool: 'replace_clip', targetIds: ['clip_replacement'] })
+  })
+
+  it('sets clip duration, source trim, and validates transition frame bounds', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.setClipProperties({
+      clipId: 'clip-2',
+      durationInFrames: 45,
+      sourceTrim: { fromFrame: 5, toFrame: 50 },
+      transition: { type: 'dissolve', durationInFrames: 30 },
+    })
+
+    expect(result.project.timeline[1]).toMatchObject({
+      durationInFrames: 45,
+      sourceTrim: { fromFrame: 5, toFrame: 50 },
+      transition: { type: 'dissolve', durationInFrames: 30 },
+    })
+    expect(result.project.audioTrack[0]).toMatchObject({ startFrame: 90, durationInFrames: 45 })
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 90, endFrame: 135 })
+    expect(result.operations[0]).toMatchObject({ tool: 'set_clip_properties', targetIds: ['clip-2'] })
+
+    expect(() => executor.setClipProperties({ clipId: 'clip-2', transition: { type: 'fade', durationInFrames: 31 } })).toThrow('EDITOR_TOOL_INVALID_TRANSITION')
+    expect(() => executor.setClipProperties({ clipId: 'clip-2', sourceTrim: { fromFrame: 10, toFrame: 10 } })).toThrow('EDITOR_TOOL_INVALID_SOURCE_TRIM')
+  })
+
+  it('moves clips and recalculates anchored attachments', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.moveClips({ clipIds: ['clip-2'], toIndex: 0 })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-2', 'clip-1'])
+    expect(result.project.audioTrack[0]).toMatchObject({ clipId: 'clip-2', sourcePanelId: 'panel-2', startFrame: 0, durationInFrames: 90 })
+    expect(result.project.subtitleCues[0]).toMatchObject({ sourcePanelId: 'panel-2', startFrame: 0, endFrame: 90 })
+    expect(result.operations[0]).toMatchObject({ tool: 'move_clips', targetIds: ['clip-2'] })
+  })
+
+  it('splits a clip at the requested frame and adjusts source trim', () => {
+    const project = baseProject()
+    project.timeline[0].sourceTrim = { fromFrame: 10, toFrame: 100 }
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.splitClip({ clipId: 'clip-1', atFrame: 30 })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-1_split_30', 'clip-2'])
+    expect(result.project.timeline.map((clip) => clip.durationInFrames)).toEqual([30, 60, 90])
+    expect(result.project.timeline[0].sourceTrim).toEqual({ fromFrame: 10, toFrame: 40 })
+    expect(result.project.timeline[1].sourceTrim).toEqual({ fromFrame: 40, toFrame: 100 })
+    expect(result.operations[0]).toMatchObject({ tool: 'split_clip', targetIds: ['clip-1', 'clip-1_split_30'] })
+  })
+
+  it('ripple deletes ranges by removing, trimming, and shifting timeline attachments', () => {
+    const project = baseProject()
+    project.timeline = [
+      project.timeline[0],
+      { ...project.timeline[1], durationInFrames: 30 },
+      {
+        id: 'clip-3',
+        kind: 'source',
+        src: '/m/c',
+        durationInFrames: 60,
+        metadata: { storyboardId: 'storyboard-3', sourcePanelId: 'panel-3', storyOrder: 2, source: 'panel' },
+      },
+    ]
+    project.audioTrack = [
+      { id: 'audio-inside', src: '/m/inside', startFrame: 20, durationInFrames: 10, volume: 1 },
+      { id: 'audio-overlap', src: '/m/overlap', startFrame: 80, durationInFrames: 30, sourcePanelId: 'panel-1', clipId: 'clip-1', volume: 1 },
+      { id: 'audio-later', src: '/m/later', startFrame: 120, durationInFrames: 30, sourcePanelId: 'panel-3', clipId: 'clip-3', volume: 1 },
+    ]
+    project.subtitleCues = [
+      { id: 'subtitle-inside', text: 'inside', startFrame: 25, endFrame: 35, style: 'default' },
+      { id: 'subtitle-overlap', text: 'overlap', startFrame: 85, endFrame: 115, style: 'default' },
+      { id: 'subtitle-later', text: 'later', startFrame: 120, endFrame: 150, sourcePanelId: 'panel-3', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.rippleDeleteRanges({ ranges: [{ startFrame: 30, endFrame: 120 }] })
+
+    expect(result.project.timeline.map((clip) => ({ id: clip.id, durationInFrames: clip.durationInFrames }))).toEqual([
+      { id: 'clip-1', durationInFrames: 30 },
+      { id: 'clip-3', durationInFrames: 60 },
+    ])
+    expect(result.project.audioTrack).toEqual([
+      expect.objectContaining({ id: 'audio-inside', startFrame: 20, durationInFrames: 10 }),
+      expect.objectContaining({ id: 'audio-later', startFrame: 30, durationInFrames: 30 }),
+    ])
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-inside', startFrame: 25, endFrame: 30 }),
+      expect.objectContaining({ id: 'subtitle-later', startFrame: 30, endFrame: 60 }),
+    ])
+    expect(result.operations[0]).toMatchObject({ tool: 'ripple_delete_ranges' })
+  })
+
+  it('returns transcript cues ordered by start frame', () => {
+    const project = baseProject()
+    project.subtitleCues = [
+      { id: 'subtitle-2', text: 'second', startFrame: 90, endFrame: 120, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', style: 'default' },
+      { id: 'subtitle-1', text: 'first', startFrame: 0, endFrame: 45, sourcePanelId: 'panel-1', sourceVoiceLineId: 'voice-1', style: 'default' },
+    ]
+    const executor = new EditorToolExecutor({
+      project,
+      media: completedVideoMedia(),
+    })
+
+    expect(executor.getTranscript()).toEqual([
+      { text: 'first', startFrame: 0, endFrame: 45, sourcePanelId: 'panel-1', sourceVoiceLineId: 'voice-1' },
+      { text: 'second', startFrame: 90, endFrame: 120, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2' },
+    ])
+  })
+
+  it('adds captions from voice audio media without duplicating voice line cues', () => {
+    const project = baseProject()
+    project.subtitleCues = [{ ...project.subtitleCues[0], sourceVoiceLineId: 'voice-existing' }]
+    const executor = new EditorToolExecutor({
+      project,
+      media: {
+        fps: 30,
+        entries: [
+          completedVideoMedia({
+            id: 'voice_audio:voice-2',
+            sourceType: 'voice_audio',
+            kind: 'audio',
+            durationInFrames: 42,
+            sourcePanelId: 'panel-2',
+            voiceLineId: 'voice-2',
+            description: 'New line',
+            url: '/m/voice-2',
+          }).entries[0],
+          completedVideoMedia({
+            id: 'voice_audio:voice-existing',
+            sourceType: 'voice_audio',
+            kind: 'audio',
+            durationInFrames: 30,
+            sourcePanelId: 'panel-2',
+            voiceLineId: 'voice-existing',
+            description: 'Existing line',
+            url: '/m/existing',
+          }).entries[0],
+        ],
+      },
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.addCaptions({})
+
+    expect(result.project.subtitleCues).toEqual([
+      expect.objectContaining({ id: 'subtitle-2', sourceVoiceLineId: 'voice-existing' }),
+      expect.objectContaining({ text: 'New line', startFrame: 90, endFrame: 132, sourcePanelId: 'panel-2', sourceVoiceLineId: 'voice-2', style: 'default' }),
+    ])
+    expect(result.operations[0]).toMatchObject({ tool: 'add_captions', targetIds: ['caption_voice-2'] })
+  })
+
+  it('inspects cloned media entries and rejects missing media', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: completedVideoMedia({ description: 'Imported description' }),
+    })
+
+    executor.getMedia()
+    const media = executor.inspectMedia({ mediaId: 'user_import_video:asset-1' })
+
+    media.description = 'mutated clone'
+    expect(executor.inspectMedia({ mediaId: 'user_import_video:asset-1' }).description).toBe('Imported description')
+    expect(() => executor.inspectMedia({ mediaId: 'missing-media' })).toThrow('EDITOR_TOOL_MEDIA_NOT_FOUND')
+  })
 })
