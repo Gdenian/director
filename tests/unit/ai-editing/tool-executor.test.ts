@@ -59,6 +59,21 @@ describe('EditorToolExecutor', () => {
     expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 135, endFrame: 225 })
   })
 
+  it('inserts clips at the explicit end without rippling existing audio and subtitles', () => {
+    const executor = new EditorToolExecutor({
+      project: baseProject(),
+      media: { fps: 30, entries: [{ id: 'user_import_video:asset-1', sourceType: 'user_import_video', kind: 'video', status: 'completed', eligibleForTimeline: true, url: '/m/import', durationInFrames: 45, label: 'imported' }] },
+    })
+
+    executor.getTimeline()
+    executor.getMedia()
+    const result = executor.insertClips({ end: true, mediaIds: ['user_import_video:asset-1'] })
+
+    expect(result.project.timeline.map((clip) => clip.id)).toEqual(['clip-1', 'clip-2', 'clip_asset-1'])
+    expect(result.project.audioTrack[0].startFrame).toBe(90)
+    expect(result.project.subtitleCues[0]).toMatchObject({ startFrame: 90, endFrame: 180 })
+  })
+
   it('undo reverts only the latest draft mutation', () => {
     const executor = new EditorToolExecutor({
       project: baseProject(),

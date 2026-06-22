@@ -138,6 +138,10 @@ export class EditorToolExecutor {
       if (index >= 0) return index + 1
     }
 
+    if (input.end) {
+      return this.project.timeline.length
+    }
+
     return this.project.timeline.length
   }
 

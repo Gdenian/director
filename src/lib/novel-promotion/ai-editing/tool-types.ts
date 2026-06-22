@@ -54,7 +54,7 @@ export type EditorToolDraftResult = {
   changed: boolean
 }
 
-export type InsertClipsInput = { afterClipId?: string; beforeClipId?: string; atIndex?: number; mediaIds: string[] }
+export type InsertClipsInput = { afterClipId?: string; beforeClipId?: string; atIndex?: number; end?: boolean; mediaIds: string[] }
 export type ReplaceClipInput = { clipId: string; mediaId: string }
 export type SetClipPropertiesInput = { clipId: string; durationInFrames?: number; sourceTrim?: { fromFrame: number; toFrame: number }; transition?: { type: 'none' | 'dissolve' | 'fade' | 'slide'; durationInFrames: number }; subtitlePlacement?: 'bottom' | 'lower' | 'middle' }
 export type MoveClipsInput = { clipIds: string[]; toIndex: number }
