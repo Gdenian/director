@@ -28,7 +28,7 @@ export function normalizeUserStatus(value: unknown): UserStatus {
     : USER_STATUSES.ACTIVE
 }
 
-export function isAdminRole(value: unknown): boolean {
+export function isAdminRole(value: unknown): value is typeof ADMIN_ROLES.ADMIN | typeof ADMIN_ROLES.OWNER {
   const role = normalizeUserRole(value)
   return role === ADMIN_ROLES.ADMIN || role === ADMIN_ROLES.OWNER
 }
