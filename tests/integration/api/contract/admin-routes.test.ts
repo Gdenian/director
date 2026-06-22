@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextRequest } from 'next/server'
 
 import { ROUTE_CATALOG } from '../../../contracts/route-catalog'
 import {
@@ -221,6 +222,53 @@ describe('api contract - admin routes', () => {
     expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {})
   })
 
+  it('PATCH /api/admin/users/[userId] treats invalid JSON bodies as empty objects', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/users/[userId]/route')
+    const res = await mod.PATCH(
+      new NextRequest('http://localhost:3000/api/admin/users/user-2', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: '{',
+      }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+
+    expect(res.status).toBe(200)
+    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {})
+  })
+
+  it('PATCH /api/admin/users/[userId] ignores primitive bodies and non-string reasons', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/users/[userId]/route')
+
+    const stringBodyRes = await mod.PATCH(
+      buildMockRequest({ path: '/api/admin/users/user-2', method: 'PATCH', body: 'role=admin' }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+    const numberBodyRes = await mod.PATCH(
+      buildMockRequest({ path: '/api/admin/users/user-2', method: 'PATCH', body: 123 }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+    const nonStringReasonRes = await mod.PATCH(
+      buildMockRequest({
+        path: '/api/admin/users/user-2',
+        method: 'PATCH',
+        body: { role: 'admin', reason: 123 },
+      }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+
+    expect(stringBodyRes.status).toBe(200)
+    expect(numberBodyRes.status).toBe(200)
+    expect(nonStringReasonRes.status).toBe(200)
+    expect(usersMock.updateAdminUserAccess).toHaveBeenNthCalledWith(1, 'user-2', {})
+    expect(usersMock.updateAdminUserAccess).toHaveBeenNthCalledWith(2, 'user-2', {})
+    expect(auditMock.writeAdminAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({
+      reason: null,
+    }))
+  })
+
   it('GET /api/admin/tasks returns redacted task summaries', async () => {
     mockAuthenticatedRole('admin-1', 'admin')
     const mod = await import('@/app/api/admin/tasks/route')
@@ -296,6 +344,31 @@ describe('api contract - admin routes', () => {
 
     expect(res.status).toBe(200)
     expect(tasksMock.cancelAdminTask).toHaveBeenCalledWith('task-1', '')
+  })
+
+  it('POST /api/admin/tasks/[taskId] falls back to x-real-ip and null audit reason for non-string reasons', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/tasks/[taskId]/route')
+    const res = await mod.POST(
+      buildMockRequest({
+        path: '/api/admin/tasks/task-1',
+        method: 'POST',
+        body: { reason: 123 },
+        headers: {
+          'x-real-ip': '192.0.2.44',
+          'user-agent': 'vitest-real-ip-client',
+        },
+      }),
+      { params: Promise.resolve({ taskId: 'task-1' }) },
+    )
+
+    expect(res.status).toBe(200)
+    expect(tasksMock.cancelAdminTask).toHaveBeenCalledWith('task-1', '')
+    expect(auditMock.writeAdminAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      reason: null,
+      ip: '192.0.2.44',
+      userAgent: 'vitest-real-ip-client',
+    }))
   })
 
   it('GET /api/admin/audit-logs returns admin-readable paginated audit logs', async () => {
