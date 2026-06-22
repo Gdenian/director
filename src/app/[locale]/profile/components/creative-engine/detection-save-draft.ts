@@ -27,6 +27,12 @@ function resolveDetectedModelPurpose(value: unknown): {
   return null
 }
 
+function resolvePurposeFromMediaContract(model: CreativeModelListItem): CreativeModelPurpose | null {
+  if (model.mediaContract?.mediaType === 'image') return 'image-generation'
+  if (model.mediaContract?.mediaType === 'video') return 'video-generation'
+  return null
+}
+
 function isCreativeProtocolType(value: unknown): value is CreativeProtocolType {
   return value === 'openai-compatible'
     || value === 'gemini-compatible'
@@ -98,10 +104,12 @@ export function buildDetectedModelDrafts(
   const llmProtocolCheckedAt = new Date().toISOString()
   return models.flatMap((model) => {
     const resolvedPurpose = resolveDetectedModelPurpose(model.purpose)
-    if (!resolvedPurpose) return []
+    const mediaPurpose = resolvePurposeFromMediaContract(model)
+    if (!resolvedPurpose && !mediaPurpose) return []
     const modelId = (model.callName || model.id || '').trim()
     if (!modelId) return []
-    const { purpose } = resolvedPurpose
+    const purpose = mediaPurpose || resolvedPurpose?.purpose
+    if (!purpose) return []
     const type = purposeToRuntimeType(purpose)
     const llmProtocol = type === 'llm' && providerId.startsWith('openai-compatible:')
       ? {
@@ -120,7 +128,7 @@ export function buildDetectedModelDrafts(
       ...(model.compatMediaTemplateSource ? { compatMediaTemplateSource: model.compatMediaTemplateSource } : {}),
       ...(model.mediaContract ? { mediaContract: model.mediaContract } : {}),
       ...(model.mediaContractSource ? { mediaContractSource: model.mediaContractSource } : {}),
-      ...(resolvedPurpose.confidence ? { confidence: resolvedPurpose.confidence } : {}),
+      ...(resolvedPurpose?.confidence ? { confidence: resolvedPurpose.confidence } : {}),
       purpose,
       status: model.status === 'failed' || model.status === 'disabled'
         ? model.status

@@ -151,6 +151,38 @@ describe('creative engine detection save draft', () => {
     })
   })
 
+  it('uses detected media contract type when purpose classification conflicts', () => {
+    const mediaContract: MediaContract = {
+      version: 1,
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+      input: { image: 'publicUrl' },
+      output: { kind: 'asyncTask', urlPath: '$.video.url' },
+      testStatus: { imageToVideo: 'unchecked' },
+      source: 'llm',
+    }
+    const drafts = buildDetectedModelDrafts('openai-compatible:abc', [
+      {
+        id: 'dense-video',
+        name: 'C Dense2.0 Fast',
+        callName: 'c-dense-2.0-fast',
+        purpose: 'voice-generation',
+        status: 'unchecked',
+        mediaContract,
+        mediaContractSource: 'llm',
+      },
+    ])
+
+    expect(drafts[0]).toMatchObject({
+      modelId: 'c-dense-2.0-fast',
+      type: 'video',
+      purpose: 'video-generation',
+      mediaContract,
+      mediaContractSource: 'llm',
+    })
+  })
+
   it('keeps detected protocol routing when building the provider draft', () => {
     expect(buildDetectedEngineProviderDraft({
       recommendedProviderKey: 'google',

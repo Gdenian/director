@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   mergeModelsForDisplay,
   mergeProvidersForDisplay,
+  normalizeModelsBeforeSave,
 } from '@/app/[locale]/profile/components/api-config/hooks'
 import type { CustomModel, Provider } from '@/app/[locale]/profile/components/api-config/types'
 
@@ -152,6 +153,38 @@ describe('useProviders provider order merge', () => {
       modelKey: 'ark::doubao-seedream-4-5-251128',
       enabled: false,
       purpose: 'image-generation',
+    })
+  })
+
+  it('normalizes media contract models before saving', () => {
+    const normalized = normalizeModelsBeforeSave([
+      {
+        modelId: 'c-dense-2.0-fast',
+        modelKey: 'openai-compatible:abc::c-dense-2.0-fast',
+        name: 'C Dense2.0 Fast',
+        type: 'audio',
+        provider: 'openai-compatible:abc',
+        price: 0,
+        enabled: true,
+        purpose: 'voice-generation',
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.video.url' },
+          testStatus: { imageToVideo: 'unchecked' },
+          source: 'llm',
+        },
+        mediaContractSource: 'llm',
+      },
+    ])
+
+    expect(normalized[0]).toMatchObject({
+      type: 'video',
+      purpose: 'video-generation',
+      mediaContractSource: 'llm',
     })
   })
 })

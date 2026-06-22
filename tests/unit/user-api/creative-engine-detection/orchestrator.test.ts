@@ -109,6 +109,33 @@ describe('creative engine detection orchestrator', () => {
     ])
   })
 
+  it('prefers video metadata when a model advertises both video and audio modalities', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      data: [
+        {
+          id: 'c-dense-2.0-fast',
+          modalities: ['video', 'audio'],
+          capabilities: { video_generation: true },
+        },
+      ],
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://api.example.com/v1',
+      apiKey: 'example-key',
+      allowKeyInInspector: false,
+    })
+
+    expect(result.models).toEqual([
+      expect.objectContaining({
+        callName: 'c-dense-2.0-fast',
+        purpose: 'video-generation',
+        confidence: 'high',
+      }),
+    ])
+  })
+
   it('falls through to Gemini-compatible model listing without generation calls', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models?key=gemini-key')

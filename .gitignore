@@ -39,6 +39,7 @@ yarn-error.log*
 .claude/
 .cursor/
 .gemini/
+.codegraph/
 .artifacts/
 .agent/
 .shared/

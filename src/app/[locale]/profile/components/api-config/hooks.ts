@@ -303,6 +303,26 @@ export function mergeModelsForDisplay(
     return [...allModels, ...customModels]
 }
 
+export function normalizeModelsBeforeSave(models: CustomModel[]): CustomModel[] {
+    return models.map((model) => {
+        if (model.mediaContract?.mediaType === 'image') {
+            return {
+                ...model,
+                type: 'image',
+                purpose: model.purpose === 'image-edit' ? 'image-edit' : 'image-generation',
+            }
+        }
+        if (model.mediaContract?.mediaType === 'video') {
+            return {
+                ...model,
+                type: 'video',
+                purpose: 'video-generation',
+            }
+        }
+        return model
+    })
+}
+
 export function useProviders(): UseProvidersReturn {
     const locale = useLocale()
     const t = useTranslations('apiConfig')
@@ -415,7 +435,7 @@ export function useProviders(): UseProvidersReturn {
             setSaveStatus('saving')
         }
         try {
-            const currentModels = latestModelsRef.current
+            const currentModels = normalizeModelsBeforeSave(latestModelsRef.current)
             const currentProviders = latestProvidersRef.current
             const currentDefaultModels = overrides?.defaultModels ?? latestDefaultModelsRef.current
             const currentWorkflowConcurrency = overrides?.workflowConcurrency ?? latestWorkflowConcurrencyRef.current

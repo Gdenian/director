@@ -34,9 +34,6 @@ function purposeFromMetadata(raw: unknown): {
 
   if (/(lip[-_ ]?sync|lipsync|口型|唇形)/.test(tokens)) return { purpose: 'lip-sync', confidence: 'high' }
   if (/(voice[-_ ]?design|音色)/.test(tokens)) return { purpose: 'voice-design', confidence: 'high' }
-  if (/(text[-_ ]?to[-_ ]?speech|tts|speech|audio|voice[-_ ]?generation|voice)/.test(tokens)) {
-    return { purpose: 'voice-generation', confidence: 'high' }
-  }
   if (/(video[-_ ]?generation|generatevideos?|video|movie)/.test(tokens)) {
     return { purpose: 'video-generation', confidence: 'high' }
   }
@@ -45,6 +42,9 @@ function purposeFromMetadata(raw: unknown): {
   }
   if (/(image[-_ ]?generation|generateimages?|image|vision|picture)/.test(tokens)) {
     return { purpose: 'image-generation', confidence: 'high' }
+  }
+  if (/(text[-_ ]?to[-_ ]?speech|tts|speech|audio|voice[-_ ]?generation|voice)/.test(tokens)) {
+    return { purpose: 'voice-generation', confidence: 'high' }
   }
   if (/(generatecontent|chat|completion|text|language|token)/.test(tokens)) {
     return { purpose: 'text', confidence: 'high' }
