@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isErrorResponse, requireOwnerAuth } from '@/lib/api-auth'
 import { apiHandler } from '@/lib/api-errors'
 import { writeAdminAuditLog } from '@/lib/admin/audit'
-import { updateAdminUserAccess } from '@/lib/admin/users'
+import { getAdminUserAccessBefore, parseAdminUserAccessUpdate, updateAdminUserAccess } from '@/lib/admin/users'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +41,27 @@ export const PATCH = apiHandler(async (
     ...('role' in body ? { role: body.role } : {}),
     ...('status' in body ? { status: body.status } : {}),
   }
-  const user = await updateAdminUserAccess(userId, input)
+
+  let accessUpdate: ReturnType<typeof parseAdminUserAccessUpdate>
+  try {
+    accessUpdate = parseAdminUserAccessUpdate(input)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid access update'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+
+  const before = await getAdminUserAccessBefore(userId)
+  if (!before) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  let user: Awaited<ReturnType<typeof updateAdminUserAccess>>
+  try {
+    user = await updateAdminUserAccess(userId, accessUpdate)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid access update'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
 
   await writeAdminAuditLog({
     actor: {
@@ -51,7 +71,10 @@ export const PATCH = apiHandler(async (
     action: 'user.access.update',
     targetType: 'user',
     targetId: userId,
-    before: null,
+    before: {
+      role: before.role,
+      status: before.status,
+    },
     after: {
       role: user.role,
       status: user.status,

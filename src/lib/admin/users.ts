@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { normalizeUserRole, normalizeUserStatus, type AdminRole, type UserStatus } from './roles'
+import { ADMIN_ROLES, USER_STATUSES, normalizeUserRole, normalizeUserStatus, type AdminRole, type UserStatus } from './roles'
 
 interface ListAdminUsersParams {
   search?: string | null
@@ -12,6 +12,12 @@ interface ListAdminUsersParams {
 interface UpdateAdminUserAccessInput {
   role?: string | null
   status?: string | null
+}
+
+export interface AdminUserAccessBefore {
+  id: string
+  role: AdminRole
+  status: UserStatus
 }
 
 function clampPage(value: number | null | undefined) {
@@ -49,6 +55,33 @@ function serializeUser<T extends {
       }
       : null,
   }
+}
+
+function isAdminRoleValue(value: unknown): value is AdminRole {
+  return typeof value === 'string' && Object.values(ADMIN_ROLES).includes(value as AdminRole)
+}
+
+function isUserStatusValue(value: unknown): value is UserStatus {
+  return typeof value === 'string' && Object.values(USER_STATUSES).includes(value as UserStatus)
+}
+
+export function parseAdminUserAccessUpdate(input: UpdateAdminUserAccessInput) {
+  const data: { role?: AdminRole, status?: UserStatus } = {}
+  const hasRole = 'role' in input
+  const hasStatus = 'status' in input
+
+  if (!hasRole && !hasStatus) {
+    throw new Error('At least one access field is required')
+  }
+  if (hasRole) {
+    if (!isAdminRoleValue(input.role)) throw new Error('Invalid user role')
+    data.role = input.role
+  }
+  if (hasStatus) {
+    if (!isUserStatusValue(input.status)) throw new Error('Invalid user status')
+    data.status = input.status
+  }
+  return data
 }
 
 export async function listAdminUsers(params: ListAdminUsersParams = {}) {
@@ -112,9 +145,7 @@ export async function listAdminUsers(params: ListAdminUsersParams = {}) {
 }
 
 export async function updateAdminUserAccess(userId: string, input: UpdateAdminUserAccessInput) {
-  const data: { role?: AdminRole, status?: UserStatus } = {}
-  if ('role' in input) data.role = normalizeUserRole(input.role)
-  if ('status' in input) data.status = normalizeUserStatus(input.status)
+  const data = parseAdminUserAccessUpdate(input)
 
   const user = await prisma.user.update({
     where: { id: userId },
@@ -131,6 +162,23 @@ export async function updateAdminUserAccess(userId: string, input: UpdateAdminUs
 
   return {
     ...user,
+    role: normalizeUserRole(user.role),
+    status: normalizeUserStatus(user.status),
+  }
+}
+
+export async function getAdminUserAccessBefore(userId: string): Promise<AdminUserAccessBefore | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+    },
+  })
+  if (!user) return null
+  return {
+    id: user.id,
     role: normalizeUserRole(user.role),
     status: normalizeUserStatus(user.status),
   }

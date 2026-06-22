@@ -26,6 +26,32 @@ function asArray<T>(value: T | T[] | null | undefined) {
   return Array.isArray(value) ? value : [value]
 }
 
+const ADMIN_TASK_SELECT = {
+  id: true,
+  userId: true,
+  projectId: true,
+  episodeId: true,
+  type: true,
+  targetType: true,
+  status: true,
+  progress: true,
+  attempt: true,
+  maxAttempts: true,
+  priority: true,
+  errorCode: true,
+  billingInfo: true,
+  payload: true,
+  result: true,
+  queuedAt: true,
+  startedAt: true,
+  finishedAt: true,
+  heartbeatAt: true,
+  enqueuedAt: true,
+  enqueueAttempts: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
 export async function listAdminTasks(params: ListAdminTasksParams = {}) {
   const page = clampPage(params.page)
   const pageSize = clampPageSize(params.pageSize)
@@ -44,6 +70,7 @@ export async function listAdminTasks(params: ListAdminTasksParams = {}) {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      select: ADMIN_TASK_SELECT,
     }),
     prisma.task.count({ where }),
   ])
@@ -62,6 +89,30 @@ export async function cancelAdminTask(taskId: string, reason: string) {
 
   return {
     cancelled: result.cancelled,
-    task: result.task ? redactTaskForAdmin(result.task) : null,
+    task: result.task ? redactTaskForAdmin({
+      id: result.task.id,
+      userId: result.task.userId,
+      projectId: result.task.projectId,
+      episodeId: result.task.episodeId,
+      type: result.task.type,
+      targetType: result.task.targetType,
+      status: result.task.status,
+      progress: result.task.progress,
+      attempt: result.task.attempt,
+      maxAttempts: result.task.maxAttempts,
+      priority: result.task.priority,
+      errorCode: result.task.errorCode,
+      billingInfo: result.task.billingInfo,
+      payload: result.task.payload,
+      result: result.task.result,
+      queuedAt: result.task.queuedAt,
+      startedAt: result.task.startedAt,
+      finishedAt: result.task.finishedAt,
+      heartbeatAt: result.task.heartbeatAt,
+      enqueuedAt: result.task.enqueuedAt,
+      enqueueAttempts: result.task.enqueueAttempts,
+      createdAt: result.task.createdAt,
+      updatedAt: result.task.updatedAt,
+    }) : null,
   }
 }

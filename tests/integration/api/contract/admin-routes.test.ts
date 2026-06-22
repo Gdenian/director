@@ -18,11 +18,31 @@ const overviewMock = vi.hoisted(() => ({
 
 const usersMock = vi.hoisted(() => ({
   listAdminUsers: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-  updateAdminUserAccess: vi.fn(async (_userId: string, input: { role?: string, status?: string }) => ({
+  parseAdminUserAccessUpdate: vi.fn((input: { role?: string, status?: string }) => {
+    const hasRole = 'role' in input
+    const hasStatus = 'status' in input
+    if (!hasRole && !hasStatus) throw new Error('At least one access field is required')
+    if (hasRole && !['user', 'admin', 'owner'].includes(String(input.role))) throw new Error('Invalid user role')
+    if (hasStatus && !['active', 'disabled'].includes(String(input.status))) throw new Error('Invalid user status')
+    return input
+  }),
+  getAdminUserAccessBefore: vi.fn(async () => ({
     id: 'user-2',
-    role: input.role ?? 'user',
-    status: input.status ?? 'active',
+    role: 'user',
+    status: 'active',
   })),
+  updateAdminUserAccess: vi.fn(async (_userId: string, input: { role?: string, status?: string }) => {
+    const hasRole = 'role' in input
+    const hasStatus = 'status' in input
+    if (!hasRole && !hasStatus) throw new Error('At least one access field is required')
+    if (hasRole && !['user', 'admin', 'owner'].includes(String(input.role))) throw new Error('Invalid user role')
+    if (hasStatus && !['active', 'disabled'].includes(String(input.status))) throw new Error('Invalid user status')
+    return {
+      id: 'user-2',
+      role: input.role ?? 'user',
+      status: input.status ?? 'active',
+    }
+  }),
 }))
 
 const billingMock = vi.hoisted(() => ({
@@ -210,7 +230,7 @@ describe('api contract - admin routes', () => {
       action: 'user.access.update',
       targetType: 'user',
       targetId: 'user-2',
-      before: null,
+      before: { role: 'user', status: 'active' },
       after: { role: 'admin', status: 'disabled' },
       reason: 'policy',
       ip: '203.0.113.10',
@@ -226,8 +246,8 @@ describe('api contract - admin routes', () => {
       { params: Promise.resolve({ userId: 'user-2' }) },
     )
 
-    expect(res.status).toBe(200)
-    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {})
+    expect(res.status).toBe(400)
+    expect(usersMock.updateAdminUserAccess).not.toHaveBeenCalled()
   })
 
   it('PATCH /api/admin/users/[userId] treats invalid JSON bodies as empty objects', async () => {
@@ -242,8 +262,8 @@ describe('api contract - admin routes', () => {
       { params: Promise.resolve({ userId: 'user-2' }) },
     )
 
-    expect(res.status).toBe(200)
-    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', {})
+    expect(res.status).toBe(400)
+    expect(usersMock.updateAdminUserAccess).not.toHaveBeenCalled()
   })
 
   it('PATCH /api/admin/users/[userId] ignores primitive bodies and non-string reasons', async () => {
@@ -267,14 +287,41 @@ describe('api contract - admin routes', () => {
       { params: Promise.resolve({ userId: 'user-2' }) },
     )
 
-    expect(stringBodyRes.status).toBe(200)
-    expect(numberBodyRes.status).toBe(200)
+    expect(stringBodyRes.status).toBe(400)
+    expect(numberBodyRes.status).toBe(400)
     expect(nonStringReasonRes.status).toBe(200)
-    expect(usersMock.updateAdminUserAccess).toHaveBeenNthCalledWith(1, 'user-2', {})
-    expect(usersMock.updateAdminUserAccess).toHaveBeenNthCalledWith(2, 'user-2', {})
+    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledTimes(1)
+    expect(usersMock.updateAdminUserAccess).toHaveBeenCalledWith('user-2', { role: 'admin' })
     expect(auditMock.writeAdminAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({
       reason: null,
     }))
+  })
+
+  it('PATCH /api/admin/users/[userId] rejects invalid role and status values', async () => {
+    mockAuthenticatedRole('owner-1', 'owner')
+    const mod = await import('@/app/api/admin/users/[userId]/route')
+
+    const invalidRoleRes = await mod.PATCH(
+      buildMockRequest({
+        path: '/api/admin/users/user-2',
+        method: 'PATCH',
+        body: { role: 'superadmin' },
+      }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+    const invalidStatusRes = await mod.PATCH(
+      buildMockRequest({
+        path: '/api/admin/users/user-2',
+        method: 'PATCH',
+        body: { status: 'disable' },
+      }),
+      { params: Promise.resolve({ userId: 'user-2' }) },
+    )
+
+    expect(invalidRoleRes.status).toBe(400)
+    expect(invalidStatusRes.status).toBe(400)
+    expect(usersMock.updateAdminUserAccess).not.toHaveBeenCalled()
+    expect(auditMock.writeAdminAuditLog).not.toHaveBeenCalled()
   })
 
   it('GET /api/admin/tasks returns redacted task summaries', async () => {
