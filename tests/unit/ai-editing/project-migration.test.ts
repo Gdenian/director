@@ -85,4 +85,48 @@ describe('editor project migration', () => {
       expect.objectContaining({ id: 'asset-1', kind: 'render_output', status: 'completed', url: '/m/output.mp4' }),
     ])
   })
+
+  it('preserves imported clip media source metadata and drops invalid media source types', () => {
+    const migrated = migrateProjectData({
+      id: 'editor-3',
+      episodeId: 'episode-3',
+      schemaVersion: '1.2',
+      config: { fps: 30, width: 1920, height: 1080, videoRatio: '16:9', burnSubtitlesDefault: true },
+      timeline: [{
+        id: 'clip-import',
+        kind: 'source',
+        src: '/m/import',
+        durationInFrames: 60,
+        metadata: {
+          storyboardId: 'storyboard-import',
+          source: 'imported',
+          mediaSourceType: 'user_import_video',
+          editorAssetId: 'asset-1',
+        },
+      }, {
+        id: 'clip-invalid-source',
+        kind: 'source',
+        src: '/m/invalid',
+        durationInFrames: 60,
+        metadata: {
+          storyboardId: 'storyboard-invalid',
+          source: 'imported',
+          mediaSourceType: 'bad_source',
+        },
+      }],
+      audioTrack: [],
+      subtitleCues: [],
+      editorAssets: [],
+      bgmTrack: [],
+      pendingVersion: null,
+    })
+
+    expect(migrated.timeline[0].metadata).toMatchObject({
+      source: 'imported',
+      mediaSourceType: 'user_import_video',
+      editorAssetId: 'asset-1',
+    })
+    expect(migrated.timeline[1].metadata).toMatchObject({ source: 'imported' })
+    expect(migrated.timeline[1].metadata.mediaSourceType).toBeUndefined()
+  })
 })
