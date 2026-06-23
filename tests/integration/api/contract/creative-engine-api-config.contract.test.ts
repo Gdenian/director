@@ -136,6 +136,60 @@ describe('api contract - creative engine api-config', () => {
     })
   })
 
+  it('GET ignores historical invalid capability defaults instead of failing config load', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      ...defaultPreference,
+      customProviders: JSON.stringify([{
+        id: 'google',
+        name: 'Google',
+        providerKey: 'google',
+        serviceUrl: 'https://generativelanguage.googleapis.com',
+        apiKey: 'enc:sk-test',
+        protocolType: 'official',
+        status: 'available',
+      }]),
+      customModels: JSON.stringify([{
+        id: 'google::gemini-2.5-flash-image',
+        engineId: 'google',
+        name: 'Gemini 2.5 Flash Image',
+        callName: 'gemini-2.5-flash-image',
+        modelKey: 'google::gemini-2.5-flash-image',
+        type: 'image',
+        purpose: 'image-generation',
+        enabled: true,
+        status: 'available',
+      }]),
+      capabilityDefaults: JSON.stringify({
+        'google::gemini-2.5-flash-image': {
+          aspectRatio: '16:9',
+          resolution: '1K',
+          legacyResolution: 'bad-resolution',
+        },
+        'google::unknown-model': {
+          imageSize: '1K',
+        },
+        malformed: 'bad',
+      }),
+    })
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'GET',
+    })
+
+    const res = await route.GET(req, { params: Promise.resolve({}) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.capabilityDefaults).toEqual({
+      'google::gemini-2.5-flash-image': {
+        resolution: '1K',
+      },
+    })
+  })
+
   it('PUT accepts creative models without requiring engines in the same request', async () => {
     prismaMock.userPreference.findUnique.mockResolvedValueOnce({
       ...defaultPreference,

@@ -1730,20 +1730,35 @@ function normalizeCapabilitySelectionsInput(
   return normalized
 }
 
-function parseStoredCapabilitySelections(raw: string | null | undefined, field: string): CapabilitySelections {
+function parseStoredCapabilitySelections(raw: string | null | undefined): CapabilitySelections {
   if (!raw) return {}
 
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
   } catch {
-    throw new ApiError('INVALID_PARAMS', {
-      code: 'CAPABILITY_SELECTION_INVALID',
-      field,
-    })
+    return {}
   }
 
-  return normalizeCapabilitySelectionsInput(parsed, { allowLegacyAspectRatio: true })
+  if (!isRecord(parsed)) return {}
+
+  const normalized: CapabilitySelections = {}
+  for (const [modelKey, rawSelection] of Object.entries(parsed)) {
+    if (!isRecord(rawSelection)) continue
+
+    const selection: Record<string, string | number | boolean> = {}
+    for (const [selectionField, value] of Object.entries(rawSelection)) {
+      if (selectionField === 'aspectRatio') continue
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') continue
+      selection[selectionField] = value
+    }
+
+    if (Object.keys(selection).length > 0) {
+      normalized[modelKey] = selection
+    }
+  }
+
+  return normalized
 }
 
 function serializeCapabilitySelections(selections: CapabilitySelections): string | null {
@@ -1934,7 +1949,7 @@ export const GET = apiHandler(async () => {
     ? rawDefaults
     : sanitizeDefaultModelsForBilling(rawDefaults)
   const capabilityDefaults = sanitizeCapabilitySelectionsAgainstModels(
-    parseStoredCapabilitySelections(pref?.capabilityDefaults, 'capabilityDefaults'),
+    parseStoredCapabilitySelections(pref?.capabilityDefaults),
     [...models, ...disabledPresets],
   )
   const workflowConcurrency = normalizeWorkflowConcurrencyConfig({
