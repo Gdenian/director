@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveDurationFrames } from '@/lib/novel-promotion/ai-editing/media-probe'
+
+const sharpMetadataMock = vi.hoisted(() => vi.fn(async () => ({ width: 640, height: 360 })))
+const sharpMock = vi.hoisted(() => vi.fn(() => ({ metadata: sharpMetadataMock })))
+
+vi.mock('sharp', () => ({ default: sharpMock }))
+
+import { probeMediaMetadata, resolveDurationFrames } from '@/lib/novel-promotion/ai-editing/media-probe'
 
 describe('AI editing media probe', () => {
   it('uses stored media duration before fallback duration', async () => {
@@ -24,5 +30,14 @@ describe('AI editing media probe', () => {
     })
 
     expect(result).toEqual({ durationInFrames: 120, source: 'fallback' })
+  })
+
+  it('probes image dimensions from an import buffer', async () => {
+    const buffer = Buffer.from('image-bytes')
+
+    const result = await probeMediaMetadata('https://storage.example.com/image.png', 'image/png', { buffer })
+
+    expect(sharpMock).toHaveBeenCalledWith(buffer)
+    expect(result).toEqual({ width: 640, height: 360 })
   })
 })

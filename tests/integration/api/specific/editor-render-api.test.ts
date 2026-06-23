@@ -118,6 +118,56 @@ describe('api specific - editor render route', () => {
     expect(submitTaskMock).not.toHaveBeenCalled()
   })
 
+  it('POST render accepts an editor project containing imported media clips', async () => {
+    prismaMock.videoEditorProject.findUnique.mockResolvedValueOnce({
+      id: 'editor-1',
+      episodeId: 'episode-1',
+      projectData: JSON.stringify({
+        id: 'editor-1',
+        episodeId: 'episode-1',
+        schemaVersion: '1.2',
+        config: { fps: 30, width: 1080, height: 1920, videoRatio: '9:16', burnSubtitlesDefault: true },
+        timeline: [{
+          id: 'clip-import',
+          kind: 'source',
+          src: '/m/import-video',
+          durationInFrames: 60,
+          metadata: { storyboardId: 'imported:asset-1', source: 'imported', editorAssetId: 'asset-1' },
+        }],
+        audioTrack: [],
+        subtitleCues: [],
+        editorAssets: [{
+          id: 'asset-1',
+          kind: 'user_import_video',
+          status: 'completed',
+          url: '/m/import-video',
+          mediaObjectId: 'media-1',
+        }],
+        bgmTrack: [],
+        pendingVersion: null,
+      }),
+      renderStatus: null,
+      renderTaskId: null,
+      outputUrl: null,
+      updatedAt: new Date('2026-06-10T00:00:00.000Z'),
+    })
+
+    const mod = await import('@/app/api/novel-promotion/[projectId]/editor/render/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/editor/render',
+      method: 'POST',
+      body: { episodeId: 'episode-1', editorProjectId: 'editor-1', format: 'mp4', quality: 'high' },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(202)
+    expect(submitTaskMock).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'editor_render',
+      payload: expect.objectContaining({ editorProjectId: 'editor-1' }),
+    }))
+  })
+
   it('GET returns task status scoped by editorProjectId', async () => {
     prismaMock.task.findFirst.mockResolvedValueOnce({
       id: 'task-render-1',

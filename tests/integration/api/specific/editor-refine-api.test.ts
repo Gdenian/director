@@ -98,7 +98,7 @@ describe('api specific - editor refine routes', () => {
     const req = buildMockRequest({
       path: '/api/novel-promotion/project-1/editor/refine',
       method: 'POST',
-      body: { episodeId: 'episode-1', editorProjectId: 'editor-1', instruction: '节奏更快' },
+      body: { episodeId: 'episode-1', editorProjectId: 'editor-1', instruction: '节奏更快', targetDurationSeconds: 12, selectedClipId: 'clip-1' },
     })
 
     const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
@@ -109,7 +109,12 @@ describe('api specific - editor refine routes', () => {
       type: 'ai_edit_refine',
       targetId: 'editor-1',
       dedupeKey: 'ai_edit_refine:editor-1',
-      payload: expect.objectContaining({ instruction: '节奏更快' }),
+      payload: expect.objectContaining({
+        editorProjectId: 'editor-1',
+        instruction: '节奏更快',
+        targetDurationSeconds: 12,
+        selectedClipId: 'clip-1',
+      }),
     }))
     expect(body).toEqual(expect.objectContaining({ taskId: 'task-refine-1' }))
   })
@@ -146,6 +151,33 @@ describe('api specific - editor refine routes', () => {
       where: { id: 'editor-1' },
     }))
     expect(body).toEqual(expect.objectContaining({ success: true, editorProjectId: 'editor-1' }))
+  })
+
+  it('POST /refine/discard clears only the pending version pointer', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/editor/refine/discard/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/editor/refine/discard',
+      method: 'POST',
+      body: { episodeId: 'episode-1', editorProjectId: 'editor-1' },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(prismaMock.videoEditorProject.update).toHaveBeenCalledWith({
+      where: { id: 'editor-1' },
+      data: {
+        projectData: expect.stringContaining('"pendingVersion":null'),
+        updatedAt: expect.any(Date),
+      },
+    })
+    const updateArg = prismaMock.videoEditorProject.update.mock.calls[0]?.[0]
+    const persisted = JSON.parse(updateArg.data.projectData)
+    expect(persisted.timeline).toEqual([])
+    expect(persisted.pendingVersion).toBeNull()
+    expect(body).toEqual(expect.objectContaining({ success: true, editorProjectId: 'editor-1' }))
+    expect(body.projectData.pendingVersion).toBeNull()
   })
 
   it('POST /rollback restores a scoped version', async () => {

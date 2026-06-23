@@ -1,6 +1,13 @@
 import { prisma } from '@/lib/prisma'
 
-export type EditorAssetKind = 'transition_bridge' | 'render_output'
+import type { VideoEditorAsset } from '@prisma/client'
+
+export type EditorAssetKind =
+  | 'transition_bridge'
+  | 'render_output'
+  | 'user_import_video'
+  | 'user_import_audio'
+  | 'user_import_image'
 
 export async function createPendingEditorAsset(input: {
   editorProjectId: string
@@ -59,5 +66,17 @@ export async function failEditorAsset(input: {
       taskId: input.taskId || null,
       metadata: input.error ? JSON.stringify({ error: input.error }) : undefined,
     },
+  })
+}
+
+export async function listImportedEditorAssets(editorProjectId: string): Promise<VideoEditorAsset[]> {
+  return await prisma.videoEditorAsset.findMany({
+    where: {
+      editorProjectId,
+      kind: {
+        in: ['user_import_video', 'user_import_audio', 'user_import_image'],
+      },
+    },
+    orderBy: { createdAt: 'asc' },
   })
 }

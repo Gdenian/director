@@ -66,4 +66,45 @@ describe('AI editing manifest builder', () => {
       voiceDurationInFrames: 45,
     }))
   })
+
+  it('excludes user imported assets from the editor manifest', async () => {
+    prismaMock.novelPromotionEpisode.findFirst.mockResolvedValue({
+      id: 'episode-1',
+      novelPromotionProject: { videoRatio: '16:9' },
+      storyboards: [],
+      voiceLines: [],
+      editorProject: {
+        assets: [
+          {
+            id: 'bridge-1',
+            kind: 'transition_bridge',
+            status: 'completed',
+            url: '/m/bridge.mp4',
+            metadata: JSON.stringify({ durationMs: 1000 }),
+          },
+          {
+            id: 'render-1',
+            kind: 'render_output',
+            status: 'completed',
+            url: '/m/render.mp4',
+            metadata: JSON.stringify({ durationMs: 2000 }),
+          },
+          {
+            id: 'import-1',
+            kind: 'user_import_video',
+            status: 'completed',
+            url: '/m/imported.mp4',
+            metadata: JSON.stringify({ durationMs: 3000 }),
+          },
+        ],
+      },
+    })
+
+    const manifest = await buildEditorManifest({ projectId: 'project-1', episodeId: 'episode-1', fps: 30 })
+
+    expect(manifest.editorAssets).toEqual([
+      expect.objectContaining({ id: 'bridge-1', kind: 'transition_bridge', durationInFrames: 30 }),
+      expect.objectContaining({ id: 'render-1', kind: 'render_output', durationInFrames: 60 }),
+    ])
+  })
 })
