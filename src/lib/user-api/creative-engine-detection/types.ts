@@ -22,6 +22,7 @@ export interface CreativeEngineDetectRequest {
   serviceUrl: string
   apiKey: string
   allowKeyInInspector: boolean
+  documentationText?: string
 }
 
 export interface NormalizedCreativeEngineUrl {

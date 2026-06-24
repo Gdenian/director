@@ -17,6 +17,21 @@ describe('llm observe task contract', () => {
     expect(locationPolicy.captureReasoning).toBe(true)
   })
 
+  it('maps asset-hub AI design tasks to standard llm policy', () => {
+    const taskTypes = [
+      TASK_TYPE.ASSET_HUB_AI_DESIGN_CHARACTER,
+      TASK_TYPE.ASSET_HUB_AI_DESIGN_LOCATION,
+      TASK_TYPE.ASSET_HUB_AI_DESIGN_STYLE,
+    ]
+
+    for (const taskType of taskTypes) {
+      const policy = getLLMTaskPolicy(taskType)
+      expect(policy.consoleEnabled).toBe(true)
+      expect(policy.displayMode).toBe('loading')
+      expect(policy.captureReasoning).toBe(true)
+    }
+  })
+
   it('maps story/script run tasks to long-flow stage metadata', () => {
     const storyMeta = getTaskFlowMeta(TASK_TYPE.STORY_TO_SCRIPT_RUN)
     const scriptMeta = getTaskFlowMeta(TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN)

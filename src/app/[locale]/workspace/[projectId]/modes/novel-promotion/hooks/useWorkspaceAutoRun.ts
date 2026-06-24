@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { canRunDirectStoryToScript } from '@/lib/novel-promotion/story-input-length'
 
 interface SearchParamsLike {
   get: (name: string) => string | null
@@ -42,6 +43,7 @@ export function useWorkspaceAutoRun({
     if (searchParams.get('autoRun') !== 'storyToScript') return
     if (!episodeId) return
     if (!novelText.trim()) return
+    if (!canRunDirectStoryToScript(novelText)) return
     if (isTransitioning || isStoryToScriptRunning) return
 
     const autoRunKey = `storyToScript:${episodeId}`

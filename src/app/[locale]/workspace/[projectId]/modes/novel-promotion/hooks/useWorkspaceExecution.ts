@@ -213,6 +213,8 @@ export function useWorkspaceExecution({
       const rawMessage = getErrorMessage(err)
       const friendlyMessage = isRunStreamTimeoutMessage(rawMessage)
         ? t('execution.taskStreamTimeout')
+        : rawMessage.includes('CONTENT_TOO_LONG')
+          ? t('execution.storyToScriptContentTooLong')
         : rawMessage
       alert(`${t('execution.prepareFailed')}: ${friendlyMessage}`)
     } finally {

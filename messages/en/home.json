@@ -4,6 +4,8 @@
   "inputPlaceholder": "Enter your story idea, novel excerpt, or script outline...",
   "defaultProjectName": "New Project {timestamp}",
   "startCreation": "Start Creating",
+  "importFile": "Import File",
+  "importFileFailed": "Could not read the file. Please upload a .txt, .md, .text, or .docx file.",
   "recentProjects": "Portfolio",
   "viewAll": "View All Works",
   "noProjects": "No projects yet. Start your first creation from above!",

@@ -138,10 +138,13 @@
     "longTextDetection": {
       "title": "🚀 Smart Episode Splitting Recommended",
       "description": "Detected ~{count} characters. Processing long text as a single episode may reduce output quality.",
+      "forceDescription": "Detected ~{count} characters, which exceeds the safe length for direct single-episode generation. Continuing would exceed the model context limit.",
       "strongRecommend": "We strongly recommend using Smart Split. AI will automatically identify chapters, split into episodes, and process them in parallel for significantly better results.",
+      "forceRecommend": "Please use Smart Split first so the long text can be split into multiple episodes before creation continues.",
       "continueAnyway": "Continue as single episode",
       "smartSplit": "Smart Split",
       "smartSplitRecommend": "Recommended",
+      "smartSplitRequired": "Required",
       "singleEpisodeWarning": "All content will be processed as one episode"
     }
   },
@@ -159,6 +162,7 @@
     "scriptToStoryboardRunning": "Script→Storyboard V2 running",
     "storyToScriptFailed": "Story to script failed",
     "scriptToStoryboardFailed": "Script to storyboard failed",
+    "storyToScriptContentTooLong": "The text is too long for direct single-episode generation. Please use Smart Split first.",
     "taskStreamTimeout": "Task timed out. The task may still be running in the background — please check its status or retry"
   },
   "rebuildConfirm": {

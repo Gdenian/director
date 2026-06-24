@@ -44,6 +44,14 @@ function toInspectorProbeLogs(params: {
   )
 }
 
+function hasDocumentation(request: CreativeEngineDetectRequest) {
+  return typeof request.documentationText === 'string' && request.documentationText.trim().length > 0
+}
+
+function successfulProbeLogs(result: CreativeEngineDetectionResult) {
+  return mergeWarnings(result.warnings, ['MODEL_LIST_READABLE'])
+}
+
 async function inspectWithFallback(input: Parameters<typeof inspectCreativeEngine>[0]) {
   try {
     return {
@@ -58,7 +66,61 @@ async function inspectWithFallback(input: Parameters<typeof inspectCreativeEngin
   }
 }
 
-function withMediaContractDrafts(result: CreativeEngineDetectionResult): CreativeEngineDetectionResult {
+function finalizeInspectorResult(
+  result: CreativeEngineDetectionResult,
+  probeLogs: string[],
+  documentationText?: string,
+): CreativeEngineDetectionResult {
+  return withMediaContractDrafts({
+    ...result,
+    warnings: mergeWarnings(probeLogs, result.warnings),
+    risks: result.risks || [],
+    requiresManualModelEntry: result.protocolType === 'manual-template' || result.models.length === 0,
+  }, documentationText)
+}
+
+function mergeInspectorModelsIntoProbeResult(
+  probeDetection: CreativeEngineDetectionResult,
+  inspectedResult: CreativeEngineDetectionResult,
+  probeLogs: string[],
+  documentationText?: string,
+): CreativeEngineDetectionResult {
+  const inspectedByCallName = new Map(
+    withMediaContractDrafts(inspectedResult, documentationText).models
+      .map((model) => [model.callName.trim().toLowerCase(), model] as const),
+  )
+
+  const mergedModels = probeDetection.models.map((model): DetectedModelDraft => {
+    const inspected = inspectedByCallName.get(model.callName.trim().toLowerCase())
+    if (!inspected) return model
+
+    return {
+      ...model,
+      ...(inspected.mediaContract ? { mediaContract: inspected.mediaContract } : {}),
+      ...(inspected.mediaContractSource ? { mediaContractSource: inspected.mediaContractSource } : {}),
+      ...(inspected.compatMediaTemplate ? { compatMediaTemplate: inspected.compatMediaTemplate } : {}),
+      ...(inspected.compatMediaTemplateSource ? { compatMediaTemplateSource: inspected.compatMediaTemplateSource } : {}),
+    }
+  })
+
+  return {
+    ...probeDetection,
+    source: inspectedResult.source,
+    recommendedProviderKey: inspectedResult.recommendedProviderKey,
+    protocolType: inspectedResult.protocolType,
+    normalizedBaseUrl: inspectedResult.normalizedBaseUrl,
+    confidence: inspectedResult.confidence,
+    models: mergedModels,
+    warnings: mergeWarnings(probeLogs, inspectedResult.warnings),
+    risks: inspectedResult.risks || probeDetection.risks || [],
+    requiresManualModelEntry: mergedModels.length === 0,
+  }
+}
+
+function withMediaContractDrafts(
+  result: CreativeEngineDetectionResult,
+  documentationText?: string,
+): CreativeEngineDetectionResult {
   return {
     ...result,
     models: result.models.map((model): DetectedModelDraft => {
@@ -76,6 +138,7 @@ function withMediaContractDrafts(result: CreativeEngineDetectionResult): Creativ
       const draft = buildMediaContractDraftForDetectedModel({
         protocolType: result.protocolType,
         model,
+        documentationText,
       })
       return {
         ...baseModel,
@@ -91,25 +154,77 @@ function withMediaContractDrafts(result: CreativeEngineDetectionResult): Creativ
 export async function detectCreativeEngine(request: CreativeEngineDetectRequest): Promise<CreativeEngineDetectionResult> {
   const normalized = normalizeCreativeEngineUrl(request.serviceUrl)
   const fingerprint = fingerprintCreativeEngineSource({ url: normalized.primaryUrl })
+  const shouldInspectDocs = hasDocumentation(request)
 
   const openaiResult = await probeOpenAICompatibleModels({
     urls: normalized.candidates,
     apiKey: request.apiKey,
   })
-  if (openaiResult.ok) return withMediaContractDrafts(mapProbeResultToDetection({ normalized, fingerprint, probe: openaiResult }))
+  if (openaiResult.ok) {
+    const probeDetection = withMediaContractDrafts(
+      mapProbeResultToDetection({ normalized, fingerprint, probe: openaiResult }),
+      request.documentationText,
+    )
+    if (shouldInspectDocs) {
+      const probeLogs = successfulProbeLogs(probeDetection)
+      const inspected = await inspectWithFallback({
+        ...request,
+        probeLogs,
+        responseSamples: [],
+      })
+      if (inspected.result) {
+        return mergeInspectorModelsIntoProbeResult(probeDetection, inspected.result, probeLogs, request.documentationText)
+      }
+    }
+    return probeDetection
+  }
 
   const geminiResult = await probeGeminiCompatibleModels({
     urls: normalized.candidates,
     apiKey: request.apiKey,
   })
-  if (geminiResult.ok) return withMediaContractDrafts(mapProbeResultToDetection({ normalized, fingerprint, probe: geminiResult }))
+  if (geminiResult.ok) {
+    const probeDetection = withMediaContractDrafts(
+      mapProbeResultToDetection({ normalized, fingerprint, probe: geminiResult }),
+      request.documentationText,
+    )
+    if (shouldInspectDocs) {
+      const probeLogs = successfulProbeLogs(probeDetection)
+      const inspected = await inspectWithFallback({
+        ...request,
+        probeLogs,
+        responseSamples: [],
+      })
+      if (inspected.result) {
+        return mergeInspectorModelsIntoProbeResult(probeDetection, inspected.result, probeLogs, request.documentationText)
+      }
+    }
+    return probeDetection
+  }
 
   const officialResult = await probeOfficialCreativeEngine({
     fingerprint,
     normalizedBaseUrl: normalized.primaryUrl,
     apiKey: request.apiKey,
   })
-  if (officialResult.ok) return withMediaContractDrafts(mapProbeResultToDetection({ normalized, fingerprint, probe: officialResult }))
+  if (officialResult.ok) {
+    const probeDetection = withMediaContractDrafts(
+      mapProbeResultToDetection({ normalized, fingerprint, probe: officialResult }),
+      request.documentationText,
+    )
+    if (shouldInspectDocs) {
+      const probeLogs = successfulProbeLogs(probeDetection)
+      const inspected = await inspectWithFallback({
+        ...request,
+        probeLogs,
+        responseSamples: [],
+      })
+      if (inspected.result) {
+        return mergeInspectorModelsIntoProbeResult(probeDetection, inspected.result, probeLogs, request.documentationText)
+      }
+    }
+    return probeDetection
+  }
 
   const probeLogs = toInspectorProbeLogs({
     normalizedWarnings: normalized.warnings,
@@ -123,12 +238,7 @@ export async function detectCreativeEngine(request: CreativeEngineDetectRequest)
     responseSamples: [],
   })
   if (inspected.result) {
-    return withMediaContractDrafts({
-      ...inspected.result,
-      warnings: mergeWarnings(probeLogs, inspected.result.warnings),
-      risks: inspected.result.risks || [],
-      requiresManualModelEntry: inspected.result.protocolType === 'manual-template',
-    })
+    return finalizeInspectorResult(inspected.result, probeLogs, request.documentationText)
   }
   const finalWarnings = inspected.unavailable
     ? mergeWarnings(probeLogs, ['INSPECTOR_UNAVAILABLE'])

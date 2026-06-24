@@ -7,6 +7,7 @@ type DetectRequestBody = {
   serviceUrl?: unknown
   apiKey?: unknown
   allowKeyInInspector?: unknown
+  documentationText?: unknown
 }
 
 function readRequiredString(value: unknown, field: string) {
@@ -17,6 +18,12 @@ function readRequiredString(value: unknown, field: string) {
     })
   }
   return value
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
 }
 
 export const POST = apiHandler(async (request: NextRequest) => {
@@ -35,6 +42,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     serviceUrl: readRequiredString(body.serviceUrl, 'serviceUrl'),
     apiKey: readRequiredString(body.apiKey, 'apiKey'),
     allowKeyInInspector: body.allowKeyInInspector !== false,
+    documentationText: readOptionalString(body.documentationText),
   })
 
   return NextResponse.json(result)

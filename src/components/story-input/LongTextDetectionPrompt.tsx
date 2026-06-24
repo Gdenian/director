@@ -19,7 +19,8 @@ interface LongTextDetectionPromptProps {
   copy: LongTextDetectionPromptCopy
   onClose: () => void
   onSmartSplit: () => void
-  onContinue: () => void
+  onContinue?: () => void
+  allowContinue?: boolean
 }
 
 export default function LongTextDetectionPrompt({
@@ -28,6 +29,7 @@ export default function LongTextDetectionPrompt({
   onClose,
   onSmartSplit,
   onContinue,
+  allowContinue = true,
 }: LongTextDetectionPromptProps) {
   useEffect(() => {
     if (!open) return
@@ -105,16 +107,18 @@ export default function LongTextDetectionPrompt({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={onContinue}
-              className="w-full py-2.5 text-sm text-[var(--glass-text-tertiary)] transition-colors hover:text-[var(--glass-text-secondary)]"
-            >
-              {copy.continueLabel}
-              <span className="ml-1 text-xs opacity-60">
-                - {copy.continueHint}
-              </span>
-            </button>
+            {allowContinue && onContinue ? (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="w-full py-2.5 text-sm text-[var(--glass-text-tertiary)] transition-colors hover:text-[var(--glass-text-secondary)]"
+              >
+                {copy.continueLabel}
+                <span className="ml-1 text-xs opacity-60">
+                  - {copy.continueHint}
+                </span>
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

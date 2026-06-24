@@ -85,6 +85,71 @@ describe('creative engine media contract drafts', () => {
     expect(draft.mediaContract).toBeUndefined()
   })
 
+  it('creates an Agnes video template draft from documentation evidence', () => {
+    const draft = buildMediaContractDraftForDetectedModel({
+      protocolType: 'openai-compatible',
+      documentationText: [
+        'Endpoint https://apihub.agnes-ai.com/v1/videos',
+        'Content-Type application/json',
+        'model agnes-video-v2.0',
+        'image string / array',
+        '创建任务响应包含 video_id',
+        '查询 https://apihub.agnes-ai.com/agnesapi?video_id=<VIDEO_ID>',
+        'status completed',
+        'remixed_from_video_id 为最终生成的视频 URL',
+      ].join('\n'),
+      model: {
+        name: 'agnes-video-v2.0',
+        callName: 'agnes-video-v2.0',
+        purpose: 'video-generation',
+        confidence: 'medium',
+      },
+    })
+
+    expect(draft.compatMediaTemplate).toMatchObject({
+      mediaType: 'video',
+      mode: 'async',
+      create: {
+        method: 'POST',
+        path: '/videos',
+        contentType: 'application/json',
+        bodyTemplate: {
+          model: '{{model}}',
+          prompt: '{{prompt}}',
+          image: '{{image}}',
+          num_frames: 121,
+          frame_rate: 24,
+        },
+      },
+      status: {
+        method: 'GET',
+        path: 'https://apihub.agnes-ai.com/agnesapi?video_id={{task_id}}',
+      },
+      response: {
+        taskIdPath: '$.video_id',
+        statusPath: '$.status',
+        outputUrlPath: '$.remixed_from_video_id',
+      },
+      polling: {
+        intervalMs: 5000,
+        timeoutMs: 600000,
+        doneStates: ['completed'],
+        failStates: ['failed'],
+      },
+    })
+    expect(draft.mediaContract).toMatchObject({
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+      input: { image: 'publicUrl' },
+      output: { kind: 'asyncTask', urlPath: '$.remixed_from_video_id' },
+      testStatus: { imageToVideo: 'unchecked' },
+      source: 'llm',
+    })
+    expect(draft.compatMediaTemplateSource).toBe('ai')
+    expect(draft.mediaContractSource).toBe('llm')
+  })
+
   it('keeps assistant-provided template-backed contracts unchanged', () => {
     const draft = buildMediaContractDraftForDetectedModel({
       protocolType: 'openai-compatible',

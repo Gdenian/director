@@ -61,6 +61,7 @@ describe('api contract - creative engine detect route', () => {
         serviceUrl: ' https://openrouter.ai ',
         apiKey: 'key-1',
         allowKeyInInspector: false,
+        documentationText: ' POST /videos creates async tasks. ',
       },
     }), routeContext)
 
@@ -84,6 +85,7 @@ describe('api contract - creative engine detect route', () => {
       serviceUrl: ' https://openrouter.ai ',
       apiKey: 'key-1',
       allowKeyInInspector: false,
+      documentationText: 'POST /videos creates async tasks.',
     })
     expect(prismaMock.userPreference.upsert).not.toHaveBeenCalled()
     expect(prismaMock.userPreference.update).not.toHaveBeenCalled()

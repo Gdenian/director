@@ -15,6 +15,7 @@ vi.mock('react', async () => {
 })
 
 import { useWorkspaceAutoRun } from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/hooks/useWorkspaceAutoRun'
+import { DIRECT_STORY_TO_SCRIPT_MAX_CHARS } from '@/lib/novel-promotion/story-input-length'
 
 describe('useWorkspaceAutoRun', () => {
   beforeEach(() => {
@@ -67,6 +68,33 @@ describe('useWorkspaceAutoRun', () => {
       router,
       episodeId: 'episode-1',
       novelText: '   ',
+      isTransitioning: false,
+      isStoryToScriptRunning: false,
+      runWithRebuildConfirm,
+      runStoryToScriptFlow,
+    })
+
+    effectCallbacks[0]?.()
+
+    expect(router.replace).not.toHaveBeenCalled()
+    expect(runWithRebuildConfirm).not.toHaveBeenCalled()
+  })
+
+  it('does not auto-run story-to-script for text that requires smart split', () => {
+    const effectCallbacks: Array<() => void | (() => void)> = []
+    const router = { replace: vi.fn() }
+    const runWithRebuildConfirm = vi.fn(async () => undefined)
+    const runStoryToScriptFlow = vi.fn(async () => undefined)
+
+    useEffectMock.mockImplementation((callback: () => void | (() => void)) => {
+      effectCallbacks.push(callback)
+    })
+
+    useWorkspaceAutoRun({
+      searchParams: new URLSearchParams('episode=episode-1&autoRun=storyToScript'),
+      router,
+      episodeId: 'episode-1',
+      novelText: 'a'.repeat(DIRECT_STORY_TO_SCRIPT_MAX_CHARS + 1),
       isTransitioning: false,
       isStoryToScriptRunning: false,
       runWithRebuildConfirm,

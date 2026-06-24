@@ -3,6 +3,7 @@ import {
   buildHomeWorkspaceLaunchTarget,
   createHomeProjectLaunch,
 } from '@/lib/home/create-project-launch'
+import { DIRECT_STORY_TO_SCRIPT_MAX_CHARS } from '@/lib/novel-promotion/story-input-length'
 
 function buildJsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -97,6 +98,37 @@ describe('createHomeProjectLaunch', () => {
       styleAssetId: 'style-1',
       episodeName: '第 1 集',
     })).rejects.toThrow('Episode creation response missing episode id')
+  })
+
+  it('does not auto-run story-to-script when the first episode exceeds the direct run limit', async () => {
+    const apiFetch = vi
+      .fn<(
+        input: string,
+        init?: RequestInit,
+      ) => Promise<Response>>()
+      .mockResolvedValueOnce(buildJsonResponse({
+        project: { id: 'project-1' },
+      }, 201))
+      .mockResolvedValueOnce(buildJsonResponse({ success: true }, 200))
+      .mockResolvedValueOnce(buildJsonResponse({
+        episode: { id: 'episode-1' },
+      }, 201))
+
+    const result = await createHomeProjectLaunch({
+      apiFetch,
+      projectName: '长篇导入',
+      storyText: 'a'.repeat(DIRECT_STORY_TO_SCRIPT_MAX_CHARS + 1),
+      videoRatio: '9:16',
+      styleAssetId: null,
+      episodeName: '第 1 集',
+    })
+
+    expect(result.target).toEqual({
+      pathname: '/workspace/project-1',
+      query: {
+        episode: 'episode-1',
+      },
+    })
   })
 })
 

@@ -172,4 +172,83 @@ describe('user-api model template save', () => {
       confidence: 'low',
     })
   })
+
+  it('persists media contract metadata alongside the template', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([
+        {
+          id: 'openai-compatible:oa-1',
+          name: 'OpenAI Compat',
+          providerKey: 'openai-compatible',
+        },
+      ]),
+      customModels: JSON.stringify([]),
+    })
+
+    await saveModelTemplateConfiguration({
+      userId: 'user-1',
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'agnes-video-v2.0',
+      name: 'Agnes Video V2',
+      type: 'video',
+      template: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: {
+          method: 'POST',
+          path: '/videos',
+          contentType: 'application/json',
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+            image: '{{image}}',
+          },
+        },
+        status: {
+          method: 'GET',
+          path: 'https://apihub.agnes-ai.com/agnesapi?video_id={{task_id}}',
+        },
+        response: {
+          taskIdPath: '$.video_id',
+          statusPath: '$.status',
+          outputUrlPath: '$.remixed_from_video_id',
+        },
+        polling: {
+          intervalMs: 5000,
+          timeoutMs: 600000,
+          doneStates: ['completed'],
+          failStates: ['failed'],
+        },
+      },
+      source: 'ai',
+      mediaContract: {
+        version: 1,
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.remixed_from_video_id' },
+        testStatus: { imageToVideo: 'unchecked' },
+        source: 'llm',
+      },
+      mediaContractSource: 'llm',
+    })
+
+    const savedModels = readSavedModelsFromUpsert()
+    const target = savedModels.find((item) => item.modelKey === 'openai-compatible:oa-1::agnes-video-v2.0')
+    expect(target).toMatchObject({
+      mediaContract: {
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        capabilities: ['image-to-video'],
+        input: { image: 'publicUrl' },
+        output: { kind: 'asyncTask', urlPath: '$.remixed_from_video_id' },
+        testStatus: { imageToVideo: 'unchecked' },
+        source: 'llm',
+      },
+      mediaContractSource: 'llm',
+    })
+    expect(typeof target?.mediaContractCheckedAt).toBe('string')
+  })
 })

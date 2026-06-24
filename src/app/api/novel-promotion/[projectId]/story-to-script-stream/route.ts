@@ -3,6 +3,10 @@ import { requireProjectAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { TASK_TYPE } from '@/lib/task/types'
 import { maybeSubmitLLMTask } from '@/lib/llm-observe/route-task'
+import {
+  canRunDirectStoryToScript,
+  DIRECT_STORY_TO_SCRIPT_MAX_CHARS,
+} from '@/lib/novel-promotion/story-input-length'
 
 export const runtime = 'nodejs'
 
@@ -20,6 +24,14 @@ export const POST = apiHandler(async (
   }
   if (!content) {
     throw new ApiError('INVALID_PARAMS')
+  }
+  if (!canRunDirectStoryToScript(content)) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'CONTENT_TOO_LONG',
+      message: `Content is too long for direct story-to-script. Use smart split first. Max characters: ${DIRECT_STORY_TO_SCRIPT_MAX_CHARS}`,
+      maxChars: DIRECT_STORY_TO_SCRIPT_MAX_CHARS,
+      actualChars: content.length,
+    })
   }
 
   const authResult = await requireProjectAuth(projectId, {

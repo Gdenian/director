@@ -194,6 +194,18 @@ describe('assistant-platform api-config-template skill', () => {
       },
     })
     expect(result.draftModel?.mediaContract?.checkedAt).toBeUndefined()
+    expect(saveModelTemplateConfigurationMock).toHaveBeenCalledWith(expect.objectContaining({
+      mediaContract: expect.objectContaining({
+        mediaType: 'video',
+        executor: 'openai-compat-template',
+        testStatus: {
+          textToVideo: 'unchecked',
+          imageToVideo: 'unchecked',
+          firstLastFrameVideo: 'unchecked',
+        },
+      }),
+      mediaContractSource: 'llm',
+    }))
   })
 
   it('saves multiple templates when batch payload is valid', async () => {

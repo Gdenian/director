@@ -7,6 +7,7 @@ import { withInternalLLMStreamCallbacks } from '@/lib/llm-observe/internal-strea
 import { reportTaskProgress } from '@/lib/workers/shared'
 import { assertTaskActive } from '@/lib/workers/utils'
 import { getUserModelConfig } from '@/lib/config-service'
+import { splitLongTextLocally } from '@/lib/novel-promotion/safe-local-split'
 import { createTextMarkerMatcher } from '@/lib/novel-promotion/story-to-script/clip-matching'
 import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
@@ -24,6 +25,21 @@ type EpisodeSplit = {
 
 type SplitResponse = {
   episodes?: EpisodeSplit[]
+}
+
+type EpisodeOutput = {
+  number: number
+  title: string
+  summary: string
+  content: string
+  wordCount: number
+}
+
+class EpisodeBoundaryResolutionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'EpisodeBoundaryResolutionError'
+  }
 }
 
 const MAX_EPISODE_SPLIT_ATTEMPTS = 2
@@ -53,6 +69,16 @@ function toValidBoundaryIndex(value: unknown, textLength: number): number | null
   const idx = Math.floor(value)
   if (idx < 0 || idx > textLength) return null
   return idx
+}
+
+function toLocalFallbackEpisodes(content: string): EpisodeOutput[] {
+  return splitLongTextLocally(content).map((episode) => ({
+    number: episode.number,
+    title: episode.title,
+    summary: episode.summary,
+    content: episode.content,
+    wordCount: episode.wordCount,
+  }))
 }
 
 export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
@@ -105,13 +131,6 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
 
   const streamContext = createWorkerLLMStreamContext(job, 'episode_split')
   const streamCallbacks = createWorkerLLMStreamCallbacks(job, streamContext)
-  type EpisodeOutput = {
-    number: number
-    title: string
-    summary: string
-    content: string
-    wordCount: number
-  }
   let episodes: EpisodeOutput[] | null = null
   let lastError: Error | null = null
 
@@ -186,37 +205,46 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
 
           const startMarker = readBoundaryMarker(ep.startMarker)
           const endMarker = readBoundaryMarker(ep.endMarker)
-          if (!startMarker || !endMarker) {
-            throw new Error(`episode_${idx + 1} 必须同时提供 startMarker/endMarker`)
-          }
-
-          const startMatch = markerMatcher.matchMarker(startMarker, searchFrom)
-          if (!startMatch) {
-            throw new Error(`episode_${idx + 1} startMarker 无法定位`)
-          }
-          const endMatch = markerMatcher.matchMarker(endMarker, startMatch.endIndex)
-          if (!endMatch) {
-            throw new Error(`episode_${idx + 1} endMarker 无法定位`)
-          }
-
           const rawStartIndex = toValidBoundaryIndex(ep.startIndex, content.length)
-          if (rawStartIndex !== null && Math.abs(rawStartIndex - startMatch.startIndex) > 200) {
-            throw new Error(`episode_${idx + 1} startIndex 与 marker 偏差过大`)
-          }
           const rawEndIndex = toValidBoundaryIndex(ep.endIndex, content.length)
-          if (rawEndIndex !== null && Math.abs(rawEndIndex - endMatch.endIndex) > 200) {
-            throw new Error(`episode_${idx + 1} endIndex 与 marker 偏差过大`)
+          let startPos: number | null = null
+          let endPos: number | null = null
+
+          if (startMarker && endMarker) {
+            const startMatch = markerMatcher.matchMarker(startMarker, searchFrom)
+            const endMatch = startMatch ? markerMatcher.matchMarker(endMarker, startMatch.endIndex) : null
+
+            if (startMatch && endMatch) {
+              if (rawStartIndex !== null && Math.abs(rawStartIndex - startMatch.startIndex) > 200) {
+                throw new EpisodeBoundaryResolutionError(`episode_${idx + 1} startIndex 与 marker 偏差过大`)
+              }
+              if (rawEndIndex !== null && Math.abs(rawEndIndex - endMatch.endIndex) > 200) {
+                throw new EpisodeBoundaryResolutionError(`episode_${idx + 1} endIndex 与 marker 偏差过大`)
+              }
+              startPos = startMatch.startIndex
+              endPos = endMatch.endIndex
+            }
           }
 
-          const startPos = startMatch.startIndex
-          const endPos = endMatch.endIndex
+          if ((startPos === null || endPos === null) && rawStartIndex !== null && rawEndIndex !== null) {
+            startPos = rawStartIndex
+            endPos = rawEndIndex
+          }
+
+          if (startPos === null || endPos === null) {
+            const missingBoundary = !startMarker || !endMarker
+              ? '必须同时提供 startMarker/endMarker'
+              : 'startMarker/endMarker 无法定位'
+            throw new EpisodeBoundaryResolutionError(`episode_${idx + 1} ${missingBoundary}`)
+          }
+
           if (startPos < searchFrom || endPos <= startPos || endPos > content.length) {
-            throw new Error(`episode_${idx + 1} 边界区间无效`)
+            throw new EpisodeBoundaryResolutionError(`episode_${idx + 1} 边界区间无效`)
           }
 
           const episodeContent = content.slice(startPos, endPos).trim()
           if (!episodeContent) {
-            throw new Error(`episode_${idx + 1} 匹配内容为空`)
+            throw new EpisodeBoundaryResolutionError(`episode_${idx + 1} 匹配内容为空`)
           }
 
           resolved.push({
@@ -240,6 +268,12 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
   }
 
   if (!episodes) {
+    if (lastError instanceof EpisodeBoundaryResolutionError) {
+      episodes = toLocalFallbackEpisodes(content)
+    }
+  }
+
+  if (!episodes || episodes.length === 0) {
     throw lastError || new Error('分集边界匹配失败')
   }
 

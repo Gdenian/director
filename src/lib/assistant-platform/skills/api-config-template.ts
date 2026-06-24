@@ -196,6 +196,10 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
             type: item.type,
             template: item.template,
             source: 'ai',
+            ...(item.mediaContract ? {
+              mediaContract: item.mediaContract,
+              mediaContractSource: item.mediaContract.source,
+            } : {}),
           })
           savedResults.push({
             savedModelKey: saved.modelKey,
@@ -287,6 +291,10 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
           type: input.type,
           template: validated.template,
           source: 'ai',
+          ...(mediaContractResult.contract ? {
+            mediaContract: mediaContractResult.contract,
+            mediaContractSource: mediaContractResult.contract.source,
+          } : {}),
         })
 
         return {

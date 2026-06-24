@@ -1,12 +1,23 @@
 import * as React from 'react'
-import { createElement } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { createElement, type ReactNode } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import HomePage from '@/app/[locale]/home/page'
 import {
   HOME_QUICK_START_MIN_ROWS,
   resolveTextareaTargetHeight,
 } from '@/lib/ui/textarea-height'
+
+interface MockStoryInputComposerProps {
+  value?: string
+  onValueChange?: (value: string) => void
+  minRows: number
+  textareaClassName?: string
+  primaryAction: ReactNode
+  secondaryActions?: ReactNode
+}
+
+let latestStoryInputProps: MockStoryInputComposerProps | null = null
 
 vi.mock('next-auth/react', () => ({
   useSession: () => ({
@@ -24,26 +35,20 @@ vi.mock('@/components/Navbar', () => ({
 }))
 
 vi.mock('@/components/story-input/StoryInputComposer', () => ({
-  default: ({
-    minRows,
-    textareaClassName,
-    primaryAction,
-    secondaryActions,
-  }: {
-    minRows: number
-    textareaClassName?: string
-    primaryAction: React.ReactNode
-    secondaryActions?: React.ReactNode
-  }) => createElement(
-    'section',
-    {
-      'data-min-rows': String(minRows),
-      'data-textarea-class': textareaClassName,
-    },
-    secondaryActions,
-    primaryAction,
-    'StoryInputComposer',
-  ),
+  default: (props: MockStoryInputComposerProps) => {
+    latestStoryInputProps = props
+    return createElement(
+      'section',
+      {
+        'data-min-rows': String(props.minRows),
+        'data-textarea-class': props.textareaClassName,
+        'data-value': props.value,
+      },
+      props.secondaryActions,
+      props.primaryAction,
+      'StoryInputComposer',
+    )
+  },
 }))
 
 vi.mock('@/components/ui/icons', () => ({
@@ -81,6 +86,22 @@ vi.mock('@/lib/home/ai-story-expand', () => ({
   expandHomeStory: vi.fn(),
 }))
 
+beforeEach(() => {
+  latestStoryInputProps = null
+})
+
+function findElementByType(node: ReactNode, type: string): React.ReactElement | null {
+  const children = React.Children.toArray(node)
+  for (const child of children) {
+    if (!React.isValidElement(child)) continue
+    if (child.type === type) return child
+    const props = child.props as { children?: ReactNode }
+    const nested = findElementByType(props.children, type)
+    if (nested) return nested
+  }
+  return null
+}
+
 describe('resolveTextareaTargetHeight', () => {
   it('keeps the home quick-start input at least three rows tall', () => {
     expect(resolveTextareaTargetHeight({
@@ -109,5 +130,33 @@ describe('HomePage quick-start input', () => {
     expect(html).toContain('StoryInputComposer')
     expect(html).toContain('data-min-rows="3"')
     expect(html).toContain('data-textarea-class="px-0 pt-0 pb-3 align-top"')
+  })
+
+  it('renders a local text file upload action beside quick-start creation', () => {
+    Reflect.set(globalThis, 'React', React)
+
+    const html = renderToStaticMarkup(createElement(HomePage))
+
+    expect(html).toContain('type="file"')
+    expect(html).toContain('accept=".txt,.md,.text,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"')
+    expect(html).toContain('data-icon="upload"')
+  })
+
+  it('wires the local file input to a change handler', () => {
+    Reflect.set(globalThis, 'React', React)
+
+    renderToStaticMarkup(createElement(HomePage))
+
+    const uploadInput = findElementByType(latestStoryInputProps?.secondaryActions, 'input')
+
+    expect(uploadInput).toBeTruthy()
+
+    const props = uploadInput && React.isValidElement(uploadInput)
+      ? uploadInput.props as {
+        onChange?: (event: { target: { files: File[]; value: string } }) => void
+      }
+      : {}
+
+    expect(props.onChange).toEqual(expect.any(Function))
   })
 })

@@ -4,6 +4,8 @@
   "inputPlaceholder": "输入你的故事创意、小说片段或剧本大纲...",
   "defaultProjectName": "新项目 {timestamp}",
   "startCreation": "开始创作",
+  "importFile": "导入文件",
+  "importFileFailed": "文件读取失败，请上传 .txt、.md、.text 或 .docx 文件",
   "recentProjects": "作品集",
   "viewAll": "查看全部作品",
   "noProjects": "还没有项目，从上方开始你的第一个创作吧",

@@ -23,6 +23,21 @@ interface AddCreativeEngineModalProps {
 
 type EntryMode = 'detect' | 'manual'
 
+export function buildCreativeEngineDetectPayload(input: {
+  serviceUrl: string
+  apiKey: string
+  allowKeyInInspector: boolean
+  documentationText?: string
+}) {
+  const documentationText = input.documentationText?.trim()
+  return {
+    serviceUrl: input.serviceUrl.trim(),
+    apiKey: input.apiKey.trim(),
+    allowKeyInInspector: input.allowKeyInInspector,
+    ...(documentationText ? { documentationText } : {}),
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -79,6 +94,7 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
   const [serviceName, setServiceName] = useState('')
   const [serviceUrl, setServiceUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [documentationText, setDocumentationText] = useState('')
   const [allowKeyInInspector, setAllowKeyInInspector] = useState(true)
   const [mode, setMode] = useState<EntryMode>('detect')
   const [result, setResult] = useState<CreativeEngineDetectionResult | null>(null)
@@ -96,11 +112,12 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
       const response = await apiFetch('/api/user/creative-engines/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceUrl: serviceUrl.trim(),
-          apiKey: apiKey.trim(),
+        body: JSON.stringify(buildCreativeEngineDetectPayload({
+          serviceUrl,
+          apiKey,
           allowKeyInInspector,
-        }),
+          documentationText,
+        })),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const data = await response.json()
@@ -231,6 +248,22 @@ export function AddCreativeEngineModal({ onClose, onSaved }: AddCreativeEngineMo
             />
           </label>
         </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-[var(--glass-text-primary)]">
+            {t('creativeEngine.documentationText')}
+          </span>
+          <textarea
+            value={documentationText}
+            onChange={(event) => setDocumentationText(event.target.value)}
+            placeholder={t('creativeEngine.documentationTextPlaceholder')}
+            rows={5}
+            className="glass-input-base min-h-28 w-full resize-y px-3 py-2.5 text-sm"
+          />
+          <span className="mt-1.5 block text-xs text-[var(--glass-text-secondary)]">
+            {t('creativeEngine.documentationTextHint')}
+          </span>
+        </label>
 
         <label className="flex items-start gap-2 text-xs text-[var(--glass-text-secondary)]">
           <input

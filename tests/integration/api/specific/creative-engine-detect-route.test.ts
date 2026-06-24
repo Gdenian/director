@@ -45,6 +45,7 @@ describe('api specific - creative engine detect route', () => {
         serviceUrl: ' https://openrouter.ai ',
         apiKey: 'key-1',
         allowKeyInInspector: false,
+        documentationText: ' POST /videos creates async tasks. ',
       },
     })
 
@@ -58,6 +59,7 @@ describe('api specific - creative engine detect route', () => {
       serviceUrl: ' https://openrouter.ai ',
       apiKey: 'key-1',
       allowKeyInInspector: false,
+      documentationText: 'POST /videos creates async tasks.',
     })
   })
 

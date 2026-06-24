@@ -20,6 +20,8 @@ import { DEFAULT_STYLE_PRESET_VALUE, STYLE_PRESETS } from '@/lib/style-presets'
 import { PROJECT_STORY_INPUT_MIN_ROWS } from '@/lib/ui/textarea-height'
 import { apiFetch } from '@/lib/api-fetch'
 import { expandHomeStory } from '@/lib/home/ai-story-expand'
+import { readStoryFileText } from '@/lib/home/read-story-file'
+import { canRunDirectStoryToScript } from '@/lib/novel-promotion/story-input-length'
 
 /** 触发智能分集建议的字数阈值 */
 const LONG_TEXT_THRESHOLD = 1000
@@ -77,6 +79,7 @@ export default function NovelInputStage({
   const [stylePresetValue, setStylePresetValue] = useState<string>(DEFAULT_STYLE_PRESET_VALUE)
   const [aiWriteOpen, setAiWriteOpen] = useState(false)
   const [aiWriteLoading, setAiWriteLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 当父组件的 novelText 变化（非本地编辑触发）时，同步到本地 state
   useEffect(() => {
@@ -97,11 +100,12 @@ export default function NovelInputStage({
 
   const hasContent = localText.trim().length > 0
   const [showLongTextPrompt, setShowLongTextPrompt] = useState(false)
+  const directStoryToScriptAllowed = canRunDirectStoryToScript(localText)
 
   /** 点击"开始创作"时，先检测文本长度 */
   const handleStartClick = useCallback(() => {
     const textLength = localText.trim().length
-    if (textLength > LONG_TEXT_THRESHOLD && onSmartSplit) {
+    if ((!canRunDirectStoryToScript(localText) || textLength > LONG_TEXT_THRESHOLD) && onSmartSplit) {
       setShowLongTextPrompt(true)
     } else {
       onNext()
@@ -127,6 +131,20 @@ export default function NovelInputStage({
       setAiWriteLoading(false)
     }
   }, [aiWriteLoading, onNovelTextChange])
+
+  const handleStoryFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const fileText = await readStoryFileText(file)
+      setLocalText(fileText)
+      onNovelTextChange(fileText)
+    } catch {
+      window.alert(homeT('importFileFailed'))
+    }
+  }, [homeT, onNovelTextChange])
 
   // 下拉中使用的简短标签（低信息密度）
   const ratioUsageTagMap: Record<string, string> = {
@@ -223,23 +241,41 @@ export default function NovelInputStage({
             </button>
           )}
           secondaryActions={(
-            <button
-              onClick={() => setAiWriteOpen(true)}
-              disabled={isSubmittingTask || isSwitchingStage}
-              className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
-            >
-              <AppIcon name="sparklesAlt" className="w-4 h-4 text-[#f59e0b]" />
-              <span
-                className="font-medium"
-                style={{
-                  background: 'linear-gradient(135deg, #facc15, #a855f7)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.text,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(event) => void handleStoryFileChange(event)}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSubmittingTask || isSwitchingStage}
+                className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[var(--glass-tone-info-fg)]/50 disabled:opacity-50"
               >
-                {homeT('aiWrite.trigger')}
-              </span>
-            </button>
+                <AppIcon name="upload" className="w-4 h-4 text-[var(--glass-tone-info-fg)]" />
+                <span className="font-medium text-[var(--glass-text-secondary)]">{homeT('importFile')}</span>
+              </button>
+              <button
+                onClick={() => setAiWriteOpen(true)}
+                disabled={isSubmittingTask || isSwitchingStage}
+                className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
+              >
+                <AppIcon name="sparklesAlt" className="w-4 h-4 text-[#f59e0b]" />
+                <span
+                  className="font-medium"
+                  style={{
+                    background: 'linear-gradient(135deg, #facc15, #a855f7)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  {homeT('aiWrite.trigger')}
+                </span>
+              </button>
+            </>
           )}
         />
       </div>
@@ -297,15 +333,22 @@ export default function NovelInputStage({
         open={showLongTextPrompt}
         copy={{
           title: t('storyInput.longTextDetection.title'),
-          description: t('storyInput.longTextDetection.description', {
+          description: t(directStoryToScriptAllowed
+            ? 'storyInput.longTextDetection.description'
+            : 'storyInput.longTextDetection.forceDescription', {
             count: localText.trim().length.toLocaleString(),
           }),
-          strongRecommend: t('storyInput.longTextDetection.strongRecommend'),
+          strongRecommend: t(directStoryToScriptAllowed
+            ? 'storyInput.longTextDetection.strongRecommend'
+            : 'storyInput.longTextDetection.forceRecommend'),
           smartSplitLabel: t('storyInput.longTextDetection.smartSplit'),
-          smartSplitBadge: t('storyInput.longTextDetection.smartSplitRecommend'),
+          smartSplitBadge: t(directStoryToScriptAllowed
+            ? 'storyInput.longTextDetection.smartSplitRecommend'
+            : 'storyInput.longTextDetection.smartSplitRequired'),
           continueLabel: t('storyInput.longTextDetection.continueAnyway'),
           continueHint: t('storyInput.longTextDetection.singleEpisodeWarning'),
         }}
+        allowContinue={directStoryToScriptAllowed}
         onClose={() => setShowLongTextPrompt(false)}
         onSmartSplit={() => {
           setShowLongTextPrompt(false)

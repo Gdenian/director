@@ -138,10 +138,13 @@
     "longTextDetection": {
       "title": "🚀 建议使用智能分集",
       "description": "检测到文本约 {count} 字，长文本直接作为单集处理可能导致生成效果不佳。",
+      "forceDescription": "检测到文本约 {count} 字，已超过单集直接生成的安全长度。继续单集生成会超过模型上下文上限。",
       "strongRecommend": "强烈建议使用智能分集，AI 将自动识别章节结构，拆分为多集并行处理，显著提升生成质量和效率。",
+      "forceRecommend": "请先使用智能分集，把长篇内容拆成多集后再继续创作。",
       "continueAnyway": "仍然单集创作",
       "smartSplit": "智能分集",
       "smartSplitRecommend": "推荐",
+      "smartSplitRequired": "必需",
       "singleEpisodeWarning": "单集模式下，所有内容将作为一集处理"
     }
   },
@@ -159,6 +162,7 @@
     "scriptToStoryboardRunning": "Script→Storyboard V2 运行中",
     "storyToScriptFailed": "内容转剧本失败",
     "scriptToStoryboardFailed": "剧本转分镜失败",
+    "storyToScriptContentTooLong": "文本过长，不能直接作为单集生成。请先使用智能分集。",
     "taskStreamTimeout": "任务执行超时，请检查任务是否仍在运行，或重新触发"
   },
   "rebuildConfirm": {

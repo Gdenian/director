@@ -6,6 +6,8 @@ import {
   toRuntimeModel,
 } from '@/lib/creative-engine/persisted-config'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
+import type { MediaContract, MediaContractSource } from '@/lib/media-contract/types'
+import { validateMediaContract } from '@/lib/media-contract/validator'
 
 type StoredModelType = 'llm' | 'image' | 'video' | 'audio' | 'lipsync'
 
@@ -25,6 +27,8 @@ export interface SaveModelTemplateInput {
   type: 'image' | 'video'
   template: OpenAICompatMediaTemplate
   source: 'ai' | 'manual'
+  mediaContract?: MediaContract
+  mediaContractSource?: MediaContractSource
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -88,6 +92,17 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
   if (input.template.mediaType !== input.type) {
     throw new Error('MODEL_TEMPLATE_SAVE_MEDIATYPE_MISMATCH')
   }
+  let mediaContract: MediaContract | undefined
+  if (input.mediaContract) {
+    const validated = validateMediaContract(input.mediaContract, {
+      modelMediaType: input.type,
+      hasCompatMediaTemplate: true,
+    })
+    if (!validated.ok || !validated.contract) {
+      throw new Error('MODEL_TEMPLATE_SAVE_MEDIA_CONTRACT_INVALID')
+    }
+    mediaContract = validated.contract
+  }
 
   const modelId = input.modelId.trim()
   const modelName = input.name.trim()
@@ -110,6 +125,7 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
   const modelKey = composeModelKey(input.providerId, modelId)
   const models = parseStoredModels(pref?.customModels)
   const checkedAt = new Date().toISOString()
+  const mediaContractSource = input.mediaContractSource || mediaContract?.source
   const existingIndex = models.findIndex((model) => model.modelKey === modelKey)
   if (existingIndex >= 0) {
     const existing = models[existingIndex]
@@ -144,6 +160,9 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
       compatMediaTemplate: input.template,
       compatMediaTemplateCheckedAt: checkedAt,
       compatMediaTemplateSource: input.source,
+      ...(mediaContract ? { mediaContract } : {}),
+      ...(mediaContract ? { mediaContractCheckedAt: checkedAt } : {}),
+      ...(mediaContractSource ? { mediaContractSource } : {}),
       enabled: baseRecord.enabled === false ? false : true,
     } as StoredModelRecord
     : {
@@ -156,6 +175,9 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
       compatMediaTemplate: input.template,
       compatMediaTemplateCheckedAt: checkedAt,
       compatMediaTemplateSource: input.source,
+      ...(mediaContract ? { mediaContract } : {}),
+      ...(mediaContract ? { mediaContractCheckedAt: checkedAt } : {}),
+      ...(mediaContractSource ? { mediaContractSource } : {}),
       enabled: baseRecord.enabled === false ? false : true,
     }
 

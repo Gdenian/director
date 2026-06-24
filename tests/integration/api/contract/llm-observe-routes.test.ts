@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 import { TASK_TYPE, type TaskType } from '@/lib/task/types'
+import { DIRECT_STORY_TO_SCRIPT_MAX_CHARS } from '@/lib/novel-promotion/story-input-length'
 import { buildMockRequest } from '../../../helpers/request'
 
 type AuthState = {
@@ -421,4 +422,41 @@ describe('api contract - llm observe routes (behavior)', () => {
       expect(typeof json.taskId).toBe('string')
     })
   }
+
+  it('rejects overlarge story-to-script content before submitting an llm task', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/story-to-script-stream/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/story-to-script-stream',
+      method: 'POST',
+      body: {
+        episodeId: 'episode-1',
+        content: 'a'.repeat(DIRECT_STORY_TO_SCRIPT_MAX_CHARS + 1),
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const json = await res.json() as { error?: { details?: { code?: string } } }
+
+    expect(res.status).toBe(400)
+    expect(json.error?.details?.code).toBe('CONTENT_TOO_LONG')
+    expect(maybeSubmitLLMTaskMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects overlarge ai episode split content before submitting an llm task', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/episodes/split/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1/episodes/split',
+      method: 'POST',
+      body: {
+        content: 'a'.repeat(DIRECT_STORY_TO_SCRIPT_MAX_CHARS + 1),
+      },
+    })
+
+    const res = await mod.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+    const json = await res.json() as { error?: { details?: { code?: string } } }
+
+    expect(res.status).toBe(400)
+    expect(json.error?.details?.code).toBe('CONTENT_TOO_LONG')
+    expect(maybeSubmitLLMTaskMock).not.toHaveBeenCalled()
+  })
 })

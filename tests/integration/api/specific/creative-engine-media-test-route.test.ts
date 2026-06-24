@@ -69,6 +69,12 @@ const prismaMock = vi.hoisted(() => ({
           response: {
             outputUrlPath: '$.data[0].url',
           },
+          polling: {
+            intervalMs: 5000,
+            timeoutMs: 600000,
+            doneStates: ['completed'],
+            failStates: ['failed'],
+          },
         } }),
         ...(prismaMock.state.omitCompatMediaTemplate ? {} : { compatMediaTemplateSource: 'manual' }),
         ...(prismaMock.state.omitMediaContract ? {} : {
@@ -202,6 +208,10 @@ describe('api specific - creative engine media-test route', () => {
         mediaContract: expect.objectContaining({ executor: 'openai-compat-template' }),
       }),
       capability: 'text-to-image',
+      limits: {
+        maxPollTimeoutMs: 600000,
+        maxPollIntervalMs: 5000,
+      },
     }))
     expect(runnerState.saveMediaContractTestResult).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',

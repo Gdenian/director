@@ -48,11 +48,13 @@ describe('creative engine inspector redaction', () => {
       allowKeyInInspector: false,
       probeLogs: ['401 sk-secret-full'],
       responseSamples: ['{"error":"bad sk-secret-full"}'],
+      documentationText: 'Use Authorization: Bearer sk-secret-full when calling POST /videos.',
     })
 
     const serialized = JSON.stringify(payload)
     expect(serialized).not.toContain('sk-secret-full')
     expect(serialized).toContain('sk-...full')
+    expect(serialized).toContain('POST /videos')
   })
 
   it('may include the full key when explicitly allowed', () => {
@@ -62,6 +64,7 @@ describe('creative engine inspector redaction', () => {
       allowKeyInInspector: true,
       probeLogs: [],
       responseSamples: [],
+      documentationText: 'Use Authorization: Bearer sk-secret-full when calling POST /videos.',
     })
 
     expect(JSON.stringify(payload)).toContain('sk-secret-full')

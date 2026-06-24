@@ -136,6 +136,184 @@ describe('creative engine detection orchestrator', () => {
     ])
   })
 
+  it('uses provided API documentation to inspect non-standard video templates even when /models succeeds', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      data: [{ id: 'agnes-video-v2.0' }],
+    }), { status: 200 })))
+    inspectCreativeEngineMock.mockResolvedValueOnce({
+      source: 'agnes-docs',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://apihub.agnes-ai.com/v1',
+      confidence: 'high',
+      models: [{
+        name: 'Agnes Video V2.0',
+        callName: 'agnes-video-v2.0',
+        purpose: 'video-generation',
+        confidence: 'high',
+        compatMediaTemplate: {
+          version: 1,
+          mediaType: 'video',
+          mode: 'async',
+          create: {
+            method: 'POST',
+            path: '/videos',
+            contentType: 'application/json',
+            bodyTemplate: {
+              model: '{{model}}',
+              prompt: '{{prompt}}',
+              image: '{{image}}',
+              num_frames: '{{num_frames}}',
+              frame_rate: '{{frame_rate}}',
+            },
+          },
+          status: {
+            method: 'GET',
+            path: 'https://apihub.agnes-ai.com/agnesapi?video_id={{task_id}}',
+          },
+          response: {
+            taskIdPath: '$.video_id',
+            statusPath: '$.status',
+            outputUrlPath: '$.remixed_from_video_id',
+            errorPath: '$.error.message',
+          },
+          polling: {
+            intervalMs: 5000,
+            timeoutMs: 600000,
+            doneStates: ['completed'],
+            failStates: ['failed'],
+          },
+        },
+        compatMediaTemplateSource: 'ai',
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.remixed_from_video_id' },
+          testStatus: { imageToVideo: 'unchecked' },
+          source: 'llm',
+        },
+        mediaContractSource: 'llm',
+      }],
+      warnings: ['DOCS_USED'],
+      risks: [],
+    })
+
+    const documentationText = [
+      'POST https://apihub.agnes-ai.com/v1/videos creates an async Agnes video task.',
+      'Use Content-Type application/json with image URL fields.',
+      'The create response returns video_id.',
+      'GET https://apihub.agnes-ai.com/agnesapi?video_id=<VIDEO_ID> returns status and remixed_from_video_id.',
+    ].join('\n')
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://apihub.agnes-ai.com/v1',
+      apiKey: 'agnes-key',
+      allowKeyInInspector: false,
+      documentationText,
+    })
+
+    expect(inspectCreativeEngineMock).toHaveBeenCalledWith(expect.objectContaining({
+      serviceUrl: 'https://apihub.agnes-ai.com/v1',
+      apiKey: 'agnes-key',
+      allowKeyInInspector: false,
+      documentationText,
+      probeLogs: expect.arrayContaining(['MODEL_LIST_READABLE']),
+    }))
+    expect(result).toEqual(expect.objectContaining({
+      source: 'agnes-docs',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://apihub.agnes-ai.com/v1',
+      confidence: 'high',
+      requiresManualModelEntry: false,
+      warnings: expect.arrayContaining(['DOCS_USED']),
+    }))
+    expect(result.models[0]).toMatchObject({
+      callName: 'agnes-video-v2.0',
+      purpose: 'video-generation',
+      compatMediaTemplate: {
+        create: {
+          contentType: 'application/json',
+          bodyTemplate: {
+            image: '{{image}}',
+          },
+        },
+        status: {
+          path: 'https://apihub.agnes-ai.com/agnesapi?video_id={{task_id}}',
+        },
+        response: {
+          taskIdPath: '$.video_id',
+          outputUrlPath: '$.remixed_from_video_id',
+        },
+      },
+      compatMediaTemplateSource: 'ai',
+      mediaContract: {
+        executor: 'openai-compat-template',
+        input: { image: 'publicUrl' },
+        testStatus: { imageToVideo: 'unchecked' },
+      },
+      mediaContractSource: 'llm',
+    })
+  })
+
+  it('merges documentation-derived media templates without dropping other listed models', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      data: [
+        { id: 'agnes-chat-lite', modalities: ['text'] },
+        { id: 'agnes-video-v2.0', modalities: ['video'] },
+      ],
+    }), { status: 200 })))
+    inspectCreativeEngineMock.mockResolvedValueOnce({
+      source: 'agnes-docs',
+      recommendedProviderKey: 'openai-compatible',
+      protocolType: 'openai-compatible',
+      normalizedBaseUrl: 'https://apihub.agnes-ai.com/v1',
+      confidence: 'high',
+      models: [{
+        name: 'Agnes Video V2.0',
+        callName: 'agnes-video-v2.0',
+        purpose: 'video-generation',
+        confidence: 'high',
+        mediaContract: {
+          version: 1,
+          mediaType: 'video',
+          executor: 'openai-compat-template',
+          capabilities: ['image-to-video'],
+          input: { image: 'publicUrl' },
+          output: { kind: 'asyncTask', urlPath: '$.remixed_from_video_id' },
+          testStatus: { imageToVideo: 'unchecked' },
+          source: 'llm',
+        },
+        mediaContractSource: 'llm',
+      }],
+      warnings: ['DOCS_USED'],
+      risks: [],
+    })
+
+    const result = await detectCreativeEngine({
+      serviceUrl: 'https://apihub.agnes-ai.com/v1',
+      apiKey: 'agnes-key',
+      allowKeyInInspector: false,
+      documentationText: 'POST /videos returns video_id and remixed_from_video_id',
+    })
+
+    expect(result.models.map((model) => model.callName)).toEqual([
+      'agnes-chat-lite',
+      'agnes-video-v2.0',
+    ])
+    expect(result.models.find((model) => model.callName === 'agnes-video-v2.0')).toMatchObject({
+      purpose: 'video-generation',
+      mediaContract: {
+        executor: 'openai-compat-template',
+        testStatus: { imageToVideo: 'unchecked' },
+      },
+      mediaContractSource: 'llm',
+    })
+  })
+
   it('falls through to Gemini-compatible model listing without generation calls', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models?key=gemini-key')

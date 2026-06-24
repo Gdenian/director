@@ -1,4 +1,5 @@
 import { readApiErrorMessage } from '@/lib/api/read-error-message'
+import { canRunDirectStoryToScript } from '@/lib/novel-promotion/story-input-length'
 
 interface ProjectCreationPayload {
   project?: {
@@ -72,13 +73,19 @@ async function readEpisodeId(response: Response): Promise<string> {
   return episodeId
 }
 
-export function buildHomeWorkspaceLaunchTarget(projectId: string, episodeId: string): HomeWorkspaceLaunchTarget {
+export function buildHomeWorkspaceLaunchTarget(
+  projectId: string,
+  episodeId: string,
+  options: { autoRunStoryToScript?: boolean } = {},
+): HomeWorkspaceLaunchTarget {
+  const query: HomeWorkspaceLaunchTarget['query'] = { episode: episodeId }
+  if (options.autoRunStoryToScript !== false) {
+    query.autoRun = 'storyToScript'
+  }
+
   return {
     pathname: `/workspace/${projectId}`,
-    query: {
-      episode: episodeId,
-      autoRun: 'storyToScript',
-    },
+    query,
   }
 }
 
@@ -137,6 +144,8 @@ export async function createHomeProjectLaunch({
   return {
     projectId,
     episodeId,
-    target: buildHomeWorkspaceLaunchTarget(projectId, episodeId),
+    target: buildHomeWorkspaceLaunchTarget(projectId, episodeId, {
+      autoRunStoryToScript: canRunDirectStoryToScript(storyText),
+    }),
   }
 }

@@ -2,11 +2,13 @@ import type {
   CreativeProtocolType,
 } from '@/lib/creative-engine/types'
 import type { MediaContract } from '@/lib/media-contract/types'
+import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 import type { DetectedModelDraft } from './types'
 
 type MediaContractDraftInput = {
   protocolType: CreativeProtocolType
   model: DetectedModelDraft
+  documentationText?: string
 }
 
 type MediaContractDraftResult = Pick<
@@ -49,6 +51,79 @@ function buildVideoContract(executor: MediaContract['executor'], source: MediaCo
       imageToVideo: 'unchecked',
     },
     ...(source ? { source } : {}),
+  }
+}
+
+function hasAgnesVideoDocumentationEvidence(documentationText?: string) {
+  if (!documentationText) return false
+  const normalized = documentationText.toLowerCase()
+  return normalized.includes('agnes-video-v2.0')
+    && normalized.includes('/v1/videos')
+    && normalized.includes('agnesapi')
+    && normalized.includes('video_id')
+    && normalized.includes('remixed_from_video_id')
+}
+
+function isAgnesVideoModel(model: DetectedModelDraft) {
+  return model.purpose === 'video-generation'
+    && model.callName.trim().toLowerCase() === 'agnes-video-v2.0'
+}
+
+function buildAgnesVideoTemplateDraft(): MediaContractDraftResult {
+  const compatMediaTemplate: OpenAICompatMediaTemplate = {
+    version: 1,
+    mediaType: 'video',
+    mode: 'async',
+    create: {
+      method: 'POST',
+      path: '/videos',
+      contentType: 'application/json',
+      bodyTemplate: {
+        model: '{{model}}',
+        prompt: '{{prompt}}',
+        image: '{{image}}',
+        num_frames: 121,
+        frame_rate: 24,
+      },
+    },
+    status: {
+      method: 'GET',
+      path: 'https://apihub.agnes-ai.com/agnesapi?video_id={{task_id}}',
+    },
+    response: {
+      taskIdPath: '$.video_id',
+      statusPath: '$.status',
+      outputUrlPath: '$.remixed_from_video_id',
+      errorPath: '$.error.message',
+    },
+    polling: {
+      intervalMs: 5000,
+      timeoutMs: 600000,
+      doneStates: ['completed'],
+      failStates: ['failed'],
+    },
+  }
+  return {
+    compatMediaTemplate,
+    compatMediaTemplateSource: 'ai',
+    mediaContract: {
+      version: 1,
+      mediaType: 'video',
+      executor: 'openai-compat-template',
+      capabilities: ['image-to-video'],
+      input: {
+        image: 'publicUrl',
+      },
+      output: {
+        kind: 'asyncTask',
+        urlPath: '$.remixed_from_video_id',
+      },
+      testStatus: {
+        imageToVideo: 'unchecked',
+      },
+      source: 'llm',
+    },
+    mediaContractSource: 'llm',
   }
 }
 
@@ -109,6 +184,14 @@ export function buildMediaContractDraftForDetectedModel(input: MediaContractDraf
       mediaContract: buildImageContract('openai-standard', 'rule'),
       mediaContractSource: 'rule',
     }
+  }
+
+  if (
+    input.protocolType === 'openai-compatible'
+    && isAgnesVideoModel(input.model)
+    && hasAgnesVideoDocumentationEvidence(input.documentationText)
+  ) {
+    return buildAgnesVideoTemplateDraft()
   }
 
   return {}

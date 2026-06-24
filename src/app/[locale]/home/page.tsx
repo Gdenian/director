@@ -4,7 +4,7 @@
  * 首页 - 创作中心
  * 用户登录后的主入口页面：快速创作 + 作品集
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ChangeEvent } from 'react'
 import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
@@ -19,6 +19,7 @@ import { Link, useRouter } from '@/i18n/navigation'
 import { apiFetch } from '@/lib/api-fetch'
 import { expandHomeStory } from '@/lib/home/ai-story-expand'
 import { createHomeProjectLaunch } from '@/lib/home/create-project-launch'
+import { readStoryFileText } from '@/lib/home/read-story-file'
 import { formatDefaultProjectTimestamp } from '@/lib/projects/default-name'
 import { HOME_QUICK_START_MIN_ROWS } from '@/lib/ui/textarea-height'
 import AiWriteModal from '@/components/home/AiWriteModal'
@@ -78,6 +79,7 @@ export default function HomePage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [aiWriteOpen, setAiWriteOpen] = useState(false)
   const [aiWriteLoading, setAiWriteLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 鉴权
   useEffect(() => {
@@ -157,6 +159,20 @@ export default function HomePage() {
       window.alert(message)
     } finally {
       setAiWriteLoading(false)
+    }
+  }
+
+  const handleStoryFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setCreateError(null)
+    try {
+      const fileText = await readStoryFileText(file)
+      setInputValue(fileText)
+    } catch {
+      setCreateError(t('importFileFailed'))
     }
   }
 
@@ -320,23 +336,41 @@ export default function HomePage() {
                 </button>
               )}
               secondaryActions={(
-                <button
-                  onClick={() => setAiWriteOpen(true)}
-                  disabled={createLoading}
-                  className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
-                >
-                  <AppIcon name="sparklesAlt" className="w-4 h-4 text-[#f59e0b]" />
-                  <span
-                    className="font-medium"
-                    style={{
-                      background: 'linear-gradient(135deg, #facc15, #a855f7)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".txt,.md,.text,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={(event) => void handleStoryFileChange(event)}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={createLoading}
+                    className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[var(--glass-tone-info-fg)]/50 disabled:opacity-50"
                   >
-                    {t('aiWrite.trigger')}
-                  </span>
-                </button>
+                    <AppIcon name="upload" className="w-4 h-4 text-[var(--glass-tone-info-fg)]" />
+                    <span className="font-medium text-[var(--glass-text-secondary)]">{t('importFile')}</span>
+                  </button>
+                  <button
+                    onClick={() => setAiWriteOpen(true)}
+                    disabled={createLoading}
+                    className="glass-btn-base flex h-10 flex-shrink-0 items-center gap-1.5 border border-[var(--glass-stroke-strong)] px-3 text-sm transition-all hover:border-[#facc15]/40"
+                  >
+                    <AppIcon name="sparklesAlt" className="w-4 h-4 text-[#f59e0b]" />
+                    <span
+                      className="font-medium"
+                      style={{
+                        background: 'linear-gradient(135deg, #facc15, #a855f7)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      }}
+                    >
+                      {t('aiWrite.trigger')}
+                    </span>
+                  </button>
+                </>
               )}
               footer={createError ? (
                 <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600">

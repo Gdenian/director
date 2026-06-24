@@ -90,4 +90,26 @@ describe('api contract - novel promotion project config route', () => {
       }),
     )
   })
+
+  it('accepts workflowMode updates', async () => {
+    const mod = await import('@/app/api/novel-promotion/[projectId]/route')
+    const req = buildMockRequest({
+      path: '/api/novel-promotion/project-1',
+      method: 'PATCH',
+      body: {
+        workflowMode: 'agent',
+      },
+    })
+
+    const res = await mod.PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(prismaMock.novelPromotionProject.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          workflowMode: 'agent',
+        }),
+      }),
+    )
+  })
 })

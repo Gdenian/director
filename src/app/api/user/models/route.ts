@@ -20,6 +20,7 @@ import {
   type UnifiedModelType,
 } from '@/lib/model-config-contract'
 import { mediaCapabilityStatusKey } from '@/lib/media-contract/status'
+import { filterModelOptionsForWorkflowCapability } from '@/lib/media-contract/workflow-filter'
 import { findBuiltinCapabilities } from '@/lib/model-capabilities/catalog'
 import { findBuiltinPricingCatalogEntry } from '@/lib/model-pricing/catalog'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
@@ -66,6 +67,10 @@ interface UserModelsPayload {
 const AUDIO_MODEL_EXCLUDED_IDS = new Set([
   'qwen-voice-design',
 ])
+const VIDEO_WORKFLOW_CAPABILITIES: MediaCapability[] = [
+  'image-to-video',
+  'first-last-frame-video',
+]
 
 function toDisplayLabel(model: CreativeModelConfig, fallbackModelId: string): string {
   if (typeof model.name === 'string' && model.name.trim()) return model.name.trim()
@@ -186,6 +191,17 @@ function summarizeMediaCapabilities(contract: MediaContract): NonNullable<UserMo
   return summary
 }
 
+function filterVideoWorkflowOptions(options: UserModelOption[]): UserModelOption[] {
+  const seen = new Set<string>()
+  return VIDEO_WORKFLOW_CAPABILITIES.flatMap((capability) =>
+    filterModelOptionsForWorkflowCapability(options, capability)
+  ).filter((option) => {
+    if (seen.has(option.value)) return false
+    seen.add(option.value)
+    return true
+  })
+}
+
 export const GET = apiHandler(async () => {
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
@@ -267,7 +283,7 @@ export const GET = apiHandler(async () => {
   return NextResponse.json({
     llm: dedupeByModelKey(grouped.llm),
     image: dedupeByModelKey(grouped.image),
-    video: dedupeByModelKey(grouped.video),
+    video: dedupeByModelKey(filterVideoWorkflowOptions(grouped.video)),
     audio: dedupeByModelKey(grouped.audio),
     lipsync: dedupeByModelKey(grouped.lipsync),
     voiceDesign: dedupeByModelKey(grouped.voiceDesign),

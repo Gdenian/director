@@ -185,6 +185,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
       image: readOptionalString(body.sample?.image),
       lastFrameImage: readOptionalString(body.sample?.lastFrameImage),
     },
+    limits: {
+      maxPollTimeoutMs: model.compatMediaTemplate?.polling?.timeoutMs,
+      maxPollIntervalMs: model.compatMediaTemplate?.polling?.intervalMs,
+    },
   })
 
   const saved = await saveMediaContractTestResult({

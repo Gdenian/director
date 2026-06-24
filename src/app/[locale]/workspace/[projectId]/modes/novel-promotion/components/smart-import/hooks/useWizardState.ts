@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { logInfo as _ulogInfo, logWarn as _ulogWarn, logError as _ulogError } from '@/lib/logging/core'
 import { detectEpisodeMarkers, type EpisodeMarkerResult } from '@/lib/episode-marker-detector'
+import { splitLongTextLocally } from '@/lib/novel-promotion/safe-local-split'
+import { canRunDirectStoryToScript } from '@/lib/novel-promotion/story-input-length'
 import { countWords } from '@/lib/word-count'
 import {
   useListProjectEpisodes,
@@ -73,6 +75,37 @@ export function useWizardState({ projectId, importStatus, onImportComplete, t, i
     setError(null)
 
     try {
+      if (!canRunDirectStoryToScript(rawContent)) {
+        _ulogInfo('[SmartImport] 文本超长，使用本地安全切分，跳过 AI 分集')
+        const splitEpisodes = splitLongTextLocally(rawContent)
+        if (splitEpisodes.length === 0) {
+          throw new Error(t('errors.analyzeFailed'))
+        }
+        setEpisodes(splitEpisodes)
+
+        let saveSucceeded = true
+        try {
+          await saveProjectEpisodesBatchMutation.mutateAsync({
+            episodes: splitEpisodes.map((ep: SplitEpisode) => ({
+              name: ep.title,
+              description: ep.summary,
+              novelText: ep.content,
+            })),
+            clearExisting: true,
+            importStatus: 'pending',
+          })
+        } catch {
+          saveSucceeded = false
+          _ulogWarn('[SmartImport] 本地安全切分自动保存失败，继续显示预览')
+        }
+        if (saveSucceeded) {
+          _ulogInfo('[SmartImport] 本地安全切分剧集已自动保存到数据库，状态：pending')
+        }
+
+        setStage('preview')
+        return
+      }
+
       _ulogInfo('[SmartImport] 开始调用 split API...')
       const data = await splitProjectEpisodesMutation.mutateAsync({ content: rawContent, async: true })
       const splitEpisodes = data.episodes || []

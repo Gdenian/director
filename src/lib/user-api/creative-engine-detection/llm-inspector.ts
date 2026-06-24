@@ -125,6 +125,11 @@ const InspectorOutputSchema = z.object({
 export const INSPECTOR_SYSTEM_PROMPT = [
   '你是创作引擎识别助手。',
   '你只能生成配置草稿。不能声称已经保存，不能推荐默认创作方案，不能自动分配模型。',
+  '用户提供的接入文档优先于模型名关键词；/models 只证明模型存在，不能证明媒体能力已通过测试。',
+  '如果文档描述了图片或视频创建接口、状态查询接口、响应 JSON 字段或轮询状态，你必须为对应媒体模型输出 compatMediaTemplate。',
+  'compatMediaTemplate 只能使用文档中的 method、path、contentType、bodyTemplate、response 和 polling；异步任务用 mode=async，并设置 taskIdPath、statusPath、outputUrlPath 或 outputUrlsPath。',
+  '当媒体模型使用自定义 OpenAI-compatible 模板执行时，必须同时输出 mediaContract，executor 必须是 openai-compat-template，source 使用 llm，testStatus 使用 unchecked。',
+  '图生视频使用 capability image-to-video 和 input.image=publicUrl；首尾帧视频使用 first-last-frame-video，并按文档映射 image/lastFrameImage 或 images。',
   '只返回 JSON，不要返回 Markdown。',
   '模型 purpose 只能是 llm、image、video、audio、lipsync、voice-design、unknown。',
 ].join('\n')
@@ -213,11 +218,17 @@ export function buildInspectorPayload(input: InspectorPayloadInput) {
   const safeResponseSamples = input.allowKeyInInspector
     ? input.responseSamples
     : input.responseSamples.map((item) => redactInspectorText(item, input.apiKey))
+  const safeDocumentationText = input.documentationText
+    ? input.allowKeyInInspector
+      ? input.documentationText
+      : redactInspectorText(input.documentationText, input.apiKey)
+    : undefined
 
   return {
     serviceUrl: input.serviceUrl,
     apiKey: input.allowKeyInInspector ? input.apiKey : redactInspectorText(input.apiKey),
     allowKeyInInspector: input.allowKeyInInspector,
+    ...(safeDocumentationText ? { documentationText: safeDocumentationText } : {}),
     probeLogs: safeProbeLogs,
     responseSamples: safeResponseSamples,
   }

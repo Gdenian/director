@@ -84,6 +84,12 @@ describe('creative engine LLM inspector', () => {
     expect(INSPECTOR_SYSTEM_PROMPT).toContain('不能自动分配模型')
   })
 
+  it('asks the inspector to draft executable media templates from documentation', () => {
+    expect(INSPECTOR_SYSTEM_PROMPT).toContain('compatMediaTemplate')
+    expect(INSPECTOR_SYSTEM_PROMPT).toContain('mediaContract')
+    expect(INSPECTOR_SYSTEM_PROMPT).toContain('openai-compat-template')
+  })
+
   it('requires a supported inspector provider when env is configured', () => {
     const previousProvider = process.env.CREATIVE_ENGINE_INSPECTOR_PROVIDER
     const previousModel = process.env.CREATIVE_ENGINE_INSPECTOR_MODEL
