@@ -22,6 +22,8 @@ import {
 import { mediaCapabilityStatusKey } from '@/lib/media-contract/status'
 import { findBuiltinCapabilities } from '@/lib/model-capabilities/catalog'
 import { findBuiltinPricingCatalogEntry } from '@/lib/model-pricing/catalog'
+import { filterModelOptionsForGovernance } from '@/lib/admin/model-governance-runtime'
+import { isModelTierAllowed, resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
 import type { VideoPricingTier } from '@/lib/model-pricing/video-tier'
 import type { MediaCapability, MediaContract } from '@/lib/media-contract/types'
 import type {
@@ -142,6 +144,31 @@ function getModelGroup(modelType: UnifiedModelType, purpose: CreativeModelPurpos
   return modelType
 }
 
+function getRuntimeModelTier(model: CreativeModelConfig) {
+  const rawTier = (model as CreativeModelConfig & { tier?: unknown }).tier
+  return typeof rawTier === 'string' && rawTier.trim() ? rawTier.trim() : null
+}
+
+function hasRuntimeModelTag(model: CreativeModelConfig, tag: string) {
+  const tags = (model as CreativeModelConfig & { tags?: unknown }).tags
+  return Array.isArray(tags) && tags.some((item) => item === tag)
+}
+
+function isRuntimeAdvancedModel(model: CreativeModelConfig) {
+  return getRuntimeModelTier(model) === 'advanced'
+    || hasRuntimeModelTag(model, 'advanced')
+    || model.callName.includes('pro')
+}
+
+function isModelTypeAllowedByGroup(modelType: UnifiedModelType, group: Awaited<ReturnType<typeof resolveUserRuntimeGroup>>) {
+  if (modelType === 'video') return group.allowVideo
+  if (modelType === 'audio') return group.allowVoice
+  if (modelType === 'lipsync') return group.allowLipSync
+  if (modelType === 'image') return group.allowImage
+  if (modelType === 'llm') return group.allowText
+  return true
+}
+
 function findBuiltinCapabilitiesWithProviderKey(
   modelType: UnifiedModelType,
   provider: string,
@@ -191,6 +218,7 @@ export const GET = apiHandler(async () => {
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
   const userId = session.user.id
+  const runtimeGroup = await resolveUserRuntimeGroup(userId)
 
   const pref = await prisma.userPreference.findUnique({
     where: { userId },
@@ -224,11 +252,19 @@ export const GET = apiHandler(async () => {
     if (!engine) continue
     if (isBlockedStatus(engine.status)) continue
     if (!hasStoredProviderApiKey(engine)) continue
+    if (!isModelTypeAllowedByGroup(modelType, runtimeGroup)) continue
 
     const provider = model.engineId
     const modelId = model.callName
     const modelKey = model.modelKey || composeModelKey(provider, modelId)
     if (!modelKey) continue
+    if (!isModelTierAllowed(runtimeGroup, {
+      isAdvanced: isRuntimeAdvancedModel(model),
+      tier: getRuntimeModelTier(model),
+      value: modelKey,
+    })) {
+      continue
+    }
 
     const option: UserModelOption = {
       value: modelKey,
@@ -264,12 +300,21 @@ export const GET = apiHandler(async () => {
     grouped[getModelGroup(modelType, model.purpose)].push(option)
   }
 
-  return NextResponse.json({
+  const deduped: UserModelsPayload = {
     llm: dedupeByModelKey(grouped.llm),
     image: dedupeByModelKey(grouped.image),
     video: dedupeByModelKey(grouped.video),
     audio: dedupeByModelKey(grouped.audio),
     lipsync: dedupeByModelKey(grouped.lipsync),
     voiceDesign: dedupeByModelKey(grouped.voiceDesign),
+  }
+
+  return NextResponse.json({
+    llm: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.llm }),
+    image: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.image }),
+    video: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.video }),
+    audio: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.audio }),
+    lipsync: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.lipsync }),
+    voiceDesign: await filterModelOptionsForGovernance({ userId, groupKey: runtimeGroup.key, options: deduped.voiceDesign }),
   } satisfies UserModelsPayload)
 })

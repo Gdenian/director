@@ -20,6 +20,8 @@ import {
   prepareTaskBilling,
 } from '@/lib/billing'
 import { ApiError } from '@/lib/api-errors'
+import { OperationPolicyError } from '@/lib/admin/operation-errors'
+import { assertTaskAllowed } from '@/lib/admin/policy'
 import { getTaskFlowMeta } from '@/lib/llm-observe/stage-pipeline'
 import type { Locale } from '@/i18n/routing'
 import { attachTaskToRun, createRun, findReusableActiveRun } from '@/lib/run-runtime/service'
@@ -128,6 +130,12 @@ export async function submitTask(params: {
     requestId: params.requestId || undefined,
     projectId: params.projectId,
     userId: params.userId,
+  })
+
+  await assertTaskAllowed({
+    userId: params.userId,
+    type: params.type,
+    payload: params.payload || null,
   })
 
   const normalizedPayloadBase = normalizeTaskPayload(params.type, params.payload || null)
@@ -261,6 +269,10 @@ export async function submitTask(params: {
           required: error.required,
           available: error.available,
         })
+      }
+      if (error instanceof OperationPolicyError) {
+        await markTaskFailed(task.id, error.code, error.message)
+        throw error
       }
       await markTaskFailed(task.id, 'INTERNAL_ERROR', error instanceof Error ? error.message : String(error))
       throw error

@@ -3,6 +3,9 @@ import { queueRedis } from '@/lib/redis'
 import { QUEUE_NAME } from '@/lib/task/queues'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { getUserWorkflowConcurrencyConfig } from '@/lib/config-service'
+import { assertModelUsableForTask } from '@/lib/admin/model-governance-runtime'
+import { extractTaskModelKeys } from '@/lib/admin/task-capabilities'
+import { resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
 import { reportTaskProgress, withTaskLifecycle } from './shared'
 import { withUserConcurrencyGate } from './user-concurrency-gate'
 import {
@@ -17,8 +20,22 @@ import {
 
 type AnyObj = Record<string, unknown>
 
+async function assertPayloadModelsAllowed(job: Job<TaskJobData>) {
+  const modelKeys = extractTaskModelKeys(job.data.payload)
+  if (modelKeys.length === 0) return
+  const group = await resolveUserRuntimeGroup(job.data.userId)
+  for (const modelKey of modelKeys) {
+    await assertModelUsableForTask({
+      modelKey,
+      userId: job.data.userId,
+      groupKey: group.key,
+    })
+  }
+}
+
 async function processImageTask(job: Job<TaskJobData>) {
   await reportTaskProgress(job, 5, { stage: 'received' })
+  await assertPayloadModelsAllowed(job)
 
   switch (job.data.type) {
     case TASK_TYPE.IMAGE_CHARACTER:

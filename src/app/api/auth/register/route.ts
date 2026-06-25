@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { logAuthAction } from '@/lib/logging/semantic'
 import { apiHandler, ApiError } from '@/lib/api-errors'
+import { OperationPolicyError, operationErrorToApiPayload } from '@/lib/admin/operation-errors'
+import { assertFeatureEnabled } from '@/lib/admin/policy'
+import { resolveDefaultSignupGroup } from '@/lib/admin/user-groups-runtime'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit, getClientIp, AUTH_REGISTER_LIMIT } from '@/lib/rate-limit'
 
@@ -18,6 +21,15 @@ export const POST = apiHandler(async (request: NextRequest) => {
         headers: { 'Retry-After': String(rateResult.retryAfterSeconds) },
       },
     )
+  }
+
+  try {
+    await assertFeatureEnabled('registration', { role: 'user' })
+  } catch (error) {
+    if (error instanceof OperationPolicyError) {
+      return NextResponse.json(operationErrorToApiPayload(error), { status: error.httpStatus })
+    }
+    throw error
   }
 
   let name = 'unknown'
@@ -51,23 +63,40 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
   // 创建用户（事务）
   const user = await prisma.$transaction(async (tx) => {
+    const signupGroup = await resolveDefaultSignupGroup(tx)
+
     // 创建用户
     const newUser = await tx.user.create({
       data: {
         name,
-        password: hashedPassword
+        password: hashedPassword,
+        adminGroupKey: signupGroup?.key || null,
       }
     })
 
     // 💰 创建用户余额记录（初始余额为0）
+    const signupCredits = signupGroup?.signupCredits || 0
     await tx.userBalance.create({
       data: {
         userId: newUser.id,
-        balance: 0,
+        balance: signupCredits,
         frozenAmount: 0,
         totalSpent: 0
       }
     })
+
+    if (signupCredits > 0) {
+      await tx.balanceTransaction.create({
+        data: {
+          userId: newUser.id,
+          type: 'recharge',
+          amount: signupCredits,
+          balanceAfter: signupCredits,
+          description: 'signup bonus',
+          idempotencyKey: `signup:${newUser.id}`,
+        },
+      })
+    }
 
     return newUser
   })

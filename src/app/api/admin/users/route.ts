@@ -21,6 +21,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
     search: searchParams.get('search'),
     role: searchParams.get('role'),
     status: searchParams.get('status'),
+    adminGroupKey: searchParams.get('group'),
     page: parsePositiveInt(searchParams.get('page')),
     pageSize: parsePositiveInt(searchParams.get('pageSize')),
   }))

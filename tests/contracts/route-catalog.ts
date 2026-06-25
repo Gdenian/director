@@ -30,15 +30,35 @@ export type RouteCatalogEntry = {
 
 const ROUTE_FILES = [
   'src/app/api/admin/audit-logs/route.ts',
+  'src/app/api/admin/announcements/[announcementId]/route.ts',
+  'src/app/api/admin/announcements/route.ts',
+  'src/app/api/admin/billing/freezes/[freezeId]/release/route.ts',
+  'src/app/api/admin/billing/manual-credit/route.ts',
+  'src/app/api/admin/billing/manual-debit/route.ts',
+  'src/app/api/admin/billing/orders/[orderId]/reconcile/route.ts',
+  'src/app/api/admin/billing/orders/[orderId]/refund/route.ts',
   'src/app/api/admin/billing/route.ts',
+  'src/app/api/admin/commercial/packages/[packageKey]/route.ts',
+  'src/app/api/admin/commercial/packages/route.ts',
+  'src/app/api/admin/commercial/redeem-codes/[code]/route.ts',
+  'src/app/api/admin/commercial/redeem-codes/route.ts',
+  'src/app/api/admin/commercial/route.ts',
   'src/app/api/admin/download-logs/route.ts',
+  'src/app/api/admin/feature-flags/[flagKey]/route.ts',
+  'src/app/api/admin/feature-flags/route.ts',
   'src/app/api/admin/models/route.ts',
+  'src/app/api/admin/operations/route.ts',
   'src/app/api/admin/overview/route.ts',
   'src/app/api/admin/system-health/route.ts',
   'src/app/api/admin/tasks/[taskId]/route.ts',
+  'src/app/api/admin/tasks/incidents/[incidentId]/route.ts',
+  'src/app/api/admin/tasks/incidents/route.ts',
   'src/app/api/admin/tasks/route.ts',
+  'src/app/api/admin/user-groups/[groupKey]/route.ts',
+  'src/app/api/admin/user-groups/route.ts',
   'src/app/api/admin/users/[userId]/route.ts',
   'src/app/api/admin/users/route.ts',
+  'src/app/api/announcements/route.ts',
   'src/app/api/asset-hub/ai-design-character/route.ts',
   'src/app/api/asset-hub/ai-design-location/route.ts',
   'src/app/api/asset-hub/ai-design-style/route.ts',
@@ -81,8 +101,12 @@ const ROUTE_FILES = [
   'src/app/api/assets/route.ts',
   'src/app/api/auth/[...nextauth]/route.ts',
   'src/app/api/auth/register/route.ts',
+  'src/app/api/commercial/orders/[orderId]/route.ts',
+  'src/app/api/commercial/orders/route.ts',
+  'src/app/api/commercial/packages/route.ts',
   'src/app/api/cos/image/route.ts',
   'src/app/api/files/[...path]/route.ts',
+  'src/app/api/redeem/route.ts',
   'src/app/api/storage/sign/route.ts',
   'src/app/api/novel-promotion/[projectId]/ai-create-character/route.ts',
   'src/app/api/novel-promotion/[projectId]/ai-create-location/route.ts',
@@ -261,7 +285,12 @@ function resolveContractGroup(routeFile: string): RouteContractGroup {
   ) {
     return 'task-infra-routes'
   }
-  if (routeFile.startsWith('src/app/api/projects/') || routeFile.startsWith('src/app/api/user/')) {
+  if (
+    routeFile.startsWith('src/app/api/projects/')
+    || routeFile.startsWith('src/app/api/user/')
+    || routeFile.startsWith('src/app/api/commercial/')
+    || routeFile === 'src/app/api/redeem/route.ts'
+  ) {
     return 'user-project-routes'
   }
   if (routeFile.startsWith('src/app/api/auth/')) return 'auth-routes'

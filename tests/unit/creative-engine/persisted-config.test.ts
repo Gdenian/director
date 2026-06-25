@@ -52,9 +52,13 @@ describe('creative engine persisted config', () => {
       enabled: true,
       status: 'available',
       confidence: 'high',
+      tier: ' basic ',
+      tags: [' advanced ', '', 'text'],
     }, 0)
 
     expect(model.modelKey).toBe(composeModelKey('openai-compatible:abc', 'anthropic/claude-sonnet-4.5'))
+    expect(model.tier).toBe('basic')
+    expect(model.tags).toEqual(['advanced', 'text'])
     expect(toRuntimeModel(model)).toMatchObject({
       provider: 'openai-compatible:abc',
       modelId: 'anthropic/claude-sonnet-4.5',

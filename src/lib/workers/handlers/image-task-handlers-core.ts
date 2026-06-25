@@ -28,6 +28,8 @@ import {
   resolveNovelData,
 } from './image-task-handler-shared'
 import { createScopedLogger } from '@/lib/logging/core'
+import { assertModelUsableForTask } from '@/lib/admin/model-governance-runtime'
+import { resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
 import {
   buildCharacterDescriptionFields,
   generateModifiedAssetDescription,
@@ -35,6 +37,15 @@ import {
 } from './modify-description-sync'
 
 const logger = createScopedLogger({ module: 'worker.modify-asset-image' })
+
+async function assertRuntimeModelAllowed(userId: string, modelKey: string) {
+  const group = await resolveUserRuntimeGroup(userId)
+  await assertModelUsableForTask({
+    modelKey,
+    userId,
+    groupKey: group.key,
+  })
+}
 
 interface LocationImageRecord {
   id: string
@@ -130,6 +141,7 @@ export async function handleModifyAssetImageTask(job: Job<TaskJobData>) {
         const userModels = await getUserModels(job.data.userId)
         const analysisModel = userModels.analysisModel
         if (analysisModel) {
+          await assertRuntimeModelAllowed(job.data.userId, analysisModel)
           const nextDescription = await generateModifiedAssetDescription({
             userId: job.data.userId,
             model: analysisModel,
@@ -234,6 +246,7 @@ export async function handleModifyAssetImageTask(job: Job<TaskJobData>) {
         const userModels = await getUserModels(job.data.userId)
         const analysisModel = userModels.analysisModel
         if (analysisModel) {
+          await assertRuntimeModelAllowed(job.data.userId, analysisModel)
           extractedDescription = await generateModifiedAssetDescription({
             userId: job.data.userId,
             model: analysisModel,

@@ -32,7 +32,7 @@ function isMissingBucketError(error: unknown): boolean {
     || statusCode === 404
 }
 
-export async function ensureMinioBucket(): Promise<Exclude<StorageBootstrapResult, 'skipped'>> {
+export async function checkMinioBucket(): Promise<'existing'> {
   const endpoint = requireEnv('MINIO_ENDPOINT')
   const accessKeyId = requireEnv('MINIO_ACCESS_KEY')
   const secretAccessKey = requireEnv('MINIO_SECRET_KEY')
@@ -50,14 +50,35 @@ export async function ensureMinioBucket(): Promise<Exclude<StorageBootstrapResul
     },
   })
 
+  await client.send(new HeadBucketCommand({ Bucket: bucket }))
+  return 'existing'
+}
+
+export async function ensureMinioBucket(): Promise<Exclude<StorageBootstrapResult, 'skipped'>> {
+  const bucket = requireEnv('MINIO_BUCKET')
+
   try {
-    await client.send(new HeadBucketCommand({ Bucket: bucket }))
-    return 'existing'
+    return await checkMinioBucket()
   } catch (error: unknown) {
     if (!isMissingBucketError(error)) {
       throw error
     }
   }
+
+  const endpoint = requireEnv('MINIO_ENDPOINT')
+  const accessKeyId = requireEnv('MINIO_ACCESS_KEY')
+  const secretAccessKey = requireEnv('MINIO_SECRET_KEY')
+  const region = (process.env.MINIO_REGION || DEFAULT_MINIO_REGION).trim() || DEFAULT_MINIO_REGION
+  const forcePathStyle = process.env.MINIO_FORCE_PATH_STYLE !== 'false'
+  const client = new S3Client({
+    endpoint,
+    region,
+    forcePathStyle,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  })
 
   await client.send(new CreateBucketCommand({ Bucket: bucket }))
   return 'created'

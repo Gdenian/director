@@ -1,6 +1,7 @@
 import { createScopedLogger } from '@/lib/logging/core'
 import { withLogContext } from '@/lib/logging/context'
 import { NextRequest, NextResponse } from 'next/server'
+import { OperationPolicyError, operationErrorToApiPayload } from '@/lib/admin/operation-errors'
 import { getErrorSpec, type UnifiedErrorCode } from '@/lib/errors/codes'
 import { normalizeAnyError } from '@/lib/errors/normalize'
 import { publishTaskEvent, publishTaskStreamEvent } from '@/lib/task/publisher'
@@ -503,6 +504,23 @@ export function apiHandler<TParams extends RouteParams>(handler: ApiHandler<TPar
           return response
         } catch (error: unknown) {
           await streamCallbacks?.flush?.()
+          if (error instanceof OperationPolicyError) {
+            const payload = operationErrorToApiPayload(error)
+            const response = NextResponse.json({
+              ...payload,
+              requestId,
+              error: {
+                ...payload.error,
+                details: {
+                  ...error.details,
+                  requestId,
+                },
+              },
+            }, { status: error.httpStatus })
+            response.headers.set('x-request-id', requestId)
+            return response
+          }
+
           const apiError = normalizeError(error)
           const errorType = error instanceof Error ? error.constructor.name : typeof error
           logger.error({

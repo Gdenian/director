@@ -393,6 +393,8 @@ export function normalizeCreativeModelInput(raw: unknown, index: number): Creati
   const lastCheckedAt = readOptionalString(raw.lastCheckedAt)
   const detectionSource = readEnum(raw.detectionSource, DETECTION_SOURCES, 'CREATIVE_MODEL_DETECTION_SOURCE_INVALID', index, 'detectionSource')
   const warningCodes = readStringArray(raw.warningCodes)
+  const tier = readOptionalString(raw.tier)
+  const tags = readStringArray(raw.tags)
   const pricing = normalizeModelPricing(raw.pricing)
   const compatMediaTemplate = normalizeCompatMediaTemplate(raw.compatMediaTemplate, index)
   const compatMediaTemplateCheckedAt = readOptionalString(raw.compatMediaTemplateCheckedAt)
@@ -433,6 +435,8 @@ export function normalizeCreativeModelInput(raw: unknown, index: number): Creati
     ...(lastCheckedAt ? { lastCheckedAt } : {}),
     ...(detectionSource ? { detectionSource } : {}),
     ...(warningCodes ? { warningCodes } : {}),
+    ...(tier ? { tier } : {}),
+    ...(tags ? { tags } : {}),
   }
 }
 

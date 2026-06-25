@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic'
 type UserAccessBody = {
   role?: string | null
   status?: string | null
+  adminGroupKey?: string | null
+  adminNote?: string | null
+  revokeSession?: boolean
   reason?: string | null
 }
 
@@ -36,10 +39,16 @@ export const PATCH = apiHandler(async (
 
   const { userId } = await params
   const body = await readJsonObject(request) as UserAccessBody
-  const reason = typeof body.reason === 'string' ? body.reason : null
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+  if (!reason) {
+    return NextResponse.json({ error: 'reason is required' }, { status: 400 })
+  }
   const input = {
     ...('role' in body ? { role: body.role } : {}),
     ...('status' in body ? { status: body.status } : {}),
+    ...('adminGroupKey' in body ? { adminGroupKey: body.adminGroupKey } : {}),
+    ...('adminNote' in body ? { adminNote: body.adminNote } : {}),
+    ...('revokeSession' in body ? { revokeSession: body.revokeSession } : {}),
   }
 
   let accessUpdate: ReturnType<typeof parseAdminUserAccessUpdate>
@@ -57,32 +66,75 @@ export const PATCH = apiHandler(async (
 
   let user: Awaited<ReturnType<typeof updateAdminUserAccess>>
   try {
-    user = await updateAdminUserAccess(userId, accessUpdate)
+    user = await updateAdminUserAccess(userId, accessUpdate, { actorId: authResult.session.user.id })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid access update'
     return NextResponse.json({ error: message }, { status: 400 })
   }
 
-  await writeAdminAuditLog({
+  const auditBase = {
     actor: {
       id: authResult.session.user.id,
       role: authResult.session.user.role,
     },
-    action: 'user.access.update',
-    targetType: 'user',
+    targetType: 'user' as const,
     targetId: userId,
-    before: {
-      role: before.role,
-      status: before.status,
-    },
-    after: {
-      role: user.role,
-      status: user.status,
-    },
     reason,
     ip: getRequestIp(request),
     userAgent: request.headers.get('user-agent'),
-  })
+  }
+
+  if ('status' in accessUpdate && before.status !== user.status) {
+    const action = user.status === 'disabled'
+      ? 'user.access.disable'
+      : before.status === 'disabled' && user.status === 'active'
+        ? 'user.access.enable'
+        : null
+    if (action) {
+      await writeAdminAuditLog({
+        ...auditBase,
+        action,
+        before: { status: before.status },
+        after: { status: user.status },
+      })
+    }
+  }
+
+  if ('role' in accessUpdate && before.role !== user.role) {
+    await writeAdminAuditLog({
+      ...auditBase,
+      action: 'user.role.update',
+      before: { role: before.role },
+      after: { role: user.role },
+    })
+  }
+
+  if ('adminGroupKey' in accessUpdate && before.adminGroupKey !== user.adminGroupKey) {
+    await writeAdminAuditLog({
+      ...auditBase,
+      action: 'user.group.assign',
+      before: { adminGroupKey: before.adminGroupKey },
+      after: { adminGroupKey: user.adminGroupKey },
+    })
+  }
+
+  if ('adminNote' in accessUpdate && before.adminNote !== user.adminNote) {
+    await writeAdminAuditLog({
+      ...auditBase,
+      action: 'user.note.create',
+      before: { adminNote: before.adminNote },
+      after: { adminNote: user.adminNote },
+    })
+  }
+
+  if (accessUpdate.revokeSession) {
+    await writeAdminAuditLog({
+      ...auditBase,
+      action: 'user.session.revoke',
+      before: { sessionVersion: before.sessionVersion },
+      after: { sessionVersion: user.sessionVersion },
+    })
+  }
 
   return NextResponse.json(user)
 })

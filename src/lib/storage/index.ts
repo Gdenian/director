@@ -2,6 +2,7 @@ import { createScopedLogger } from '@/lib/logging/core'
 import { createStorageProvider } from '@/lib/storage/factory'
 import type { DeleteObjectsResult, StorageProvider } from '@/lib/storage/types'
 import { DEFAULT_SIGNED_URL_EXPIRES_SECONDS, withRetry } from '@/lib/storage/utils'
+import { checkMinioBucket } from '@/lib/storage/bootstrap'
 
 const storageLogger = createScopedLogger({
   module: 'storage.provider',
@@ -22,6 +23,23 @@ export function getStorageProvider(): StorageProvider {
 
 export function getStorageType(): string {
   return getStorageProvider().kind
+}
+
+export async function checkStorageHealth() {
+  const provider = getStorageProvider()
+  if (provider.kind === 'minio') {
+    await checkMinioBucket()
+    return { storageType: provider.kind, status: 'ok' as const }
+  }
+  if (provider.kind === 'local') {
+    const fs = await import('node:fs/promises')
+    const constants = await import('node:fs')
+    const path = await import('node:path')
+    const uploadDir = process.env.UPLOAD_DIR || './data/uploads'
+    await fs.access(path.resolve(process.cwd(), uploadDir), constants.constants.R_OK | constants.constants.W_OK)
+    return { storageType: provider.kind, status: 'ok' as const }
+  }
+  return { storageType: provider.kind, status: 'ok' as const }
 }
 
 export function toFetchableUrl(inputUrl: string): string {

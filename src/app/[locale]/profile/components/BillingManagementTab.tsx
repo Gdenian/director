@@ -20,6 +20,18 @@ export interface BillingBalanceState {
   data: BillingBalance | null
   loading: boolean
   error: boolean
+  refresh?: () => void
+}
+
+interface CommercialPackage {
+  key: string
+  name: string
+  description: string | null
+  price: string
+  currency: string
+  credits: string
+  bonusCredits: string
+  durationDays: number | null
 }
 
 interface BillingMeta {
@@ -138,6 +150,7 @@ function getTransactionTypeLabel(type: string, t: ReturnType<typeof useTranslati
 }
 
 export function useBillingBalance(enabled = true): BillingBalanceState {
+  const [refreshToken, setRefreshToken] = useState(0)
   const [state, setState] = useState<BillingBalanceState>({
     data: null,
     loading: enabled,
@@ -174,16 +187,20 @@ export function useBillingBalance(enabled = true): BillingBalanceState {
       })
 
     return () => controller.abort()
-  }, [enabled])
+  }, [enabled, refreshToken])
 
-  return state
+  return {
+    ...state,
+    refresh: () => setRefreshToken((value) => value + 1),
+  }
 }
 
 interface BillingManagementTabProps {
   balanceState: BillingBalanceState
+  refreshToken?: number
 }
 
-export default function BillingManagementTab({ balanceState }: BillingManagementTabProps) {
+export default function BillingManagementTab({ balanceState, refreshToken = 0 }: BillingManagementTabProps) {
   const locale = useLocale()
   const t = useTranslations('profile')
   const tc = useTranslations('common')
@@ -283,7 +300,7 @@ export default function BillingManagementTab({ balanceState }: BillingManagement
       })
 
     return () => controller.abort()
-  }, [transactionFilter, transactionPage])
+  }, [transactionFilter, transactionPage, refreshToken])
 
   const currency = balanceState.data?.currency || costs?.currency || transactions?.currency || 'CNY'
   const totalCost = costs?.total ?? 0

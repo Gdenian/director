@@ -5,6 +5,7 @@ interface ListAdminUsersParams {
   search?: string | null
   role?: string | null
   status?: string | null
+  adminGroupKey?: string | null
   page?: number | null
   pageSize?: number | null
 }
@@ -12,12 +13,18 @@ interface ListAdminUsersParams {
 interface UpdateAdminUserAccessInput {
   role?: string | null
   status?: string | null
+  adminGroupKey?: string | null
+  adminNote?: string | null
+  revokeSession?: boolean
 }
 
 export interface AdminUserAccessBefore {
   id: string
   role: AdminRole
   status: UserStatus
+  adminGroupKey: string | null
+  adminNote: string | null
+  sessionVersion: number
 }
 
 function clampPage(value: number | null | undefined) {
@@ -66,11 +73,20 @@ function isUserStatusValue(value: unknown): value is UserStatus {
 }
 
 export function parseAdminUserAccessUpdate(input: UpdateAdminUserAccessInput) {
-  const data: { role?: AdminRole, status?: UserStatus } = {}
+  const data: {
+    role?: AdminRole
+    status?: UserStatus
+    adminGroupKey?: string | null
+    adminNote?: string | null
+    revokeSession?: boolean
+  } = {}
   const hasRole = 'role' in input
   const hasStatus = 'status' in input
+  const hasAdminGroupKey = 'adminGroupKey' in input
+  const hasAdminNote = 'adminNote' in input
+  const hasRevokeSession = 'revokeSession' in input
 
-  if (!hasRole && !hasStatus) {
+  if (!hasRole && !hasStatus && !hasAdminGroupKey && !hasAdminNote && !hasRevokeSession) {
     throw new Error('At least one access field is required')
   }
   if (hasRole) {
@@ -81,18 +97,50 @@ export function parseAdminUserAccessUpdate(input: UpdateAdminUserAccessInput) {
     if (!isUserStatusValue(input.status)) throw new Error('Invalid user status')
     data.status = input.status
   }
+  if (hasAdminGroupKey) {
+    if (input.adminGroupKey !== null && typeof input.adminGroupKey !== 'string') {
+      throw new Error('Invalid admin group key')
+    }
+    const groupKey = input.adminGroupKey?.trim() || null
+    data.adminGroupKey = groupKey
+  }
+  if (hasAdminNote) {
+    if (input.adminNote !== null && typeof input.adminNote !== 'string') {
+      throw new Error('Invalid admin note')
+    }
+    const note = input.adminNote?.trim() || null
+    data.adminNote = note
+  }
+  if (hasRevokeSession) {
+    if (input.revokeSession !== true) throw new Error('Invalid revoke session flag')
+    data.revokeSession = true
+  }
   return data
+}
+
+async function assertActiveAdminGroup(key: string) {
+  const group = await prisma.adminUserGroup.findUnique({
+    where: { key },
+    select: { key: true, status: true },
+  })
+  if (!group || group.status !== 'active') {
+    throw new Error('Invalid admin group key')
+  }
 }
 
 export async function listAdminUsers(params: ListAdminUsersParams = {}) {
   const page = clampPage(params.page)
   const pageSize = clampPageSize(params.pageSize)
   const search = params.search?.trim()
-  const role = params.role == null ? null : normalizeUserRole(params.role)
-  const status = params.status == null ? null : normalizeUserStatus(params.status)
+  const role = isAdminRoleValue(params.role) ? params.role : null
+  const status = isUserStatusValue(params.status) ? params.status : null
+  const adminGroupKey = params.adminGroupKey?.trim()
   const where = {
     ...(role ? { role } : {}),
     ...(status ? { status } : {}),
+    ...(adminGroupKey
+      ? { adminGroupKey: adminGroupKey === '__none' ? null : adminGroupKey }
+      : {}),
     ...(search
       ? {
         OR: [
@@ -116,6 +164,9 @@ export async function listAdminUsers(params: ListAdminUsersParams = {}) {
         email: true,
         role: true,
         status: true,
+        adminGroupKey: true,
+        adminNote: true,
+        sessionVersion: true,
         createdAt: true,
         updatedAt: true,
         balance: {
@@ -144,18 +195,45 @@ export async function listAdminUsers(params: ListAdminUsersParams = {}) {
   }
 }
 
-export async function updateAdminUserAccess(userId: string, input: UpdateAdminUserAccessInput) {
+export async function updateAdminUserAccess(
+  userId: string,
+  input: UpdateAdminUserAccessInput,
+  context: { actorId?: string | null } = {},
+) {
   const data = parseAdminUserAccessUpdate(input)
+  if (data.adminGroupKey) {
+    await assertActiveAdminGroup(data.adminGroupKey)
+  }
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, status: true },
+  })
+  if (!current) throw new Error('User not found')
+  const currentRole = normalizeUserRole(current.role)
+  if (context.actorId === userId && data.role === ADMIN_ROLES.OWNER && currentRole !== ADMIN_ROLES.OWNER) {
+    throw new Error('cannot promote self to owner')
+  }
+  const sessionChanging = ('role' in data && data.role !== normalizeUserRole(current.role))
+    || ('status' in data && data.status !== normalizeUserStatus(current.status))
+    || data.revokeSession === true
+
+  const { revokeSession: _revokeSession, ...updateData } = data
 
   const user = await prisma.user.update({
     where: { id: userId },
-    data,
+    data: {
+      ...updateData,
+      ...(sessionChanging ? { sessionVersion: { increment: 1 } } : {}),
+    },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       status: true,
+      adminGroupKey: true,
+      adminNote: true,
+      sessionVersion: true,
       updatedAt: true,
     },
   })
@@ -174,6 +252,9 @@ export async function getAdminUserAccessBefore(userId: string): Promise<AdminUse
       id: true,
       role: true,
       status: true,
+      adminGroupKey: true,
+      adminNote: true,
+      sessionVersion: true,
     },
   })
   if (!user) return null
@@ -181,5 +262,8 @@ export async function getAdminUserAccessBefore(userId: string): Promise<AdminUse
     id: user.id,
     role: normalizeUserRole(user.role),
     status: normalizeUserStatus(user.status),
+    adminGroupKey: user.adminGroupKey,
+    adminNote: user.adminNote,
+    sessionVersion: user.sessionVersion,
   }
 }

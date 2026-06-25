@@ -4,6 +4,7 @@ import { buildDefaultTaskBillingInfo } from '@/lib/billing/task-policy'
 import { createRun } from '@/lib/run-runtime/service'
 import { submitTask } from '@/lib/task/submitter'
 import { TASK_STATUS, TASK_TYPE } from '@/lib/task/types'
+import { freezeBalance } from '@/lib/billing/ledger'
 import { prisma } from '../../helpers/prisma'
 import { resetBillingState } from '../../helpers/db-reset'
 import { createTestUser, seedBalance } from '../../helpers/billing-fixtures'
@@ -59,6 +60,229 @@ describe('billing/submitter integration', () => {
     const billing = task?.billingInfo as { billable?: boolean; source?: string } | null
     expect(billing?.billable).toBe(true)
     expect(billing?.source).toBe('task')
+  })
+
+  it('blocks disabled operation before creating task, queue job, or freeze', async () => {
+    const user = await createTestUser()
+    await seedBalance(user.id, 10)
+    await prisma.adminFeatureFlag.upsert({
+      where: { key: 'video_generation' },
+      create: {
+        key: 'video_generation',
+        name: '视频生成',
+        category: 'generation',
+        enabled: false,
+        audience: 'all',
+        rolloutPercent: 100,
+        userMessage: '视频生成维护中',
+      },
+      update: { enabled: false, userMessage: '视频生成维护中' },
+    })
+
+    await expect(submitTask({
+      userId: user.id,
+      locale: 'zh',
+      projectId: 'project-blocked',
+      type: TASK_TYPE.VIDEO_PANEL,
+      targetType: 'panel',
+      targetId: 'panel-blocked',
+      payload: { videoModel: 'fal::video-model', maxSeconds: 5 },
+    })).rejects.toMatchObject({
+      code: 'FEATURE_DISABLED',
+    })
+
+    expect(await prisma.task.count({ where: { targetId: 'panel-blocked' } })).toBe(0)
+    expect(await prisma.balanceFreeze.count({ where: { userId: user.id } })).toBe(0)
+    expect(addTaskJobMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks task billing before balance freeze when user group freeze limit is exceeded', async () => {
+    const user = await createTestUser()
+    await prisma.adminUserGroup.create({
+      data: {
+        key: 'limited',
+        name: 'Limited',
+        status: 'active',
+        allowVoice: true,
+        maxTaskCost: 100,
+        maxFrozenAmount: 0.001,
+      },
+    })
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { adminGroupKey: 'limited' },
+    })
+    await seedBalance(user.id, 10)
+    await freezeBalance(user.id, 0.001, {
+      source: 'task',
+      idempotencyKey: 'existing-freeze-limit',
+    })
+
+    await expect(submitTask({
+      userId: user.id,
+      locale: 'en',
+      projectId: 'project-limit',
+      type: TASK_TYPE.VOICE_LINE,
+      targetType: 'VoiceLine',
+      targetId: 'line-limit',
+      payload: { maxSeconds: 10 },
+    })).rejects.toMatchObject({
+      code: 'BILLING_FREEZE_LIMIT_EXCEEDED',
+    })
+
+    const task = await prisma.task.findFirst({
+      where: { userId: user.id, targetId: 'line-limit' },
+    })
+
+    expect(task).toBeTruthy()
+    expect(task?.status).toBe('failed')
+    expect(task?.errorCode).toBe('BILLING_FREEZE_LIMIT_EXCEEDED')
+    expect(await prisma.balanceFreeze.count({ where: { userId: user.id } })).toBe(1)
+    expect(addTaskJobMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks direct task submission with a model hidden by user group tier rules', async () => {
+    const user = await createTestUser()
+    await prisma.adminUserGroup.create({
+      data: {
+        key: 'basic',
+        name: 'Basic',
+        status: 'active',
+        allowedModelTiers: 'basic',
+        allowVoice: true,
+        allowAdvancedModels: false,
+      },
+    })
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { adminGroupKey: 'basic' },
+    })
+    await prisma.userPreference.create({
+      data: {
+        userId: user.id,
+        customProviders: JSON.stringify([]),
+        customModels: JSON.stringify([
+          {
+            id: 'stealth-premium',
+            engineId: 'voicebank',
+            name: 'Stealth Premium',
+            callName: 'stealth-model',
+            modelKey: 'voicebank::stealth-model',
+            type: 'audio',
+            purpose: 'voice-generation',
+            enabled: true,
+            status: 'available',
+            tier: 'premium',
+            tags: ['advanced'],
+          },
+        ]),
+      },
+    })
+    await seedBalance(user.id, 10)
+
+    await expect(submitTask({
+      userId: user.id,
+      locale: 'en',
+      projectId: 'project-model-tier',
+      type: TASK_TYPE.VOICE_LINE,
+      targetType: 'VoiceLine',
+      targetId: 'line-model-tier',
+      payload: {
+        voiceModel: 'voicebank::stealth-model',
+        maxSeconds: 5,
+      },
+    })).rejects.toMatchObject({
+      code: 'MODEL_NOT_ALLOWED',
+    })
+
+    expect(await prisma.task.count({ where: { targetId: 'line-model-tier' } })).toBe(0)
+    expect(await prisma.balanceFreeze.count({ where: { userId: user.id } })).toBe(0)
+    expect(addTaskJobMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks first-last-frame model submission when nested model tier is not allowed', async () => {
+    const user = await createTestUser()
+    await prisma.adminFeatureFlag.upsert({
+      where: { key: 'video_generation' },
+      create: {
+        key: 'video_generation',
+        name: '视频生成',
+        category: 'generation',
+        enabled: true,
+        audience: 'all',
+        rolloutPercent: 100,
+      },
+      update: { enabled: true },
+    })
+    await prisma.adminUserGroup.create({
+      data: {
+        key: 'video-basic',
+        name: 'Video Basic',
+        status: 'active',
+        allowedModelTiers: 'basic',
+        allowVideo: true,
+        allowAdvancedModels: false,
+      },
+    })
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { adminGroupKey: 'video-basic' },
+    })
+    await prisma.userPreference.create({
+      data: {
+        userId: user.id,
+        customProviders: JSON.stringify([]),
+        customModels: JSON.stringify([
+          {
+            id: 'video-basic-model',
+            engineId: 'videobank',
+            name: 'Video Basic',
+            callName: 'basic-video',
+            modelKey: 'videobank::basic-video',
+            type: 'video',
+            purpose: 'video-generation',
+            enabled: true,
+            status: 'available',
+            tier: 'basic',
+          },
+          {
+            id: 'video-premium-model',
+            engineId: 'videobank',
+            name: 'Video Premium',
+            callName: 'stealth-video',
+            modelKey: 'videobank::stealth-video',
+            type: 'video',
+            purpose: 'video-generation',
+            enabled: true,
+            status: 'available',
+            tier: 'premium',
+            tags: ['advanced'],
+          },
+        ]),
+      },
+    })
+    await seedBalance(user.id, 10)
+
+    await expect(submitTask({
+      userId: user.id,
+      locale: 'en',
+      projectId: 'project-flf-tier',
+      type: TASK_TYPE.VIDEO_PANEL,
+      targetType: 'panel',
+      targetId: 'panel-flf-tier',
+      payload: {
+        videoModel: 'videobank::basic-video',
+        firstLastFrame: {
+          flModel: 'videobank::stealth-video',
+        },
+      },
+    })).rejects.toMatchObject({
+      code: 'MODEL_NOT_ALLOWED',
+    })
+
+    expect(await prisma.task.count({ where: { targetId: 'panel-flf-tier' } })).toBe(0)
+    expect(await prisma.balanceFreeze.count({ where: { userId: user.id } })).toBe(0)
+    expect(addTaskJobMock).not.toHaveBeenCalled()
   })
 
   it('marks task as failed when balance is insufficient', async () => {

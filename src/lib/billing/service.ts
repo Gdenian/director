@@ -33,6 +33,7 @@ import type {
   TaskBillingInfo,
 } from './types'
 import { BUILTIN_PRICING_VERSION } from '@/lib/model-pricing/version'
+import { assertBillingAllowed } from '@/lib/admin/policy'
 
 type CostInput = {
   apiType: ApiType
@@ -846,10 +847,13 @@ export async function prepareTaskBilling(task: {
     return next
   }
 
+  const billingPolicy = await assertBillingAllowed({ userId: task.userId, amount: quotedCost })
+
   const freezeId = await freezeBalance(task.userId, quotedCost, {
     source: 'task',
     taskId: task.id,
     idempotencyKey: info.billingKey || task.id,
+    maxFrozenAmount: billingPolicy.maxFrozenAmount,
     metadata: {
       taskType: info.taskType,
       action: info.action,
@@ -865,6 +869,13 @@ export async function prepareTaskBilling(task: {
   })
   if (!freezeId) {
     const balance = await getBalance(task.userId)
+    if (
+      typeof billingPolicy.maxFrozenAmount === 'number'
+      && Number.isFinite(billingPolicy.maxFrozenAmount)
+      && balance.frozenAmount + quotedCost > billingPolicy.maxFrozenAmount
+    ) {
+      await assertBillingAllowed({ userId: task.userId, amount: quotedCost })
+    }
     throw new InsufficientBalanceError(quotedCost, balance.balance)
   }
 

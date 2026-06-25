@@ -3,10 +3,26 @@ import { queueRedis } from '@/lib/redis'
 import { generateVoiceLine } from '@/lib/voice/generate-voice-line'
 import { QUEUE_NAME } from '@/lib/task/queues'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
+import { assertModelUsableForTask } from '@/lib/admin/model-governance-runtime'
+import { extractTaskModelKeys } from '@/lib/admin/task-capabilities'
+import { resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
 import { reportTaskProgress, withTaskLifecycle } from './shared'
 import { handleVoiceDesignTask } from './handlers/voice-design'
 
 type AnyObj = Record<string, unknown>
+
+async function assertPayloadModelsAllowed(job: Job<TaskJobData>) {
+  const modelKeys = extractTaskModelKeys(job.data.payload)
+  if (modelKeys.length === 0) return
+  const group = await resolveUserRuntimeGroup(job.data.userId)
+  for (const modelKey of modelKeys) {
+    await assertModelUsableForTask({
+      modelKey,
+      userId: job.data.userId,
+      groupKey: group.key,
+    })
+  }
+}
 
 async function handleVoiceLineTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as AnyObj
@@ -39,6 +55,7 @@ async function handleVoiceLineTask(job: Job<TaskJobData>) {
 
 async function processVoiceTask(job: Job<TaskJobData>) {
   await reportTaskProgress(job, 5, { stage: 'received' })
+  await assertPayloadModelsAllowed(job)
 
   switch (job.data.type) {
     case TASK_TYPE.VOICE_LINE:

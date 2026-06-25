@@ -1,6 +1,7 @@
 import type { Job } from 'bullmq'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PROP_IMAGE_RATIO } from '@/lib/constants'
+import { OperationPolicyError } from '@/lib/admin/operation-errors'
 import { TASK_TYPE, type TaskJobData, type TaskType } from '@/lib/task/types'
 
 const utilsMock = vi.hoisted(() => ({
@@ -40,6 +41,14 @@ const loggingMock = vi.hoisted(() => ({
   })),
 }))
 
+const modelGovernanceMock = vi.hoisted(() => ({
+  assertModelUsableForTask: vi.fn(async () => ({ allowed: true })),
+}))
+
+const userGroupsRuntimeMock = vi.hoisted(() => ({
+  resolveUserRuntimeGroup: vi.fn(async () => ({ key: 'default' })),
+}))
+
 const prismaMock = vi.hoisted(() => ({
   characterAppearance: {
     findUnique: vi.fn(),
@@ -77,6 +86,8 @@ vi.mock('@/lib/media/outbound-image', () => outboundImageMock)
 vi.mock('@/lib/ai-runtime', () => aiRuntimeMock)
 vi.mock('@/lib/prompt-i18n', () => promptMock)
 vi.mock('@/lib/logging/core', () => loggingMock)
+vi.mock('@/lib/admin/model-governance-runtime', () => modelGovernanceMock)
+vi.mock('@/lib/admin/user-groups-runtime', () => userGroupsRuntimeMock)
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
 }))
@@ -109,6 +120,8 @@ function getUpdateData(callArg: unknown): Record<string, unknown> {
 describe('modify image syncs descriptions after edit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    modelGovernanceMock.assertModelUsableForTask.mockResolvedValue({ allowed: true })
+    userGroupsRuntimeMock.resolveUserRuntimeGroup.mockResolvedValue({ key: 'default' })
 
     prismaMock.characterAppearance.findUnique.mockResolvedValue({
       id: 'appearance-1',
@@ -187,6 +200,36 @@ describe('modify image syncs descriptions after edit', () => {
     expect(updateData.imageUrl).toBe('cos/new-image.png')
   })
 
+  it('skips project description sync when the runtime analysis model is governed off', async () => {
+    modelGovernanceMock.assertModelUsableForTask.mockRejectedValueOnce(
+      new OperationPolicyError('MODEL_DISABLED', {
+        message: '模型维护中',
+        target: 'analysis-model',
+      }),
+    )
+    const job = buildJob(TASK_TYPE.MODIFY_ASSET_IMAGE, {
+      type: 'character',
+      appearanceId: 'appearance-1',
+      imageIndex: 1,
+      modifyPrompt: '给角色增加更复杂的甲胄细节',
+    })
+
+    await handleModifyAssetImageTask(job)
+
+    expect(modelGovernanceMock.assertModelUsableForTask).toHaveBeenCalledWith({
+      modelKey: 'analysis-model',
+      userId: 'user-1',
+      groupKey: 'default',
+    })
+    expect(aiRuntimeMock.executeAiTextStep).not.toHaveBeenCalled()
+    expect(aiRuntimeMock.executeAiVisionStep).not.toHaveBeenCalled()
+
+    const characterUpdateCall = prismaMock.characterAppearance.update.mock.calls.at(-1) as [unknown] | undefined
+    const updateData = getUpdateData(characterUpdateCall?.[0])
+    expect(updateData.imageUrl).toBe('cos/new-image.png')
+    expect(updateData.descriptions).toBeUndefined()
+  })
+
   it('syncs asset-hub character descriptions for reference-image edits and preserves sibling variants', async () => {
     utilsMock.uploadImageSourceToCos.mockResolvedValueOnce('cos/new-global-image.png')
 
@@ -222,6 +265,39 @@ describe('modify image syncs descriptions after edit', () => {
     expect(updateData.descriptions).toBe(JSON.stringify(['global primary description', 'VISION_UPDATED_DESCRIPTION']))
     expect(updateData.imageUrl).toBe('cos/new-global-image.png')
     expect(updateData.imageUrls).toBe(JSON.stringify(['cos/original-global.png', 'cos/new-global-image.png']))
+  })
+
+  it('skips asset-hub description sync when the runtime analysis model is governed off', async () => {
+    modelGovernanceMock.assertModelUsableForTask.mockRejectedValueOnce(
+      new OperationPolicyError('MODEL_DISABLED', {
+        message: '模型维护中',
+        target: 'analysis-model',
+      }),
+    )
+    utilsMock.uploadImageSourceToCos.mockResolvedValueOnce('cos/new-global-image.png')
+    const job = buildJob(TASK_TYPE.ASSET_HUB_MODIFY, {
+      type: 'character',
+      id: 'global-character-1',
+      appearanceIndex: 0,
+      imageIndex: 1,
+      modifyPrompt: '把服装改成更锐利的深色铠甲',
+      extraImageUrls: ['https://ref.example/b.png'],
+    })
+
+    await handleAssetHubModifyTask(job)
+
+    expect(modelGovernanceMock.assertModelUsableForTask).toHaveBeenCalledWith({
+      modelKey: 'analysis-model',
+      userId: 'user-1',
+      groupKey: 'default',
+    })
+    expect(aiRuntimeMock.executeAiTextStep).not.toHaveBeenCalled()
+    expect(aiRuntimeMock.executeAiVisionStep).not.toHaveBeenCalled()
+
+    const globalCharacterUpdateCall = prismaMock.globalCharacterAppearance.update.mock.calls.at(-1) as [unknown] | undefined
+    const updateData = getUpdateData(globalCharacterUpdateCall?.[0])
+    expect(updateData.imageUrl).toBe('cos/new-global-image.png')
+    expect(updateData.descriptions).toBeUndefined()
   })
 
   it('syncs project location descriptions for pure text edits', async () => {

@@ -7,6 +7,8 @@ import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import "../globals.css";
 import { Providers } from "./providers";
+import { AnnouncementBanner } from '@/components/announcements/AnnouncementBanner'
+import { AnnouncementModal } from '@/components/announcements/AnnouncementModal'
 
 import { locales } from '@/i18n/routing';
 
@@ -67,6 +69,8 @@ export default async function LocaleLayout({
             >
                 <NextIntlClientProvider messages={messages}>
                     <Providers>
+                        <AnnouncementBanner />
+                        <AnnouncementModal />
                         {children}
                     </Providers>
                 </NextIntlClientProvider>

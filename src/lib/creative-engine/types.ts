@@ -100,6 +100,8 @@ export interface CreativeModelConfig {
   lastCheckedAt?: string
   detectionSource?: CreativeModelDetectionSource
   warningCodes?: string[]
+  tier?: string
+  tags?: string[]
 }
 
 export interface CreativeModelDraft extends Omit<CreativeModelConfig, 'purpose' | 'enabled'> {

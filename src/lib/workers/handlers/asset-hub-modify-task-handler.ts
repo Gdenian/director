@@ -23,6 +23,8 @@ import {
 import { encodeImageUrls } from '@/lib/contracts/image-urls-contract'
 import { PRIMARY_APPEARANCE_INDEX } from '@/lib/constants'
 import { createScopedLogger } from '@/lib/logging/core'
+import { assertModelUsableForTask } from '@/lib/admin/model-governance-runtime'
+import { resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
 import {
   buildCharacterDescriptionFields,
   generateModifiedAssetDescription,
@@ -30,6 +32,15 @@ import {
 } from './modify-description-sync'
 
 const logger = createScopedLogger({ module: 'worker.asset-hub-modify' })
+
+async function assertRuntimeModelAllowed(userId: string, modelKey: string) {
+  const group = await resolveUserRuntimeGroup(userId)
+  await assertModelUsableForTask({
+    modelKey,
+    userId,
+    groupKey: group.key,
+  })
+}
 
 interface GlobalCharacterAppearanceRecord {
   id: string
@@ -154,6 +165,7 @@ export async function handleAssetHubModifyTask(job: Job<TaskJobData>) {
     let descriptionFields: { description: string; descriptions: string } | null = null
     if (currentDescription && modifyInstruction && userModels.analysisModel) {
       try {
+        await assertRuntimeModelAllowed(userId, userModels.analysisModel)
         const nextDescription = await generateModifiedAssetDescription({
           userId,
           model: userModels.analysisModel,
@@ -240,6 +252,7 @@ export async function handleAssetHubModifyTask(job: Job<TaskJobData>) {
     } | null = null
     if (locationImage.description && modifyInstruction && userModels.analysisModel) {
       try {
+        await assertRuntimeModelAllowed(userId, userModels.analysisModel)
         extractedDescription = await generateModifiedAssetDescription({
           userId,
           model: userModels.analysisModel,

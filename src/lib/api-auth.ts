@@ -35,6 +35,7 @@ export interface AuthSession {
         email?: string | null
         role?: AdminRole
         status?: UserStatus
+        sessionVersion?: number
         internal?: boolean
     }
 }
@@ -208,7 +209,7 @@ export async function requireAuth(): Promise<AuthSession> {
 async function resolveLiveUserAccess(session: AuthSession) {
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, name: true, email: true, role: true, status: true },
+        select: { id: true, name: true, email: true, role: true, status: true, sessionVersion: true },
     })
     if (!user) return null
     return {
@@ -230,7 +231,13 @@ async function requireActiveAuthSession(projectId?: string): Promise<AuthSession
 
     const liveUser = await resolveLiveUserAccess(session)
     if (!liveUser || !isActiveUserStatus(liveUser.status)) {
-        return forbidden()
+        return buildErrorResponse('ACCOUNT_DISABLED')
+    }
+    if (
+        typeof session.user.sessionVersion === 'number'
+        && session.user.sessionVersion !== liveUser.sessionVersion
+    ) {
+        return forbidden('Session expired')
     }
 
     const activeSession: AuthSession = {
@@ -240,6 +247,7 @@ async function requireActiveAuthSession(projectId?: string): Promise<AuthSession
             email: liveUser.email,
             role: liveUser.role,
             status: liveUser.status,
+            sessionVersion: liveUser.sessionVersion,
         },
     }
     bindAuthLogContext(activeSession, projectId)
@@ -374,7 +382,13 @@ export async function requireAdminAuth(): Promise<{ session: AdminSession } | Ne
     if (!session?.user?.id) return unauthorized()
 
     const liveUser = await resolveLiveUserAccess(session)
-    if (!liveUser || !isActiveUserStatus(liveUser.status)) return forbidden()
+    if (!liveUser || !isActiveUserStatus(liveUser.status)) return buildErrorResponse('ACCOUNT_DISABLED')
+    if (
+        typeof session.user.sessionVersion === 'number'
+        && session.user.sessionVersion !== liveUser.sessionVersion
+    ) {
+        return forbidden('Session expired')
+    }
     if (!isAdminRole(liveUser.role)) return forbidden()
 
     const adminSession: AdminSession = {
@@ -384,6 +398,7 @@ export async function requireAdminAuth(): Promise<{ session: AdminSession } | Ne
             email: liveUser.email,
             role: liveUser.role,
             status: USER_STATUSES.ACTIVE,
+            sessionVersion: liveUser.sessionVersion,
         },
     }
     bindAuthLogContext(adminSession)

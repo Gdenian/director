@@ -111,6 +111,7 @@ export async function freezeBalance(
     requestId?: string
     idempotencyKey?: string
     metadata?: Record<string, unknown>
+    maxFrozenAmount?: number | null
   },
 ): Promise<string | null> {
   const normalizedAmount = normalizeMoney(Number(amount))
@@ -140,6 +141,9 @@ export async function freezeBalance(
         where: {
           userId,
           balance: { gte: normalizedAmount },
+          ...(typeof options?.maxFrozenAmount === 'number' && Number.isFinite(options.maxFrozenAmount)
+            ? { frozenAmount: { lte: normalizeMoney(options.maxFrozenAmount - normalizedAmount) } }
+            : {}),
         },
         data: {
           balance: { decrement: normalizedAmount },

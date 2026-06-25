@@ -36,6 +36,26 @@ describe('billing/ledger integration', () => {
     expect(freezeId).toBeNull()
   })
 
+  it('returns null freeze id when max frozen amount would be exceeded', async () => {
+    const user = await createTestUser()
+    await seedBalance(user.id, 10)
+
+    const first = await freezeBalance(user.id, 3, {
+      idempotencyKey: 'freeze_limit_first',
+      maxFrozenAmount: 5,
+    })
+    const second = await freezeBalance(user.id, 3, {
+      idempotencyKey: 'freeze_limit_second',
+      maxFrozenAmount: 5,
+    })
+
+    expect(first).toBeTruthy()
+    expect(second).toBeNull()
+    const balance = await getBalance(user.id)
+    expect(balance.balance).toBeCloseTo(7, 8)
+    expect(balance.frozenAmount).toBeCloseTo(3, 8)
+  })
+
   it('reuses same freeze record with the same idempotency key', async () => {
     const user = await createTestUser()
     await seedBalance(user.id, 10)

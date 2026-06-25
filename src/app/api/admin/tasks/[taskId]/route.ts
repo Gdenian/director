@@ -34,8 +34,11 @@ export const POST = apiHandler(async (
 
   const { taskId } = await params
   const body = await readJsonObject(request) as CancelTaskBody
-  const reason = typeof body.reason === 'string' ? body.reason : null
-  const result = await cancelAdminTask(taskId, reason ?? '')
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+  if (!reason) {
+    return NextResponse.json({ error: 'reason is required' }, { status: 400 })
+  }
+  const result = await cancelAdminTask(taskId, reason)
 
   await writeAdminAuditLog({
     actor: {
@@ -46,7 +49,11 @@ export const POST = apiHandler(async (
     targetType: 'task',
     targetId: taskId,
     before: null,
-    after: { cancelled: result.cancelled },
+    after: {
+      cancelled: result.cancelled,
+      status: result.task?.status ?? null,
+      freezeRolledBack: result.freezeRolledBack ?? null,
+    },
     reason,
     ip: getRequestIp(request),
     userAgent: request.headers.get('user-agent'),

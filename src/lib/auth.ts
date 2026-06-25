@@ -48,9 +48,13 @@ export const authOptions: any = {
         const status = normalizeUserStatus(user.status)
         if (!isActiveUserStatus(status)) {
           logAuthAction('LOGIN', user.name, { userId: user.id, error: 'User disabled' })
-          return null
+          throw new Error('ACCOUNT_DISABLED')
         }
         const role = normalizeUserRole(user.role)
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        })
 
         logAuthAction('LOGIN', user.name, { userId: user.id, success: true })
 
@@ -59,6 +63,7 @@ export const authOptions: any = {
           name: user.name,
           role,
           status,
+          sessionVersion: user.sessionVersion,
         }
       }
     })
@@ -76,6 +81,7 @@ export const authOptions: any = {
         token.id = user.id
         token.role = normalizeUserRole(user.role)
         token.status = normalizeUserStatus(user.status)
+        token.sessionVersion = Number(user.sessionVersion || 0)
       }
       return token
     },
@@ -85,6 +91,7 @@ export const authOptions: any = {
         session.user.id = token.id as string
         session.user.role = normalizeUserRole(token.role)
         session.user.status = normalizeUserStatus(token.status)
+        session.user.sessionVersion = Number(token.sessionVersion || 0)
       }
       return session
     }

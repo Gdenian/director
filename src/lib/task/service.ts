@@ -537,6 +537,7 @@ export async function cancelTask(taskId: string, reason = 'Task cancelled by use
   return {
     task,
     cancelled,
+    billingRollback: rollbackResult,
   }
 }
 

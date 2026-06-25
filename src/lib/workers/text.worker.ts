@@ -7,6 +7,9 @@ import type { LLMStreamKind } from '@/lib/llm-observe/types'
 import { QUEUE_NAME } from '@/lib/task/queues'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
+import { assertModelUsableForTask } from '@/lib/admin/model-governance-runtime'
+import { resolveUserRuntimeGroup } from '@/lib/admin/user-groups-runtime'
+import { extractTaskModelKeys } from '@/lib/admin/task-capabilities'
 import { resolveInsertPanelUserInput } from '@/lib/novel-promotion/insert-panel'
 import { buildInsertPanelLocationsDescription } from '@/lib/novel-promotion/insert-panel-prompt-context'
 import {
@@ -192,6 +195,19 @@ function createWorkerLLMStreamCallbacks(
 
 function asJsonRecord(value: unknown): JsonRecord | null {
   return typeof value === 'object' && value !== null ? (value as JsonRecord) : null
+}
+
+async function assertPayloadModelsAllowed(job: Job<TaskJobData>) {
+  const modelKeys = extractTaskModelKeys(job.data.payload)
+  if (modelKeys.length === 0) return
+  const group = await resolveUserRuntimeGroup(job.data.userId)
+  for (const modelKey of modelKeys) {
+    await assertModelUsableForTask({
+      modelKey,
+      userId: job.data.userId,
+      groupKey: group.key,
+    })
+  }
 }
 
 function parseJsonObjectResponse(responseText: string): JsonRecord {
@@ -654,6 +670,7 @@ async function handleInsertPanelTask(job: Job<TaskJobData>) {
 
 async function processTextTask(job: Job<TaskJobData>) {
   await reportTaskProgress(job, 5, { stage: 'received' })
+  await assertPayloadModelsAllowed(job)
 
   switch (job.data.type) {
     case TASK_TYPE.STORY_TO_SCRIPT_RUN:

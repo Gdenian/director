@@ -3,6 +3,8 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
+import { OperationPolicyError, operationErrorToApiPayload } from '@/lib/admin/operation-errors'
+import { assertFeatureEnabled } from '@/lib/admin/policy'
 import { toMoneyNumber } from '@/lib/billing/money'
 import { resolveTaskLocale } from '@/lib/task/resolve-locale'
 import { resolveDefaultStyleSnapshot } from '@/lib/styles/service'
@@ -255,6 +257,18 @@ export const POST = apiHandler(async (request: NextRequest) => {
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
+
+  try {
+    await assertFeatureEnabled('create_work', {
+      userId: session.user.id,
+      role: session.user.role,
+    })
+  } catch (error) {
+    if (error instanceof OperationPolicyError) {
+      return NextResponse.json(operationErrorToApiPayload(error), { status: error.httpStatus })
+    }
+    throw error
+  }
 
   const body = await request.json()
   const draft = readProjectDraftBody(body)
